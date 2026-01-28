@@ -1,0 +1,29 @@
+# Development files
+test/
+examples/
+*.test.js
+coverage/
+
+# Config files
+.eslintrc*
+.prettierrc*
+
+# Git
+.git/
+.gitignore
+
+# CI/CD
+.github/
+
+# Environment
+.env
+.env.*
+config.json
+
+# Publishing script (users don't need this)
+publish-dual.sh
+
+# Logs
+*.log
+.DS_Store
+*.swp

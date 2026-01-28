@@ -1,0 +1,105 @@
+/* Custom styling for hierarchical headings with color-coded levels */
+
+/* Level 1: h2 - Blue */
+.vp-doc h2 {
+  border-left: 4px solid #3b82f6;
+  padding-left: 1rem;
+  margin-left: 0;
+}
+
+/* Level 2: h3 - Green */
+.vp-doc h3 {
+  border-left: 4px solid #10b981;
+  padding-left: 1rem;
+  margin-left: 0;
+}
+
+/* Level 3: h4 - Orange */
+.vp-doc h4 {
+  border-left: 4px solid #f59e0b;
+  padding-left: 1rem;
+  margin-left: 0;
+}
+
+/* Level 4: h5 - Purple */
+.vp-doc h5 {
+  border-left: 4px solid #8b5cf6;
+  padding-left: 1rem;
+  margin-left: 0;
+}
+
+/* Level 5: h6 - Pink */
+.vp-doc h6 {
+  border-left: 4px solid #ec4899;
+  padding-left: 1rem;
+  margin-left: 0;
+}
+
+/* Dark mode adjustments - slightly lighter colors for better visibility */
+.dark .vp-doc h2 {
+  border-left-color: #60a5fa;
+}
+
+.dark .vp-doc h3 {
+  border-left-color: #34d399;
+}
+
+.dark .vp-doc h4 {
+  border-left-color: #fbbf24;
+}
+
+.dark .vp-doc h5 {
+  border-left-color: #a78bfa;
+}
+
+.dark .vp-doc h6 {
+  border-left-color: #f472b6;
+}
+
+/* Diagram sizing and centering - vitepress-plugin-diagrams */
+
+/* Center the diagram container */
+.vpd-diagram {
+  display: flex;
+  justify-content: center;
+  margin: 2rem auto;
+  max-width: 100%;
+  cursor: pointer;
+}
+
+/* Constrain diagram size (non-fullscreen) */
+.vpd-diagram:not(.vpd-diagram--fullscreen) .vpd-diagram-image {
+  max-width: 700px;
+  max-height: 500px;
+  width: auto;
+  height: auto;
+}
+
+/* Fullscreen mode */
+.vpd-diagram.vpd-diagram--fullscreen {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background-color: rgba(0, 0, 0, 0.95);
+  z-index: 9999;
+  cursor: zoom-out;
+  margin: 0;
+}
+
+.vpd-diagram.vpd-diagram--fullscreen .vpd-diagram-image {
+  max-width: 95vw;
+  max-height: 95vh;
+  width: auto;
+  height: auto;
+  object-fit: contain;
+}
+
+/* Make diagrams smaller on mobile */
+@media (max-width: 768px) {
+  .vpd-diagram:not(.vpd-diagram--fullscreen) .vpd-diagram-image {
+    max-width: 100%;
+    max-height: 400px;
+  }
+}

@@ -1,0 +1,58 @@
+{
+  "name": "@agile-vibe-coding/avc-cli",
+  "version": "0.1.0",
+  "description": "Agile Vibe Coding (AVC) - Framework for managing AI agent-based software development projects",
+  "type": "module",
+  "main": "cli/index.js",
+  "bin": {
+    "avc": "./cli/index.js"
+  },
+  "files": [
+    "cli/",
+    "README.md",
+    "LICENSE"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
+  "scripts": {
+    "test": "echo \"No tests specified yet\" && exit 0",
+    "prepublishOnly": "echo \"Running pre-publish checks...\" && npm test"
+  },
+  "keywords": [
+    "avc",
+    "agile-vibe-coding",
+    "ai-agents",
+    "llm",
+    "claude",
+    "chatgpt",
+    "agile",
+    "framework",
+    "project-management",
+    "automation",
+    "cli",
+    "workflow"
+  ],
+  "author": "Nacho Coll",
+  "license": "MIT",
+  "homepage": "https://agilevibecoding.org",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/NachoColl/agilevibecoding.git",
+    "directory": "src"
+  },
+  "bugs": {
+    "url": "https://github.com/NachoColl/agilevibecoding/issues"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.20.0",
+    "dotenv": "^16.4.0",
+    "ink": "^5.0.1",
+    "ink-select-input": "^6.0.0",
+    "ink-spinner": "^5.0.0",
+    "react": "^18.3.1"
+  }
+}

@@ -1,0 +1,27 @@
+{
+  "name": "agilevibecoding-docs",
+  "version": "1.0.0",
+  "description": "AVC Framework Documentation - VitePress documentation site",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "docs:dev": "vitepress dev docs",
+    "docs:build": "vitepress build docs",
+    "docs:preview": "vitepress preview docs"
+  },
+  "keywords": [
+    "ai-agents",
+    "agile",
+    "coding",
+    "llm",
+    "framework",
+    "documentation"
+  ],
+  "author": "Nacho Coll",
+  "license": "MIT",
+  "devDependencies": {
+    "mermaid": "^11.12.2",
+    "vitepress": "^1.6.4",
+    "vitepress-plugin-diagrams": "^1.1.2"
+  }
+}

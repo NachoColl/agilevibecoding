@@ -1,0 +1,8 @@
+{
+  "autoUpdate": {
+    "enabled": true,
+    "checkInterval": 3600000,
+    "silent": true,
+    "notifyUser": true
+  }
+}
