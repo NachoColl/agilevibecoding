@@ -18,7 +18,7 @@ export class UpdateChecker {
     this.stateDir = path.join(os.homedir(), '.avc');
     this.stateFile = path.join(this.stateDir, 'update-state.json');
     this.settingsFile = path.join(this.stateDir, 'settings.json');
-    this.packageName = '@agile-vibe-coding/avc-cli';
+    this.packageName = '@agile-vibe-coding/avc';
     this.defaultCheckInterval = 60 * 60 * 1000; // 1 hour default
   }
 

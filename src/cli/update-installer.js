@@ -12,7 +12,7 @@ import os from 'os';
 export class UpdateInstaller {
   constructor() {
     this.checker = new UpdateChecker();
-    this.packageName = '@agile-vibe-coding/avc-cli';
+    this.packageName = '@agile-vibe-coding/avc';
   }
 
   // Check if npm is available
