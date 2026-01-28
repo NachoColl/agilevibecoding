@@ -2,7 +2,7 @@ import dotenv from 'dotenv';
 import fs from 'fs';
 import path from 'path';
 import readline from 'readline';
-import Anthropic from '@anthropic-ai/sdk';
+import { LLMProvider } from './llm-provider.js';
 import { fileURLToPath } from 'url';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -31,9 +31,10 @@ class TemplateProcessor {
     this.progressPath = progressPath;
 
     // Read model configuration from avc.json
-    this.model = this.readModelConfig();
-    this.apiKey = process.env.ANTHROPIC_API_KEY;
-    this.claudeClient = null;
+    const { provider, model } = this.readModelConfig();
+    this._providerName = provider;
+    this._modelName = model;
+    this.llmProvider = null;
   }
 
   /**
@@ -42,10 +43,15 @@ class TemplateProcessor {
   readModelConfig() {
     try {
       const config = JSON.parse(fs.readFileSync(this.avcConfigPath, 'utf8'));
-      return config.settings?.model || 'claude-sonnet-4-5-20250929';
+      const ceremony = config.settings?.ceremonies?.[0];
+      if (ceremony) {
+        return { provider: ceremony.provider || 'claude', model: ceremony.defaultModel || 'claude-sonnet-4-5-20250929' };
+      }
+      // Legacy fallback: settings.model without ceremonies array
+      return { provider: 'claude', model: config.settings?.model || 'claude-sonnet-4-5-20250929' };
     } catch (error) {
       console.warn('⚠️  Could not read model config, using default');
-      return 'claude-sonnet-4-5-20250929';
+      return { provider: 'claude', model: 'claude-sonnet-4-5-20250929' };
     }
   }
 
@@ -219,18 +225,17 @@ class TemplateProcessor {
   }
 
   /**
-   * Initialize Claude client
+   * Initialize LLM provider
    */
-  initializeClaudeClient() {
-    if (!process.env.ANTHROPIC_API_KEY) {
-      console.log('⚠️  ANTHROPIC_API_KEY not found - AI suggestions will be skipped');
+  async initializeLLMProvider() {
+    try {
+      this.llmProvider = await LLMProvider.create(this._providerName, this._modelName);
+      return this.llmProvider;
+    } catch (error) {
+      console.log(`⚠️  Could not initialize ${this._providerName} provider - AI suggestions will be skipped`);
+      console.log(`   ${error.message}`);
       return null;
     }
-
-    this.claudeClient = new Anthropic({
-      apiKey: process.env.ANTHROPIC_API_KEY
-    });
-    return this.claudeClient;
   }
 
   /**
@@ -264,7 +269,7 @@ class TemplateProcessor {
   /**
    * Parse Claude's response into structured format
    */
-  parseClaudeResponse(response, isPlural) {
+  parseLLMResponse(response, isPlural) {
     if (isPlural) {
       return response.split('\n')
         .map(line => line.trim())
@@ -277,20 +282,14 @@ class TemplateProcessor {
    * Generate AI suggestions for a variable
    */
   async generateSuggestions(variableName, isPlural, context) {
-    if (!this.claudeClient && !this.initializeClaudeClient()) {
+    if (!this.llmProvider && !(await this.initializeLLMProvider())) {
       return null;
     }
 
     try {
       const prompt = this.buildPrompt(variableName, isPlural, context);
-
-      const response = await this.claudeClient.messages.create({
-        model: this.model,
-        max_tokens: isPlural ? 512 : 256,
-        messages: [{ role: "user", content: prompt }]
-      });
-
-      return this.parseClaudeResponse(response.content[0].text, isPlural);
+      const text = await this.llmProvider.generate(prompt, isPlural ? 512 : 256);
+      return this.parseLLMResponse(text, isPlural);
     } catch (error) {
       console.warn(`⚠️  Could not generate suggestions: ${error.message}`);
       return null;
@@ -361,20 +360,15 @@ class TemplateProcessor {
    * Generate final document with LLM enhancement
    */
   async generateFinalDocument(templateWithValues) {
-    if (!this.claudeClient && !this.initializeClaudeClient()) {
-      // No API key - save template as-is
+    if (!this.llmProvider && !(await this.initializeLLMProvider())) {
+      // No provider available - save template as-is
       return templateWithValues;
     }
 
     console.log('\n🤖 Enhancing document with AI...');
 
     try {
-      const response = await this.claudeClient.messages.create({
-        model: this.model,
-        max_tokens: 4096,
-        messages: [{
-          role: "user",
-          content: `You are creating a project definition document for an Agile Vibe Coding (AVC) project.
+      const prompt = `You are creating a project definition document for an Agile Vibe Coding (AVC) project.
 
 Here is the project information with all variables filled in:
 
@@ -386,11 +380,9 @@ Please review and enhance this document to ensure:
 3. Sections flow logically
 4. Any incomplete sections are identified
 
-Return the enhanced markdown document.`
-        }]
-      });
+Return the enhanced markdown document.`;
 
-      return response.content[0].text;
+      return await this.llmProvider.generate(prompt, 4096);
     } catch (error) {
       console.warn(`⚠️  Could not enhance document: ${error.message}`);
       return templateWithValues;

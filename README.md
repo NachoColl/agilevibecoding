@@ -2,13 +2,6 @@
 
 **A framework for managing agent-based software development projects**
 
-| | |
-|---|---|
-| **Version** | DRAFT |
-| **License** | [MIT](https://github.com/NachoColl/agilevibecoding/blob/master/LICENSE) |
-| **Authors** | @NachoColl ([How to Contribute](https://github.com/NachoColl/agilevibecoding/blob/master/CONTRIBUTING.md)) |
-| **Website** | [agilevibecoding.org](https://agilevibecoding.org) |
-
 
 Agile Vibe Coding (AVC) is a structured approach to consistent long-term software development with AI agents. The framework breaks down large projects into verifiable, trackable features that specialized agents can implement in parallel without conflicts, while continuously improving context quality through systematic measurement and retrospective analysis. 
 
@@ -22,7 +15,9 @@ Large software projects stress LLM-based coding agents in ways that differ funda
 - When context exceeds a model's effective range, coherence degrades.
 - The linear predictive nature of LLMs enforces sequential reasoning, limiting native parallel deliberation.
 
-Left unguided, AI coding agents drift. Context decays. Abstractions fracture. Logic duplicates. Regressions surface across independently generated features. These are not defects of the models, but natural consequences of bounded context, ephemeral reasoning, and probabilistic generation operating without the persistent internal understanding that humans develop over time.
+Left unguided, AI coding agents drift. Context decays. Abstractions fracture. Logic duplicates. Regressions surface across independently generated features. 
+
+These are not defects of the models, but natural consequences of bounded context, ephemeral reasoning, and probabilistic generation operating without the persistent internal understanding that humans develop over time.
 
 Can we still build large, complex systems with LLMs despite these constraints? Yes. By shaping context, constraints, and verification through deliberate frameworks and disciplined practice, we guide LLMs toward coherent outcomes. Where models lack persistent understanding, we supply externalized knowledge through a framework: where reasoning is ephemeral, we anchor it in artifacts. 
 
@@ -34,7 +29,7 @@ AVC provides a **hierarchy of assets**, **specialized agents**, and **workflows*
 
 ### AVC assets hierarchy
 
-**Agile Vibe Coding** uses the Agile project management hierarchy (Epic -> Story -> Task -> Subtask), but it structures it within hierarchical context boundaries. On one hand, we organize *information/knowledge/memory* using these contexts, and on the other hand, we organize work within those scope domains.
+**Agile Vibe Coding** follows the Agile hierarchy (Epic → Story → Task → Subtask), but places each level inside clear context boundaries.
 
 ```
 project/
@@ -59,11 +54,10 @@ project/
                 └── subtask.json
 ```
 
-| Asset             | Content |
-|-------------------|-------------|
-| **Project**       | A project contains work items grouped in context scopes. |
-| **Context Scope** | A context scope contains work items and the *minimal* set of information required for LLMs to *properly handle* the work. |
-| **Work Item**     | Work items are JSON files containing at least a single **work prompt**, multiple **validation prompts** and a status. |
+
+### Work Item
+
+Work items are JSON files containing an LLM prompt request, the list of tests for work validation and the current work status.
 
 ```json
 {
@@ -215,6 +209,14 @@ Epic Tests     → System Tests      (domain-wide functionality)
 
 Deepest level tests must pass first. Only when all subtask tests pass do you run task tests. Only when all task tests pass do you run story tests. This creates a **validation pyramid** where you catch issues early at the unit level.
 
+
+## CLI Commands
+
+The AVC framework ships with an interactive REPL that exposes all commands. Full usage details, multi-provider configuration, and keyboard shortcuts are documented at:
+
+**[CLI Commands Reference →](COMMANDS.md)**
+
+---
 
 ## References
 

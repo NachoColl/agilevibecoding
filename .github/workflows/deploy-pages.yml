@@ -6,6 +6,7 @@ on:
       - master
     paths:
       - 'README.md'
+      - 'COMMANDS.md'
       - 'docs/**'
       - '.github/workflows/deploy-pages.yml'
       - 'package.json'
@@ -35,18 +36,6 @@ jobs:
 
       - name: Install dependencies
         run: npm ci
-
-      - name: Prepare content for website
-        run: |
-          # Copy README.md to docs/index.md
-          cp README.md docs/index.md
-
-          # Replace "Website:" link with "Repository:" link for website context
-          sed -i 's|Website: \[agilevibecoding.org\](https://agilevibecoding.org)|Repository: [github.com/NachoColl/agilevibecoding](https://github.com/NachoColl/agilevibecoding)|g' docs/index.md
-
-          echo "✓ Content prepared for website deployment"
-          echo "  - Copied README.md → docs/index.md"
-          echo "  - Replaced 'Website:' with 'Repository:' link"
 
       - name: Build with VitePress
         run: npm run docs:build

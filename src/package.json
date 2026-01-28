@@ -49,6 +49,7 @@
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.20.0",
+    "@google/genai": "^1.37.0",
     "dotenv": "^16.4.0",
     "ink": "^5.0.1",
     "ink-select-input": "^6.0.0",

@@ -13,6 +13,7 @@ export default defineConfig({
 
     nav: [
       { text: 'Home', link: '/' },
+      { text: 'Commands', link: '/commands' },
       { text: 'GitHub', link: 'https://github.com/NachoColl/agilevibecoding' }
     ],
 
@@ -21,6 +22,12 @@ export default defineConfig({
         text: 'Introduction',
         items: [
           { text: 'Overview', link: '/' },
+        ]
+      },
+      {
+        text: 'Reference',
+        items: [
+          { text: 'CLI Commands', link: '/commands' },
         ]
       },
     ],

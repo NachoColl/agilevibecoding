@@ -74,7 +74,13 @@ class ProjectInitiator {
           contextScopes: ['epic', 'story', 'task', 'subtask'],
           workItemStatuses: ['ready', 'pending', 'implementing', 'implemented', 'testing', 'completed', 'blocked', 'feedback'],
           agentTypes: ['product-owner', 'server', 'client', 'infrastructure', 'testing'],
-          model: 'claude-sonnet-4-5-20250929'
+          ceremonies: [
+            {
+              name: 'sponsor-call',
+              defaultModel: 'claude-sonnet-4-5-20250929',
+              provider: 'claude'
+            }
+          ]
         }
       };
 
@@ -113,7 +119,9 @@ class ProjectInitiator {
 # Get your key at: https://console.anthropic.com/settings/keys
 ANTHROPIC_API_KEY=
 
-# Add other API keys below as needed
+# Google Gemini API Key (alternative LLM provider)
+# Get your key at: https://aistudio.google.com/app/apikey
+GEMINI_API_KEY=
 `;
       fs.writeFileSync(envPath, envContent, 'utf8');
       console.log('✓ Created .env file for API keys');

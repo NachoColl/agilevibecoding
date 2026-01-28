@@ -2,13 +2,6 @@
 
 **A framework for managing agent-based software development projects**
 
-| | |
-|---|---|
-| **Version** | DRAFT |
-| **License** | [MIT](https://github.com/NachoColl/agilevibecoding/blob/master/LICENSE) |
-| **Authors** | @NachoColl ([How to Contribute](https://github.com/NachoColl/agilevibecoding/blob/master/CONTRIBUTING.md)) |
-| **Website** | [agilevibecoding.org](https://agilevibecoding.org) |
-
 
 Agile Vibe Coding (AVC) is a structured approach to consistent long-term software development with AI agents. The framework breaks down large projects into verifiable, trackable features that specialized agents can implement in parallel without conflicts, while continuously improving context quality through systematic measurement and retrospective analysis. 
 
@@ -17,12 +10,14 @@ Agile Vibe Coding (AVC) is a structured approach to consistent long-term softwar
 
 Large software projects stress LLM-based coding agents in ways that differ fundamentally from how human development teams operate. Unlike humans, which retain long-term memory and build overall abstract understanding through iteration, LLMs do not have these capacities. 
 
-- LLMs are probabilistic and sensitive to prompt formulation (non-deterministic).
+- LLMs are probabilistic and sensitive to prompt formulation.
 - LLM's context should not be understood as a memory but as information.
 - When context exceeds a model's effective range, coherence degrades.
 - The linear predictive nature of LLMs enforces sequential reasoning, limiting native parallel deliberation.
 
-Left unguided, AI coding agents drift. Context decays. Abstractions fracture. Logic duplicates. Regressions surface across independently generated features. These are not defects of the models, but natural consequences of bounded context, ephemeral reasoning, and probabilistic generation operating without the persistent internal understanding that humans develop over time.
+Left unguided, AI coding agents drift. Context decays. Abstractions fracture. Logic duplicates. Regressions surface across independently generated features. 
+
+These are not defects of the models, but natural consequences of bounded context, ephemeral reasoning, and probabilistic generation operating without the persistent internal understanding that humans develop over time.
 
 Can we still build large, complex systems with LLMs despite these constraints? Yes. By shaping context, constraints, and verification through deliberate frameworks and disciplined practice, we guide LLMs toward coherent outcomes. Where models lack persistent understanding, we supply externalized knowledge through a framework: where reasoning is ephemeral, we anchor it in artifacts. 
 
@@ -34,47 +29,46 @@ AVC provides a **hierarchy of assets**, **specialized agents**, and **workflows*
 
 ### AVC assets hierarchy
 
-**Agile Vibe Coding** adopts the Agile project management items hierarchy (Epic -> Story -> Task -> Subtask) adding context boundaries.
+**Agile Vibe Coding** follows the Agile hierarchy (Epic → Story → Task → Subtask), but places each level inside clear context boundaries.
 
 ```
 project/
-├── context.md                                # project-wide context
-└── epic-0001/
-    ├── context.md                            # epic-level context (domain/area)
-    └── story-0001-0001/
-        ├── context.md                        # story-level context (user capability)
-        ├── story.json                        # story definition
-        └── task-0001-0001-0001/
-            ├── context.md                    # task-level context (implementation unit)
-            ├── task.json                     # task definition
-            ├── subtask-0001-0001-0001-0001/
-            │   ├── context.md                # subtask-level context (atomic work)
-            │   └── subtask.json              # subtask definition
-            └── subtask-0001-0001-0001-0002/
+├── doc.md                                    # documentation
+├── context.md                                # context scope                               
+├── project.json                              # work item
+└── context-0001/   
+    ├── doc.md                                # documentation                          
+    ├── context.md                            # context scope
+    ├── epic.json                             # work item
+    └── context-0001-0001/                    
+        ├── context.md                        # ...
+        ├── story.json                        
+        └── context-0001-0001-0001/           
+            ├── context.md                   
+            ├── task.json                     
+            ├── context-0001-0001-0001-0001/  
+            │   ├── context.md               
+            │   └── subtask.json              
+            └── context-0001-0001-0001-0002/
                 ├── context.md
                 └── subtask.json
 ```
 
-| Asset | Content |
-|-------|-------------|
-| **Project** | A project contains work items grouped in context scopes. |
-| **Context Scope** | A context scope contains work items and the *minimal* set of information required for LLMs to *properly handle* the work. |
-| **Work Item** | Work items are JSON files containing at least a single **work prompt**, multiple **validation prompts** and a status. |
+
+### Work Item
+
+Work items are JSON files containing an LLM prompt request, the list of tests for work validation and the current work status.
 
 ```json
 {
-  "id": "subtask-0001-0001-0001-0001",
+  "id": "context-0001-0001-0001-0001",
   "name": "Create JWT Payload Interface",
-  "scope": "epic-0001/story-0001-0001/task-0001-0001-0001",
-  "status": "pending",
   "dependencies": [],
   "prompt": "Create TypeScript interface for JWT payload in src/types/JWTPayload.ts. Include properties: userId (string), email (string), role ('user' | 'admin' literal type), exp (number), iat (number). Add JSDoc comments. Export as named interface.",
-  "implementation": {
+  "statuses": [{
     "status": "pending",
-    "files": ["src/types/JWTPayload.ts"],
-    "completedAt": null,
-    "gitCommit": null
-  },
+    "timestamp": 1769442717798
+  }],
   "validation": {
     "status": "pending",
     "tests": [{
@@ -102,115 +96,83 @@ project/
 
 As with Agile project management, the Agile Vibe Coding framework contains a set of ceremonies and processes to manage the project moving forward.
 
-#### **Project Expansion**
+#### **Sponsor Call** (Project Initialization)
 
-A project expansion ceremony is manually triggered and checks the AVC hierarchy for work items in *ready* status. For each ready work item, it checks the scope context for completeness. If no extra information is required, it creates a child AVC hierarchy with a new set of context scopes and work items with the ready status, and updates the parent work item status to *pending*. If extra information is required, it updates the work item and adds a list of questions that need to be resolved before continuing and sets the status to *feedback*.
+The Sponsor Call ceremony is manually triggered and is the first ceremony, which defines the project vision and initial scope. This ceremony uses an AI-powered interactive questionnaire to create a an initial documentation, which once validated will be used by the next ceremony for creating first work items.
 
-```mermaid
-flowchart TD
-    Start([Manual Trigger]) --> Scan[Scan AVC Hierarchy<br/>for Ready Work Items]
-    Scan --> HasReady{Any Ready<br/>Work Items?}
+##### Ceremony stakeholders
 
-    HasReady -->|No| End([Complete:<br/>All Pending])
-    HasReady -->|Yes| GetNext[Get Next Ready<br/>Work Item]
+The sponsor call ceremony requires the following human stakeholders and AI agents.
 
-    GetNext --> CheckContext{Check Scope<br/>Context for<br/>Completeness}
+**Human stakeholders**
 
-    CheckContext -->|Complete| CreateChild[Create Child<br/>AVC Hierarchy]
-    CreateChild --> AddContextScopes[Add new Scopes<br/>and Work Items]
-    AddContextScopes --> UpdateParent1[Update Parent<br/>status: pending]
-    UpdateParent1 --> Scan
+| stakeholder                         | reponsabilities
+|-------------------------------------|-----------------|
+| product owner                       | Initiates the ceremony.
+| business key-stakeholders           | Defines the mission and initial scope.
+| product team (infra/dev/security)   | Helps defining infrastructure, development, security and compliance initial scope requirements.
 
-    CheckContext -->|Incomplete| AddQuestions[Add Questions<br/>to Work Item]
-    AddQuestions --> Scan
 
-    style Start fill:#e1f5ff
-    style End fill:#d4edda
-    style CheckContext fill:#fff3cd
-    style CreateChild fill:#cfe2ff
-    style AddQuestions fill:#f8d7da
-```
-<!-- diagram id="project-expansion" caption: "Project Expansion Ceremony Flow" -->
+**AI Agents**
+
+| agent                | responsibilities
+|----------------------|-----------------|
+| product owner        | The controller agent responsible for executing the ceremony workflow.
+
+
+
+#### **Project Expansion** (Sprint Planning)
+
+A project expansion ceremony is manually triggered and checks the AVC hierarchy for work items in *ready* status and process each as following:
+
+- for each ready work item, it checks the scope context for completeness,
+
+if no extra information is required, 
+
+if it is an *atomic* work,
+
+- it marks the work as pending
+
+if the work can be split into multiple work items
+
+- it creates a child AVC hierarchy with a new set of context scopes and work items with the ready status, 
+- it then updates the parent work item status to *pending*;
+
+if some extra information is required before processing a work item, 
+
+- it adds a list of questions that need to be resolved before continuing,
+- it marks the work item as *feedback* required.
 
 This ceremony continues recursively until all work items are in pending status.
 
-##### Ceremony stakeholders (Humans and Specialized Agents)
 
-The project expansion ceremony requires the following stakeholders.
+##### Ceremony stakeholders
 
-| stakeholder | type | reponsabilities 
-|-------|-------------|-------|
-| product owner | human | Check initial scope assets and triger the ceremony (handled by the agent).
-| product owner | agent | 
-| 
-| devs | human | Responsible for bringing scope accuracy when product owner
+The project expansion ceremony requires the following human stakeholders and AI agents.
+
+**Human stakeholders**
+
+| stakeholder   | reponsabilities
+|---------------|-----------------|
+| product owner | Check initial scope assets and trigger the ceremony (handled by the agent).
+| product team  | Provide clarifications and answer questions raised by agents during the expansion process.       
+
+
+**AI Agents**
+
+| agent                | responsibilities
+|----------------------|-----------------|
+| product owner        | The controller agent responsible for executing the ceremony workflow.
+| server agent         | Define and implement backend features, APIs, and server-side logic.
+| client agent         | Define and implement SDK, frontend components, and client-side functionality.
+| infrastructure agent | Define and handle cloud deployment, infrastructure configuration, and DevOps tasks.
+| testing agent        | Generate and execute test suites to verify feature implementations. 
 
 
 #### **Context Retrospective** 
 
 A context retrospective updates all context scopes.
 
-### AVC Specialized agents
-
-AVC uses the following specialized agents:
-
-
-**Product Owner Agent**
-
-
-Sets up tracking infrastructure.
-
-**Prompt:** See `prompts/initializer.md`
-
-**Output:**
-- Verifies/creates feature files
-- Creates `claude-progress.txt`
-- Creates `init.sh`
-- Creates baseline git commit
-
-
-#### Controller Agent
-
-Orchestrates feature implementation.
-
-**Prompt:** See `prompts/controller.md`
-
-**Workflow:**
-1. Read `claude-progress.txt` (resume state)
-2. Review git log (understand recent work)
-3. Run baseline tests (verify health)
-4. Select next feature (dependencies met)
-5. Spawn specialized coding agent
-6. Track completion
-7. Update progress files
-
-**Duration:** Ongoing (10-20 features per session)
-
-#### Coding Agents (Specialized)
-
-Implement specific features.
-
-**Prompt:** See `prompts/coding-agent.md`
-
-**Types:**
-- Server Agent - Backend/API implementation
-- Client Agent - SDK/frontend implementation
-- Infrastructure Agent - Cloud/deployment
-- Testing Agent - Test suites
-- Documentation Agent - User guides
-
-**Workflow:**
-1. Receive feature assignment with complete context
-2. Implement feature
-3. Run tests
-4. Create git commit
-5. Update feature status
-
-
-
-
-
-## How it works
 
 ### Context Inheritance (Downward Flow)
 
@@ -248,225 +210,13 @@ Epic Tests     → System Tests      (domain-wide functionality)
 Deepest level tests must pass first. Only when all subtask tests pass do you run task tests. Only when all task tests pass do you run story tests. This creates a **validation pyramid** where you catch issues early at the unit level.
 
 
-## Git Commit Format
+## CLI Commands
 
-**Standard format for feature commits:**
+The AVC framework ships with an interactive REPL that exposes all commands. Full usage details, multi-provider configuration, and keyboard shortcuts are documented at:
 
-```
-feat: [Feature name] - [brief description]
-
-Feature ID: feature-XXX
-Sprint: sprint-N
-File: src/path/to/file.ts
-Test: npm run test:unit -- ComponentName
-Status: ✅ Tests passing
-
-[Optional: Additional context or notes]
-
-Co-Authored-By: [Agent Name] <noreply@anthropic.com>
-```
-
-**Example:**
-```
-feat: Create User interface - user type definition
-
-Feature ID: feature-001
-Sprint: sprint-1
-File: src/types/User.ts
-Test: npm run build
-Status: ✅ Build passing
-
-Co-Authored-By: Server Agent <noreply@anthropic.com>
-```
+**[CLI Commands Reference →](COMMANDS.md)**
 
 ---
-
-## Progress Tracking Files
-
-### claude-progress.txt
-
-Human-readable session log:
-
-```
-=== Project Name - Progress Log ===
-Session: 5
-Completed: 96/247 (38.9%)
-
-== Recent Activity ==
-[2026-01-19] ✅ feature-015 COMPLETED
-  SessionManager.getAvailableSession()
-  Commit: abc123f
-
-== Current Task ==
-feature-016: SessionManager.isInCooldown()
-Sprint: sprint-1
-Status: in_progress
-
-== Next Up ==
-feature-017: CookieRefreshService setup
-feature-018: OperationExecutor.search()
-```
-
-### index.json (if using)
-
-Progress summary:
-
-```json
-{
-  "projectName": "Your Project",
-  "totalFeatures": 247,
-  "completedFeatures": 96,
-  "completionPercentage": 38.9,
-  "lastUpdated": "2026-01-19T10:30:00Z",
-  "sprints": [
-    {
-      "sprintId": "sprint-1",
-      "sprintName": "Foundation",
-      "totalFeatures": 68,
-      "completedFeatures": 68,
-      "completionPercentage": 100.0
-    }
-  ]
-}
-```
-
-### init.sh
-
-Environment verification script:
-
-```bash
-#!/bin/bash
-# Verifies development environment is ready
-
-check_node() { ... }
-check_git() { ... }
-check_dependencies() { ... }
-setup_directories() { ... }
-```
-
----
-
-
-
-
-## Tools and Scripts
-
-### query-pending.sh
-
-Find next features to implement:
-
-```bash
-# Find all pending features
-./scripts/query-pending.sh
-
-# Find pending features in sprint-1
-./scripts/query-pending.sh --sprint sprint-1
-
-# Find next 5 pending features
-./scripts/query-pending.sh --limit 5
-```
-
-### rebuild-index.sh
-
-Regenerate index.json from feature files:
-
-```bash
-./scripts/rebuild-index.sh
-# Output: index.json regenerated (96/247 complete, 38.9%)
-```
-
-### feature-status.sh
-
-Check feature status:
-
-```bash
-./scripts/feature-status.sh feature-001
-# Output: feature-001: completed (✅)
-```
-
-### update-feature.sh
-
-Update feature status:
-
-```bash
-./scripts/update-feature.sh feature-001 completed abc123f
-# Output: feature-001 updated to completed
-```
-
----
-
-## Best Practices
-
-### 1. Keep Features Focused and Verifiable
-- One clear deliverable per feature
-- 5-30 minutes implementation time
-- Independently testable
-- Single git commit per stage
-
-### 2. Test After Every Feature
-- Don't batch testing to end of scope (test immediately after implementation)
-- Catch issues early when context is fresh
-- Maintain working state throughout development
-
-### 3. Choose Appropriate Scope Hierarchy
-- Use single level for small projects (<50 features)
-- Add epic/module level for domain separation (100-500 features)
-- Add sprint/phase level for iterative development
-- Don't over-engineer - each level should add value
-- Hierarchy should match your project's natural organization
-- Context files at each level should have distinct content
-
-### 4. Write Comprehensive Scope Context
-- Complete specifications with code examples at each level
-- Implementation patterns shared across scope
-- Expected behaviors and validation criteria
-- Testing strategies appropriate for the scope
-- Inherit from parent, add specifics at child level
-
-### 5. Use Specialized Agents
-- Match agent expertise to task domain
-- Clear responsibilities per agent type
-- One feature per agent invocation
-- Agents receive full scope context chain
-
-### 6. Maintain Session Continuity
-- Always read claude-progress.txt first
-- Review git log before new work
-- Run baseline tests before implementing
-- Update tracking files after every feature
-- Scope hierarchy persists across sessions
-
-### 7. Enable Parallel Execution
-- Features within same scope can run simultaneously
-- Use individual feature files to prevent conflicts
-- Shared scope context enables independence
-- Coordinate via file-level locking or git commits
-
----
-
-## Auto-Generation
-
-AVC supports auto-generating feature descriptions from sprint context.
-
-**See:** `docs/AUTO_GENERATION.md` for:
-- Pattern templates by feature type
-- Auto-generation scripts
-- Accuracy statistics (80-90%)
-- Time savings analysis (12-37 hours)
-
-**Example Pattern:**
-```python
-# Type Definition Pattern
-Pattern: "Create {Interface} interface"
-Extract from context: Interface definition
-Generate:
-  - Complete description with properties
-  - Test command
-  - Expected behaviors
-  - Context reference
-```
-
-
 
 ## References
 
