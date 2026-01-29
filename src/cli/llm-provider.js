@@ -29,6 +29,34 @@ export class LLMProvider {
     return this._callProvider(prompt, maxTokens);
   }
 
+  // Validate API key and provider connectivity with a minimal test call
+  async validateApiKey() {
+    try {
+      // Make a minimal API call (just asks for a single word)
+      await this.generate('Reply with only the word "ok"', 10);
+      return { valid: true };
+    } catch (error) {
+      return {
+        valid: false,
+        error: error.message,
+        code: error.status || error.code
+      };
+    }
+  }
+
+  // Static helper to validate a provider config
+  static async validate(providerName, model) {
+    try {
+      const provider = await LLMProvider.create(providerName, model);
+      return await provider.validateApiKey();
+    } catch (error) {
+      return {
+        valid: false,
+        error: error.message
+      };
+    }
+  }
+
   // Subclass hooks — throw if not overridden
   _createClient() { throw new Error(`${this.constructor.name} must implement _createClient()`); }
   async _callProvider() { throw new Error(`${this.constructor.name} must implement _callProvider()`); }

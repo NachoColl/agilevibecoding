@@ -92,6 +92,42 @@ Work items are JSON files containing an LLM prompt request, the list of tests fo
 ```
 *Work item definition*
 
+
+### Context Inheritance (Downward Flow)
+
+Each level in the hierarchy has a `context.md` file that **inherits from its parent and adds specifics**. When implementing a work unit, agents read ALL context files from project down to current level.
+
+An example:
+
+```
+project/
+├── context.md              # Level 1: Project  :: Language: TypeScript 5.0 [...]
+└── epic-0001/
+    ├── context.md          # Level 2: Epic     :: All passwords MUST be hashed [...]
+    └── story-0001-0001/
+        ├── context.md      # Level 3: Story    :: Password minimum 8 characters [...]
+        ├── story.json
+        └── task-0001-0001-0001/
+            ├── context.md  # Level 4: Task     :: pattern -> class JWTService { [...] 
+            └── task.json
+```
+
+**When an agent implements `task-0001-0001-0001`, it reads ALL five context.md files as the task context.**
+
+
+### Tests (Upward Validation)
+
+While context flows DOWN (project → subtask), **tests flow UP** (subtask → project) and each level validates a different granularity, which naturally should flow into the following test hirarchy:
+
+```
+Subtask Tests  → Unit Tests        (atomic work)
+Task Tests     → Integration Tests (subtasks working together)
+Story Tests    → E2E Tests         (user capability end-to-end)
+Epic Tests     → System Tests      (domain-wide functionality)
+```
+
+Deepest level tests must pass first. Only when all subtask tests pass do you run task tests. Only when all task tests pass do you run story tests. This creates a **validation pyramid** where you catch issues early at the unit level.
+
 ### AVC Ceremonies
 
 As with Agile project management, the Agile Vibe Coding framework contains a set of ceremonies and processes to manage the project moving forward.
@@ -172,42 +208,6 @@ The project expansion ceremony requires the following human stakeholders and AI 
 #### **Context Retrospective** 
 
 A context retrospective updates all context scopes.
-
-
-### Context Inheritance (Downward Flow)
-
-Each level in the hierarchy has a `context.md` file that **inherits from its parent and adds specifics**. When implementing a work unit, agents read ALL context files from project down to current level.
-
-An example:
-
-```
-project/
-├── context.md              # Level 1: Project  :: Language: TypeScript 5.0 [...]
-└── epic-0001/
-    ├── context.md          # Level 2: Epic     :: All passwords MUST be hashed [...]
-    └── story-0001-0001/
-        ├── context.md      # Level 3: Story    :: Password minimum 8 characters [...]
-        ├── story.json
-        └── task-0001-0001-0001/
-            ├── context.md  # Level 4: Task     :: pattern -> class JWTService { [...] 
-            └── task.json
-```
-
-**When an agent implements `task-0001-0001-0001`, it reads ALL five context.md files as the task context.**
-
-
-### Tests (Upward Validation)
-
-While context flows DOWN (project → subtask), **tests flow UP** (subtask → project) and each level validates a different granularity, which naturally should flow into the following test hirarchy:
-
-```
-Subtask Tests  → Unit Tests        (atomic work)
-Task Tests     → Integration Tests (subtasks working together)
-Story Tests    → E2E Tests         (user capability end-to-end)
-Epic Tests     → System Tests      (domain-wide functionality)
-```
-
-Deepest level tests must pass first. Only when all subtask tests pass do you run task tests. Only when all task tests pass do you run story tests. This creates a **validation pyramid** where you catch issues early at the unit level.
 
 
 ## CLI Commands

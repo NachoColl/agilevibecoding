@@ -1,0 +1,32 @@
+{
+  "projectName": "test-project",
+  "framework": "avc",
+  "created": "2026-01-28T12:00:00.000Z",
+  "settings": {
+    "contextScopes": ["epic", "story", "task", "subtask"],
+    "workItemStatuses": [
+      "ready",
+      "pending",
+      "implementing",
+      "implemented",
+      "testing",
+      "completed",
+      "blocked",
+      "feedback"
+    ],
+    "agentTypes": [
+      "product-owner",
+      "server",
+      "client",
+      "infrastructure",
+      "testing"
+    ],
+    "ceremonies": [
+      {
+        "name": "sponsor-call",
+        "defaultModel": "claude-sonnet-4-5-20250929",
+        "provider": "claude"
+      }
+    ]
+  }
+}

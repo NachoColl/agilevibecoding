@@ -273,7 +273,8 @@ class TemplateProcessor {
     if (isPlural) {
       return response.split('\n')
         .map(line => line.trim())
-        .filter(line => line.length > 0 && !line.match(/^[0-9\-*.]+\s/));
+        .filter(line => line.length > 0)
+        .map(line => line.replace(/^[0-9\-*.]+\s+/, '')); // Remove list prefixes
     }
     return response.trim();
   }

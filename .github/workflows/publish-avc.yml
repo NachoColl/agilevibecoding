@@ -107,8 +107,23 @@ jobs:
       - name: Install dependencies
         run: npm install
 
-      - name: Run tests
-        run: npm test
+      - name: Run unit tests
+        run: npm run test:unit
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.TEST_ANTHROPIC_KEY || 'test-dummy-key' }}
+          GEMINI_API_KEY: ${{ secrets.TEST_GEMINI_KEY || 'test-dummy-key' }}
+
+      - name: Run integration tests
+        run: npm run test:integration
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.TEST_ANTHROPIC_KEY || 'test-dummy-key' }}
+          GEMINI_API_KEY: ${{ secrets.TEST_GEMINI_KEY || 'test-dummy-key' }}
+
+      - name: Generate test coverage
+        run: npm run test:coverage
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.TEST_ANTHROPIC_KEY || 'test-dummy-key' }}
+          GEMINI_API_KEY: ${{ secrets.TEST_GEMINI_KEY || 'test-dummy-key' }}
 
       - name: Verify CLI entry point loads
         run: |

@@ -1,0 +1,9 @@
+{
+  "text": "ok",
+  "model": "gemini-2.5-flash",
+  "usage": {
+    "promptTokens": 10,
+    "completionTokens": 5,
+    "totalTokens": 15
+  }
+}

@@ -1,26 +1,8 @@
 # CLI Commands
 
-## Install
-
-Install AVC globally via [npm](https://www.npmjs.com/package/@agile-vibe-coding/avc):
-
-```sh
-npm install -g @agile-vibe-coding/avc
-```
-
-Then launch it:
-
-```sh
-avc
-```
-
-Type `/` and press Enter to open the command selector, or type a command name directly.
-
----
-
 ## /init
 
-Initialize an AVC project by running the [**Sponsor Call** ceremony](/#avc-ceremonies).
+Initialize an AVC project by running the [**Sponsor Call** ceremony](/#sponsor-call-project-initialization).
 
 ```sh
 > /init

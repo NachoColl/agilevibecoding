@@ -1,41 +1,67 @@
 /* Custom styling for hierarchical headings with color-coded levels */
 
+/* Strip all border-top from headings */
+.vp-doc h1,
+.vp-doc h2,
+.vp-doc h3,
+.vp-doc h4,
+.vp-doc h5,
+.vp-doc h6 {
+  border-top: none !important;
+  padding-left: 0.5rem !important;
+}
+
 /* Level 1: h2 - Blue */
 .vp-doc h2 {
   border-left: 4px solid #3b82f6;
-  padding-left: 1rem;
-  margin-left: 0;
+  padding-top: 8px !important;
 }
 
 /* Level 2: h3 - Green */
 .vp-doc h3 {
   border-left: 4px solid #10b981;
-  padding-left: 1rem;
-  margin-left: 0;
+  padding-top: 6px !important;
+  margin-top: 2rem;
+}
+
+.vp-doc h2+h3 {
+  margin-top: 0;
 }
 
 /* Level 3: h4 - Orange */
 .vp-doc h4 {
   border-left: 4px solid #f59e0b;
-  padding-left: 1rem;
-  margin-left: 0;
+  padding-top: 4px !important;
+  margin-top: 2rem;
+}
+
+.vp-doc h3+h4 {
+  margin-top: 0;
 }
 
 /* Level 4: h5 - Purple */
 .vp-doc h5 {
   border-left: 4px solid #8b5cf6;
-  padding-left: 1rem;
-  margin-left: 0;
+  padding-top: 4px !important;
+  margin-top: 2rem;
+}
+
+.vp-doc h4+h5 {
+  margin-top: 0;
 }
 
 /* Level 5: h6 - Pink */
 .vp-doc h6 {
   border-left: 4px solid #ec4899;
-  padding-left: 1rem;
-  margin-left: 0;
+  padding-top: 3px !important;
+  margin-top: 2rem;
 }
 
-/* Dark mode adjustments - slightly lighter colors for better visibility */
+.vp-doc h5+h6 {
+  margin-top: 0;
+}
+
+/* Dark mode adjustments */
 .dark .vp-doc h2 {
   border-left-color: #60a5fa;
 }

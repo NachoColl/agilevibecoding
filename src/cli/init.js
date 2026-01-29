@@ -19,8 +19,8 @@ const __dirname = path.dirname(__filename);
  */
 
 class ProjectInitiator {
-  constructor() {
-    this.projectRoot = process.cwd();
+  constructor(projectRoot = null) {
+    this.projectRoot = projectRoot || process.cwd();
     this.avcDir = path.join(this.projectRoot, '.avc');
     this.avcConfigPath = path.join(this.avcDir, 'avc.json');
     this.progressPath = path.join(this.avcDir, 'init-progress.json');
@@ -201,6 +201,82 @@ GEMINI_API_KEY=
 
 
   /**
+   * Validate that the configured provider's API key is present and working
+   */
+  async validateProviderApiKey() {
+    // Import LLMProvider dynamically to avoid circular dependencies
+    const { LLMProvider } = await import('./llm-provider.js');
+
+    // Check if config file exists
+    if (!fs.existsSync(this.avcConfigPath)) {
+      return {
+        valid: false,
+        message: 'Configuration file not found at .avc/avc.json.\n   Please run /init first to set up your project.'
+      };
+    }
+
+    // Read provider config from avc.json
+    const config = JSON.parse(fs.readFileSync(this.avcConfigPath, 'utf8'));
+    const ceremony = config.settings?.ceremonies?.[0];
+
+    if (!ceremony) {
+      return {
+        valid: false,
+        message: 'No ceremonies configured in .avc/avc.json.\n   Please check your configuration.'
+      };
+    }
+
+    const providerName = ceremony.provider || 'claude';
+    const modelName = ceremony.defaultModel || 'claude-sonnet-4-5-20250929';
+
+    // Check which env var is required
+    const envVarMap = {
+      'claude': 'ANTHROPIC_API_KEY',
+      'gemini': 'GEMINI_API_KEY'
+    };
+
+    const requiredEnvVar = envVarMap[providerName];
+    if (!requiredEnvVar) {
+      return {
+        valid: false,
+        message: `Unknown provider "${providerName}".\n   Supported providers: claude, gemini`
+      };
+    }
+
+    // Check if API key is set in environment
+    if (!process.env[requiredEnvVar]) {
+      return {
+        valid: false,
+        message: `${requiredEnvVar} not found in .env file.\n\n   Steps to fix:\n   1. Open .env file in the current directory\n   2. Add your API key: ${requiredEnvVar}=your-key-here\n   3. Save the file and run /init again\n\n   Get your API key:\n   ${providerName === 'claude' ? '• https://console.anthropic.com/settings/keys' : '• https://aistudio.google.com/app/apikey'}`
+      };
+    }
+
+    console.log(`\n🔑 Validating ${providerName} API key...`);
+
+    // Test the API key with a minimal call
+    let result;
+    try {
+      result = await LLMProvider.validate(providerName, modelName);
+    } catch (error) {
+      return {
+        valid: false,
+        message: `${requiredEnvVar} validation failed.\n\n   Error: ${error.message}\n\n   This could be due to:\n   • Network connectivity issues\n   • API service temporarily unavailable\n   • Invalid API key\n\n   Please check your connection and try again.`
+      };
+    }
+
+    if (!result.valid) {
+      const errorMsg = result.error || 'Unknown error';
+      return {
+        valid: false,
+        message: `${requiredEnvVar} is set but API call failed.\n\n   Error: ${errorMsg}\n\n   Steps to fix:\n   1. Verify your API key is correct in .env file\n   2. Check that the key has not expired\n   3. Ensure you have API credits/quota available\n\n   Get a new API key if needed:\n   ${providerName === 'claude' ? '• https://console.anthropic.com/settings/keys' : '• https://aistudio.google.com/app/apikey'}`
+      };
+    }
+
+    console.log(`✓ API key validated successfully\n`);
+    return { valid: true };
+  }
+
+  /**
    * Generate project document via Sponsor Call ceremony
    */
   async generateProjectDocument(progress = null) {
@@ -257,6 +333,14 @@ GEMINI_API_KEY=
     // Add .env to .gitignore if git repository
     this.addToGitignore();
 
+    // Validate API key before starting ceremony
+    const validationResult = await this.validateProviderApiKey();
+    if (!validationResult.valid) {
+      console.log('\n❌ API Key Validation Failed\n');
+      console.log(`   ${validationResult.message}\n`);
+      process.exit(1);
+    }
+
     // Save initial progress
     if (!progress) {
       progress = {
@@ -280,11 +364,10 @@ GEMINI_API_KEY=
 
     console.log('\n✅ AVC project initialized successfully!');
     console.log('\nNext steps:');
-    console.log('  1. Add your ANTHROPIC_API_KEY to .env file');
-    console.log('  2. Review .avc/project/doc.md for your project definition');
-    console.log('  3. Review .avc/avc.json configuration');
-    console.log('  4. Create your project context and work items');
-    console.log('  5. Use AI agents to implement features');
+    console.log('  1. Review .avc/project/doc.md for your project definition');
+    console.log('  2. Review .avc/avc.json configuration');
+    console.log('  3. Create your project context and work items');
+    console.log('  4. Use AI agents to implement features');
   }
 
   /**
