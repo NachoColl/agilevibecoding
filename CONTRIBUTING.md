@@ -2,8 +2,6 @@
 
 Thank you for your interest in contributing to the Agile Vibe Coding framework! 
 
-## Table of Contents
-
 - [Ways to Contribute](#ways-to-contribute)
 - [Getting Started](#getting-started)
 - [Development Setup](#development-setup)

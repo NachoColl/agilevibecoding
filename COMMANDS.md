@@ -55,7 +55,7 @@ After collecting all inputs, the LLM enhances them into a structured project def
 
 ### Default Technical Guideline
 
-When you skip the Technical Considerations question, AVC applies this default for non-technical users:
+When you skip the Technical Considerations question, AVC applies a default setup:
 
 > Use AWS serverless stack with Lambda functions for compute, API Gateway for REST APIs, DynamoDB for database, S3 for storage. Use CloudFormation for infrastructure definition and AWS CodePipeline/CodeBuild for CI/CD deployment.
 
@@ -73,7 +73,6 @@ Next steps:
   4. Use AI agents to implement features
 ```
 
----
 
 ## Keyboard shortcuts
 

@@ -15,12 +15,13 @@
 .vp-doc h4,
 .vp-doc h5,
 .vp-doc h6 {
-  padding-left: 5px !important;
+  padding-left: 8px !important;
 }
 
 /* Level 1: h2 - Blue */
 .vp-doc h2 {
   border-left: 4px solid #3b82f6;
+  background: #3b82f6 !important;
   padding-top: 8px !important;
 }
 
@@ -28,7 +29,7 @@
 .vp-doc h3 {
   border-left: 4px solid #10b981;
   padding-top: 6px !important;
-  margin-top: 2rem;
+  margin-top: 2.5rem;
 }
 
 .vp-doc h2+h3 {
