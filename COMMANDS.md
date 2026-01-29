@@ -60,9 +60,19 @@ The ceremony launches an interactive questionnaire that collects five core proje
 | 4 | Technical Considerations | Technology stack, constraints, or preferences |
 | 5 | Security & Compliance Requirements | Regulatory, privacy, or security constraints |
 
-**Note:** Only the **Mission Statement** (question 1) is mandatory. All other questions will be filled with AI-generated proposals if you skip them.
+**Note:** Only the **Mission Statement** (question 1) is mandatory. All other questions can be skipped:
+- **Technical Considerations** - If skipped, uses a default AWS serverless guideline (Lambda, API Gateway, DynamoDB, S3, CloudFormation, CodePipeline/CodeBuild)
+- **Other questions** - If skipped, will be filled with AI-generated proposals based on your mission statement
 
 After all inputs are collected, the LLM enhances the raw inputs into a structured project definition document saved to `.avc/project/doc.md`.
+
+### Default Technical Guideline
+
+When you skip the Technical Considerations question, AVC applies this default guideline for non-technical users:
+
+> Use AWS serverless stack with Lambda functions for compute, API Gateway for REST APIs, DynamoDB for database, S3 for storage. Use CloudFormation for infrastructure definition and AWS CodePipeline/CodeBuild for CI/CD deployment.
+
+You can customize this guideline in `.avc/avc.json` under `settings.ceremonies[0].guidelines.technicalConsiderations`.
 
 
 ### Output

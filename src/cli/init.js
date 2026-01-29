@@ -120,7 +120,10 @@ class ProjectInitiator {
           {
             name: 'sponsor-call',
             defaultModel: 'claude-sonnet-4-5-20250929',
-            provider: 'claude'
+            provider: 'claude',
+            guidelines: {
+              technicalConsiderations: 'Use AWS serverless stack with Lambda functions for compute, API Gateway for REST APIs, DynamoDB for database, S3 for storage. Use CloudFormation for infrastructure definition and AWS CodePipeline/CodeBuild for CI/CD deployment.'
+            }
           }
         ]
       }

@@ -56,6 +56,19 @@ class TemplateProcessor {
   }
 
   /**
+   * Read guidelines from avc.json ceremony configuration
+   */
+  readGuidelines() {
+    try {
+      const config = JSON.parse(fs.readFileSync(this.avcConfigPath, 'utf8'));
+      const ceremony = config.settings?.ceremonies?.[0];
+      return ceremony?.guidelines || {};
+    } catch (error) {
+      return {};
+    }
+  }
+
+  /**
    * Extract variables from template content
    * Returns array of variable objects with metadata
    */
@@ -310,8 +323,28 @@ class TemplateProcessor {
       value = await this.promptSingular(variable.displayName, variable.guidance);
     }
 
-    // If user skipped, try to generate AI suggestions
+    // If user skipped, try to use guideline or generate AI suggestions
     if (value === null) {
+      // Check if there's a guideline for this variable
+      const guidelines = this.readGuidelines();
+      const guidelineKey = variable.name.toLowerCase().replace(/_/g, '');
+
+      if (guidelines[guidelineKey]) {
+        console.log('   📋 Using default guideline...');
+        value = variable.isPlural
+          ? [guidelines[guidelineKey]]  // Wrap in array for plural variables
+          : guidelines[guidelineKey];
+
+        console.log('   ✅ Guideline applied:');
+        if (Array.isArray(value)) {
+          value.forEach((item, idx) => console.log(`      ${idx + 1}. ${item}`));
+        } else {
+          console.log(`      ${value}`);
+        }
+        return { variable: variable.name, value, source: 'guideline', skipped: true };
+      }
+
+      // No guideline available, try AI suggestions
       console.log('   ✨ Generating AI suggestion...');
       value = await this.generateSuggestions(variable.name, variable.isPlural, context);
 
