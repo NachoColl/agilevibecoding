@@ -25,9 +25,12 @@ Let's call it the Agile Vibe Coding framework.
 
 ## The Agile Vibe Coding framework
 
-AVC provides a **hierarchy of assets**, **specialized agents**, and **workflows** for handling the common challenges of sustained software delivery using LLMs.
 
-AVC does not replace your current AI coding tools. Instead, it adds an extra layer of control over the progress of the project lifetime. Just as real-world complex software requires multiple layers of knowledge and management—from architecture to implementation to testing—we need a similar approach when working with AI agents. AVC provides the organizational structure that sits above your day-to-day coding tools, ensuring long-term coherence and progress tracking.
+AVC does not replace your current AI coding tools. 
+
+AVC adds an extra layer of control over the progress of the project lifetime. Just as real-world complex software requires multiple layers of knowledge and management we need a similar approach when working with AI agents-which may still struggle with the long term. AVC provides the organizational structure that sits above your day-to-day coding tools, ensuring long-term coherence and progress tracking. 
+
+A hierarchy of assets, specialized agents, and workflows for handling the common challenges of sustained software delivery using LLMs.
 
 ### AVC assets hierarchy
 
