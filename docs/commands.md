@@ -10,19 +10,11 @@ Create AVC project structure and configuration files.
 
 ### What it does
 
-1. Creates the `.avc/` directory in the current working directory
-2. Creates or updates `.avc/avc.json`:
-   - **New project:** Creates default configuration with all settings
-   - **Existing project:** Merges new attributes from CLI updates while preserving user customizations
-3. Creates `.env` file (if it doesn't exist):
-   - **Preserves existing `.env`:** If you already have API keys configured, they are never deleted or overwritten
-   - **Creates with placeholders:** If no `.env` exists, creates one with empty `ANTHROPIC_API_KEY` and `GEMINI_API_KEY` entries
-4. Adds `.env` to `.gitignore` (if the directory is a git repository)
+Sets up your AVC project by creating the `.avc/` directory with the `avc.json` configuration file and a `.env` file for API keys. The command is safe to run multiple times—it preserves your existing configuration and API keys while adding any new settings from CLI updates.
 
+**This command does not require API keys.**
 
 ### Output
-
-On success, the command prints:
 
 ```
 ✅ AVC project structure created successfully!
@@ -34,10 +26,13 @@ Next steps:
   2. Run /sponsor-call to define your project
 ```
 
+---
 
 ## /sponsor-call
 
-Run the [**Sponsor Call** ceremony](/#sponsor-call-project-initialization) to create an initial context and work items for your project.
+Run the Sponsor Call ceremony to define your project with AI assistance.
+
+**Prerequisite:** Run `/init` first and configure API keys in `.env` file.
 
 ```sh
 > /sponsor-call
@@ -45,12 +40,9 @@ Run the [**Sponsor Call** ceremony](/#sponsor-call-project-initialization) to cr
 
 ### What it does
 
-The Sponsor Call ceremony creates the foundation of your project by generating:
-- **Initial context scope** - Project vision, goals, and constraints
-- **Set of work items** - Structured breakdown of features and tasks
-- **Initial documentation** - Comprehensive project definition document
+The Sponsor Call ceremony creates the foundation of your project: initial context scope, work items, and comprehensive documentation. It guides you through an interactive questionnaire to capture your project vision.
 
-The ceremony launches an interactive questionnaire that collects five core project inputs:
+The ceremony collects five inputs through a questionnaire:
 
 | # | Variable | Description |
 |---|----------|-------------|
@@ -60,24 +52,19 @@ The ceremony launches an interactive questionnaire that collects five core proje
 | 4 | Technical Considerations | Technology stack, constraints, or preferences |
 | 5 | Security & Compliance Requirements | Regulatory, privacy, or security constraints |
 
-**Note:** Only the **Mission Statement** (question 1) is mandatory. All other questions can be skipped:
-- **Technical Considerations** - If skipped, uses a default AWS serverless guideline (Lambda, API Gateway, DynamoDB, S3, CloudFormation, CodePipeline/CodeBuild)
-- **Other questions** - If skipped, will be filled with AI-generated proposals based on your mission statement
+Only the **Mission Statement** is mandatory. If you skip other questions, the ceremony provides intelligent defaults: Technical Considerations uses an AWS serverless guideline, while other questions are filled with AI-generated proposals based on your mission statement.
 
-After all inputs are collected, the LLM enhances the raw inputs into a structured project definition document saved to `.avc/project/doc.md`.
+After collecting all inputs, the LLM enhances them into a structured project definition document saved to `.avc/project/doc.md`.
 
 ### Default Technical Guideline
 
-When you skip the Technical Considerations question, AVC applies this default guideline for non-technical users:
+When you skip the Technical Considerations question, AVC applies this default for non-technical users:
 
 > Use AWS serverless stack with Lambda functions for compute, API Gateway for REST APIs, DynamoDB for database, S3 for storage. Use CloudFormation for infrastructure definition and AWS CodePipeline/CodeBuild for CI/CD deployment.
 
 You can customize this guideline in `.avc/avc.json` under `settings.ceremonies[0].guidelines.technicalConsiderations`.
 
-
 ### Output
-
-On success, the command prints:
 
 ```
 ✅ Project defined successfully!
@@ -89,6 +76,7 @@ Next steps:
   4. Use AI agents to implement features
 ```
 
+---
 
 ## Keyboard shortcuts
 
