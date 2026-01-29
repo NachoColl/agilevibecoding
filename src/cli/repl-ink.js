@@ -374,11 +374,19 @@ const App = () => {
           return;
 
         case '/init':
-          setExecutingMessage('Initializing project...');
+        case '/i':
+          setExecutingMessage('Initializing project structure...');
           await runInit();
           break;
 
+        case '/sponsor-call':
+        case '/sc':
+          setExecutingMessage('Running Sponsor Call ceremony...');
+          await runSponsorCall();
+          break;
+
         case '/status':
+        case '/s':
           setExecutingMessage('Checking project status...');
           await runStatus();
           break;
@@ -418,18 +426,19 @@ const App = () => {
     return `
 📚 Available Commands:
 
-  /init (or /i)      Initialize an AVC project (Sponsor Call ceremony)
-  /status (or /s)    Show current project status
-  /help (or /h)      Show this help message
-  /version (or /v)   Show version information
-  /restart           Restart AVC (Ctrl+R)
-  /exit (or /q)      Exit AVC interactive mode
+  /init (or /i)         Create AVC project structure and config files
+  /sponsor-call (/sc)   Run Sponsor Call ceremony (requires API keys)
+  /status (or /s)       Show current project status
+  /help (or /h)         Show this help message
+  /version (or /v)      Show version information
+  /restart              Restart AVC (Ctrl+R)
+  /exit (or /q)         Exit AVC interactive mode
 
 💡 Tips:
   - Type / and press Enter to see interactive command selector
   - Use arrow keys (↑/↓) to navigate command history
   - Use Tab key to auto-complete commands
-  - Use number keys (1-5) to quickly select commands from the menu
+  - Use number keys (1-6) to quickly select commands from the menu
   - Press Esc to cancel command selector or dismiss notifications
   - Press Ctrl+R to restart after updates
 `;
@@ -459,6 +468,31 @@ const App = () => {
       await initiator.init();
     } finally {
       console.log = originalLog;
+    }
+
+    setOutput(logs.join('\n') + '\n');
+  };
+
+  const runSponsorCall = async () => {
+    setOutput('\n'); // Empty line before sponsor call output
+    const initiator = new ProjectInitiator();
+
+    // Capture console.log output
+    const originalLog = console.log;
+    const originalError = console.error;
+    let logs = [];
+    console.log = (...args) => {
+      logs.push(args.join(' '));
+    };
+    console.error = (...args) => {
+      logs.push(args.join(' '));
+    };
+
+    try {
+      await initiator.sponsorCall();
+    } finally {
+      console.log = originalLog;
+      console.error = originalError;
     }
 
     setOutput(logs.join('\n') + '\n');

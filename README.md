@@ -134,7 +134,21 @@ As with Agile project management, the Agile Vibe Coding framework contains a set
 
 #### **Sponsor Call** (Project Initialization)
 
-The Sponsor Call ceremony is manually triggered and is the first ceremony, which defines the project vision and initial scope. This ceremony uses an AI-powered interactive questionnaire to create a an initial documentation, which once validated will be used by the next ceremony for creating first work items.
+The Sponsor Call ceremony is the first ceremony that defines the project vision and initial scope. This ceremony uses an AI-powered interactive questionnaire to create initial documentation, which will be used by subsequent ceremonies for creating work items.
+
+**Two-step process:**
+
+1. **Setup project structure** (`/init`):
+   - Creates `.avc/` folder and configuration files
+   - Creates `.env` file for API keys
+   - No AI/LLM calls, no API keys required
+
+2. **Run Sponsor Call ceremony** (`/sponsor-call`):
+   - Interactive questionnaire with AI assistance
+   - Generates project definition document
+   - Requires API keys to be configured
+
+This separation allows users to set up the project structure first, configure their API keys, and then run the AI-powered ceremony.
 
 ##### Ceremony stakeholders
 

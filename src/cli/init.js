@@ -34,6 +34,47 @@ class ProjectInitiator {
   }
 
   /**
+   * Get the current AVC package version
+   */
+  getAvcVersion() {
+    try {
+      const packagePath = path.join(__dirname, '../package.json');
+      const packageJson = JSON.parse(fs.readFileSync(packagePath, 'utf8'));
+      return packageJson.version;
+    } catch (error) {
+      return 'unknown';
+    }
+  }
+
+  /**
+   * Deep merge objects - adds new keys, preserves existing values
+   * @param {Object} target - The target object (user's config)
+   * @param {Object} source - The source object (default config)
+   * @returns {Object} Merged object
+   */
+  deepMerge(target, source) {
+    const result = { ...target };
+
+    for (const key in source) {
+      if (source.hasOwnProperty(key)) {
+        if (key in result) {
+          // Key exists in target
+          if (typeof source[key] === 'object' && !Array.isArray(source[key]) && source[key] !== null) {
+            // Recursively merge objects
+            result[key] = this.deepMerge(result[key], source[key]);
+          }
+          // else: Keep existing value (don't overwrite)
+        } else {
+          // New key - add it
+          result[key] = source[key];
+        }
+      }
+    }
+
+    return result;
+  }
+
+  /**
    * Check if .avc folder exists
    */
   hasAvcFolder() {
@@ -61,29 +102,32 @@ class ProjectInitiator {
   }
 
   /**
-   * Create avc.json with default settings
+   * Create or update avc.json with default settings
+   * Merges new attributes from version updates while preserving existing values
    */
   createAvcConfig() {
-    if (!this.hasAvcConfig()) {
-      const defaultConfig = {
-        version: '1.0.0',
-        projectName: this.getProjectName(),
-        framework: 'avc',
-        created: new Date().toISOString(),
-        settings: {
-          contextScopes: ['epic', 'story', 'task', 'subtask'],
-          workItemStatuses: ['ready', 'pending', 'implementing', 'implemented', 'testing', 'completed', 'blocked', 'feedback'],
-          agentTypes: ['product-owner', 'server', 'client', 'infrastructure', 'testing'],
-          ceremonies: [
-            {
-              name: 'sponsor-call',
-              defaultModel: 'claude-sonnet-4-5-20250929',
-              provider: 'claude'
-            }
-          ]
-        }
-      };
+    const defaultConfig = {
+      version: '1.0.0',
+      avcVersion: this.getAvcVersion(),
+      projectName: this.getProjectName(),
+      framework: 'avc',
+      created: new Date().toISOString(),
+      settings: {
+        contextScopes: ['epic', 'story', 'task', 'subtask'],
+        workItemStatuses: ['ready', 'pending', 'implementing', 'implemented', 'testing', 'completed', 'blocked', 'feedback'],
+        agentTypes: ['product-owner', 'server', 'client', 'infrastructure', 'testing'],
+        ceremonies: [
+          {
+            name: 'sponsor-call',
+            defaultModel: 'claude-sonnet-4-5-20250929',
+            provider: 'claude'
+          }
+        ]
+      }
+    };
 
+    if (!this.hasAvcConfig()) {
+      // Create new config
       fs.writeFileSync(
         this.avcConfigPath,
         JSON.stringify(defaultConfig, null, 2),
@@ -92,8 +136,35 @@ class ProjectInitiator {
       console.log('✓ Created .avc/avc.json configuration file');
       return true;
     }
-    console.log('✓ .avc/avc.json already exists');
-    return false;
+
+    // Config exists - check for merge
+    try {
+      const existingConfig = JSON.parse(fs.readFileSync(this.avcConfigPath, 'utf8'));
+
+      // Merge: add new keys, keep existing values
+      const mergedConfig = this.deepMerge(existingConfig, defaultConfig);
+
+      // Update avcVersion to track CLI version
+      mergedConfig.avcVersion = this.getAvcVersion();
+      mergedConfig.updated = new Date().toISOString();
+
+      // Check if anything changed
+      const existingJson = JSON.stringify(existingConfig, null, 2);
+      const mergedJson = JSON.stringify(mergedConfig, null, 2);
+
+      if (existingJson !== mergedJson) {
+        fs.writeFileSync(this.avcConfigPath, mergedJson, 'utf8');
+        console.log('✓ Updated .avc/avc.json with new configuration attributes');
+        return true;
+      }
+
+      console.log('✓ .avc/avc.json is up to date');
+      return false;
+    } catch (error) {
+      console.error(`⚠️  Warning: Could not merge avc.json: ${error.message}`);
+      console.log('✓ .avc/avc.json already exists (merge skipped)');
+      return false;
+    }
   }
 
   /**
@@ -292,46 +363,74 @@ GEMINI_API_KEY=
   }
 
   /**
-   * Initialize the AVC project
+   * Initialize the AVC project structure (no API keys required)
+   * Creates .avc folder, avc.json config, .env file, and gitignore entry
    */
   async init() {
-    console.log('\n🚀 AVC Project Initiator - Sponsor Call Ceremony\n');
+    console.log('\n🚀 AVC Project Initiator\n');
     console.log(`Project directory: ${this.projectRoot}\n`);
+
+    if (this.isAvcProject()) {
+      // Project already initialized
+      console.log('✓ AVC project already initialized');
+      console.log('\nProject is ready to use.');
+      return;
+    }
+
+    console.log('Initializing AVC project structure...\n');
+
+    // Create .avc folder
+    this.createAvcFolder();
+
+    // Create or update avc.json
+    this.createAvcConfig();
+
+    // Create .env file for API keys (if it doesn't exist)
+    this.createEnvFile();
+
+    // Add .env to .gitignore if git repository
+    this.addToGitignore();
+
+    console.log('\n✅ AVC project structure created successfully!\n');
+    console.log('Next steps:');
+    console.log('  1. Open .env file and add your API key(s)');
+    console.log('     • ANTHROPIC_API_KEY for Claude');
+    console.log('     • GEMINI_API_KEY for Gemini');
+    console.log('  2. Run /sponsor-call to define your project\n');
+  }
+
+  /**
+   * Run Sponsor Call ceremony to define project with AI assistance
+   * Requires API keys to be configured in .env file
+   */
+  async sponsorCall() {
+    console.log('\n🎯 Sponsor Call Ceremony\n');
+    console.log(`Project directory: ${this.projectRoot}\n`);
+
+    // Check if project is initialized
+    if (!this.isAvcProject()) {
+      console.log('❌ Project not initialized\n');
+      console.log('   Please run /init first to create the project structure.\n');
+      process.exit(1);
+    }
 
     let progress = null;
 
-    // Check for incomplete initialization
+    // Check for incomplete ceremony
     if (this.hasIncompleteInit()) {
       progress = this.readProgress();
 
       if (progress && progress.stage !== 'completed') {
-        console.log('⚠️  Found incomplete initialization from previous session');
+        console.log('⚠️  Found incomplete ceremony from previous session');
         console.log(`   Last activity: ${new Date(progress.lastUpdate).toLocaleString()}`);
         console.log(`   Stage: ${progress.stage}`);
         console.log(`   Progress: ${progress.answeredQuestions || 0}/${progress.totalQuestions || 0} questions answered`);
         console.log('\n▶️  Continuing from where you left off...\n');
       }
-    } else if (this.isAvcProject()) {
-      // No incomplete progress but project exists - already initialized
-      console.log('✓ AVC project already initialized');
-      console.log('\nProject is ready to use.');
-      return;
     } else {
       // Fresh start
-      console.log('Initializing AVC project...\n');
+      console.log('Starting Sponsor Call ceremony...\n');
     }
-
-    // Create .avc folder
-    this.createAvcFolder();
-
-    // Create avc.json
-    this.createAvcConfig();
-
-    // Create .env file for API keys
-    this.createEnvFile();
-
-    // Add .env to .gitignore if git repository
-    this.addToGitignore();
 
     // Validate API key before starting ceremony
     const validationResult = await this.validateProviderApiKey();
@@ -362,7 +461,7 @@ GEMINI_API_KEY=
     this.writeProgress(progress);
     this.clearProgress();
 
-    console.log('\n✅ AVC project initialized successfully!');
+    console.log('\n✅ Project defined successfully!');
     console.log('\nNext steps:');
     console.log('  1. Review .avc/project/doc.md for your project definition');
     console.log('  2. Review .avc/avc.json configuration');
@@ -402,11 +501,14 @@ if (import.meta.url === `file://${process.argv[1]}`) {
     case 'init':
       initiator.init();
       break;
+    case 'sponsor-call':
+      initiator.sponsorCall();
+      break;
     case 'status':
       initiator.status();
       break;
     default:
-      console.log('Unknown command. Available commands: init, status');
+      console.log('Unknown command. Available commands: init, sponsor-call, status');
       process.exit(1);
   }
 }
