@@ -1,8 +1,6 @@
 # Contributing to Agile Vibe Coding (AVC)
 
-Thank you for your interest in contributing to the Agile Vibe Coding CLI! This project provides a command-line tool for managing AI-agent-based software development with structured ceremonies and workflows.
-
----
+Thank you for your interest in contributing to the Agile Vibe Coding framework! 
 
 ## Table of Contents
 
@@ -13,8 +11,6 @@ Thank you for your interest in contributing to the Agile Vibe Coding CLI! This p
 - [Testing Guidelines](#testing-guidelines)
 - [Pull Request Process](#pull-request-process)
 - [Code of Conduct](#code-of-conduct)
-
----
 
 ## Ways to Contribute
 
@@ -48,19 +44,8 @@ Have an idea? [Open a feature request](https://github.com/NachoColl/agilevibecod
 - Use case and benefits
 - Proposed implementation approach (optional)
 
----
 
-## Getting Started
-
-### Prerequisites
-
-- **Node.js** >= 18.0.0 and npm
-- **Git** and GitHub account
-- **JavaScript/ES6+** knowledge
-- Familiarity with async/await patterns
-- Experience with CLI tools (helpful)
-
-### Fork and Clone
+## Fork and Clone
 
 1. **Fork** the repository on GitHub
 2. **Clone** your fork locally:
@@ -72,8 +57,6 @@ Have an idea? [Open a feature request](https://github.com/NachoColl/agilevibecod
    ```bash
    git remote add upstream https://github.com/NachoColl/agilevibecoding.git
    ```
-
----
 
 ## Development Setup
 
@@ -131,7 +114,6 @@ npm run docs:preview  # Preview production build
 
 Visit `http://localhost:5173` to see the docs site.
 
----
 
 ## Code Standards
 

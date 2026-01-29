@@ -8,6 +8,7 @@ on:
       - 'README.md'
       - 'COMMANDS.md'
       - 'INSTALL.md'
+      - 'CONTRIBUTING.md'
       - 'docs/**'
       - '.github/workflows/deploy-pages.yml'
       - 'package.json'
