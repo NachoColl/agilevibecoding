@@ -31,11 +31,6 @@ export default defineConfig({
         items: [
           { text: 'Install', link: '/install' },
           { text: 'CLI Commands', link: '/commands' },
-        ]
-      },
-      {
-        text: 'Community',
-        items: [
           { text: 'Contributing', link: '/contribute' },
         ]
       },
