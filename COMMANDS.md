@@ -30,9 +30,7 @@ Next steps:
 
 ## /sponsor-call
 
-Run the Sponsor Call ceremony to define your project with AI assistance.
-
-**Prerequisite:** Run `/init` first and configure API keys in `.env` file.
+Run the [Sponsor Call](README.md#sponsor-call-project-initialization) ceremony to define your project with AI assistance.
 
 ```sh
 > /sponsor-call
@@ -40,9 +38,8 @@ Run the Sponsor Call ceremony to define your project with AI assistance.
 
 ### What it does
 
-The Sponsor Call ceremony creates the foundation of your project: initial context scope, work items, and comprehensive documentation. It guides you through an interactive questionnaire to capture your project vision.
+The [Sponsor Call](README.md#sponsor-call-project-initialization) ceremony creates the foundation of your project: initial context scope, work items, and comprehensive documentation. It guides you through an interactive questionnaire to capture your project vision.
 
-The ceremony collects five inputs through a questionnaire:
 
 | # | Variable | Description |
 |---|----------|-------------|
