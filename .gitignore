@@ -24,3 +24,5 @@ npm-debug.log*
 # Editor directories
 .vscode/
 .idea/
+
+_temp/

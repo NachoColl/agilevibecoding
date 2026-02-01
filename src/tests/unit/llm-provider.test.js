@@ -174,7 +174,7 @@ describe('LLMProvider Factory', () => {
 
       await provider.generate('test', 100);
 
-      expect(spy).toHaveBeenCalledWith('test', 100);
+      expect(spy).toHaveBeenCalledWith('test', 100, null);
     });
 
     it('uses default maxTokens when not provided', async () => {
@@ -183,7 +183,16 @@ describe('LLMProvider Factory', () => {
 
       await provider.generate('test');
 
-      expect(spy).toHaveBeenCalledWith('test', 256);
+      expect(spy).toHaveBeenCalledWith('test', 256, null);
+    });
+
+    it('passes systemInstructions when provided', async () => {
+      const provider = await LLMProvider.create('claude', 'claude-sonnet-4-5-20250929');
+      const spy = vi.spyOn(provider, '_callProvider').mockResolvedValue('response');
+
+      await provider.generate('test', 256, 'You are a helpful assistant');
+
+      expect(spy).toHaveBeenCalledWith('test', 256, 'You are a helpful assistant');
     });
   });
 

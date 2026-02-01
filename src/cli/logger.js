@@ -5,31 +5,48 @@ import os from 'os';
 /**
  * Logger - Writes debug and error logs to file
  *
- * Log location: ~/.avc/logs/avc.log
+ * Log location: <project>/.avc/logs/avc.log (or ~/.avc/logs/avc.log if no project)
  * Log rotation: Keeps last 10MB, rotates to avc.log.old
  */
 export class Logger {
-  constructor(componentName = 'AVC') {
+  constructor(componentName = 'AVC', projectRoot = null) {
     this.componentName = componentName;
-    this.logDir = path.join(os.homedir(), '.avc', 'logs');
+
+    // Only log if .avc folder exists - don't create it, don't use fallback
+    const baseDir = projectRoot || process.cwd();
+    const projectAvcDir = path.join(baseDir, '.avc');
+
+    if (!fs.existsSync(projectAvcDir)) {
+      // No .avc folder - disable logging
+      this.loggingDisabled = true;
+      return;
+    }
+
+    // .avc exists, set up logging
+    this.logDir = path.join(projectAvcDir, 'logs');
     this.logFile = path.join(this.logDir, 'avc.log');
     this.maxLogSize = 10 * 1024 * 1024; // 10MB
+    this.loggingDisabled = false;
 
     this.ensureLogDir();
   }
 
   ensureLogDir() {
+    if (this.loggingDisabled) return;
+
     try {
       if (!fs.existsSync(this.logDir)) {
         fs.mkdirSync(this.logDir, { recursive: true });
       }
     } catch (error) {
       // Silently fail if we can't create log directory
-      console.error('Failed to create log directory:', error.message);
+      this.loggingDisabled = true;
     }
   }
 
   rotateLogIfNeeded() {
+    if (this.loggingDisabled) return;
+
     try {
       if (fs.existsSync(this.logFile)) {
         const stats = fs.statSync(this.logFile);
@@ -71,13 +88,17 @@ export class Logger {
   }
 
   writeLog(level, message, data = null) {
+    // Skip logging if directory creation failed
+    if (this.loggingDisabled) return;
+
     try {
       this.rotateLogIfNeeded();
       const logMessage = this.formatMessage(level, message, data);
       fs.appendFileSync(this.logFile, logMessage, 'utf8');
     } catch (error) {
       // Silently fail if we can't write to log
-      console.error('Failed to write log:', error.message);
+      // Disable further logging attempts to avoid repeated errors
+      this.loggingDisabled = true;
     }
   }
 
@@ -99,6 +120,10 @@ export class Logger {
 
   // Read recent logs (last N lines)
   readRecentLogs(lines = 50) {
+    if (this.loggingDisabled) {
+      return 'No logs available (project not initialized).';
+    }
+
     try {
       if (!fs.existsSync(this.logFile)) {
         return 'No logs available yet.';
@@ -116,6 +141,8 @@ export class Logger {
 
   // Clear all logs
   clearLogs() {
+    if (this.loggingDisabled) return;
+
     try {
       if (fs.existsSync(this.logFile)) {
         fs.unlinkSync(this.logFile);

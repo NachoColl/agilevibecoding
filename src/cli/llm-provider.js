@@ -22,11 +22,11 @@ export class LLMProvider {
   }
 
   // Public API — single method, callers never touch SDK objects
-  async generate(prompt, maxTokens = 256) {
+  async generate(prompt, maxTokens = 256, systemInstructions = null) {
     if (!this._client) {
       this._client = this._createClient();
     }
-    return this._callProvider(prompt, maxTokens);
+    return this._callProvider(prompt, maxTokens, systemInstructions);
   }
 
   // Validate API key and provider connectivity with a minimal test call
@@ -59,5 +59,5 @@ export class LLMProvider {
 
   // Subclass hooks — throw if not overridden
   _createClient() { throw new Error(`${this.constructor.name} must implement _createClient()`); }
-  async _callProvider() { throw new Error(`${this.constructor.name} must implement _callProvider()`); }
+  async _callProvider(prompt, maxTokens, systemInstructions) { throw new Error(`${this.constructor.name} must implement _callProvider()`); }
 }

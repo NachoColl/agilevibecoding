@@ -20,7 +20,7 @@ const __dirname = path.dirname(__filename);
  * 6. Write to .avc/project/doc.md
  */
 class TemplateProcessor {
-  constructor(progressPath = null) {
+  constructor(progressPath = null, nonInteractive = false) {
     // Load environment variables from project .env
     dotenv.config({ path: path.join(process.cwd(), '.env') });
 
@@ -29,6 +29,7 @@ class TemplateProcessor {
     this.outputPath = path.join(this.outputDir, 'doc.md');
     this.avcConfigPath = path.join(process.cwd(), '.avc/avc.json');
     this.progressPath = progressPath;
+    this.nonInteractive = nonInteractive;
 
     // Read model configuration from avc.json
     const { provider, model } = this.readModelConfig();
@@ -65,6 +66,51 @@ class TemplateProcessor {
       return ceremony?.guidelines || {};
     } catch (error) {
       return {};
+    }
+  }
+
+  /**
+   * Load agent instructions from markdown file
+   * @param {string} agentFileName - Filename in src/cli/agents/
+   * @returns {string|null} - Agent instructions content or null if not found
+   */
+  loadAgentInstructions(agentFileName) {
+    try {
+      const agentPath = path.join(__dirname, 'agents', agentFileName);
+      if (!fs.existsSync(agentPath)) {
+        console.warn(`⚠️  Agent instruction file not found: ${agentFileName}`);
+        return null;
+      }
+      return fs.readFileSync(agentPath, 'utf8');
+    } catch (error) {
+      console.warn(`⚠️  Could not load agent instructions: ${error.message}`);
+      return null;
+    }
+  }
+
+  /**
+   * Get agent instructions for a specific ceremony stage
+   * @param {string} stage - Ceremony stage (e.g., 'enhancement', 'suggestion', 'validation')
+   * @returns {string|null} - Agent instructions or null if not configured/found
+   */
+  getAgentForStage(stage) {
+    try {
+      const config = JSON.parse(fs.readFileSync(this.avcConfigPath, 'utf8'));
+      const ceremony = config.settings?.ceremonies?.[0];
+
+      if (!ceremony?.agents || ceremony.agents.length === 0) {
+        return null;
+      }
+
+      const agent = ceremony.agents.find(a => a.stage === stage);
+      if (!agent) {
+        return null;
+      }
+
+      return this.loadAgentInstructions(agent.instruction);
+    } catch (error) {
+      console.warn(`⚠️  Could not get agent for stage ${stage}: ${error.message}`);
+      return null;
     }
   }
 
@@ -317,13 +363,24 @@ class TemplateProcessor {
   async promptUser(variable, context) {
     let value;
 
-    if (variable.isPlural) {
-      value = await this.promptPlural(variable.displayName, variable.guidance);
+    // In non-interactive mode, skip readline prompts and use guidelines/AI
+    if (this.nonInteractive) {
+      console.log(`\n📝 ${variable.displayName}`);
+      if (variable.guidance) {
+        console.log(`   ${variable.guidance}`);
+      }
+      console.log('   Generating AI response...');
+      value = null; // Force AI generation
     } else {
-      value = await this.promptSingular(variable.displayName, variable.guidance);
+      // Interactive mode - use readline prompts
+      if (variable.isPlural) {
+        value = await this.promptPlural(variable.displayName, variable.guidance);
+      } else {
+        value = await this.promptSingular(variable.displayName, variable.guidance);
+      }
     }
 
-    // If user skipped, try to use guideline or generate AI suggestions
+    // If user skipped (or non-interactive mode), try to use guideline or generate AI suggestions
     if (value === null) {
       // Check if there's a guideline for this variable
       const guidelines = this.readGuidelines();
@@ -396,13 +453,32 @@ class TemplateProcessor {
   async generateFinalDocument(templateWithValues) {
     if (!this.llmProvider && !(await this.initializeLLMProvider())) {
       // No provider available - save template as-is
+      console.log('\n⚠️  AI enhancement skipped (no LLM provider available)');
       return templateWithValues;
     }
 
     console.log('\n🤖 Enhancing document with AI...');
 
     try {
-      const prompt = `You are creating a project definition document for an Agile Vibe Coding (AVC) project.
+      // Try to load agent instructions for enhancement stage
+      const agentInstructions = this.getAgentForStage('enhancement');
+
+      if (agentInstructions) {
+        console.log('   Using custom agent instructions for enhancement');
+        // Use agent instructions as system context
+        const userPrompt = `Here is the project information with all variables filled in:
+
+${templateWithValues}
+
+Please review and enhance this document according to your role.`;
+
+        const enhanced = await this.llmProvider.generate(userPrompt, 4096, agentInstructions);
+        console.log('   ✓ Document enhanced successfully');
+        return enhanced;
+      } else {
+        console.log('   Using default enhancement instructions');
+        // Fallback to legacy hardcoded prompt for backward compatibility
+        const legacyPrompt = `You are creating a project definition document for an Agile Vibe Coding (AVC) project.
 
 Here is the project information with all variables filled in:
 
@@ -416,9 +492,13 @@ Please review and enhance this document to ensure:
 
 Return the enhanced markdown document.`;
 
-      return await this.llmProvider.generate(prompt, 4096);
+        const enhanced = await this.llmProvider.generate(legacyPrompt, 4096);
+        console.log('   ✓ Document enhanced successfully');
+        return enhanced;
+      }
     } catch (error) {
-      console.warn(`⚠️  Could not enhance document: ${error.message}`);
+      console.warn(`\n⚠️  Could not enhance document: ${error.message}`);
+      console.log('   Using template without AI enhancement');
       return templateWithValues;
     }
   }
@@ -429,6 +509,67 @@ Return the enhanced markdown document.`;
   saveProgress(progress) {
     if (this.progressPath) {
       fs.writeFileSync(this.progressPath, JSON.stringify(progress, null, 2), 'utf8');
+    }
+  }
+
+  /**
+   * Sync project documentation to VitePress documentation folder
+   */
+  syncToVitePress(content) {
+    try {
+      const docsDir = path.join(process.cwd(), '.avc/documentation');
+      const indexPath = path.join(docsDir, 'index.md');
+
+      // Check if documentation folder exists
+      if (!fs.existsSync(docsDir)) {
+        console.log('   ℹ️  VitePress documentation folder not found, skipping sync');
+        return false;
+      }
+
+      // Write to .avc/documentation/index.md
+      fs.writeFileSync(indexPath, content, 'utf8');
+      console.log(`   ✓ Synced to .avc/documentation/index.md`);
+      return true;
+    } catch (error) {
+      console.warn(`   ⚠️  Could not sync to VitePress: ${error.message}`);
+      return false;
+    }
+  }
+
+  /**
+   * Build VitePress documentation site
+   */
+  async buildVitePress() {
+    try {
+      const docsDir = path.join(process.cwd(), '.avc/documentation');
+      const packagePath = path.join(process.cwd(), 'package.json');
+
+      // Check if VitePress is configured
+      if (!fs.existsSync(docsDir) || !fs.existsSync(packagePath)) {
+        return false;
+      }
+
+      const packageJson = JSON.parse(fs.readFileSync(packagePath, 'utf8'));
+      if (!packageJson.scripts?.['docs:build']) {
+        return false;
+      }
+
+      console.log('\n📚 Building VitePress documentation...');
+
+      // Import execSync for running build command
+      const { execSync } = await import('child_process');
+
+      // Run VitePress build
+      execSync('npm run docs:build', {
+        cwd: process.cwd(),
+        stdio: 'inherit'
+      });
+
+      console.log('✓ VitePress build completed');
+      return true;
+    } catch (error) {
+      console.warn(`⚠️  VitePress build failed: ${error.message}`);
+      return false;
     }
   }
 
@@ -446,6 +587,14 @@ Return the enhanced markdown document.`;
 
     console.log(`\n✅ Project document generated!`);
     console.log(`   Location: ${this.outputPath}`);
+
+    // Sync to VitePress if configured
+    const synced = this.syncToVitePress(content);
+
+    // Optionally build VitePress (commented out by default to avoid slow builds during dev)
+    // if (synced) {
+    //   await this.buildVitePress();
+    // }
   }
 
   /**
@@ -467,38 +616,64 @@ Return the enhanced markdown document.`;
     if (initialProgress && initialProgress.collectedValues) {
       collectedValues = { ...initialProgress.collectedValues };
       answeredCount = Object.keys(collectedValues).length;
-      console.log(`Resuming with ${answeredCount}/${variables.length} questions already answered.\n`);
+
+      // Check if ALL answers are pre-filled (from REPL questionnaire)
+      if (answeredCount === variables.length) {
+        console.log(`✅ Using ${answeredCount} pre-filled answers from questionnaire.\n`);
+
+        // Use pre-filled answers, but still allow AI enhancement for skipped (null) answers
+        for (const variable of variables) {
+          if (collectedValues[variable.name] === null) {
+            console.log(`\n📝 ${variable.displayName}`);
+            console.log('   Generating AI suggestion...');
+            const aiValue = await this.generateSuggestions(variable.name, variable.isPlural, collectedValues);
+            collectedValues[variable.name] = aiValue || '';
+          }
+        }
+      } else {
+        console.log(`Resuming with ${answeredCount}/${variables.length} questions already answered.\n`);
+
+        // Continue with normal interactive flow for remaining questions
+        for (const variable of variables) {
+          if (collectedValues[variable.name] === undefined) {
+            const result = await this.promptUser(variable, collectedValues);
+            collectedValues[result.variable] = result.value;
+            answeredCount++;
+
+            // Save progress after each question
+            if (this.progressPath) {
+              const progress = {
+                stage: 'questionnaire',
+                totalQuestions: variables.length,
+                answeredQuestions: answeredCount,
+                collectedValues: collectedValues,
+                lastUpdate: new Date().toISOString()
+              };
+              this.saveProgress(progress);
+            }
+          }
+        }
+      }
     } else {
       console.log(`Found ${variables.length} sections to complete.\n`);
-    }
 
-    // 4. Collect values with context accumulation
-    for (const variable of variables) {
-      // Skip already answered questions when resuming
-      if (collectedValues[variable.name] !== undefined) {
-        console.log(`\n✓ ${variable.displayName}`);
-        console.log(`   Using previous answer: ${
-          Array.isArray(collectedValues[variable.name])
-            ? `${collectedValues[variable.name].length} items`
-            : `"${collectedValues[variable.name].substring(0, 60)}${collectedValues[variable.name].length > 60 ? '...' : ''}"`
-        }`);
-        continue;
-      }
+      // 4. Collect values with context accumulation
+      for (const variable of variables) {
+        const result = await this.promptUser(variable, collectedValues);
+        collectedValues[result.variable] = result.value;
+        answeredCount++;
 
-      const result = await this.promptUser(variable, collectedValues);
-      collectedValues[result.variable] = result.value;
-      answeredCount++;
-
-      // Save progress after each question
-      if (this.progressPath) {
-        const progress = {
-          stage: 'questionnaire',
-          totalQuestions: variables.length,
-          answeredQuestions: answeredCount,
-          collectedValues: collectedValues,
-          lastUpdate: new Date().toISOString()
-        };
-        this.saveProgress(progress);
+        // Save progress after each question
+        if (this.progressPath) {
+          const progress = {
+            stage: 'questionnaire',
+            totalQuestions: variables.length,
+            answeredQuestions: answeredCount,
+            collectedValues: collectedValues,
+            lastUpdate: new Date().toISOString()
+          };
+          this.saveProgress(progress);
+        }
       }
     }
 

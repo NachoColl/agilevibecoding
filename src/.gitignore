@@ -1,2 +1,5 @@
 # Environment variables
 .env
+
+# Test API keys
+tests/.env-test/.env

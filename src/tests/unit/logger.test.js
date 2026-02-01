@@ -5,6 +5,7 @@ import os from 'os';
 
 describe('Logger', () => {
   let Logger;
+  let existsSyncSpy;
 
   beforeEach(async () => {
     // Dynamically import Logger
@@ -12,7 +13,7 @@ describe('Logger', () => {
     Logger = module.Logger;
 
     // Mock file system operations
-    vi.spyOn(fs, 'existsSync').mockReturnValue(false);
+    existsSyncSpy = vi.spyOn(fs, 'existsSync');
     vi.spyOn(fs, 'statSync').mockReturnValue({ size: 0 });
     vi.spyOn(fs, 'mkdirSync').mockImplementation(() => {});
     vi.spyOn(fs, 'renameSync').mockImplementation(() => {});
@@ -28,40 +29,72 @@ describe('Logger', () => {
 
   describe('constructor', () => {
     it('stores component name', () => {
+      existsSyncSpy.mockReturnValue(true);
       const logger = new Logger('TestComponent');
 
       expect(logger.componentName).toBe('TestComponent');
     });
 
     it('defaults to "AVC" when no name provided', () => {
+      existsSyncSpy.mockReturnValue(true);
       const logger = new Logger();
 
       expect(logger.componentName).toBe('AVC');
     });
 
-    it('sets log file path to ~/.avc/logs/avc.log', () => {
+    it('sets log file path when .avc exists', () => {
+      existsSyncSpy.mockReturnValue(true);
       const logger = new Logger();
 
-      expect(logger.logFile).toBe(path.join(os.homedir(), '.avc', 'logs', 'avc.log'));
+      expect(logger.logFile).toBe(path.join(process.cwd(), '.avc', 'logs', 'avc.log'));
     });
 
-    it('sets maxLogSize to 10MB', () => {
+    it('sets maxLogSize to 10MB when .avc exists', () => {
+      existsSyncSpy.mockReturnValue(true);
       const logger = new Logger();
 
       expect(logger.maxLogSize).toBe(10 * 1024 * 1024);
     });
 
-    it('creates log directory on initialization', () => {
+    it('creates log directory when .avc exists', () => {
+      // Mock: .avc exists but logs/ subdirectory doesn't exist yet
+      existsSyncSpy.mockImplementation((path) => {
+        return !path.includes('logs'); // .avc exists, but .avc/logs doesn't
+      });
       const mkdirSpy = vi.spyOn(fs, 'mkdirSync');
 
       new Logger('Test');
 
       expect(mkdirSpy).toHaveBeenCalled();
     });
+
+    it('disables logging when .avc does not exist', () => {
+      existsSyncSpy.mockReturnValue(false);
+      const logger = new Logger('Test');
+
+      expect(logger.loggingDisabled).toBe(true);
+    });
+
+    it('does not create log directory when .avc does not exist', () => {
+      existsSyncSpy.mockReturnValue(false);
+      const mkdirSpy = vi.spyOn(fs, 'mkdirSync');
+
+      new Logger('Test');
+
+      expect(mkdirSpy).not.toHaveBeenCalled();
+    });
+
+    it('enables logging when .avc exists', () => {
+      existsSyncSpy.mockReturnValue(true);
+      const logger = new Logger('Test');
+
+      expect(logger.loggingDisabled).toBe(false);
+    });
   });
 
   describe('formatMessage()', () => {
     it('formats message with timestamp and level', () => {
+      existsSyncSpy.mockReturnValue(true);
       const logger = new Logger('Test');
 
       const formatted = logger.formatMessage('INFO', 'Test message');
@@ -73,6 +106,7 @@ describe('Logger', () => {
     });
 
     it('includes component name in message', () => {
+      existsSyncSpy.mockReturnValue(true);
       const logger = new Logger('MyComponent');
 
       const formatted = logger.formatMessage('ERROR', 'Error occurred');
@@ -81,6 +115,7 @@ describe('Logger', () => {
     });
 
     it('appends newline to message', () => {
+      existsSyncSpy.mockReturnValue(true);
       const logger = new Logger('Test');
 
       const formatted = logger.formatMessage('DEBUG', 'Debug info');
@@ -89,6 +124,7 @@ describe('Logger', () => {
     });
 
     it('includes error stack when data is Error', () => {
+      existsSyncSpy.mockReturnValue(true);
       const logger = new Logger('Test');
       const error = new Error('Test error');
 
@@ -99,6 +135,7 @@ describe('Logger', () => {
     });
 
     it('stringifies object data', () => {
+      existsSyncSpy.mockReturnValue(true);
       const logger = new Logger('Test');
       const data = { key: 'value', nested: { prop: 123 } };
 
@@ -110,7 +147,8 @@ describe('Logger', () => {
   });
 
   describe('writeLog()', () => {
-    it('writes formatted message to log file', () => {
+    it('writes formatted message to log file when logging enabled', () => {
+      existsSyncSpy.mockReturnValue(true);
       const logger = new Logger('Test');
       const appendSpy = vi.spyOn(fs, 'appendFileSync');
 
@@ -123,7 +161,19 @@ describe('Logger', () => {
       expect(call[1]).toContain('Test message');
     });
 
+    it('skips writing when logging disabled (.avc does not exist)', () => {
+      existsSyncSpy.mockReturnValue(false);
+      const logger = new Logger('Test');
+      const appendSpy = vi.spyOn(fs, 'appendFileSync');
+
+      logger.writeLog('INFO', 'Test message');
+
+      expect(logger.loggingDisabled).toBe(true);
+      expect(appendSpy).not.toHaveBeenCalled();
+    });
+
     it('checks rotation before writing', () => {
+      existsSyncSpy.mockReturnValue(true);
       const logger = new Logger('Test');
       const rotateSpy = vi.spyOn(logger, 'rotateLogIfNeeded');
 
@@ -133,6 +183,7 @@ describe('Logger', () => {
     });
 
     it('handles write errors gracefully', () => {
+      existsSyncSpy.mockReturnValue(true);
       const logger = new Logger('Test');
 
       vi.spyOn(fs, 'appendFileSync').mockImplementation(() => {
@@ -146,6 +197,7 @@ describe('Logger', () => {
 
   describe('rotateLogIfNeeded()', () => {
     it('renames log file when size exceeds limit', () => {
+      existsSyncSpy.mockReturnValue(true);
       const logger = new Logger('Test');
 
       vi.spyOn(fs, 'existsSync').mockReturnValue(true);
@@ -162,6 +214,7 @@ describe('Logger', () => {
     });
 
     it('does not rotate when file is under size limit', () => {
+      existsSyncSpy.mockReturnValue(true);
       const logger = new Logger('Test');
 
       vi.spyOn(fs, 'existsSync').mockReturnValue(true);
@@ -175,6 +228,7 @@ describe('Logger', () => {
     });
 
     it('does not rotate when log file does not exist', () => {
+      existsSyncSpy.mockReturnValue(true);
       const logger = new Logger('Test');
 
       vi.spyOn(fs, 'existsSync').mockReturnValue(false);
@@ -187,6 +241,7 @@ describe('Logger', () => {
     });
 
     it('deletes old backup before rotating', () => {
+      existsSyncSpy.mockReturnValue(true);
       const logger = new Logger('Test');
 
       vi.spyOn(fs, 'existsSync').mockImplementation((path) => true);
@@ -200,6 +255,7 @@ describe('Logger', () => {
     });
 
     it('handles rotation errors gracefully', () => {
+      existsSyncSpy.mockReturnValue(true);
       const logger = new Logger('Test');
 
       vi.spyOn(fs, 'existsSync').mockReturnValue(true);
@@ -215,6 +271,7 @@ describe('Logger', () => {
 
   describe('Convenience methods', () => {
     it('info() calls writeLog with INFO level', () => {
+      existsSyncSpy.mockReturnValue(true);
       const logger = new Logger('Test');
 
       const writeSpy = vi.spyOn(logger, 'writeLog');
@@ -225,6 +282,7 @@ describe('Logger', () => {
     });
 
     it('warn() calls writeLog with WARN level', () => {
+      existsSyncSpy.mockReturnValue(true);
       const logger = new Logger('Test');
 
       const writeSpy = vi.spyOn(logger, 'writeLog');
@@ -235,6 +293,7 @@ describe('Logger', () => {
     });
 
     it('error() calls writeLog with ERROR level', () => {
+      existsSyncSpy.mockReturnValue(true);
       const logger = new Logger('Test');
 
       const writeSpy = vi.spyOn(logger, 'writeLog');
@@ -245,6 +304,7 @@ describe('Logger', () => {
     });
 
     it('debug() calls writeLog with DEBUG level', () => {
+      existsSyncSpy.mockReturnValue(true);
       const logger = new Logger('Test');
 
       const writeSpy = vi.spyOn(logger, 'writeLog');
@@ -255,6 +315,7 @@ describe('Logger', () => {
     });
 
     it('accepts optional data parameter', () => {
+      existsSyncSpy.mockReturnValue(true);
       const logger = new Logger('Test');
 
       const writeSpy = vi.spyOn(logger, 'writeLog');
@@ -268,6 +329,7 @@ describe('Logger', () => {
 
   describe('readRecentLogs()', () => {
     it('returns log content when file exists', () => {
+      existsSyncSpy.mockReturnValue(true);
       const logger = new Logger('Test');
 
       vi.spyOn(fs, 'existsSync').mockReturnValue(true);
@@ -280,7 +342,17 @@ describe('Logger', () => {
       expect(logs).toContain('Line 3');
     });
 
+    it('returns message when logging disabled', () => {
+      existsSyncSpy.mockReturnValue(false);
+      const logger = new Logger('Test');
+
+      const logs = logger.readRecentLogs();
+
+      expect(logs).toBe('No logs available (project not initialized).');
+    });
+
     it('returns message when no logs available', () => {
+      existsSyncSpy.mockReturnValue(true);
       const logger = new Logger('Test');
 
       vi.spyOn(fs, 'existsSync').mockReturnValue(false);
@@ -291,6 +363,7 @@ describe('Logger', () => {
     });
 
     it('limits to recent N lines', () => {
+      existsSyncSpy.mockReturnValue(true);
       const logger = new Logger('Test');
 
       const manyLines = Array.from({ length: 100 }, (_, i) => `Line ${i}`).join('\n');
@@ -307,7 +380,8 @@ describe('Logger', () => {
   });
 
   describe('clearLogs()', () => {
-    it('deletes main log file', () => {
+    it('deletes main log file when logging enabled', () => {
+      existsSyncSpy.mockReturnValue(true);
       const logger = new Logger('Test');
 
       vi.spyOn(fs, 'existsSync').mockReturnValue(true);
@@ -318,7 +392,19 @@ describe('Logger', () => {
       expect(unlinkSpy).toHaveBeenCalledWith(logger.logFile);
     });
 
+    it('does not delete files when logging disabled', () => {
+      existsSyncSpy.mockReturnValue(false);
+      const logger = new Logger('Test');
+      const unlinkSpy = vi.spyOn(fs, 'unlinkSync');
+
+      logger.clearLogs();
+
+      expect(logger.loggingDisabled).toBe(true);
+      expect(unlinkSpy).not.toHaveBeenCalled();
+    });
+
     it('deletes old log file', () => {
+      existsSyncSpy.mockReturnValue(true);
       const logger = new Logger('Test');
 
       vi.spyOn(fs, 'existsSync').mockReturnValue(true);
@@ -330,6 +416,7 @@ describe('Logger', () => {
     });
 
     it('handles missing files gracefully', () => {
+      existsSyncSpy.mockReturnValue(true);
       const logger = new Logger('Test');
 
       vi.spyOn(fs, 'existsSync').mockReturnValue(false);

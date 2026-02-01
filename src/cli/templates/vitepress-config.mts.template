@@ -1,0 +1,33 @@
+import { defineConfig } from 'vitepress'
+
+export default defineConfig({
+  title: '{{PROJECT_NAME}}',
+  description: 'Project documentation powered by Agile Vibe Coding',
+  base: '/',
+
+  // Custom head tags for AVC documentation identification
+  head: [
+    ['meta', { name: 'avc-documentation', content: 'true' }],
+    ['meta', { name: 'generator', content: 'Agile Vibe Coding' }]
+  ],
+
+  themeConfig: {
+    nav: [
+      { text: 'Home', link: '/' },
+      { text: 'Epics', link: '/epics' }
+    ],
+
+    sidebar: [
+      {
+        text: 'Project',
+        items: [
+          { text: 'Overview', link: '/' }
+        ]
+      }
+    ],
+
+    socialLinks: [
+      { icon: 'github', link: 'https://github.com/yourusername/yourproject' }
+    ]
+  }
+})

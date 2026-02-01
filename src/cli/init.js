@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 
+import dotenv from 'dotenv';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -23,7 +24,16 @@ class ProjectInitiator {
     this.projectRoot = projectRoot || process.cwd();
     this.avcDir = path.join(this.projectRoot, '.avc');
     this.avcConfigPath = path.join(this.avcDir, 'avc.json');
-    this.progressPath = path.join(this.avcDir, 'init-progress.json');
+    // Progress files are ceremony-specific
+    this.initProgressPath = path.join(this.avcDir, 'init-progress.json');
+    this.sponsorCallProgressPath = path.join(this.avcDir, 'sponsor-call-progress.json');
+
+    // Load environment variables from project .env file
+    // Use override: true to reload even if already set (user may have edited .env)
+    dotenv.config({
+      path: path.join(this.projectRoot, '.env'),
+      override: true
+    });
   }
 
   /**
@@ -116,11 +126,21 @@ class ProjectInitiator {
         contextScopes: ['epic', 'story', 'task', 'subtask'],
         workItemStatuses: ['ready', 'pending', 'implementing', 'implemented', 'testing', 'completed', 'blocked', 'feedback'],
         agentTypes: ['product-owner', 'server', 'client', 'infrastructure', 'testing'],
+        documentation: {
+          port: 4173
+        },
         ceremonies: [
           {
             name: 'sponsor-call',
             defaultModel: 'claude-sonnet-4-5-20250929',
             provider: 'claude',
+            agents: [
+              {
+                name: 'documentation',
+                instruction: 'documentation.md',
+                stage: 'enhancement'
+              }
+            ],
             guidelines: {
               technicalConsiderations: 'Use AWS serverless stack with Lambda functions for compute, API Gateway for REST APIs, DynamoDB for database, S3 for storage. Use CloudFormation for infrastructure definition and AWS CodePipeline/CodeBuild for CI/CD deployment.'
             }
@@ -220,34 +240,195 @@ GEMINI_API_KEY=
       gitignoreContent = fs.readFileSync(gitignorePath, 'utf8');
     }
 
-    // Check if .env is already in .gitignore
-    if (gitignoreContent.includes('.env')) {
-      console.log('✓ .env already in .gitignore');
-      return;
+    // Items to add to gitignore
+    const itemsToIgnore = [
+      { pattern: '.env', comment: 'Environment variables' },
+      { pattern: '.avc/documentation/.vitepress/dist', comment: 'VitePress build output' },
+      { pattern: '.avc/documentation/.vitepress/cache', comment: 'VitePress cache' },
+      { pattern: '.avc/logs', comment: 'Command execution logs' }
+    ];
+
+    let newContent = gitignoreContent;
+    let addedItems = [];
+
+    for (const item of itemsToIgnore) {
+      if (!newContent.includes(item.pattern)) {
+        if (!newContent.endsWith('\n') && newContent.length > 0) {
+          newContent += '\n';
+        }
+        if (!newContent.includes(`# ${item.comment}`)) {
+          newContent += `\n# ${item.comment}\n`;
+        }
+        newContent += `${item.pattern}\n`;
+        addedItems.push(item.pattern);
+      }
     }
 
-    // Add .env to .gitignore
-    const newContent = gitignoreContent
-      ? `${gitignoreContent}\n# Environment variables\n.env\n`
-      : '# Environment variables\n.env\n';
-
-    fs.writeFileSync(gitignorePath, newContent, 'utf8');
-    console.log('✓ Added .env to .gitignore');
+    if (addedItems.length > 0) {
+      fs.writeFileSync(gitignorePath, newContent, 'utf8');
+      console.log(`✓ Added to .gitignore: ${addedItems.join(', ')}`);
+    } else {
+      console.log('✓ .gitignore already up to date');
+    }
   }
 
   /**
-   * Check if there's an incomplete init in progress
+   * Create VitePress documentation setup
    */
-  hasIncompleteInit() {
-    return fs.existsSync(this.progressPath);
+  createVitePressSetup() {
+    const docsDir = path.join(this.avcDir, 'documentation');
+    const vitepressDir = path.join(docsDir, '.vitepress');
+    const publicDir = path.join(docsDir, 'public');
+
+    // Create directory structure
+    if (!fs.existsSync(vitepressDir)) {
+      fs.mkdirSync(vitepressDir, { recursive: true });
+      console.log('✓ Created .avc/documentation/.vitepress/ folder');
+    } else {
+      console.log('✓ .avc/documentation/.vitepress/ folder already exists');
+    }
+
+    if (!fs.existsSync(publicDir)) {
+      fs.mkdirSync(publicDir, { recursive: true });
+      console.log('✓ Created .avc/documentation/public/ folder');
+    } else {
+      console.log('✓ .avc/documentation/public/ folder already exists');
+    }
+
+    // Create VitePress config
+    const configPath = path.join(vitepressDir, 'config.mts');
+    if (!fs.existsSync(configPath)) {
+      const templatePath = path.join(__dirname, 'templates/vitepress-config.mts.template');
+      let configContent = fs.readFileSync(templatePath, 'utf8');
+      configContent = configContent.replace('{{PROJECT_NAME}}', this.getProjectName());
+      fs.writeFileSync(configPath, configContent, 'utf8');
+      console.log('✓ Created .avc/documentation/.vitepress/config.mts');
+    } else {
+      console.log('✓ .avc/documentation/.vitepress/config.mts already exists');
+    }
+
+    // Create initial index.md
+    const indexPath = path.join(docsDir, 'index.md');
+    if (!fs.existsSync(indexPath)) {
+      const indexContent = `# ${this.getProjectName()}
+
+## Project Status
+
+This project is being developed using the [Agile Vibe Coding](https://agilevibecoding.org) framework.
+
+**Current Stage**: Initial Setup
+
+Project documentation will be generated automatically as the project is defined and developed.
+
+## About This Documentation
+
+This site provides comprehensive documentation about **${this.getProjectName()}**, including:
+
+- Project overview and objectives
+- Feature specifications organized by epics and stories
+- Technical architecture and design decisions
+- Implementation progress and status
+
+Documentation is automatically updated from the AVC project structure as development progresses.
+
+## Getting Started with AVC
+
+If you're new to Agile Vibe Coding, visit the [AVC Documentation](https://agilevibecoding.org) to learn about:
+
+- [CLI Commands](https://agilevibecoding.org/commands) - Available commands and their usage
+- [Installation Guide](https://agilevibecoding.org/install) - Setup instructions
+- [Framework Overview](https://agilevibecoding.org) - Core concepts and workflow
+
+---
+
+*Documentation powered by [Agile Vibe Coding](https://agilevibecoding.org)*
+`;
+      fs.writeFileSync(indexPath, indexContent, 'utf8');
+      console.log('✓ Created .avc/documentation/index.md');
+    } else {
+      console.log('✓ .avc/documentation/index.md already exists');
+    }
+
+    // Update package.json with VitePress scripts
+    this.updatePackageJsonForVitePress();
+  }
+
+  /**
+   * Update package.json with VitePress dependencies and scripts
+   */
+  updatePackageJsonForVitePress() {
+    const packagePath = path.join(this.projectRoot, 'package.json');
+
+    let packageJson;
+    if (fs.existsSync(packagePath)) {
+      packageJson = JSON.parse(fs.readFileSync(packagePath, 'utf8'));
+    } else {
+      packageJson = {
+        name: this.getProjectName(),
+        version: '1.0.0',
+        private: true
+      };
+    }
+
+    // Add scripts
+    if (!packageJson.scripts) {
+      packageJson.scripts = {};
+    }
+
+    const scriptsToAdd = {
+      'docs:dev': 'vitepress dev .avc/documentation',
+      'docs:build': 'vitepress build .avc/documentation',
+      'docs:preview': 'vitepress preview .avc/documentation'
+    };
+
+    let addedScripts = [];
+    for (const [name, command] of Object.entries(scriptsToAdd)) {
+      if (!packageJson.scripts[name]) {
+        packageJson.scripts[name] = command;
+        addedScripts.push(name);
+      }
+    }
+
+    // Add devDependencies
+    if (!packageJson.devDependencies) {
+      packageJson.devDependencies = {};
+    }
+
+    let addedDeps = false;
+    if (!packageJson.devDependencies.vitepress) {
+      packageJson.devDependencies.vitepress = '^1.6.4';
+      addedDeps = true;
+    }
+
+    // Write package.json
+    fs.writeFileSync(packagePath, JSON.stringify(packageJson, null, 2) + '\n', 'utf8');
+
+    if (addedScripts.length > 0 || addedDeps) {
+      console.log('✓ Updated package.json with VitePress configuration');
+      if (addedScripts.length > 0) {
+        console.log(`  Added scripts: ${addedScripts.join(', ')}`);
+      }
+      if (addedDeps) {
+        console.log('  Added devDependency: vitepress');
+      }
+    } else {
+      console.log('✓ package.json already has VitePress configuration');
+    }
+  }
+
+  /**
+   * Check if there's an incomplete ceremony in progress
+   */
+  hasIncompleteProgress(progressPath) {
+    return fs.existsSync(progressPath);
   }
 
   /**
    * Read progress from file
    */
-  readProgress() {
+  readProgress(progressPath) {
     try {
-      const content = fs.readFileSync(this.progressPath, 'utf8');
+      const content = fs.readFileSync(progressPath, 'utf8');
       return JSON.parse(content);
     } catch (error) {
       return null;
@@ -257,19 +438,19 @@ GEMINI_API_KEY=
   /**
    * Write progress to file
    */
-  writeProgress(progress) {
+  writeProgress(progress, progressPath) {
     if (!fs.existsSync(this.avcDir)) {
       fs.mkdirSync(this.avcDir, { recursive: true });
     }
-    fs.writeFileSync(this.progressPath, JSON.stringify(progress, null, 2), 'utf8');
+    fs.writeFileSync(progressPath, JSON.stringify(progress, null, 2), 'utf8');
   }
 
   /**
-   * Clear progress file (init completed successfully)
+   * Clear progress file (ceremony completed successfully)
    */
-  clearProgress() {
-    if (fs.existsSync(this.progressPath)) {
-      fs.unlinkSync(this.progressPath);
+  clearProgress(progressPath) {
+    if (fs.existsSync(progressPath)) {
+      fs.unlinkSync(progressPath);
     }
   }
 
@@ -353,8 +534,8 @@ GEMINI_API_KEY=
   /**
    * Generate project document via Sponsor Call ceremony
    */
-  async generateProjectDocument(progress = null) {
-    const processor = new TemplateProcessor(this.progressPath);
+  async generateProjectDocument(progress = null, progressPath = null, nonInteractive = false) {
+    const processor = new TemplateProcessor(progressPath || this.sponsorCallProgressPath, nonInteractive);
     await processor.processTemplate(progress);
   }
 
@@ -380,26 +561,86 @@ GEMINI_API_KEY=
       return;
     }
 
-    console.log('Initializing AVC project structure...\n');
+    // Suppress all console output during initialization
+    const originalLog = console.log;
+    console.log = () => {};
 
-    // Create .avc folder
-    this.createAvcFolder();
+    try {
+      // Create project structure silently
+      this.createAvcFolder();
+      this.createAvcConfig();
+      this.createEnvFile();
+      this.addToGitignore();
+      this.createVitePressSetup();
+    } finally {
+      console.log = originalLog;
+    }
 
-    // Create or update avc.json
-    this.createAvcConfig();
-
-    // Create .env file for API keys (if it doesn't exist)
-    this.createEnvFile();
-
-    // Add .env to .gitignore if git repository
-    this.addToGitignore();
-
-    console.log('\n✅ AVC project structure created successfully!\n');
+    console.log('\n✅ AVC project initialized!\n');
     console.log('Next steps:');
-    console.log('  1. Open .env file and add your API key(s)');
+    console.log('  1. Add your API key(s) to .env file');
     console.log('     • ANTHROPIC_API_KEY for Claude');
     console.log('     • GEMINI_API_KEY for Gemini');
-    console.log('  2. Run /sponsor-call to define your project\n');
+    console.log('  2. Run /sponsor-call to start\n');
+  }
+
+  /**
+   * Run Sponsor Call ceremony with pre-filled answers from REPL questionnaire
+   * Used when all answers are collected via REPL UI
+   */
+  async sponsorCallWithAnswers(answers) {
+    console.log('\n🎯 Sponsor Call Ceremony\n');
+    console.log(`Project directory: ${this.projectRoot}\n`);
+
+    // Check if project is initialized
+    if (!this.isAvcProject()) {
+      console.log('❌ Project not initialized\n');
+      console.log('   Please run /init first to create the project structure.\n');
+      return;
+    }
+
+    const progressPath = this.sponsorCallProgressPath;
+
+    console.log('Starting Sponsor Call ceremony with provided answers...\n');
+
+    // Count answers provided
+    const answeredCount = Object.values(answers).filter(v => v !== null && v !== '').length;
+    console.log(`📊 Received ${answeredCount}/5 answers from questionnaire\n`);
+
+    // Validate API key before starting ceremony
+    console.log('Step 1/3: Validating API configuration...');
+    const validationResult = await this.validateProviderApiKey();
+    if (!validationResult.valid) {
+      console.log('\n❌ API Key Validation Failed\n');
+      console.log(`   ${validationResult.message}\n`);
+      return;
+    }
+
+    // Create progress with pre-filled answers
+    console.log('Step 2/3: Processing questionnaire answers...');
+    const progress = {
+      stage: 'questionnaire',
+      totalQuestions: 5,
+      answeredQuestions: 5,
+      collectedValues: answers,
+      lastUpdate: new Date().toISOString()
+    };
+    this.writeProgress(progress, progressPath);
+
+    // Generate project document with pre-filled answers
+    console.log('Step 3/3: Generating project document...');
+    await this.generateProjectDocument(progress, progressPath, true); // nonInteractive = true
+
+    // Mark as completed and clean up
+    progress.stage = 'completed';
+    progress.lastUpdate = new Date().toISOString();
+    this.writeProgress(progress, progressPath);
+    this.clearProgress(progressPath);
+
+    console.log('\n✅ Project defined successfully!');
+    console.log('\nNext steps:');
+    console.log('  1. Review .avc/project/doc.md for your project definition');
+    console.log('  2. Review .avc/avc.json configuration');
   }
 
   /**
@@ -410,18 +651,28 @@ GEMINI_API_KEY=
     console.log('\n🎯 Sponsor Call Ceremony\n');
     console.log(`Project directory: ${this.projectRoot}\n`);
 
+    // Check if running in REPL mode
+    const isReplMode = process.env.AVC_REPL_MODE === 'true';
+    if (isReplMode) {
+      // REPL mode is handled by repl-ink.js questionnaire display
+      // This code path shouldn't be reached from REPL
+      console.log('⚠️  Unexpected: Ceremony called directly from REPL');
+      return;
+    }
+
     // Check if project is initialized
     if (!this.isAvcProject()) {
       console.log('❌ Project not initialized\n');
       console.log('   Please run /init first to create the project structure.\n');
-      process.exit(1);
+      return; // Don't exit in REPL mode
     }
 
     let progress = null;
+    const progressPath = this.sponsorCallProgressPath;
 
     // Check for incomplete ceremony
-    if (this.hasIncompleteInit()) {
-      progress = this.readProgress();
+    if (this.hasIncompleteProgress(progressPath)) {
+      progress = this.readProgress(progressPath);
 
       if (progress && progress.stage !== 'completed') {
         console.log('⚠️  Found incomplete ceremony from previous session');
@@ -440,7 +691,7 @@ GEMINI_API_KEY=
     if (!validationResult.valid) {
       console.log('\n❌ API Key Validation Failed\n');
       console.log(`   ${validationResult.message}\n`);
-      process.exit(1);
+      return; // Don't exit in REPL mode
     }
 
     // Save initial progress
@@ -452,17 +703,17 @@ GEMINI_API_KEY=
         collectedValues: {},
         lastUpdate: new Date().toISOString()
       };
-      this.writeProgress(progress);
+      this.writeProgress(progress, progressPath);
     }
 
     // Generate project document via Sponsor Call ceremony
-    await this.generateProjectDocument(progress);
+    await this.generateProjectDocument(progress, progressPath, isReplMode);
 
     // Mark as completed and clean up
     progress.stage = 'completed';
     progress.lastUpdate = new Date().toISOString();
-    this.writeProgress(progress);
-    this.clearProgress();
+    this.writeProgress(progress, progressPath);
+    this.clearProgress(progressPath);
 
     console.log('\n✅ Project defined successfully!');
     console.log('\nNext steps:');
@@ -490,6 +741,184 @@ GEMINI_API_KEY=
       console.log('\nRun "avc init" to initialize the project.');
     }
   }
+
+  /**
+   * Remove AVC project structure (destructive operation)
+   * Requires confirmation by typing "delete all"
+   */
+  async remove() {
+    console.log('\n🗑️  Remove AVC Project Structure\n');
+    console.log(`Project directory: ${this.projectRoot}\n`);
+
+    // Check if project is initialized
+    if (!this.isAvcProject()) {
+      console.log('⚠️  No AVC project found in this directory.\n');
+      console.log('Nothing to remove.\n');
+      return;
+    }
+
+    // Show what will be deleted
+    console.log('⚠️  WARNING: This is a DESTRUCTIVE operation!\n');
+    console.log('The following will be PERMANENTLY DELETED:\n');
+
+    // List contents of .avc folder
+    const avcContents = this.getAvcContents();
+    if (avcContents.length > 0) {
+      console.log('📁 .avc/ folder contents:');
+      avcContents.forEach(item => {
+        console.log(`   • ${item}`);
+      });
+      console.log('');
+    }
+
+    console.log('❌ All project definitions, epics, stories, tasks, and documentation will be lost.');
+    console.log('❌ All VitePress documentation will be deleted.');
+    console.log('❌ This action CANNOT be undone.\n');
+
+    // Check for .env file
+    const envPath = path.join(this.projectRoot, '.env');
+    const hasEnvFile = fs.existsSync(envPath);
+    if (hasEnvFile) {
+      console.log('ℹ️  Note: The .env file will NOT be deleted.');
+      console.log('   You may want to manually remove API keys if no longer needed.\n');
+    }
+
+    // Check if running in REPL mode
+    const isReplMode = process.env.AVC_REPL_MODE === 'true';
+
+    if (isReplMode) {
+      // In REPL mode, interactive confirmation is handled by repl-ink.js
+      // This code path shouldn't be reached from REPL
+      console.log('⚠️  Unexpected: Remove called directly from REPL');
+      console.log('Interactive confirmation should be handled by REPL interface.');
+      return;
+    }
+
+    console.log('─'.repeat(60));
+    console.log('To confirm deletion, type exactly: delete all');
+    console.log('To cancel, type anything else or press Ctrl+C');
+    console.log('─'.repeat(60));
+    console.log('');
+
+    // Create readline interface for confirmation
+    const readline = await import('readline');
+    const rl = readline.createInterface({
+      input: process.stdin,
+      output: process.stdout
+    });
+
+    return new Promise((resolve) => {
+      rl.question('Confirmation: ', (answer) => {
+        rl.close();
+        console.log('');
+
+        if (answer.trim() === 'delete all') {
+          // Proceed with deletion
+          console.log('🗑️  Deleting AVC project structure...\n');
+
+          try {
+            // Get list of what's being deleted before deletion
+            const deletedItems = this.getAvcContents();
+
+            // Delete .avc folder
+            fs.rmSync(this.avcDir, { recursive: true, force: true });
+
+            console.log('✅ Successfully deleted:\n');
+            console.log('   📁 .avc/ folder and all contents:');
+            deletedItems.forEach(item => {
+              console.log(`      • ${item}`);
+            });
+            console.log('');
+
+            // Reminder about .env file
+            if (hasEnvFile) {
+              console.log('ℹ️  Manual cleanup reminder:\n');
+              console.log('   The .env file was NOT deleted and still contains:');
+              console.log('   • ANTHROPIC_API_KEY');
+              console.log('   • GEMINI_API_KEY');
+              console.log('   • (and any other API keys you added)\n');
+              console.log('   If these API keys are not used elsewhere in your project,');
+              console.log('   you may want to manually delete the .env file or remove');
+              console.log('   the unused keys.\n');
+            }
+
+            console.log('✅ AVC project structure has been completely removed.\n');
+            console.log('You can re-initialize anytime by running /init\n');
+
+            resolve();
+          } catch (error) {
+            console.log(`❌ Error during deletion: ${error.message}\n`);
+            console.log('The .avc folder may be partially deleted.');
+            console.log('You may need to manually remove it.\n');
+            resolve();
+          }
+        } else {
+          // Cancellation
+          console.log('❌ Operation cancelled.\n');
+          console.log('No files were deleted.\n');
+          resolve();
+        }
+      });
+    });
+  }
+
+  /**
+   * Get list of contents in .avc folder for display
+   */
+  getAvcContents() {
+    const contents = [];
+
+    try {
+      if (!fs.existsSync(this.avcDir)) {
+        return contents;
+      }
+
+      // Read .avc directory
+      const items = fs.readdirSync(this.avcDir);
+
+      items.forEach(item => {
+        const itemPath = path.join(this.avcDir, item);
+        const stat = fs.statSync(itemPath);
+
+        if (stat.isDirectory()) {
+          // Count items in subdirectories
+          const subItems = this.countItemsRecursive(itemPath);
+          contents.push(`${item}/ (${subItems} items)`);
+        } else {
+          contents.push(item);
+        }
+      });
+    } catch (error) {
+      // Ignore errors, return what we have
+    }
+
+    return contents;
+  }
+
+  /**
+   * Recursively count items in a directory
+   */
+  countItemsRecursive(dirPath) {
+    let count = 0;
+
+    try {
+      const items = fs.readdirSync(dirPath);
+      count += items.length;
+
+      items.forEach(item => {
+        const itemPath = path.join(dirPath, item);
+        const stat = fs.statSync(itemPath);
+
+        if (stat.isDirectory()) {
+          count += this.countItemsRecursive(itemPath);
+        }
+      });
+    } catch (error) {
+      // Ignore errors
+    }
+
+    return count;
+  }
 }
 
 // Export for use in REPL
@@ -510,8 +939,11 @@ if (import.meta.url === `file://${process.argv[1]}`) {
     case 'status':
       initiator.status();
       break;
+    case 'remove':
+      initiator.remove();
+      break;
     default:
-      console.log('Unknown command. Available commands: init, sponsor-call, status');
+      console.log('Unknown command. Available commands: init, sponsor-call, status, remove');
       process.exit(1);
   }
 }

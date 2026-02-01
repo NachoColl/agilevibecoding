@@ -10,12 +10,18 @@ export class GeminiProvider extends LLMProvider {
     return new GoogleGenAI({ apiKey });
   }
 
-  async _callProvider(prompt, maxTokens) {
-    const response = await this._client.models.generateContent({
+  async _callProvider(prompt, maxTokens, systemInstructions) {
+    const params = {
       model: this.model,
       contents: prompt,
       generationConfig: { maxOutputTokens: maxTokens }
-    });
+    };
+
+    if (systemInstructions) {
+      params.systemInstruction = systemInstructions;
+    }
+
+    const response = await this._client.models.generateContent(params);
     if (!response.text) {
       throw new Error('Gemini returned no text (possible safety filter block).');
     }

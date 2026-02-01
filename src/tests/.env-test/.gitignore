@@ -1,0 +1,3 @@
+# Test environment files with real API keys
+.env
+*.env

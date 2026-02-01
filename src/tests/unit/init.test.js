@@ -57,10 +57,11 @@ describe('ProjectInitiator', () => {
       expect(initiator.avcConfigPath).toBe('/tmp/project/.avc/avc.json');
     });
 
-    it('sets progressPath correctly', () => {
+    it('sets ceremony-specific progress paths correctly', () => {
       const initiator = new ProjectInitiator('/tmp/project');
 
-      expect(initiator.progressPath).toBe('/tmp/project/.avc/init-progress.json');
+      expect(initiator.initProgressPath).toBe('/tmp/project/.avc/init-progress.json');
+      expect(initiator.sponsorCallProgressPath).toBe('/tmp/project/.avc/sponsor-call-progress.json');
     });
   });
 

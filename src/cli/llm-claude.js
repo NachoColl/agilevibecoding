@@ -10,12 +10,18 @@ export class ClaudeProvider extends LLMProvider {
     return new Anthropic({ apiKey });
   }
 
-  async _callProvider(prompt, maxTokens) {
-    const response = await this._client.messages.create({
+  async _callProvider(prompt, maxTokens, systemInstructions) {
+    const params = {
       model: this.model,
       max_tokens: maxTokens,
       messages: [{ role: 'user', content: prompt }]
-    });
+    };
+
+    if (systemInstructions) {
+      params.system = systemInstructions;
+    }
+
+    const response = await this._client.messages.create(params);
     return response.content[0].text;
   }
 }

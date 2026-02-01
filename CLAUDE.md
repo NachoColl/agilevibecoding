@@ -28,11 +28,14 @@ agilevibecoding/
 │   │   ├── init.js           # /init command (setup project structure)
 │   │   ├── repl-ink.js       # Interactive REPL UI (React Ink)
 │   │   ├── template-processor.js  # Sponsor Call ceremony logic
+│   │   ├── command-logger.js # Command-specific logging system
+│   │   ├── update-checker.js # Auto-update checking
+│   │   ├── update-installer.js # Auto-update installation
 │   │   ├── llm-provider.js   # Multi-model LLM abstraction
 │   │   ├── llm-claude.js     # Claude provider implementation
 │   │   └── llm-gemini.js     # Gemini provider implementation
 │   ├── tests/                # Vitest test suite
-│   │   ├── unit/             # Unit tests
+│   │   ├── unit/             # Unit tests (questionnaire, logger, commands, etc.)
 │   │   └── integration/      # Integration tests
 │   ├── package.json          # npm package configuration
 │   └── vitest.config.js      # Test configuration
@@ -53,58 +56,166 @@ agilevibecoding/
 ├── CONTRIBUTING.md           # Contributing guidelines
 ├── package.json              # Root package.json for VitePress
 └── .github/workflows/        # GitHub Actions
-    └── deploy-pages.yml      # Auto-deploy docs to GitHub Pages
+    ├── deploy-pages.yml      # Auto-deploy docs to GitHub Pages
+    └── publish-avc.yml       # Auto-publish to npm on version changes
 ```
 
 ---
 
-## Key Components
+## Architecture Deep Dive
 
-### 1. npm CLI Package (`src/`)
+### REPL UI Architecture (`repl-ink.js`)
 
-The CLI is an **interactive REPL** built with React Ink that provides commands for managing AVC projects.
+The REPL is built with React Ink using a **mode-based state machine** with multiple input handlers:
 
-**Main commands:**
-- `/init` - Create AVC project structure (`.avc/` folder, config files, `.env` template)
-- `/sponsor-call` - Run Sponsor Call ceremony (AI-powered project initialization questionnaire)
-- `/status` - Show project status
-- `/help`, `/version`, `/exit` - Utility commands
+**Modes:**
+- `'prompt'` - Normal command input (default)
+- `'selector'` - Command menu/autocomplete
+- `'executing'` - Running command with spinner
+- `'questionnaire'` - Multi-line questionnaire for Sponsor Call
+- `'preview'` - Preview questionnaire answers before submission
+- `'removeConfirm'` - Interactive confirmation for /remove command
 
-**Architecture:**
-- **Entry point:** `src/cli/index.js` - Starts REPL only (no direct command execution)
-- **REPL UI:** `src/cli/repl-ink.js` - React Ink components for interactive interface
-- **Ceremonies:** `src/cli/template-processor.js` - Implements Sponsor Call ceremony workflow
-- **LLM providers:** Multi-model abstraction supporting Claude and Gemini
-- **Testing:** Vitest with unit and integration tests (128 tests)
+**Key Pattern - Multiple useInput Hooks:**
+Each mode has its own `useInput` hook activated by `isActive` flag:
+```javascript
+useInput((inputChar, key) => {
+  if (mode !== 'prompt') return;
+  // Handle prompt mode input
+}, { isActive: mode === 'prompt' });
 
-**Dependencies:**
-- `@anthropic-ai/sdk` - Claude API client
-- `@google/genai` - Gemini API client
-- `ink` + `react` - Terminal UI framework
-- `dotenv` - Environment variable management
-- `vitest` - Testing framework
+useInput((inputChar, key) => {
+  if (!questionnaireActive) return;
+  // Handle questionnaire mode input
+}, { isActive: questionnaireActive });
+```
 
-### 2. Documentation Website (VitePress)
+**State Management:**
+- Output accumulates (scrolling history) - use `setOutput(prev => prev + newContent)`
+- Command history stored in array for up/down arrow navigation
+- Tab completion filters commands from `allCommands` array
+- Questionnaire state includes auto-save every 30s with resume capability
 
-**Location:** Root level + `docs/` folder
+**Critical Implementation Details:**
+- NEVER clear output with `setOutput('')` - always append to preserve scrolling history
+- Command execution shows `> /command` before output for context
+- All error handlers must append to output, not replace
+- BottomRightStatus shows version + update notifications (right-aligned)
 
-**Source files (root level):**
-- `README.md` - Framework manifesto and overview
-- `COMMANDS.md` - CLI commands reference
-- `INSTALL.md` - Installation instructions
-- `CONTRIBUTING.md` - Contributing guidelines
+### Command Logger System (`command-logger.js`)
 
-**Build system:**
-- `npm run docs:sync` - Copy markdown files from root to `docs/` and transform links
-- `npm run docs:build` - Build static site to `docs/.vitepress/dist`
-- `npm run docs:preview` - Preview built site locally
-- `npm run docs:dev` - Development server with live reload
+**Purpose:** Creates individual log files per command execution in `.avc/logs/`
 
-**Deployment:**
-- GitHub Actions workflow (`.github/workflows/deploy-pages.yml`)
-- Triggers on push to master when documentation files change
-- Deploys to GitHub Pages at https://agilevibecoding.org
-- Custom domain configured via `docs/public/CNAME`
+**Key Behavior:**
+- Logger only created if `.avc` folder exists (except `/init` which creates it)
+- Intercepts `console.log`, `console.error`, `console.warn`, `console.info`
+- Timestamped filenames: `{command}-{timestamp}.log`
+- Auto-cleanup keeps last 10 logs per command
+- Logs auto-added to `.gitignore` when `/init` runs
+
+**Usage Pattern in executeCommand:**
+```javascript
+const avcExists = existsSync(path.join(process.cwd(), '.avc'));
+if (['/init', '/sponsor-call', '/status', '/remove'].includes(command)) {
+  if (command === '/init' || avcExists) {
+    logger = new CommandLogger(commandName);
+    logger.start();
+  }
+}
+// ... execute command ...
+if (logger) {
+  logger.stop();
+  const logPath = logger.getLogPath();
+  console.log(`\n📝 Command log saved: ${logPath}`);
+}
+```
+
+### Questionnaire System (Multi-line Input)
+
+**Components:**
+- `QuestionDisplay` - Shows question with guidance and examples
+- `MultiLineInput` - Multi-line text input with line numbers and character count
+- `QuestionnaireProgress` - Shows progress (2/5) and last auto-save time
+- `QuestionnaireHelp` - Keyboard shortcuts panel
+- `AnswersPreview` - Final review before submission
+
+**Input Flow:**
+1. User types multi-line answer
+2. Double-Enter submits current answer
+3. Single Enter on empty line skips (AI will suggest)
+4. Ctrl+E enters edit mode to modify previous answers
+5. Ctrl+P/N navigate between questions in edit mode
+6. After all 5 questions, preview shows all answers
+7. Enter from preview submits to ceremony
+
+**Auto-save:**
+- Saves progress every 30s to `.avc/sponsor-call-progress.json`
+- On next `/sponsor-call`, prompts to resume if incomplete progress found
+- Restores question index, answers, and current input
+
+### Project Initialization Guard Pattern
+
+**Critical Rule:** `/init` must be first command. Other commands check initialization:
+
+```javascript
+if (!this.isAvcProject()) {
+  console.log('❌ Project not initialized\n');
+  console.log('   Please run /init first to create the project structure.\n');
+  return;
+}
+```
+
+**What `/init` creates:**
+- `.avc/` folder structure
+- `.avc/avc.json` config file
+- `.avc/project/` for project definitions
+- `.avc/logs/` for command logs
+- `.env.example` template
+- Updates `.gitignore` with AVC entries
+
+### LLM Provider Pattern
+
+**Factory pattern** in `llm-provider.js` supporting multiple providers:
+
+```javascript
+export class LLMProvider {
+  static create(provider = process.env.LLM_PROVIDER || 'claude') {
+    switch (provider.toLowerCase()) {
+      case 'claude':
+        return new ClaudeProvider();
+      case 'gemini':
+        return new GeminiProvider();
+      default:
+        throw new Error(`Unsupported provider: ${provider}`);
+    }
+  }
+}
+```
+
+**Each provider implements:**
+- `generateSuggestions(context, variable, isPlural)` - For Sponsor Call questionnaire
+- `enhanceDocument(content)` - For final document enhancement
+
+**Configuration:**
+- Reads from `.avc/avc.json`: `{ "llm": { "provider": "claude" | "gemini" } }`
+- Falls back to `process.env.LLM_PROVIDER`
+- API keys from `.env`: `ANTHROPIC_API_KEY` or `GEMINI_API_KEY`
+
+### Auto-Update System
+
+**Three-component system:**
+- `update-checker.js` - Checks npm registry for new versions
+- `update-installer.js` - Downloads and installs updates
+- `update-notifier.js` - Coordinates update flow
+
+**Update Flow:**
+1. On REPL start, check npm registry for latest version
+2. If newer version available, download in background
+3. Show notification in BottomRightStatus: "v0.1.0 → v0.1.1 ready! (Ctrl+R)"
+4. User presses Ctrl+R to restart with new version
+5. State stored in `.avc/update-state.json`
+
+**User can dismiss:** Press Escape to hide notification (stored in state)
 
 ---
 
@@ -115,95 +226,143 @@ The CLI is an **interactive REPL** built with React Ink that provides commands f
 **Location:** `src/` folder
 
 ```bash
-# Navigate to src folder
-cd src
-
 # Install dependencies
 npm install
 
 # Run tests
-npm test                    # Run all tests
+npm test                    # Run all tests (194 tests)
 npm run test:unit           # Unit tests only
 npm run test:integration    # Integration tests only
-npm run test:watch          # Watch mode
-npm run test:coverage       # With coverage report
+npm run test:watch          # Watch mode for development
+npm run test:coverage       # Generate coverage report
+
+# Run single test file
+npm test tests/unit/repl-commands.test.js
 
 # Test CLI locally
-node cli/index.js           # Start REPL
+node cli/index.js           # Start REPL directly
+
+# Install globally for full testing (recommended)
+npm install -g .            # Makes 'avc' command available
+avc                         # Run from anywhere
+npm install -g .            # Reinstall after code changes
+npm uninstall -g @agile-vibe-coding/avc  # Uninstall when done
 ```
 
 **When modifying CLI:**
 1. Make changes to files in `src/cli/`
-2. Run tests: `npm test`
-3. Test manually: `node cli/index.js`
-4. Commit changes when all tests pass
-5. Publish to npm: `npm version [patch|minor|major]` → `npm publish` (from `src/`)
+2. Run tests: `npm test` (all 194 tests must pass)
+3. Test manually: `node cli/index.js` or `npm install -g . && avc`
+4. Update `COMMANDS.md` if command behavior changes
+5. Commit changes when all tests pass
+
+**Test Structure (AAA Pattern):**
+```javascript
+import { describe, it, expect, beforeEach, vi } from 'vitest';
+
+describe('Feature Name', () => {
+  beforeEach(() => {
+    // Arrange: Setup
+  });
+
+  it('should do something', () => {
+    // Arrange
+    const input = { /* test data */ };
+
+    // Act
+    const result = functionToTest(input);
+
+    // Assert
+    expect(result).toBe(expected);
+  });
+});
+```
 
 ### Working on Documentation
 
 **Location:** Root level markdown files
 
 ```bash
-# Edit source files
+# Edit source files (these are the source of truth)
 vim README.md               # Framework overview
 vim COMMANDS.md             # CLI commands reference
 vim INSTALL.md              # Installation guide
 vim CONTRIBUTING.md         # Contributing guide
 
-# Build and preview
-npm run docs:build          # Build site
+# Sync and build
+npm run docs:sync           # Copy to docs/ with link transformation
+npm run docs:build          # Build static site
 npm run docs:preview        # Preview at http://localhost:4173
 
 # Or use development mode
 npm run docs:dev            # Live reload at http://localhost:5173
 ```
 
-**Sync workflow:**
-- Edit markdown files in root directory (README.md, COMMANDS.md, etc.)
-- Run `npm run docs:sync` to copy to `docs/` and transform internal links
-- Run `npm run docs:build` to build static site
-- Push to master → GitHub Actions deploys to https://agilevibecoding.org
+**IMPORTANT - Documentation Sync:**
+- **DO NOT edit files in `docs/` directly** - they are auto-generated
+- Edit root markdown files (README.md, COMMANDS.md, etc.)
+- Run `npm run docs:sync` to copy to docs/ with transformed links
+- Commit both root file and docs/ version
 
 **Link transformation:**
-- `](README.md#anchor)` → `](/#anchor)` in commands.md
-- `](COMMANDS.md)` → `](/commands)` in other files
-- `](INSTALL.md)` → `](/install)` in other files
-- `](CONTRIBUTING.md)` → `](/contribute)` in other files
+- `](README.md#anchor)` → `](/#anchor)`
+- `](COMMANDS.md)` → `](/commands)`
+- `](INSTALL.md)` → `](/install)`
+- `](CONTRIBUTING.md)` → `](/contribute)`
 
-### Working on Styling
+### Working on REPL UI
 
-**Custom CSS:** `docs/.vitepress/theme/custom.css`
+**Location:** `src/cli/repl-ink.js`
 
-Current styling features:
-- Hierarchical heading colors with left borders (h2=blue, h3=green, h4=orange, h5=purple, h6=pink)
-- Dark mode adjustments for all heading colors
-- Diagram sizing and fullscreen support (vitepress-plugin-diagrams)
+**Critical Rules:**
+1. **Output must accumulate** - Use `setOutput(prev => prev + newContent)`, never `setOutput(newContent)`
+2. **Mode transitions** - Ensure input handlers check mode with `if (mode !== 'targetMode') return`
+3. **Input handler activation** - Use `isActive` parameter: `{ isActive: mode === 'prompt' }`
+4. **Error handling** - All error messages must append to output, not replace
 
-After CSS changes:
-1. Edit `docs/.vitepress/theme/custom.css`
-2. Run `npm run docs:build` to rebuild
-3. Commit both `custom.css` and `custom.min.css`
+**Component Pattern:**
+```javascript
+const MyComponent = ({ prop1, prop2 }) => {
+  return React.createElement(Box, { flexDirection: 'column' },
+    React.createElement(Text, { bold: true, color: 'cyan' }, 'Title'),
+    React.createElement(Text, null, 'Content')
+  );
+};
+```
+
+**Testing REPL Changes:**
+Since REPL requires TTY, automated testing is limited. Always test manually:
+```bash
+npm install -g .
+avc
+# Test all modes: prompt, selector (/), questionnaire (/sponsor-call), remove (/remove)
+```
 
 ---
 
 ## Testing
 
-**Test suite:** Vitest (v2.1.9)
-**Test count:** 128 tests total
+**Framework:** Vitest (v2.1.9)
+**Current Count:** 194 tests across 12 test files
 
 ```bash
-cd src
 npm test                    # Run all tests
-npm run test:coverage       # With coverage report
+npm run test:coverage       # With coverage report (50% minimum threshold)
+npm run test:watch          # Watch mode for TDD
+npm test path/to/file.test.js  # Run specific file
 ```
 
-**Test files:**
-- `tests/unit/init.test.js` - Project initialization tests
-- `tests/unit/llm-provider.test.js` - LLM provider factory tests
-- `tests/unit/llm-claude.test.js` - Claude provider tests
-- `tests/unit/llm-gemini.test.js` - Gemini provider tests
-- `tests/integration/init-with-provider.test.js` - Integration tests
-- `tests/integration/template-with-llm.test.js` - Template processor tests
+**Test Organization:**
+- `tests/unit/` - Individual module tests (init, logger, providers, commands, questionnaire)
+- `tests/integration/` - Component interaction tests (sponsor-call, template processing)
+- `tests/helpers/` - Shared test utilities
+- `tests/fixtures/` - Test data
+
+**Key Test Files:**
+- `repl-commands.test.js` - Command consistency, aliases, help text, unknown command handling
+- `questionnaire.test.js` - Multi-line input, auto-save, resume, preview
+- `command-logger.test.js` - Log file creation, console interception, cleanup
+- `remove-command.test.js` - REPL mode detection, confirmation flow
 
 **All tests must pass before publishing to npm.**
 
@@ -211,36 +370,197 @@ npm run test:coverage       # With coverage report
 
 ## Publishing
 
-### Publishing CLI to npm
+### Auto-publish to npm
 
+**GitHub Actions workflow** (`.github/workflows/publish-avc.yml`) automatically publishes when:
+1. Version in `src/package.json` changes
+2. Push to `master` branch
+3. All tests pass
+
+**Manual publish:**
 ```bash
 cd src
 
-# Update version (creates git tag)
-npm version patch           # 0.1.0 → 0.1.1
-npm version minor           # 0.1.1 → 0.2.0
-npm version major           # 0.2.0 → 1.0.0
+# Update version
+npm version patch           # 0.1.0 → 0.1.1 (bug fixes)
+npm version minor           # 0.1.0 → 0.2.0 (new features)
+npm version major           # 0.1.0 → 1.0.0 (breaking changes)
 
-# Publish to npm (runs tests automatically via prepublishOnly)
+# Publish (runs tests automatically via prepublishOnly)
 npm publish
 
-# Push git tags
+# Push version tag
 git push --follow-tags
 ```
 
-**Package name:** `@agile-vibe-coding/avc`
-**Registry:** https://www.npmjs.com/package/@agile-vibe-coding/avc
+**Package:** `@agile-vibe-coding/avc` on npm registry
 
-### Publishing Documentation
+### Auto-deploy Documentation
 
-**Automatic deployment:**
-- Push to master
-- GitHub Actions workflow runs automatically
-- Deploys to https://agilevibecoding.org
+**GitHub Actions workflow** (`.github/workflows/deploy-pages.yml`) automatically deploys when:
+1. Documentation files change (README.md, COMMANDS.md, INSTALL.md, CONTRIBUTING.md)
+2. Push to `master` branch
 
-**Manual trigger:**
-- Go to Actions tab on GitHub
-- Run "Deploy GitHub Pages" workflow manually
+Deploys to: https://agilevibecoding.org
+
+---
+
+## Common Development Tasks
+
+### Add New CLI Command
+
+1. **Add to switch statement** in `repl-ink.js` `executeCommand()`:
+```javascript
+case '/newcmd':
+case '/nc':  // Add alias
+  setExecutingMessage('Running new command...');
+  await runNewCommand();
+  break;
+```
+
+2. **Add to command lists:**
+- `allCommands` array (for tab completion) in `repl-ink.js`
+- `commandGroups` array (for interactive menu) in `CommandSelector` component
+- `resolveAlias` function (if adding alias)
+
+3. **Implement command function with initialization check:**
+```javascript
+const runNewCommand = async () => {
+  const initiator = new ProjectInitiator();
+
+  // IMPORTANT: Check if project is initialized (except for /init, /help, /version, /exit)
+  // A project is considered initialized when:
+  // - .avc/ folder exists (initiator.hasAvcFolder())
+  // - .avc/avc.json config file exists (initiator.hasAvcConfig())
+  // - Both checks combined: initiator.isAvcProject()
+  if (!initiator.isAvcProject()) {
+    setOutput(prev => prev + '\n❌ Project not initialized\n\n');
+    setOutput(prev => prev + '   Please run /init first to create the project structure.\n\n');
+    return;
+  }
+
+  // Capture console output
+  const originalLog = console.log;
+  let logs = [];
+  console.log = (...args) => logs.push(args.join(' '));
+
+  try {
+    await initiator.newCommand();
+  } finally {
+    console.log = originalLog;
+  }
+
+  setOutput(prev => prev + logs.join('\n') + '\n');
+};
+```
+
+**Commands that MUST check initialization:**
+- `/sponsor-call` (or `/sc`) - Requires .avc structure to save progress and documents
+- `/status` (or `/s`) - Shows project status, needs .avc folder to report on
+- `/remove` (or `/rm`) - Removes .avc structure, needs to check it exists
+- Any future commands that work with project files or configuration
+
+**Commands that SKIP initialization check:**
+- `/init` (or `/i`) - Creates the project structure
+- `/help` (or `/h`) - Shows help, works anywhere
+- `/version` (or `/v`) - Shows version, works anywhere
+- `/exit` (or `/q`, `/quit`) - Exits REPL, works anywhere
+- `/restart` - Restarts REPL, works anywhere
+
+4. **Add command to `init.js`** if it needs project initialization logic
+
+5. **Update `COMMANDS.md`** with command documentation
+
+6. **Add tests** in `tests/unit/` or `tests/integration/`
+
+7. **Update `repl-commands.test.js`** to include new command in expected lists
+
+### Add Interactive Confirmation Dialog
+
+Follow the `/remove` command pattern:
+
+1. **Add state variables:**
+```javascript
+const [myConfirmActive, setMyConfirmActive] = useState(false);
+const [myConfirmInput, setMyConfirmInput] = useState('');
+```
+
+2. **Create confirmation component:**
+```javascript
+const MyConfirmation = ({ confirmInput }) => {
+  return React.createElement(Box, { flexDirection: 'column', marginY: 1 },
+    React.createElement(Text, { bold: true, color: 'red' }, '\n⚠️ Warning Message\n'),
+    React.createElement(Box, { borderStyle: 'round', borderColor: 'yellow', paddingX: 1 },
+      React.createElement(Text, { bold: true }, 'Type "confirm" to proceed')
+    ),
+    React.createElement(Text, null, `Input: ${confirmInput}`)
+  );
+};
+```
+
+3. **Add input handler:**
+```javascript
+useInput((inputChar, key) => {
+  if (!myConfirmActive) return;
+
+  if (key.return) {
+    if (myConfirmInput === 'confirm') {
+      confirmAction();
+    } else {
+      cancelAction();
+    }
+    return;
+  }
+
+  if (key.backspace) {
+    setMyConfirmInput(myConfirmInput.slice(0, -1));
+    return;
+  }
+
+  if (inputChar) {
+    setMyConfirmInput(myConfirmInput + inputChar);
+  }
+}, { isActive: myConfirmActive });
+```
+
+4. **Update render logic** to show confirmation when active
+
+### Add New LLM Provider
+
+1. **Create provider file** `src/cli/llm-[provider].js`:
+```javascript
+export class ProviderNameProvider {
+  constructor() {
+    this.apiKey = process.env.PROVIDER_API_KEY;
+    // Initialize SDK
+  }
+
+  async generateSuggestions(context, variable, isPlural) {
+    // Implement suggestion generation
+  }
+
+  async enhanceDocument(content) {
+    // Implement document enhancement
+  }
+}
+```
+
+2. **Update factory** in `llm-provider.js`:
+```javascript
+case 'providername':
+  return new ProviderNameProvider();
+```
+
+3. **Add to package.json dependencies:**
+```json
+"dependencies": {
+  "@provider/sdk": "^1.0.0"
+}
+```
+
+4. **Add tests** in `tests/unit/llm-[provider].test.js`
+
+5. **Update documentation** with API key setup instructions
 
 ---
 
@@ -249,72 +569,33 @@ git push --follow-tags
 ### This is NOT a Sample Application
 
 - This repository IS the framework/CLI tool itself
-- Users install the CLI via `npm install -g @agile-vibe-coding/avc`
-- Users run CLI commands in their own projects
+- Users install via `npm install -g @agile-vibe-coding/avc`
+- Users run in their own projects, not in this repo
 - Don't add sample project code here
 
 ### Framework Philosophy
 
-From README.md:
+AVC provides organizational structure for long-term AI-assisted development:
 
-> AVC does not replace your current AI coding tools. AVC adds an extra layer of control over the progress of the project lifetime. Just as real-world complex software requires multiple layers of knowledge and management we need a similar approach when working with AI agents—which may still struggle with the long term. AVC provides the organizational structure that sits above your day-to-day coding tools, ensuring long-term coherence and progress tracking.
+- **Hierarchical work items:** Epic → Story → Task → Subtask
+- **Context inheritance:** Each level has `context.md` for scope
+- **LLM-powered ceremonies:** Starting with Sponsor Call for project definition
+- **Multi-model support:** Claude and Gemini (extensible to more)
+- **Verification-focused:** Work items include validation tests
 
-The framework uses:
-- Hierarchical work items (Epic → Story → Task → Subtask)
-- Context inheritance via `context.md` files
-- LLM-powered ceremonies (starting with Sponsor Call)
-- Multi-model LLM support (Claude, Gemini)
+### Critical Implementation Constraints
 
-### Documentation Folders
-
-**Active:**
-- `docs/` - VitePress site (synced from root markdown files)
-- Root markdown files (README.md, COMMANDS.md, INSTALL.md, CONTRIBUTING.md)
-
-**Legacy (may be outdated):**
-- `documentation/` - Old conceptual documentation (not currently used)
-
-Focus on root markdown files and `docs/` for active documentation.
-
----
-
-## Common Tasks
-
-### Update CLI command
-
-1. Edit `src/cli/[command-file].js`
-2. Update tests in `src/tests/`
-3. Run `npm test` to verify
-4. Update `COMMANDS.md` with new behavior
-5. Commit changes
-
-### Update documentation
-
-1. Edit root markdown file (README.md, COMMANDS.md, etc.)
-2. Run `npm run docs:sync` to copy to docs/
-3. Run `npm run docs:build` to build site
-4. Commit both root file and docs/ version
-5. Push to master → auto-deploys
-
-### Update CSS styling
-
-1. Edit `docs/.vitepress/theme/custom.css`
-2. Run `npm run docs:build`
-3. Commit `custom.css` and `custom.min.css`
-4. Push to master → auto-deploys
-
-### Add new LLM provider
-
-1. Create `src/cli/llm-[provider].js` following existing pattern
-2. Update `src/cli/llm-provider.js` factory
-3. Add tests in `src/tests/unit/llm-[provider].test.js`
-4. Update `src/package.json` dependencies
-5. Run `npm test` to verify
+1. **REPL Output Must Scroll** - Never clear output, always append
+2. **Mode-Based Input** - Each mode needs its own useInput handler
+3. **Project Initialization Guard** - All commands except `/init` must check `isAvcProject()`
+4. **Logger Conditional Creation** - Only create logger if `.avc` exists (or for `/init`)
+5. **Documentation Sync** - Edit root MD files, never `docs/` directly
 
 ---
 
 ## Version
 
 CLI Version: 0.1.0
+Test Count: 194 tests (12 files)
 Documentation: https://agilevibecoding.org
-Last Updated: 2026-01-30
+Last Updated: 2026-01-31
