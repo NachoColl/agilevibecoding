@@ -75,6 +75,8 @@ The REPL is built with React Ink using a **mode-based state machine** with multi
 - `'questionnaire'` - Multi-line questionnaire for Sponsor Call
 - `'preview'` - Preview questionnaire answers before submission
 - `'removeConfirm'` - Interactive confirmation for /remove command
+- `'process-viewer'` - View and manage background processes (/processes command)
+- `'kill-confirm'` - Confirmation dialog for killing external processes using AVC ports
 
 **Key Pattern - Multiple useInput Hooks:**
 Each mode has its own `useInput` hook activated by `isActive` flag:
@@ -101,6 +103,47 @@ useInput((inputChar, key) => {
 - Command execution shows `> /command` before output for context
 - All error handlers must append to output, not replace
 - BottomRightStatus shows version + update notifications (right-aligned)
+
+**Mode Transition Best Practices:**
+- Only reset UI state in the `finally` block of async operations, not between stages
+- Preserve special modes ('process-viewer', 'kill-confirm') during async flows
+- Never interrupt a mode transition with setTimeout/executeCommand cleanup
+- Mode changes must be atomic - no partial transitions
+
+**Example - Correct Pattern:**
+```javascript
+const runDocumentation = async () => {
+  try {
+    setMode('executing');
+    await checkPort();
+
+    // Check for port conflict
+    if (portInUse && !isAvcServer) {
+      setMode('kill-confirm'); // Special mode - must preserve
+      setKillConfirmActive(true);
+      return; // Exit early, don't reset mode
+    }
+
+    await startServer();
+  } finally {
+    // Only reset if not in special mode
+    if (mode !== 'kill-confirm' && mode !== 'process-viewer') {
+      setMode('prompt');
+    }
+  }
+};
+```
+
+**Anti-pattern (will cause bugs):**
+```javascript
+// BAD: Resets mode between stages
+setMode('executing');
+await checkPort();
+setMode('prompt'); // ❌ Interrupts flow!
+await showConfirmation(); // Won't work - mode already reset
+```
+
+**Lesson Learned:** Confirmation dialogs were being overridden by premature mode resets. Always delay mode reset until the very end.
 
 ### Command Logger System (`command-logger.js`)
 
@@ -153,6 +196,68 @@ if (logger) {
 - On next `/sponsor-call`, prompts to resume if incomplete progress found
 - Restores question index, answers, and current input
 
+**Progress Persistence Pattern (General):**
+
+**Principle:** Long-running operations (>1 minute) should auto-save progress for resumability.
+
+**Implementation for Questionnaire:**
+- **Interval:** 30 seconds (repl-ink.js:914)
+- **Storage:** `.avc/sponsor-call-progress.json`
+- **Data Saved:** Current question index, collected answers, current input, timestamp
+- **Resume Detection:** On next command, check for incomplete progress file
+- **User Choice:** Prompt to resume or start fresh
+
+**Auto-Save Function:**
+```javascript
+const autoSaveProgress = () => {
+  const progress = {
+    stage: 'questionnaire',
+    currentQuestionIndex,
+    totalQuestions: questions.length,
+    answeredQuestions: Object.keys(questionnaireAnswers).length,
+    collectedValues: questionnaireAnswers,
+    currentAnswer,
+    lastUpdate: new Date().toISOString()
+  };
+
+  fs.writeFileSync(progressPath, JSON.stringify(progress, null, 2));
+};
+
+// Start auto-save timer
+const autoSaveTimer = setInterval(autoSaveProgress, 30000);
+```
+
+**Resume Flow:**
+```javascript
+if (initiator.hasIncompleteProgress(progressPath)) {
+  const progress = JSON.parse(fs.readFileSync(progressPath));
+
+  // Prompt user
+  console.log(`Found incomplete progress from ${progress.lastUpdate}`);
+  console.log('Resume? (y/n)');
+
+  // If yes, restore state
+  setCurrentQuestionIndex(progress.currentQuestionIndex);
+  setQuestionnaireAnswers(progress.collectedValues);
+  setCurrentAnswer(progress.currentAnswer || '');
+}
+```
+
+**Best Practices:**
+- Use 30-60 second intervals (balance between overhead and data loss)
+- Include timestamp in progress file for user context
+- Always clean up progress file after successful completion
+- Prompt user rather than auto-resuming silently
+- Store enough state to fully restore UI
+
+**Applicable to:**
+- Multi-step wizards
+- Long-form input
+- Batch processing with user input
+- Any operation >1 minute duration
+
+**Location in code:** repl-ink.js:906-917, 1288-1303, 1380-1400
+
 ### Project Initialization Guard Pattern
 
 **Critical Rule:** `/init` must be first command. Other commands check initialization:
@@ -172,6 +277,71 @@ if (!this.isAvcProject()) {
 - `.avc/logs/` for command logs
 - `.env.example` template
 - Updates `.gitignore` with AVC entries
+
+### Smart Configuration Merging
+
+**Problem:** When `/init` runs on existing project, how to add new config fields without overwriting user customizations?
+
+**Solution:** `deepMerge()` utility in init.js (lines 65-86)
+
+**Behavior:**
+- **Adds new keys** from default config (framework updates)
+- **Preserves existing values** (user customizations)
+- **Recursively merges** nested objects
+- **Treats arrays as atomic** (doesn't merge array contents)
+
+**Example:**
+```javascript
+// Default config (framework v0.2.0)
+const defaultConfig = {
+  llm: { provider: 'claude', model: 'sonnet' },
+  logging: { level: 'info' },
+  newFeature: { enabled: true }  // New in v0.2.0
+};
+
+// Existing user config (created with v0.1.0)
+const userConfig = {
+  llm: { provider: 'gemini' },  // User customization
+  logging: { level: 'debug' }   // User customization
+};
+
+// Result after deepMerge(userConfig, defaultConfig)
+{
+  llm: {
+    provider: 'gemini',  // ✅ Preserved user value
+    model: 'sonnet'      // ✅ Added new field
+  },
+  logging: { level: 'debug' },  // ✅ Preserved
+  newFeature: { enabled: true } // ✅ Added new section
+}
+```
+
+**Implementation:**
+```javascript
+function deepMerge(target, source) {
+  const result = { ...target };
+
+  for (const key in source) {
+    if (source[key] && typeof source[key] === 'object' && !Array.isArray(source[key])) {
+      // Recursively merge nested objects
+      result[key] = deepMerge(target[key] || {}, source[key]);
+    } else if (!(key in target)) {
+      // Add new keys only if they don't exist
+      result[key] = source[key];
+    }
+    // Else: preserve existing value
+  }
+
+  return result;
+}
+```
+
+**When to use:**
+- Adding new config fields in framework updates
+- Merging default settings with user preferences
+- Preserving user customizations during re-initialization
+
+**Location in code:** init.js:65-86
 
 ### LLM Provider Pattern
 
@@ -216,6 +386,84 @@ export class LLMProvider {
 5. State stored in `.avc/update-state.json`
 
 **User can dismiss:** Press Escape to hide notification (stored in state)
+
+### Background Process Manager (`process-manager.js`)
+
+**Purpose:** Manages lifecycle of background processes (e.g., documentation server) with health monitoring and cleanup.
+
+**Key Features:**
+- Process lifecycle management (start/stop/exit tracking)
+- Output buffering (last 500 lines per process)
+- Event emission: process-started, process-stopped, process-exited, process-error
+- Automatic cleanup on REPL exit via signal handlers
+
+**Usage Pattern:**
+```javascript
+import { BackgroundProcessManager } from './process-manager.js';
+
+const processManager = new BackgroundProcessManager();
+
+// Start a process
+const proc = spawn('vitepress', ['dev'], { cwd: docsPath });
+processManager.startProcess('documentation', proc);
+
+// Listen for events
+processManager.on('process-exited', ({ name, exitCode }) => {
+  console.log(`${name} exited with code ${exitCode}`);
+});
+
+// Check if process is running
+if (processManager.isProcessRunning('documentation')) {
+  const uptime = processManager.getUptime('documentation');
+}
+
+// Stop all processes (called by signal handlers)
+processManager.stopAll();
+```
+
+**Integration Points:**
+- Used in repl-ink.js (line 38) for process tracking
+- Cleaned up by signal handlers (lines 2274-2297)
+- Powers /processes command for process viewing
+
+### Signal Handlers & Graceful Shutdown
+
+**Critical Pattern:** Background processes must be cleaned up on ALL exit paths (Ctrl+C, /restart, Ctrl+R, exceptions).
+
+**Implementation:**
+```javascript
+// Global cleanup function (synchronous)
+function cleanupAndExit() {
+  if (backgroundProcessManager) {
+    backgroundProcessManager.stopAll();
+  }
+  process.exit(0);
+}
+
+// Register signal handlers at process level
+process.on('SIGINT', cleanupAndExit);  // Ctrl+C
+process.on('SIGTERM', cleanupAndExit); // Kill signal
+
+// Handle uncaught errors
+process.on('uncaughtException', (error) => {
+  console.error('Uncaught exception:', error);
+  cleanupAndExit();
+});
+
+process.on('unhandledRejection', (reason) => {
+  console.error('Unhandled rejection:', reason);
+  cleanupAndExit();
+});
+```
+
+**Why Synchronous:**
+- Signal handlers execute immediately, can't wait for async operations
+- React lifecycle hooks (useEffect cleanup) won't run on forced exit
+- Must use process-level handlers, not component-level
+
+**Location in code:** repl-ink.js:2274-2297
+
+**Lesson Learned:** Async cleanup in React components is insufficient for signal handlers. Always use synchronous process-level handlers for critical cleanup.
 
 ---
 
@@ -309,6 +557,61 @@ npm run docs:dev            # Live reload at http://localhost:5173
 - `](COMMANDS.md)` → `](/commands)`
 - `](INSTALL.md)` → `](/install)`
 - `](CONTRIBUTING.md)` → `](/contribute)`
+
+### Documentation Server Management (build-docs.js)
+
+**Extended Capabilities:**
+
+**Port Management:**
+- Reads port from `.avc/avc.json` config (default: 5173 for dev, 4173 for preview)
+- Checks port availability before starting server
+- Cross-platform port detection (Windows/Linux/macOS)
+
+**Server Verification:**
+- HTTP check for AVC-specific metatag to identify AVC documentation servers
+- Distinguishes AVC servers from external processes using same port
+- Method: `isDocumentationServer(port)` fetches page and checks for `<meta name="avc-documentation">`
+
+**Conflict Resolution:**
+- Detects external processes using AVC port
+- Identifies process name and PID (cross-platform)
+- Prompts user: kill external process or cancel
+- Safe kill with error handling
+
+**Cross-Platform Process Detection:**
+```javascript
+// Windows
+const cmd = `netstat -ano | findstr :${port}`;
+
+// Linux/macOS
+const cmd = `lsof -i :${port} -t`;
+```
+
+**Key Methods:**
+- `getPort()` - Read port from config with fallback
+- `isPortInUse(port)` - Check port availability
+- `isDocumentationServer(port)` - Verify AVC server via HTTP
+- `findProcessUsingPort(port)` - Get process details
+- `killProcess(pid)` - Cross-platform process termination
+
+**Location in code:** build-docs.js (lines 32-227)
+
+### View Background Processes
+
+The `/processes` (or `/ps`) command shows all background processes managed by AVC:
+
+**Features:**
+- Process name, PID, status, uptime
+- Last 500 lines of output
+- Interactive: Press 'k' to kill process, 'q' to exit viewer
+- Auto-refreshes every 2 seconds
+
+**Mode Handling:**
+- Sets `mode = 'process-viewer'`
+- Preserved during cleanup (like 'kill-confirm')
+- Has dedicated input handler for 'k' and 'q' keys
+
+**Location in code:** repl-ink.js:1147-1149 (command), process-viewer UI component
 
 ### Working on REPL UI
 
@@ -475,6 +778,64 @@ const runNewCommand = async () => {
 
 7. **Update `repl-commands.test.js`** to include new command in expected lists
 
+### Implement Safe Destructive Operations
+
+**Pattern:** Multi-layer safety for operations that delete data or kill processes.
+
+**Requirements:**
+1. **Detailed Preview** - Show exactly what will be affected
+2. **Exact String Confirmation** - Require typing "delete all" or "confirm", not "y" or "yes"
+3. **Visual Separation** - Use borders, colors, warnings
+4. **Preserve Critical Data** - Never delete credentials or user configs
+5. **No Silent Mode** - Always require interactive confirmation
+
+**Example (/remove command):**
+```javascript
+// 1. Show detailed preview
+console.log('⚠️  WARNING: This is a DESTRUCTIVE operation!\n');
+console.log('The following will be PERMANENTLY DELETED:\n');
+console.log('📁 .avc/ folder contents:');
+listAllFiles('.avc').forEach(f => console.log(`   • ${f}`));
+console.log('\nℹ️  Note: The .env file will NOT be deleted.');
+
+// 2. Interactive confirmation in REPL
+setRemoveConfirmActive(true);
+setRemoveConfirmInput('');
+
+// 3. Validate exact string
+useInput((inputChar, key) => {
+  if (!removeConfirmActive) return;
+
+  if (key.return) {
+    if (removeConfirmInput === 'delete all') {  // Exact match required
+      performDeletion();
+    } else {
+      console.log('❌ Cancelled - confirmation did not match.');
+    }
+    setRemoveConfirmActive(false);
+  }
+
+  // Allow typing and backspace
+  if (key.backspace) {
+    setRemoveConfirmInput(prev => prev.slice(0, -1));
+  } else if (inputChar) {
+    setRemoveConfirmInput(prev => prev + inputChar);
+  }
+}, { isActive: removeConfirmActive });
+
+// 4. Preserve critical files
+const filesToPreserve = ['.env', 'avc.json'];
+// Delete only non-critical files
+```
+
+**Why "delete all" instead of "yes":**
+- Harder to type accidentally
+- No auto-complete interference
+- Clear intent from user
+- Not a common word that might be typed by mistake
+
+**Location in code:** repl-ink.js:1936-1973 (remove confirmation)
+
 ### Add Interactive Confirmation Dialog
 
 Follow the `/remove` command pattern:
@@ -598,4 +959,4 @@ AVC provides organizational structure for long-term AI-assisted development:
 CLI Version: 0.1.0
 Test Count: 194 tests (12 files)
 Documentation: https://agilevibecoding.org
-Last Updated: 2026-01-31
+Last Updated: 2026-02-01
