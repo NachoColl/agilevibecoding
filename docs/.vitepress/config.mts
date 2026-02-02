@@ -27,6 +27,32 @@ export default defineConfig({
         ]
       },
       {
+        text: 'Ceremonies',
+        items: [
+          { text: 'Sponsor Call', link: '/ceremonies/sponsor-call' },
+          { text: 'Project Expansion', link: '/ceremonies/project-expansion' },
+          { text: 'AI Coding', link: '/ceremonies/ai-coding' },
+          { text: 'Context Retrospective', link: '/ceremonies/context-retrospective' },
+        ]
+      },
+      {
+        text: 'Agents',
+        items: [
+          { text: 'Project Documentation Creator', link: '/agents/project-documentation-creator' },
+          { text: 'Documentation Updater', link: '/agents/documentation-updater' },
+          { text: 'Epic/Story Decomposer', link: '/agents/epic-story-decomposer' },
+          { text: 'Task/Subtask Decomposer', link: '/agents/task-subtask-decomposer' },
+          { text: 'Project Context Generator', link: '/agents/project-context-generator' },
+          { text: 'Feature Context Generator', link: '/agents/feature-context-generator' },
+          { text: 'Context Refiner', link: '/agents/context-refiner' },
+          { text: 'Business Analyst', link: '/agents/suggestion-business-analyst' },
+          { text: 'UX Researcher', link: '/agents/suggestion-ux-researcher' },
+          { text: 'Product Manager', link: '/agents/suggestion-product-manager' },
+          { text: 'Technical Architect', link: '/agents/suggestion-technical-architect' },
+          { text: 'Security Specialist', link: '/agents/suggestion-security-specialist' },
+        ]
+      },
+      {
         text: 'Reference',
         items: [
           { text: 'Install', link: '/install' },

@@ -132,18 +132,62 @@ class ProjectInitiator {
         ceremonies: [
           {
             name: 'sponsor-call',
-            defaultModel: 'claude-sonnet-4-5-20250929',
             provider: 'claude',
+            defaultModel: 'claude-sonnet-4-5-20250929',
             agents: [
               {
-                name: 'documentation',
-                instruction: 'documentation.md',
+                name: 'project-documentation-creator',
+                instruction: 'project-documentation-creator.md',
                 stage: 'enhancement'
+              },
+              {
+                name: 'epic-story-decomposer',
+                instruction: 'epic-story-decomposer.md',
+                stage: 'hierarchy-generation'
+              },
+              {
+                name: 'project-context-generator',
+                instruction: 'project-context-generator.md',
+                stage: 'project-context-generation'
+              },
+              {
+                name: 'feature-context-generator',
+                instruction: 'feature-context-generator.md',
+                stage: 'feature-context-generation'
               }
             ],
             guidelines: {
               technicalConsiderations: 'Use AWS serverless stack with Lambda functions for compute, API Gateway for REST APIs, DynamoDB for database, S3 for storage. Use CloudFormation for infrastructure definition and AWS CodePipeline/CodeBuild for CI/CD deployment.'
             }
+          },
+          {
+            name: 'project-expansion',
+            provider: 'claude',
+            defaultModel: 'claude-sonnet-4-5-20250929',
+            agents: [
+              {
+                name: 'task-subtask-decomposer',
+                instruction: 'task-subtask-decomposer.md',
+                stage: 'task-decomposition'
+              }
+            ]
+          },
+          {
+            name: 'context-retrospective',
+            provider: 'claude',
+            defaultModel: 'claude-sonnet-4-5-20250929',
+            agents: [
+              {
+                name: 'documentation-updater',
+                instruction: 'documentation-updater.md',
+                stage: 'documentation-update'
+              },
+              {
+                name: 'context-refiner',
+                instruction: 'context-refiner.md',
+                stage: 'context-refinement'
+              }
+            ]
           }
         ]
       }
@@ -245,7 +289,8 @@ GEMINI_API_KEY=
       { pattern: '.env', comment: 'Environment variables' },
       { pattern: '.avc/documentation/.vitepress/dist', comment: 'VitePress build output' },
       { pattern: '.avc/documentation/.vitepress/cache', comment: 'VitePress cache' },
-      { pattern: '.avc/logs', comment: 'Command execution logs' }
+      { pattern: '.avc/logs', comment: 'Command execution logs' },
+      { pattern: '.avc/token-history.json', comment: 'Token usage tracking' }
     ];
 
     let newContent = gitignoreContent;
@@ -535,7 +580,7 @@ If you're new to Agile Vibe Coding, visit the [AVC Documentation](https://agilev
    * Generate project document via Sponsor Call ceremony
    */
   async generateProjectDocument(progress = null, progressPath = null, nonInteractive = false) {
-    const processor = new TemplateProcessor(progressPath || this.sponsorCallProgressPath, nonInteractive);
+    const processor = new TemplateProcessor('sponsor-call', progressPath || this.sponsorCallProgressPath, nonInteractive);
     await processor.processTemplate(progress);
   }
 

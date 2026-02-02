@@ -3,6 +3,7 @@ import fs from 'fs';
 import path from 'path';
 import readline from 'readline';
 import { LLMProvider } from './llm-provider.js';
+import { TokenTracker } from './token-tracker.js';
 import { fileURLToPath } from 'url';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -20,38 +21,50 @@ const __dirname = path.dirname(__filename);
  * 6. Write to .avc/project/doc.md
  */
 class TemplateProcessor {
-  constructor(progressPath = null, nonInteractive = false) {
+  constructor(ceremonyName = 'sponsor-call', progressPath = null, nonInteractive = false) {
     // Load environment variables from project .env
     dotenv.config({ path: path.join(process.cwd(), '.env') });
 
+    this.ceremonyName = ceremonyName;
     this.templatePath = path.join(__dirname, 'templates/project.md');
     this.outputDir = path.join(process.cwd(), '.avc/project');
     this.outputPath = path.join(this.outputDir, 'doc.md');
     this.avcConfigPath = path.join(process.cwd(), '.avc/avc.json');
+    this.agentsPath = path.join(__dirname, 'agents');
+    this.avcPath = path.join(process.cwd(), '.avc');
     this.progressPath = progressPath;
     this.nonInteractive = nonInteractive;
 
-    // Read model configuration from avc.json
-    const { provider, model } = this.readModelConfig();
+    // Read ceremony-specific configuration
+    const { provider, model } = this.readCeremonyConfig(ceremonyName);
     this._providerName = provider;
     this._modelName = model;
     this.llmProvider = null;
+
+    // Initialize token tracker
+    this.tokenTracker = new TokenTracker(this.avcPath);
+    this.tokenTracker.init();
   }
 
   /**
-   * Read model configuration from avc.json
+   * Read ceremony-specific configuration from avc.json
    */
-  readModelConfig() {
+  readCeremonyConfig(ceremonyName) {
     try {
       const config = JSON.parse(fs.readFileSync(this.avcConfigPath, 'utf8'));
-      const ceremony = config.settings?.ceremonies?.[0];
-      if (ceremony) {
-        return { provider: ceremony.provider || 'claude', model: ceremony.defaultModel || 'claude-sonnet-4-5-20250929' };
+      const ceremony = config.settings?.ceremonies?.find(c => c.name === ceremonyName);
+
+      if (!ceremony) {
+        console.warn(`⚠️  Ceremony '${ceremonyName}' not found in config, using defaults`);
+        return { provider: 'claude', model: 'claude-sonnet-4-5-20250929' };
       }
-      // Legacy fallback: settings.model without ceremonies array
-      return { provider: 'claude', model: config.settings?.model || 'claude-sonnet-4-5-20250929' };
+
+      return {
+        provider: ceremony.provider || 'claude',
+        model: ceremony.defaultModel || 'claude-sonnet-4-5-20250929'
+      };
     } catch (error) {
-      console.warn('⚠️  Could not read model config, using default');
+      console.warn(`⚠️  Could not read ceremony config: ${error.message}`);
       return { provider: 'claude', model: 'claude-sonnet-4-5-20250929' };
     }
   }
@@ -298,6 +311,63 @@ class TemplateProcessor {
   }
 
   /**
+   * Retry wrapper for LLM calls with exponential backoff
+   * @param {Function} fn - Async function to retry
+   * @param {string} operation - Description of operation for logging
+   * @param {number} maxRetries - Maximum retry attempts (default: 3)
+   * @returns {Promise} Result from function call
+   */
+  async retryWithBackoff(fn, operation, maxRetries = 3) {
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        return await fn();
+      } catch (error) {
+        const isLastAttempt = attempt === maxRetries;
+        const isRetriable = error.message?.includes('rate limit') ||
+                          error.message?.includes('timeout') ||
+                          error.message?.includes('503') ||
+                          error.message?.includes('network');
+
+        if (isLastAttempt || !isRetriable) {
+          throw error;
+        }
+
+        const delay = Math.pow(2, attempt) * 1000; // 2s, 4s, 8s
+        console.log(`⚠️  Retry ${attempt}/${maxRetries} in ${delay/1000}s: ${operation}`);
+        console.log(`   Error: ${error.message}`);
+        await new Promise(resolve => setTimeout(resolve, delay));
+      }
+    }
+  }
+
+  /**
+   * Get domain-specific agent for a variable
+   * Returns agent instructions for generating suggestions
+   */
+  getAgentForVariable(variableName) {
+    const agentMap = {
+      'MISSION_STATEMENT': 'suggestion-business-analyst.md',
+      'TARGET_USERS': 'suggestion-ux-researcher.md',
+      'INITIAL_SCOPE': 'suggestion-product-manager.md',
+      'TECHNICAL_CONSIDERATIONS': 'suggestion-technical-architect.md',
+      'SECURITY_AND_COMPLIANCE_REQUIREMENTS': 'suggestion-security-specialist.md'
+    };
+
+    const agentFile = agentMap[variableName];
+    if (!agentFile) {
+      return null;
+    }
+
+    const agentPath = path.join(this.agentsPath, agentFile);
+    if (!fs.existsSync(agentPath)) {
+      console.warn(`⚠️  Agent file not found: ${agentFile}`);
+      return null;
+    }
+
+    return fs.readFileSync(agentPath, 'utf8');
+  }
+
+  /**
    * Build context-aware prompt for AI suggestions
    */
   buildPrompt(variableName, isPlural, context) {
@@ -318,11 +388,8 @@ class TemplateProcessor {
       contextSection += '\n';
     }
 
-    if (isPlural) {
-      return `${contextSection}Suggest 3-5 appropriate values for "${displayName}".\n\nReturn only the suggestions, one per line, no numbering or bullets.`;
-    } else {
-      return `${contextSection}Suggest an appropriate value for "${displayName}".\n\nReturn only the suggestion text, concise (1-3 sentences).`;
-    }
+    // Create simple user prompt with context
+    return `${contextSection}Please provide your response for "${displayName}".`;
   }
 
   /**
@@ -339,7 +406,7 @@ class TemplateProcessor {
   }
 
   /**
-   * Generate AI suggestions for a variable
+   * Generate AI suggestions for a variable using domain-specific agent
    */
   async generateSuggestions(variableName, isPlural, context) {
     if (!this.llmProvider && !(await this.initializeLLMProvider())) {
@@ -347,9 +414,26 @@ class TemplateProcessor {
     }
 
     try {
-      const prompt = this.buildPrompt(variableName, isPlural, context);
-      const text = await this.llmProvider.generate(prompt, isPlural ? 512 : 256);
-      return this.parseLLMResponse(text, isPlural);
+      // Get domain-specific agent for this variable
+      const agentInstructions = this.getAgentForVariable(variableName);
+
+      if (agentInstructions) {
+        // Use domain-specific agent with context
+        const prompt = this.buildPrompt(variableName, isPlural, context);
+        console.log(`   Using specialized agent: ${variableName.toLowerCase().replace(/_/g, '-')}`);
+
+        const text = await this.retryWithBackoff(
+          () => this.llmProvider.generate(prompt, isPlural ? 512 : 1024, agentInstructions),
+          `${variableName} suggestion`
+        );
+
+        return this.parseLLMResponse(text, isPlural);
+      } else {
+        // Fallback to generic prompt if no agent available
+        const prompt = this.buildPrompt(variableName, isPlural, context);
+        const text = await this.llmProvider.generate(prompt, isPlural ? 512 : 256);
+        return this.parseLLMResponse(text, isPlural);
+      }
     } catch (error) {
       console.warn(`⚠️  Could not generate suggestions: ${error.message}`);
       return null;
@@ -457,14 +541,14 @@ class TemplateProcessor {
       return templateWithValues;
     }
 
-    console.log('\n🤖 Enhancing document with AI...');
+    console.log('\n🤖 Stage 4/7: Enhancing document with AI...');
 
     try {
       // Try to load agent instructions for enhancement stage
       const agentInstructions = this.getAgentForStage('enhancement');
 
       if (agentInstructions) {
-        console.log('   Using custom agent instructions for enhancement');
+        console.log('   Using documentation agent instructions');
         // Use agent instructions as system context
         const userPrompt = `Here is the project information with all variables filled in:
 
@@ -472,7 +556,10 @@ ${templateWithValues}
 
 Please review and enhance this document according to your role.`;
 
-        const enhanced = await this.llmProvider.generate(userPrompt, 4096, agentInstructions);
+        const enhanced = await this.retryWithBackoff(
+          () => this.llmProvider.generate(userPrompt, 4096, agentInstructions),
+          'document enhancement'
+        );
         console.log('   ✓ Document enhanced successfully');
         return enhanced;
       } else {
@@ -492,7 +579,10 @@ Please review and enhance this document to ensure:
 
 Return the enhanced markdown document.`;
 
-        const enhanced = await this.llmProvider.generate(legacyPrompt, 4096);
+        const enhanced = await this.retryWithBackoff(
+          () => this.llmProvider.generate(legacyPrompt, 4096),
+          'document enhancement (legacy)'
+        );
         console.log('   ✓ Document enhanced successfully');
         return enhanced;
       }
@@ -684,8 +774,358 @@ Return the enhanced markdown document.`;
     // 6. Enhance document with LLM
     const finalDocument = await this.generateFinalDocument(templateWithValues);
 
-    // 7. Write to file
+    // 7. Generate hierarchy (Epics → Stories → context.md files)
+    if (this.ceremonyName === 'sponsor-call' && !this.nonInteractive) {
+      // Only generate hierarchy if provider is initialized and has generateJSON method
+      if (!this.llmProvider) {
+        await this.initializeLLMProvider();
+      }
+
+      if (this.llmProvider && typeof this.llmProvider.generateJSON === 'function') {
+        await this.generateHierarchy(collectedValues);
+      } else {
+        console.log('\n⚠️  Skipping hierarchy generation (LLM provider not available)\n');
+      }
+    }
+
+    // 8. Write to file
     await this.writeDocument(finalDocument);
+  }
+
+  /**
+   * Generate hierarchical work items (Project → Epic → Story) with context.md files
+   * @param {Object} collectedValues - Values from questionnaire
+   */
+  async generateHierarchy(collectedValues) {
+    console.log('\n📊 Generating project hierarchy...\n');
+
+    // Read agent instructions
+    const epicStoryDecomposerAgent = fs.readFileSync(
+      path.join(this.agentsPath, 'epic-story-decomposer.md'),
+      'utf8'
+    );
+    const projectContextGeneratorAgent = fs.readFileSync(
+      path.join(this.agentsPath, 'project-context-generator.md'),
+      'utf8'
+    );
+    const featureContextGeneratorAgent = fs.readFileSync(
+      path.join(this.agentsPath, 'feature-context-generator.md'),
+      'utf8'
+    );
+
+    // 1. Decompose into Epics and Stories
+    console.log('🔄 Stage 5/7: Decomposing features into Epics and Stories...');
+    const decompositionPrompt = this.buildDecompositionPrompt(collectedValues);
+    const hierarchy = await this.retryWithBackoff(
+      () => this.llmProvider.generateJSON(decompositionPrompt, epicStoryDecomposerAgent),
+      'hierarchy decomposition'
+    );
+
+    // Validate response structure
+    if (!hierarchy.epics || !Array.isArray(hierarchy.epics)) {
+      throw new Error('Invalid hierarchy response: missing epics array');
+    }
+
+    console.log(`✅ Generated ${hierarchy.epics.length} Epics with ${hierarchy.validation?.storyCount || 0} Stories\n`);
+
+    // 2. Generate context.md files for each level
+    console.log('📝 Stage 6/7: Generating context.md files...\n');
+
+    // Calculate total contexts to generate
+    const totalStories = hierarchy.epics.reduce((sum, epic) => sum + (epic.stories?.length || 0), 0);
+    const totalContexts = 1 + hierarchy.epics.length + totalStories;
+    let currentContext = 0;
+
+    // Generate Project context
+    currentContext++;
+    console.log(`   → Project context.md (${currentContext}/${totalContexts})`);
+    const projectContext = await this.retryWithBackoff(
+      () => this.generateContext('project', 'project', collectedValues, projectContextGeneratorAgent),
+      'project context'
+    );
+
+    // Generate Epic contexts
+    const epicContexts = [];
+    for (const epic of hierarchy.epics) {
+      currentContext++;
+      console.log(`   → Epic ${epic.id}: ${epic.name} (${currentContext}/${totalContexts})`);
+      const epicContext = await this.retryWithBackoff(
+        () => this.generateContext('epic', epic.id, { ...collectedValues, epic }, featureContextGeneratorAgent),
+        `epic ${epic.id} context`
+      );
+      epicContexts.push({ id: epic.id, context: epicContext });
+
+      // Generate Story contexts for this Epic
+      for (const story of epic.stories || []) {
+        currentContext++;
+        console.log(`      → Story ${story.id}: ${story.name} (${currentContext}/${totalContexts})`);
+        await this.retryWithBackoff(
+          () => this.generateContext('story', story.id, { ...collectedValues, epic, story }, featureContextGeneratorAgent),
+          `story ${story.id} context`
+        );
+      }
+    }
+
+    console.log('\n✅ Context generation complete\n');
+
+    // 3. Write all files to disk
+    console.log('💾 Stage 7/7: Writing files to disk...\n');
+    await this.writeHierarchyToFiles(hierarchy, projectContext, collectedValues);
+
+    // Display token usage statistics
+    if (this.llmProvider) {
+      const usage = this.llmProvider.getTokenUsage();
+      console.log('\n📊 Token Usage:');
+      console.log(`   Input: ${usage.inputTokens.toLocaleString()} tokens`);
+      console.log(`   Output: ${usage.outputTokens.toLocaleString()} tokens`);
+      console.log(`   Total: ${usage.totalTokens.toLocaleString()} tokens`);
+      console.log(`   API Calls: ${usage.totalCalls}`);
+
+      // Save token history
+      this.tokenTracker.addExecution(this.ceremonyName, {
+        input: usage.inputTokens,
+        output: usage.outputTokens
+      });
+      console.log('✅ Token history updated');
+    }
+  }
+
+  /**
+   * Build prompt for Epic/Story decomposition
+   * @param {Object} collectedValues - Questionnaire responses
+   * @returns {string} Prompt for decomposition agent
+   */
+  buildDecompositionPrompt(collectedValues) {
+    const { INITIAL_SCOPE, TARGET_USERS, MISSION_STATEMENT, TECHNICAL_CONSIDERATIONS, SECURITY_AND_COMPLIANCE_REQUIREMENTS } = collectedValues;
+
+    return `Given the following project definition:
+
+**Initial Scope (Features to Implement):**
+${INITIAL_SCOPE}
+
+**Target Users:**
+${TARGET_USERS}
+
+**Mission Statement:**
+${MISSION_STATEMENT}
+
+**Technical Considerations:**
+${TECHNICAL_CONSIDERATIONS}
+
+**Security and Compliance Requirements:**
+${SECURITY_AND_COMPLIANCE_REQUIREMENTS}
+
+Decompose this project into Epics (3-7 domain-based groupings) and Stories (2-8 user-facing capabilities per Epic).
+
+Return your response as JSON following the exact structure specified in your instructions.`;
+  }
+
+  /**
+   * Generate context.md for a specific node
+   * @param {string} level - 'project', 'epic', or 'story'
+   * @param {string} id - Node ID (e.g., 'project', 'context-0001', 'context-0001-0001')
+   * @param {Object} data - Context data (collectedValues + epic/story if applicable)
+   * @param {string} agentInstructions - Context generator agent instructions
+   * @returns {Promise<Object>} Context generation result with markdown content
+   */
+  async generateContext(level, id, data, agentInstructions) {
+    const prompt = this.buildContextPrompt(level, id, data);
+    const result = await this.llmProvider.generateJSON(prompt, agentInstructions);
+
+    // Validate response
+    if (!result.contextMarkdown || !result.tokenCount) {
+      throw new Error(`Invalid context response for ${id}: missing required fields`);
+    }
+
+    if (!result.withinBudget) {
+      console.warn(`⚠️  Warning: ${id} context exceeds token budget (${result.tokenCount} tokens)`);
+    }
+
+    return result;
+  }
+
+  /**
+   * Build prompt for context.md generation
+   * @param {string} level - 'project', 'epic', or 'story'
+   * @param {string} id - Node ID
+   * @param {Object} data - Context data
+   * @returns {string} Prompt for context generator agent
+   */
+  buildContextPrompt(level, id, data) {
+    const { INITIAL_SCOPE, TARGET_USERS, MISSION_STATEMENT, TECHNICAL_CONSIDERATIONS, SECURITY_AND_COMPLIANCE_REQUIREMENTS, epic, story } = data;
+
+    let prompt = `Generate a context.md file for the following ${level}:\n\n`;
+    prompt += `**Level:** ${level}\n`;
+    prompt += `**ID:** ${id}\n\n`;
+
+    if (level === 'project') {
+      prompt += `**Mission Statement:**\n${MISSION_STATEMENT}\n\n`;
+      prompt += `**Target Users:**\n${TARGET_USERS}\n\n`;
+      prompt += `**Technical Considerations:**\n${TECHNICAL_CONSIDERATIONS}\n\n`;
+      prompt += `**Security and Compliance:**\n${SECURITY_AND_COMPLIANCE_REQUIREMENTS}\n\n`;
+    } else if (level === 'epic') {
+      prompt += `**Epic Name:** ${epic.name}\n`;
+      prompt += `**Epic Domain:** ${epic.domain}\n`;
+      prompt += `**Epic Description:** ${epic.description}\n`;
+      prompt += `**Features in Epic:** ${epic.features.join(', ')}\n\n`;
+      prompt += `**Project Mission Statement:**\n${MISSION_STATEMENT}\n\n`;
+      prompt += `**Technical Considerations:**\n${TECHNICAL_CONSIDERATIONS}\n\n`;
+      prompt += `**Security and Compliance:**\n${SECURITY_AND_COMPLIANCE_REQUIREMENTS}\n\n`;
+    } else if (level === 'story') {
+      prompt += `**Story Name:** ${story.name}\n`;
+      prompt += `**Story Description:** ${story.description}\n`;
+      prompt += `**User Type:** ${story.userType}\n`;
+      prompt += `**Acceptance Criteria:**\n${story.acceptance.map((ac, i) => `${i + 1}. ${ac}`).join('\n')}\n\n`;
+      prompt += `**Epic Context:**\n`;
+      prompt += `- Epic: ${epic.name}\n`;
+      prompt += `- Domain: ${epic.domain}\n`;
+      prompt += `- Features: ${epic.features.join(', ')}\n\n`;
+      prompt += `**Project Mission Statement:**\n${MISSION_STATEMENT}\n\n`;
+      prompt += `**Technical Considerations:**\n${TECHNICAL_CONSIDERATIONS}\n\n`;
+    }
+
+    prompt += `Return your response as JSON following the exact structure specified in your instructions.`;
+
+    return prompt;
+  }
+
+  /**
+   * Write hierarchy files to .avc/project/ directory
+   * @param {Object} hierarchy - Decomposition result (epics array)
+   * @param {Object} projectContext - Project-level context
+   * @param {Object} collectedValues - Questionnaire responses
+   */
+  async writeHierarchyToFiles(hierarchy, projectContext, collectedValues) {
+    const projectPath = path.join(this.avcPath, 'project');
+
+    // 1. Write project-level files
+    const projectDir = path.join(projectPath, 'project');
+    if (!fs.existsSync(projectDir)) {
+      fs.mkdirSync(projectDir, { recursive: true });
+    }
+
+    // Write project context.md (doc.md is written separately by writeDocument method)
+    fs.writeFileSync(
+      path.join(projectDir, 'context.md'),
+      projectContext.contextMarkdown,
+      'utf8'
+    );
+    console.log('   ✅ project/context.md\n');
+
+    // 2. Write Epic and Story files
+    for (const epic of hierarchy.epics) {
+      const epicDir = path.join(projectPath, epic.id);
+      if (!fs.existsSync(epicDir)) {
+        fs.mkdirSync(epicDir, { recursive: true });
+      }
+
+      // Write Epic doc.md (initially empty, updated by retrospective ceremony)
+      fs.writeFileSync(
+        path.join(epicDir, 'doc.md'),
+        `# ${epic.name}\n\n*Documentation will be added during implementation and retrospective ceremonies.*\n`,
+        'utf8'
+      );
+      console.log(`   ✅ ${epic.id}/doc.md`);
+
+      // Generate and write Epic context.md
+      const epicContext = await this.generateContext('epic', epic.id, { ...collectedValues, epic },
+        fs.readFileSync(path.join(this.agentsPath, 'feature-context-generator.md'), 'utf8')
+      );
+      fs.writeFileSync(
+        path.join(epicDir, 'context.md'),
+        epicContext.contextMarkdown,
+        'utf8'
+      );
+      console.log(`   ✅ ${epic.id}/context.md`);
+
+      // Write Epic work.json
+      const epicWorkJson = {
+        id: epic.id,
+        name: epic.name,
+        type: 'epic',
+        domain: epic.domain,
+        description: epic.description,
+        features: epic.features,
+        status: 'planned',
+        dependencies: epic.dependencies || [],
+        children: (epic.stories || []).map(s => s.id),
+        metadata: {
+          created: new Date().toISOString(),
+          ceremony: 'sponsor-call',
+          tokenBudget: epicContext.tokenCount
+        }
+      };
+      fs.writeFileSync(
+        path.join(epicDir, 'work.json'),
+        JSON.stringify(epicWorkJson, null, 2),
+        'utf8'
+      );
+      console.log(`   ✅ ${epic.id}/work.json`);
+
+      // Write Story files
+      for (const story of epic.stories || []) {
+        const storyDir = path.join(projectPath, story.id);
+        if (!fs.existsSync(storyDir)) {
+          fs.mkdirSync(storyDir, { recursive: true });
+        }
+
+        // Write Story doc.md (initially empty, updated by retrospective ceremony)
+        fs.writeFileSync(
+          path.join(storyDir, 'doc.md'),
+          `# ${story.name}\n\n*Documentation will be added during implementation and retrospective ceremonies.*\n`,
+          'utf8'
+        );
+        console.log(`      ✅ ${story.id}/doc.md`);
+
+        // Generate and write Story context.md
+        const storyContext = await this.generateContext('story', story.id, { ...collectedValues, epic, story },
+          fs.readFileSync(path.join(this.agentsPath, 'feature-context-generator.md'), 'utf8')
+        );
+        fs.writeFileSync(
+          path.join(storyDir, 'context.md'),
+          storyContext.contextMarkdown,
+          'utf8'
+        );
+        console.log(`      ✅ ${story.id}/context.md`);
+
+        // Write Story work.json
+        const storyWorkJson = {
+          id: story.id,
+          name: story.name,
+          type: 'story',
+          userType: story.userType,
+          description: story.description,
+          acceptance: story.acceptance,
+          status: 'planned',
+          dependencies: story.dependencies || [],
+          children: [],
+          metadata: {
+            created: new Date().toISOString(),
+            ceremony: 'sponsor-call',
+            tokenBudget: storyContext.tokenCount
+          }
+        };
+        fs.writeFileSync(
+          path.join(storyDir, 'work.json'),
+          JSON.stringify(storyWorkJson, null, 2),
+          'utf8'
+        );
+        console.log(`      ✅ ${story.id}/work.json`);
+      }
+
+      console.log(''); // Empty line between epics
+    }
+
+    console.log(`✅ Hierarchy written to ${projectPath}/\n`);
+    console.log(`📊 Summary:`);
+    console.log(`   • 1 Project (doc.md + context.md)`);
+    console.log(`   • ${hierarchy.epics.length} Epics (doc.md + context.md + work.json each)`);
+    console.log(`   • ${hierarchy.validation?.storyCount || 0} Stories (doc.md + context.md + work.json each)`);
+
+    const epicCount = hierarchy.epics.length;
+    const storyCount = hierarchy.validation?.storyCount || 0;
+    const totalFiles = 2 + (3 * epicCount) + (3 * storyCount); // Project: 2, Epic: 3 each, Story: 3 each
+    console.log(`   • ${totalFiles} files created\n`);
   }
 }
 
