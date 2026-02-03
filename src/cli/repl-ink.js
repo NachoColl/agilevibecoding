@@ -164,8 +164,10 @@ const questionnaireQuestions = [
 
 // Question display component
 const QuestionDisplay = ({ question, index, total, editMode }) => {
+  const helpText = `\n   Enter your response (Enter twice=done, Enter=skip, Esc=cancel):\n`;
+
   return React.createElement(Box, { flexDirection: 'column', flexShrink: 0 },
-    React.createElement(Text, { bold: true, color: 'cyan' },
+    React.createElement(Text, { bold: true, color: 'white' },
       `\n📝 Question ${index + 1} of ${total}: ${question.title}${editMode ? ' [EDIT MODE]' : ''}`
     ),
     React.createElement(Text, { dimColor: true },
@@ -174,12 +176,7 @@ const QuestionDisplay = ({ question, index, total, editMode }) => {
     React.createElement(Text, { italic: true, dimColor: true },
       `   Example: "${question.example}"`
     ),
-    React.createElement(Text, { dimColor: true },
-      `\n   Enter your response (press Enter twice when done, or Enter immediately to skip):\n`
-    ),
-    editMode && React.createElement(Text, { dimColor: true },
-      `\n   Ctrl+P: Previous | Ctrl+N: Next | Ctrl+X: Exit Edit Mode`
-    )
+    React.createElement(Text, { dimColor: true }, helpText)
   );
 };
 
@@ -232,33 +229,6 @@ const QuestionnaireProgress = ({ current, total, answers, lastSave }) => {
   );
 };
 
-// Keyboard shortcuts help component
-const QuestionnaireHelp = ({ editMode }) => {
-  if (editMode) {
-    return React.createElement(Box, { flexShrink: 0, paddingX: 1, borderStyle: 'round', borderColor: 'gray' },
-      React.createElement(Box, { flexDirection: 'column' },
-        React.createElement(Text, { bold: true, dimColor: true }, '\nEdit Mode Shortcuts:'),
-        React.createElement(Text, { dimColor: true }, '  Ctrl+P: Previous question'),
-        React.createElement(Text, { dimColor: true }, '  Ctrl+N: Next question'),
-        React.createElement(Text, { dimColor: true }, '  Ctrl+X: Exit edit mode'),
-        React.createElement(Text, { dimColor: true }, '  Escape: Cancel questionnaire')
-      )
-    );
-  }
-
-  return React.createElement(Box, { flexShrink: 0, paddingX: 1, borderStyle: 'round', borderColor: 'gray' },
-    React.createElement(Box, { flexDirection: 'column' },
-      React.createElement(Text, { bold: true, dimColor: true }, '\nKeyboard Shortcuts:'),
-      React.createElement(Text, { dimColor: true }, '  Enter: New line'),
-      React.createElement(Text, { dimColor: true }, '  Enter × 2: Submit answer and move to next question'),
-      React.createElement(Text, { dimColor: true }, '  Enter (on empty): Skip question (use AI suggestion)'),
-      React.createElement(Text, { dimColor: true }, '  Backspace: Delete character (works across lines)'),
-      React.createElement(Text, { dimColor: true }, '  Ctrl+E: Enter edit mode to modify previous answers'),
-      React.createElement(Text, { dimColor: true }, '  Escape: Cancel questionnaire')
-    )
-  );
-};
-
 // Answers preview component
 const AnswersPreview = ({ answers, questions }) => {
   return React.createElement(Box, { flexDirection: 'column', marginTop: 1 },
@@ -282,7 +252,7 @@ const AnswersPreview = ({ answers, questions }) => {
     }),
     React.createElement(Box, { marginTop: 1 },
       React.createElement(Text, { dimColor: true },
-        '\n   Press Enter to submit | Ctrl+E to edit answers | Escape to cancel\n'
+        '\n   Type 1-5 to edit a question | Enter to submit | Escape to cancel\n'
       )
     )
   );
@@ -409,14 +379,17 @@ const CommandSelector = ({ onSelect, onCancel, filter }) => {
     {
       name: 'Ceremonies',
       commands: [
-        { label: '/sponsor-call  Run Sponsor Call ceremony', value: '/sponsor-call', aliases: ['/sc'] }
+        { label: '/sponsor-call      Create project foundation', value: '/sponsor-call', aliases: ['/sc'] },
+        { label: '/project-expansion  Create Epics and Stories', value: '/project-expansion', aliases: ['/pe'] },
+        { label: '/seed <story-id>    Create Tasks and Subtasks', value: '/seed', aliases: [] }
       ]
     },
     {
       name: 'Monitoring',
       commands: [
         { label: '/processes  View background processes', value: '/processes', aliases: ['/p'] },
-        { label: '/status     Show current project status', value: '/status', aliases: ['/s'] }
+        { label: '/status     Show current project status', value: '/status', aliases: ['/s'] },
+        { label: '/tokens     Show token usage statistics', value: '/tokens', aliases: ['/tk'] }
       ]
     },
     {
@@ -866,6 +839,8 @@ const App = () => {
   const [editMode, setEditMode] = useState(false);
   const [showPreview, setShowPreview] = useState(false);
   const [lastAutoSave, setLastAutoSave] = useState(null);
+  const [editingQuestionIndex, setEditingQuestionIndex] = useState(-1);
+  const [isEditingFromPreview, setIsEditingFromPreview] = useState(false);
 
   // Remove confirmation state
   const [removeConfirmActive, setRemoveConfirmActive] = useState(false);
@@ -960,7 +935,10 @@ const App = () => {
   const allCommands = [
     '/init', '/i',
     '/sponsor-call', '/sc',
+    '/project-expansion', '/pe',
+    '/seed',
     '/status', '/s',
+    '/tokens', '/tk',
     '/remove', '/rm',
     '/documentation', '/d',
     '/processes', '/p',
@@ -1126,10 +1104,36 @@ const App = () => {
             await runSponsorCall();
             break;
 
+          case '/project-expansion':
+          case '/pe':
+            setExecutingMessage('Expanding project structure...');
+            await runProjectExpansion();
+            break;
+
+          case '/seed':
+            // Parse story ID from command
+            const storyIdMatch = input.match(/^\/seed\s+(\S+)/);
+            if (!storyIdMatch) {
+              setOutput(prev => prev + '\n❌ Story ID required\n');
+              setOutput(prev => prev + '   Usage: /seed <story-id>\n');
+              setOutput(prev => prev + '   Example: /seed context-0001-0001\n\n');
+              break;
+            }
+            const storyId = storyIdMatch[1];
+            setExecutingMessage(`Seeding story ${storyId}...`);
+            await runSeed(storyId);
+            break;
+
           case '/status':
           case '/s':
             setExecutingMessage('Checking project status...');
             await runStatus();
+            break;
+
+          case '/tokens':
+          case '/tk':
+            setExecutingMessage('Analyzing token usage...');
+            await runTokens();
             break;
 
           case '/remove':
@@ -1272,6 +1276,50 @@ const App = () => {
     setOutput(prev => prev + logs.join('\n') + '\n');
   };
 
+  const runProjectExpansion = async () => {
+    const initiator = new ProjectInitiator();
+
+    if (!initiator.isAvcProject()) {
+      setOutput(prev => prev + '\n❌ Project not initialized\n\n');
+      setOutput(prev => prev + '   Please run /init first to create the project structure.\n\n');
+      return;
+    }
+
+    const originalLog = console.log;
+    let logs = [];
+    console.log = (...args) => logs.push(args.join(' '));
+
+    try {
+      await initiator.projectExpansion();
+    } finally {
+      console.log = originalLog;
+    }
+
+    setOutput(prev => prev + logs.join('\n') + '\n');
+  };
+
+  const runSeed = async (storyId) => {
+    const initiator = new ProjectInitiator();
+
+    if (!initiator.isAvcProject()) {
+      setOutput(prev => prev + '\n❌ Project not initialized\n\n');
+      setOutput(prev => prev + '   Please run /init first to create the project structure.\n\n');
+      return;
+    }
+
+    const originalLog = console.log;
+    let logs = [];
+    console.log = (...args) => logs.push(args.join(' '));
+
+    try {
+      await initiator.seed(storyId);
+    } finally {
+      console.log = originalLog;
+    }
+
+    setOutput(prev => prev + logs.join('\n') + '\n');
+  };
+
   const runSponsorCall = async () => {
     const initiator = new ProjectInitiator();
 
@@ -1289,10 +1337,6 @@ const App = () => {
       const savedProgress = initiator.readProgress(progressPath);
 
       if (savedProgress && savedProgress.stage !== 'completed') {
-        // TODO: Add user confirmation for resume
-        // For now, auto-resume
-        console.log('Resuming from saved progress...');
-
         // Resume from saved progress
         setQuestionnaireActive(true);
         setCurrentQuestionIndex(savedProgress.currentQuestionIndex || 0);
@@ -1345,6 +1389,15 @@ const App = () => {
   const moveToNextQuestion = () => {
     setCurrentAnswer([]);
     setEmptyLineCount(0);
+
+    // If editing from preview, return to preview after submitting the edit
+    if (isEditingFromPreview) {
+      setIsEditingFromPreview(false);
+      setEditingQuestionIndex(-1);
+      setShowPreview(true);
+      setQuestionnaireActive(false);
+      return;
+    }
 
     if (currentQuestionIndex < questionnaireQuestions.length - 1) {
       setCurrentQuestionIndex(currentQuestionIndex + 1);
@@ -1416,6 +1469,97 @@ const App = () => {
     }
 
     setOutput(prev => prev + logs.join('\n') + '\n');
+  };
+
+  const runTokens = async () => {
+    const initiator = new ProjectInitiator();
+
+    // Check if project is initialized
+    if (!initiator.isAvcProject()) {
+      setOutput(prev => prev + '\n❌ Project not initialized\n\n');
+      setOutput(prev => prev + '   Please run /init first to create the project structure.\n\n');
+      return;
+    }
+
+    try {
+      const { TokenTracker } = await import('./token-tracker.js');
+      const tracker = new TokenTracker();
+
+      // Load token data
+      const data = tracker.load();
+
+      let output = '\n📊 Token Usage Report\n\n';
+
+      // Display totals
+      output += '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n';
+      output += '  TOTALS (All Ceremonies)\n';
+      output += '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n';
+
+      const totalsToday = tracker.getTotalsToday();
+      const totalsWeek = tracker.getTotalsThisWeek();
+      const totalsMonth = tracker.getTotalsThisMonth();
+      const totalsAllTime = tracker.getTotalsAllTime();
+
+      output += `📅 Today (${totalsToday.date}):\n`;
+      output += `   Input:      ${totalsToday.input.toLocaleString()} tokens\n`;
+      output += `   Output:     ${totalsToday.output.toLocaleString()} tokens\n`;
+      output += `   Total:      ${totalsToday.total.toLocaleString()} tokens\n`;
+      output += `   Executions: ${totalsToday.executions}\n\n`;
+
+      output += `📅 This Week (${totalsWeek.week}):\n`;
+      output += `   Input:      ${totalsWeek.input.toLocaleString()} tokens\n`;
+      output += `   Output:     ${totalsWeek.output.toLocaleString()} tokens\n`;
+      output += `   Total:      ${totalsWeek.total.toLocaleString()} tokens\n`;
+      output += `   Executions: ${totalsWeek.executions}\n\n`;
+
+      output += `📅 This Month (${totalsMonth.month}):\n`;
+      output += `   Input:      ${totalsMonth.input.toLocaleString()} tokens\n`;
+      output += `   Output:     ${totalsMonth.output.toLocaleString()} tokens\n`;
+      output += `   Total:      ${totalsMonth.total.toLocaleString()} tokens\n`;
+      output += `   Executions: ${totalsMonth.executions}\n\n`;
+
+      output += `📅 All Time:\n`;
+      output += `   Input:      ${totalsAllTime.input.toLocaleString()} tokens\n`;
+      output += `   Output:     ${totalsAllTime.output.toLocaleString()} tokens\n`;
+      output += `   Total:      ${totalsAllTime.total.toLocaleString()} tokens\n`;
+      output += `   Executions: ${totalsAllTime.executions}\n`;
+      if (totalsAllTime.firstExecution) {
+        output += `   First:      ${new Date(totalsAllTime.firstExecution).toLocaleString()}\n`;
+      }
+      if (totalsAllTime.lastExecution) {
+        output += `   Last:       ${new Date(totalsAllTime.lastExecution).toLocaleString()}\n`;
+      }
+
+      // Display per-ceremony breakdown
+      const ceremonyTypes = tracker.getAllCeremonyTypes();
+      if (ceremonyTypes.length > 0) {
+        output += '\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n';
+        output += '  BY CEREMONY TYPE\n';
+        output += '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n';
+
+        for (const ceremonyType of ceremonyTypes) {
+          const ceremonyAllTime = tracker.getCeremonyAllTime(ceremonyType);
+          output += `🎭 ${ceremonyType}:\n`;
+          output += `   Input:      ${ceremonyAllTime.input.toLocaleString()} tokens\n`;
+          output += `   Output:     ${ceremonyAllTime.output.toLocaleString()} tokens\n`;
+          output += `   Total:      ${ceremonyAllTime.total.toLocaleString()} tokens\n`;
+          output += `   Executions: ${ceremonyAllTime.executions}\n`;
+          if (ceremonyAllTime.firstExecution) {
+            output += `   First:      ${new Date(ceremonyAllTime.firstExecution).toLocaleString()}\n`;
+          }
+          if (ceremonyAllTime.lastExecution) {
+            output += `   Last:       ${new Date(ceremonyAllTime.lastExecution).toLocaleString()}\n`;
+          }
+          output += '\n';
+        }
+      }
+
+      output += '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n';
+
+      setOutput(prev => prev + output);
+    } catch (error) {
+      setOutput(prev => prev + `\n❌ Error reading token history: ${error.message}\n\n`);
+    }
   };
 
   const runRemove = async () => {
@@ -1747,7 +1891,7 @@ const App = () => {
         setMode('selector');
       }
     }
-  }, { isActive: mode === 'prompt' });
+  }, { isActive: mode === 'prompt' && !questionnaireActive });
 
   // Handle keyboard input in selector mode
   useInput((inputChar, key) => {
@@ -1784,41 +1928,8 @@ const App = () => {
 
     const currentQuestion = questionnaireQuestions[currentQuestionIndex];
 
-    // Handle Ctrl+E to enter edit mode
-    if (key.ctrl && inputChar === 'e') {
-      setEditMode(true);
-      return;
-    }
-
-    // Handle Ctrl+P (previous question) when in edit mode
-    if (editMode && key.ctrl && inputChar === 'p') {
-      if (currentQuestionIndex > 0) {
-        const newIndex = currentQuestionIndex - 1;
-        setCurrentQuestionIndex(newIndex);
-        const prevKey = questionnaireQuestions[newIndex].key;
-        const prevAnswer = questionnaireAnswers[prevKey] || '';
-        setCurrentAnswer(prevAnswer ? prevAnswer.split('\n') : []);
-      }
-      return;
-    }
-
-    // Handle Ctrl+N (next question) when in edit mode
-    if (editMode && key.ctrl && inputChar === 'n') {
-      if (currentQuestionIndex < questionnaireQuestions.length - 1) {
-        const newIndex = currentQuestionIndex + 1;
-        setCurrentQuestionIndex(newIndex);
-        const nextKey = questionnaireQuestions[newIndex].key;
-        const nextAnswer = questionnaireAnswers[nextKey] || '';
-        setCurrentAnswer(nextAnswer ? nextAnswer.split('\n') : []);
-      }
-      return;
-    }
-
-    // Handle Ctrl+X to exit edit mode
-    if (editMode && key.ctrl && inputChar === 'x') {
-      setEditMode(false);
-      return;
-    }
+    // Edit mode disabled (Ctrl+ shortcuts not available in all environments)
+    // Users must provide complete answers in first pass
 
     // Handle Enter key
     if (key.return) {
@@ -1870,8 +1981,19 @@ const App = () => {
       return;
     }
 
-    // Handle Escape (cancel questionnaire)
+    // Handle Escape (cancel edit or questionnaire)
     if (key.escape) {
+      // If editing from preview, return to preview instead of canceling
+      if (isEditingFromPreview) {
+        setIsEditingFromPreview(false);
+        setEditingQuestionIndex(-1);
+        setShowPreview(true);
+        setQuestionnaireActive(false);
+        setCurrentAnswer([]);
+        return;
+      }
+
+      // Otherwise, cancel entire questionnaire
       setQuestionnaireActive(false);
       setCurrentQuestionIndex(0);
       setQuestionnaireAnswers({});
@@ -1908,14 +2030,25 @@ const App = () => {
       return;
     }
 
-    // Ctrl+E to go back and edit
-    if (key.ctrl && inputChar === 'e') {
-      setShowPreview(false);
-      setEditMode(true);
-      setCurrentQuestionIndex(0);
-      const firstKey = questionnaireQuestions[0].key;
-      const firstAnswer = questionnaireAnswers[firstKey] || '';
-      setCurrentAnswer(firstAnswer ? firstAnswer.split('\n') : []);
+    // Number keys (1-5) to edit specific question
+    if (inputChar >= '1' && inputChar <= '5') {
+      const questionNumber = parseInt(inputChar, 10);
+      const questionIndex = questionNumber - 1;
+
+      if (questionIndex < questionnaireQuestions.length) {
+        // Enter edit mode for this question
+        setShowPreview(false);
+        setQuestionnaireActive(true);
+        setCurrentQuestionIndex(questionIndex);
+        setIsEditingFromPreview(true);
+        setEditingQuestionIndex(questionIndex);
+
+        // Load existing answer if any
+        const question = questionnaireQuestions[questionIndex];
+        const existingAnswer = questionnaireAnswers[question.key] || '';
+        setCurrentAnswer(existingAnswer.split('\n'));
+        setEmptyLineCount(0);
+      }
       return;
     }
 
@@ -2185,7 +2318,7 @@ const App = () => {
           question: currentQuestion,
           index: currentQuestionIndex,
           total: questionnaireQuestions.length,
-          editMode
+          editMode: editingQuestionIndex !== -1
         }),
         React.createElement(MultiLineInput, {
           lines: currentAnswer,
@@ -2197,8 +2330,7 @@ const App = () => {
           total: questionnaireQuestions.length,
           answers: questionnaireAnswers,
           lastSave: lastAutoSave
-        }),
-        React.createElement(QuestionnaireHelp, { editMode })
+        })
       );
     }
 

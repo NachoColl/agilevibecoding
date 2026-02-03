@@ -2,11 +2,13 @@
 
 ## Overview
 
-The **Sponsor Call** ceremony is the first ceremony in the Agile Vibe Coding framework. It defines the project vision, initial scope, and overall requirements through an interactive questionnaire approach. This ceremony creates a comprehensive AI-powered project definition that serves as the foundation for all subsequent ceremonies.
+The **Sponsor Call** ceremony is the first ceremony in the Agile Vibe Coding framework. It creates the project foundation by capturing project vision, scope, and requirements through an interactive questionnaire, then generating comprehensive project documentation and architectural context.
 
-**Purpose:** Transform high-level project vision into a detailed, hierarchical project structure with AI-generated documentation.
+**Purpose:** Establish project foundation with documentation and architectural context that guides all subsequent work.
 
-**Output:** Complete project definition with 3-7 Epics, 10-30 Stories, and context files at each level.
+**Output:** Project documentation (doc.md) and project-level architectural context (context.md).
+
+**Duration:** 10-20 minutes
 
 ---
 
@@ -47,17 +49,17 @@ Each agent has specialized knowledge of its domain and generates responses forma
 graph LR
     A[1. Questionnaire] --> B[2. Template Replacement]
     B --> C[3. Document Enhancement]
-    C --> D[4. Hierarchy Generation]
-    D --> E[5. Context Generation]
-    E --> F[6. File Writing]
-    F --> G[7. Token Tracking]
+    C --> D[4. Project Context Generation]
+    D --> E[5. File Writing]
+    E --> F[6. Token Tracking]
 
     style A fill:#e1f5ff
     style C fill:#fff4e1
     style D fill:#fff4e1
-    style E fill:#fff4e1
-    style G fill:#e8f5e9
+    style F fill:#e8f5e9
 ```
+
+**Next Ceremony:** After Sponsor Call completes, run `/project-expansion` to create Epics and Stories.
 
 ### Step 1: Questionnaire
 
@@ -186,9 +188,11 @@ Save token usage statistics to `.avc/token-history.json`.
 
 ## AI Agents Used
 
-The Sponsor Call ceremony uses **8 specialized AI agents**:
+The Sponsor Call ceremony uses **7 specialized AI agents** (2 ceremony agents + 5 optional suggestion agents):
 
-### Domain-Specific Suggestion Agents (Step 1)
+### Domain-Specific Suggestion Agents (Optional - Step 1)
+
+These agents are invoked **only when the user skips a questionnaire question**. They provide AI-generated suggestions based on context from previous answers.
 
 #### 1. Business Analyst
 - **File:** `agents/suggestion-business-analyst.md` → [View Full Agent Documentation](/agents/suggestion-business-analyst)
@@ -220,31 +224,33 @@ The Sponsor Call ceremony uses **8 specialized AI agents**:
 - **Output:** 150-250 words covering auth, data protection, compliance, monitoring
 - **Regulations:** HIPAA, GDPR, PCI-DSS, SOC2
 
-### Core Ceremony Agents (Steps 3-5)
+### Core Ceremony Agents (Steps 3-4)
+
+These agents run automatically during the ceremony to create project foundation.
 
 #### 6. Project Documentation Creator
 - **File:** `agents/project-documentation-creator.md` → [View Full Agent Documentation](/agents/project-documentation-creator)
 - **Purpose:** Transform questionnaire responses into professional project document
-- **Output:** 8-section markdown document (doc.md)
-- **Scope:** Initial project documentation creation only
+- **Input:** 5 questionnaire variables (filled template)
+- **Output:** `.avc/project/project/doc.md` - 8-section markdown document
+- **Token Budget:** ~3000-5000 tokens
+- **Sections:** Overview, Target Users, Initial Scope, Technical Considerations, Security/Compliance, Workflows, Integrations, Success Criteria
 
-#### 7. Epic/Story Decomposer
-- **File:** `agents/epic-story-decomposer.md` → [View Full Agent Documentation](/agents/epic-story-decomposer)
-- **Purpose:** Decompose project features into Epics (3-7) and Stories (2-8 per Epic)
-- **Output:** JSON with Epic/Story hierarchy
-- **Format:** Strict schema with IDs, descriptions, acceptance criteria, dependencies
-
-#### 8. Project Context Generator
+#### 7. Project Context Generator
 - **File:** `agents/project-context-generator.md` → [View Full Agent Documentation](/agents/project-context-generator)
-- **Purpose:** Generate Project-level context.md (~500 tokens)
-- **Output:** JSON with markdown content
-- **Scope:** Cross-cutting concerns, technology stack, architecture principles
+- **Purpose:** Generate project-level architectural context
+- **Input:** 5 questionnaire variables
+- **Output:** `.avc/project/project/context.md` - Project context (~500 tokens)
+- **Token Budget:** ~500 tokens
+- **Focus:** Technology stack, cross-cutting concerns, architecture principles, development standards
+- **Inheritance:** This context is inherited by all Epic/Story/Task/Subtask contexts
 
-#### 9. Feature Context Generator
-- **File:** `agents/feature-context-generator.md` → [View Full Agent Documentation](/agents/feature-context-generator)
-- **Purpose:** Generate Epic, Story, Task, and Subtask context.md files
-- **Output:** JSON with markdown content
-- **Scope:** Feature-specific contexts with inheritance (Epic ~800, Story ~1500, Task ~1200, Subtask ~800 tokens)
+### Agents Moved to Other Ceremonies
+
+The following agents are **no longer used** in Sponsor Call (moved to other ceremonies):
+
+- **Epic/Story Decomposer** → Moved to `/project-expansion` ceremony
+- **Feature Context Generator** → Moved to `/project-expansion` and `/seed` ceremonies
 
 ---
 
@@ -254,49 +260,37 @@ The Sponsor Call ceremony uses **8 specialized AI agents**:
 
 ```
 .avc/project/
-├── project/
-│   ├── doc.md              # Enhanced 8-section project document (~4KB)
-│   └── context.md          # Project-level context (~800 bytes)
-├── epic-001/               # Foundation Services
-│   ├── doc.md              # Epic documentation (placeholder)
-│   ├── context.md          # Epic context (~800 bytes)
-│   ├── story-001-001/      # Authentication Service
-│   │   ├── doc.md          # Story doc with acceptance criteria
-│   │   └── context.md      # Story context (~800 bytes)
-│   ├── story-001-002/      # User Profile Management
-│   │   ├── doc.md
-│   │   └── context.md
-│   └── ...
-├── epic-002/               # Core Features
-│   └── ...
-└── ...
+└── project/
+    ├── doc.md              # Enhanced 8-section project document (~4KB)
+    └── context.md          # Project-level architectural context (~500 tokens)
 ```
 
 ### Output Summary
 
-- **1 Project Document** - 8-section application definition
-  - Application Overview
-  - Target Users and Stakeholders
-  - Key Features and Functionality
-  - User Workflows
-  - Technical Architecture
-  - Integration Requirements
-  - Security and Compliance
-  - Success Criteria
+**1. Project Documentation (doc.md)** - Comprehensive 8-section project definition:
+  - **Application Overview** - Mission, purpose, key objectives
+  - **Target Users and Stakeholders** - User personas, roles, stakeholders
+  - **Initial Scope** - Features and functional areas to implement
+  - **Technical Considerations** - Technology stack, architecture, constraints
+  - **Security and Compliance** - Security requirements, regulations, privacy
+  - **User Workflows** - Primary user journeys and interactions
+  - **Integration Requirements** - External systems, APIs, dependencies
+  - **Success Criteria** - Metrics, KPIs, definition of done
 
-- **3-7 Epics** - Domain-based feature groupings
-  - Examples: Foundation Services, User Management, Core Features, Analytics
-  - Each with description and context
+**2. Project Context (context.md)** - Architectural foundation (~500 tokens):
+  - Technology stack and frameworks
+  - Cross-cutting concerns (auth, logging, error handling)
+  - Architecture principles and patterns
+  - Development standards and conventions
+  - This context is inherited by all Epic/Story/Task/Subtask contexts
 
-- **10-30 Stories** - User-facing capabilities under each Epic
-  - Examples: "Authentication Service", "User Profile Management"
-  - Each with description, acceptance criteria, and context
+### What's NOT Created (Moved to Project Expansion)
 
-- **Context Files** - Optimized context.md at each level
-  - Project-level context
-  - Epic-level context
-  - Story-level context
-  - Enable efficient AI agent prompting in future ceremonies
+The following are now created by the `/project-expansion` ceremony:
+- ~~Epic directories~~ - Created by Project Expansion
+- ~~Story directories~~ - Created by Project Expansion
+- ~~Epic/Story work.json files~~ - Created by Project Expansion
+- ~~Epic/Story context.md files~~ - Created by Project Expansion
 
 ---
 

@@ -15,6 +15,7 @@ Given a project's Initial Scope (list of features/functional areas), decompose i
 3. Cross-cutting features (auth, logging) get a separate "Foundation" Epic
 4. Epics should be **parallelizable** (minimal inter-Epic dependencies)
 5. Create 3-7 Epics (not too few, not too many)
+6. **Avoid duplicates** - If existing Epic/Story names are provided, DO NOT generate them
 
 ## Story Decomposition Rules
 
@@ -34,6 +35,24 @@ Given a project's Initial Scope (list of features/functional areas), decompose i
 **Story-level:**
 - Dependencies form DAG (Directed Acyclic Graph), not linear chain
 - Sibling Stories under different parents can run in parallel
+
+## Duplicate Detection
+
+When existing Epics/Stories are provided in the prompt:
+- Check if Epic name matches existing (case-insensitive)
+- Check if Story name matches existing (case-insensitive)
+- **Skip** any Epic or Story that already exists
+- Only generate **NEW** Epics and Stories
+
+Example prompt will include:
+```
+Existing Epics: user management, payment processing
+Existing Stories: user registration, login, checkout
+
+Generate NEW Epics and Stories. Do not duplicate existing ones.
+```
+
+Generate only Epics/Stories that are NOT in the existing lists.
 
 ## Output Format
 

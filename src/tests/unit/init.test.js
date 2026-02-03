@@ -297,10 +297,20 @@ describe('ProjectInitiator', () => {
       const config = JSON.parse(configCall[1]);
 
       expect(config.settings.ceremonies).toBeDefined();
-      expect(config.settings.ceremonies).toHaveLength(1);
+      expect(config.settings.ceremonies).toHaveLength(4);
+
+      // Verify sponsor-call ceremony
       expect(config.settings.ceremonies[0].name).toBe('sponsor-call');
       expect(config.settings.ceremonies[0].provider).toBe('claude');
       expect(config.settings.ceremonies[0].defaultModel).toBe('claude-sonnet-4-5-20250929');
+
+      // Verify project-expansion ceremony
+      expect(config.settings.ceremonies[1].name).toBe('project-expansion');
+      expect(config.settings.ceremonies[1].provider).toBe('claude');
+
+      // Verify context-retrospective ceremony
+      expect(config.settings.ceremonies[2].name).toBe('context-retrospective');
+      expect(config.settings.ceremonies[2].provider).toBe('claude');
     });
 
     it('includes all required context scopes', () => {

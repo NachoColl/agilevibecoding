@@ -61,7 +61,10 @@ describe('REPL Command Consistency', () => {
         '/init',
         '/documentation',
         '/sponsor-call',
+        '/project-expansion',
+        '/seed',
         '/status',
+        '/tokens',
         '/remove',
         '/processes',
         '/help',
@@ -75,7 +78,9 @@ describe('REPL Command Consistency', () => {
         '/i': '/init',
         '/d': '/documentation',
         '/sc': '/sponsor-call',
+        '/pe': '/project-expansion',
         '/s': '/status',
+        '/tk': '/tokens',
         '/rm': '/remove',
         '/p': '/processes',
         '/h': '/help',
@@ -198,11 +203,11 @@ describe('REPL Command Consistency', () => {
         menuCommands.push(match[1]);
       }
 
-      // Expected: 10 base commands + 10 aliases in tab completion
-      expect(tabCommands.length).toBe(20);
+      // Expected: 13 base commands + 12 aliases in tab completion
+      expect(tabCommands.length).toBe(25);
 
-      // Expected: 10 base commands in menu (no aliases)
-      expect(menuCommands.length).toBe(10);
+      // Expected: 13 base commands in menu (no aliases)
+      expect(menuCommands.length).toBe(13);
     });
 
     it('should not have duplicate commands in any list', () => {

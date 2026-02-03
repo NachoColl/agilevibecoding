@@ -141,19 +141,9 @@ class ProjectInitiator {
                 stage: 'enhancement'
               },
               {
-                name: 'epic-story-decomposer',
-                instruction: 'epic-story-decomposer.md',
-                stage: 'hierarchy-generation'
-              },
-              {
                 name: 'project-context-generator',
                 instruction: 'project-context-generator.md',
                 stage: 'project-context-generation'
-              },
-              {
-                name: 'feature-context-generator',
-                instruction: 'feature-context-generator.md',
-                stage: 'feature-context-generation'
               }
             ],
             guidelines: {
@@ -166,9 +156,14 @@ class ProjectInitiator {
             defaultModel: 'claude-sonnet-4-5-20250929',
             agents: [
               {
-                name: 'task-subtask-decomposer',
-                instruction: 'task-subtask-decomposer.md',
-                stage: 'task-decomposition'
+                name: 'epic-story-decomposer',
+                instruction: 'epic-story-decomposer.md',
+                stage: 'decomposition'
+              },
+              {
+                name: 'feature-context-generator',
+                instruction: 'feature-context-generator.md',
+                stage: 'context-generation'
               }
             ]
           },
@@ -186,6 +181,23 @@ class ProjectInitiator {
                 name: 'context-refiner',
                 instruction: 'context-refiner.md',
                 stage: 'context-refinement'
+              }
+            ]
+          },
+          {
+            name: 'seed',
+            provider: 'claude',
+            defaultModel: 'claude-sonnet-4-5-20250929',
+            agents: [
+              {
+                name: 'task-subtask-decomposer',
+                instruction: 'task-subtask-decomposer.md',
+                stage: 'decomposition'
+              },
+              {
+                name: 'feature-context-generator',
+                instruction: 'feature-context-generator.md',
+                stage: 'context-generation'
               }
             ]
           }
@@ -686,6 +698,48 @@ If you're new to Agile Vibe Coding, visit the [AVC Documentation](https://agilev
     console.log('\nNext steps:');
     console.log('  1. Review .avc/project/doc.md for your project definition');
     console.log('  2. Review .avc/avc.json configuration');
+  }
+
+  /**
+   * Run Project Expansion ceremony to create/expand Epics and Stories
+   */
+  async projectExpansion() {
+    console.log('\n🚀 Starting Project Expansion ceremony...\n');
+
+    if (!this.isAvcProject()) {
+      console.log('❌ Project not initialized\n');
+      console.log('   Please run /init first.\n');
+      return;
+    }
+
+    const { ProjectExpansionProcessor } = await import('./project-expansion-processor.js');
+    const processor = new ProjectExpansionProcessor();
+    await processor.execute();
+  }
+
+  /**
+   * Run Seed ceremony to decompose a Story into Tasks and Subtasks
+   * @param {string} storyId - Story ID (e.g., context-0001-0001)
+   */
+  async seed(storyId) {
+    console.log(`\n🌱 Seeding Story: ${storyId}\n`);
+
+    if (!this.isAvcProject()) {
+      console.log('❌ Project not initialized\n');
+      console.log('   Please run /init first.\n');
+      return;
+    }
+
+    if (!storyId) {
+      console.log('❌ Story ID required\n');
+      console.log('   Usage: /seed <story-id>\n');
+      console.log('   Example: /seed context-0001-0001\n');
+      return;
+    }
+
+    const { SeedProcessor } = await import('./seed-processor.js');
+    const processor = new SeedProcessor(storyId);
+    await processor.execute();
   }
 
   /**

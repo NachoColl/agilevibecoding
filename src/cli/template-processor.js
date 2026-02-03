@@ -675,8 +675,21 @@ Return the enhanced markdown document.`;
     // Write doc.md
     fs.writeFileSync(this.outputPath, content, 'utf8');
 
-    console.log(`\n✅ Project document generated!`);
-    console.log(`   Location: ${this.outputPath}`);
+    if (this.ceremonyName === 'sponsor-call') {
+      console.log(`\n✅ Project foundation created!`);
+      console.log(`\nFiles created:`);
+      console.log(`   • ${this.outputPath}`);
+      const projectContextPath = path.join(this.outputDir, 'project/context.md');
+      if (fs.existsSync(projectContextPath)) {
+        console.log(`   • ${projectContextPath}`);
+      }
+      console.log(`\nNext steps:`);
+      console.log(`   1. Review project documentation`);
+      console.log(`   2. Run /project-expansion to create Epics and Stories`);
+    } else {
+      console.log(`\n✅ Project document generated!`);
+      console.log(`   Location: ${this.outputPath}`);
+    }
 
     // Sync to VitePress if configured
     const synced = this.syncToVitePress(content);
@@ -774,17 +787,17 @@ Return the enhanced markdown document.`;
     // 6. Enhance document with LLM
     const finalDocument = await this.generateFinalDocument(templateWithValues);
 
-    // 7. Generate hierarchy (Epics → Stories → context.md files)
+    // 7. Generate project context only (for Sponsor Call)
     if (this.ceremonyName === 'sponsor-call' && !this.nonInteractive) {
-      // Only generate hierarchy if provider is initialized and has generateJSON method
+      // Only generate project context if provider is initialized and has generateJSON method
       if (!this.llmProvider) {
         await this.initializeLLMProvider();
       }
 
       if (this.llmProvider && typeof this.llmProvider.generateJSON === 'function') {
-        await this.generateHierarchy(collectedValues);
+        await this.generateProjectContext(collectedValues);
       } else {
-        console.log('\n⚠️  Skipping hierarchy generation (LLM provider not available)\n');
+        console.log('\n⚠️  Skipping project context generation (LLM provider not available)\n');
       }
     }
 
@@ -793,7 +806,70 @@ Return the enhanced markdown document.`;
   }
 
   /**
+   * Generate project context only (for Sponsor Call ceremony)
+   * @param {Object} collectedValues - Values from questionnaire
+   */
+  async generateProjectContext(collectedValues) {
+    console.log('\n📝 Stage 5/5: Generating project context...\n');
+
+    if (!this.llmProvider) {
+      await this.initializeLLMProvider();
+    }
+
+    if (!this.llmProvider || typeof this.llmProvider.generateJSON !== 'function') {
+      console.log('\n⚠️  Skipping project context generation (LLM provider not available)\n');
+      return null;
+    }
+
+    // Read agent instructions
+    const projectContextGeneratorAgent = fs.readFileSync(
+      path.join(this.agentsPath, 'project-context-generator.md'),
+      'utf8'
+    );
+
+    // Generate project context
+    console.log('   → Generating project context.md');
+    const projectContext = await this.retryWithBackoff(
+      () => this.generateContext('project', 'project', collectedValues, projectContextGeneratorAgent),
+      'project context'
+    );
+
+    // Write to file
+    const projectDir = path.join(this.outputDir, 'project');
+    if (!fs.existsSync(projectDir)) {
+      fs.mkdirSync(projectDir, { recursive: true });
+    }
+
+    fs.writeFileSync(
+      path.join(projectDir, 'context.md'),
+      projectContext.contextMarkdown,
+      'utf8'
+    );
+
+    console.log('   ✅ project/context.md\n');
+
+    // Display token usage
+    if (this.llmProvider) {
+      const usage = this.llmProvider.getTokenUsage();
+      console.log('\n📊 Token Usage:');
+      console.log(`   Input: ${usage.inputTokens.toLocaleString()} tokens`);
+      console.log(`   Output: ${usage.outputTokens.toLocaleString()} tokens`);
+      console.log(`   Total: ${usage.totalTokens.toLocaleString()} tokens`);
+      console.log(`   API Calls: ${usage.totalCalls}`);
+
+      this.tokenTracker.addExecution(this.ceremonyName, {
+        input: usage.inputTokens,
+        output: usage.outputTokens
+      });
+      console.log('✅ Token history updated');
+    }
+
+    return projectContext;
+  }
+
+  /**
    * Generate hierarchical work items (Project → Epic → Story) with context.md files
+   * (Now used by Project Expansion ceremony)
    * @param {Object} collectedValues - Values from questionnaire
    */
   async generateHierarchy(collectedValues) {
