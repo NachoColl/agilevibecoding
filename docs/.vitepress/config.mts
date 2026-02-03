@@ -31,6 +31,7 @@ export default defineConfig({
         items: [
           { text: 'Sponsor Call', link: '/ceremonies/sponsor-call' },
           { text: 'Project Expansion', link: '/ceremonies/project-expansion' },
+          { text: 'Seed', link: '/ceremonies/seed' },
           { text: 'AI Coding', link: '/ceremonies/ai-coding' },
           { text: 'Context Retrospective', link: '/ceremonies/context-retrospective' },
         ]
@@ -50,25 +51,25 @@ export default defineConfig({
             text: 'Documentation',
             collapsed: false,
             items: [
-              { text: 'Project Documentation Creator', link: '/agents/project-documentation-creator' },
-              { text: 'Documentation Updater', link: '/agents/documentation-updater' }
+              { text: 'Creator', link: '/agents/project-documentation-creator' },
+              { text: 'Updater', link: '/agents/documentation-updater' }
             ]
           },
           {
             text: 'Decomposition',
             collapsed: false,
             items: [
-              { text: 'Epic/Story Decomposer', link: '/agents/epic-story-decomposer' },
-              { text: 'Task/Subtask Decomposer', link: '/agents/task-subtask-decomposer' }
+              { text: 'Epic/Story', link: '/agents/epic-story-decomposer' },
+              { text: 'Task/Subtask', link: '/agents/task-subtask-decomposer' }
             ]
           },
           {
             text: 'Context Management',
             collapsed: false,
             items: [
-              { text: 'Project Context Generator', link: '/agents/project-context-generator' },
-              { text: 'Feature Context Generator', link: '/agents/feature-context-generator' },
-              { text: 'Context Refiner', link: '/agents/context-refiner' }
+              { text: 'Project', link: '/agents/project-context-generator' },
+              { text: 'Feature', link: '/agents/feature-context-generator' },
+              { text: 'Refiner', link: '/agents/context-refiner' }
             ]
           },
           {
