@@ -36,6 +36,14 @@ export default defineConfig({
         ]
       },
       {
+        text: 'Reference',
+        items: [
+          { text: 'Install', link: '/install' },
+          { text: 'CLI Commands', link: '/commands' },
+          { text: 'Contributing', link: '/contribute' },
+        ]
+      },
+      {
         text: 'Agents',
         items: [
           {
@@ -74,14 +82,6 @@ export default defineConfig({
               { text: 'Security Specialist', link: '/agents/suggestion-security-specialist' }
             ]
           }
-        ]
-      },
-      {
-        text: 'Reference',
-        items: [
-          { text: 'Install', link: '/install' },
-          { text: 'CLI Commands', link: '/commands' },
-          { text: 'Contributing', link: '/contribute' },
         ]
       },
     ],
