@@ -3,6 +3,52 @@ export class LLMProvider {
     this.providerName = providerName;
     this.model = model;
     this._client = null;
+    this.tokenUsage = {
+      inputTokens: 0,
+      outputTokens: 0,
+      totalCalls: 0
+    };
+  }
+
+  /**
+   * Track token usage from API response
+   * @param {Object} usage - Usage object from API response
+   */
+  _trackTokens(usage) {
+    if (usage) {
+      this.tokenUsage.inputTokens += usage.input_tokens || usage.inputTokens || usage.promptTokenCount || 0;
+      this.tokenUsage.outputTokens += usage.output_tokens || usage.outputTokens || usage.candidatesTokenCount || 0;
+      this.tokenUsage.totalCalls++;
+    }
+  }
+
+  /**
+   * Get token usage statistics with cost estimate
+   * @returns {Object} Token usage and cost information
+   */
+  getTokenUsage() {
+    const total = this.tokenUsage.inputTokens + this.tokenUsage.outputTokens;
+
+    // Pricing per 1M tokens (as of 2026-02)
+    const pricing = {
+      'claude': { input: 3.00, output: 15.00 },  // Claude Sonnet 4.5
+      'gemini': { input: 0.15, output: 0.60 }     // Gemini 2.0 Flash
+    };
+
+    const rates = pricing[this.providerName] || { input: 0, output: 0 };
+    const inputCost = (this.tokenUsage.inputTokens / 1000000) * rates.input;
+    const outputCost = (this.tokenUsage.outputTokens / 1000000) * rates.output;
+    const estimatedCost = inputCost + outputCost;
+
+    return {
+      inputTokens: this.tokenUsage.inputTokens,
+      outputTokens: this.tokenUsage.outputTokens,
+      totalTokens: total,
+      totalCalls: this.tokenUsage.totalCalls,
+      estimatedCost,
+      provider: this.providerName,
+      model: this.model
+    };
   }
 
   // Factory — async because of dynamic import (only loads the SDK you need)
@@ -55,6 +101,11 @@ export class LLMProvider {
         error: error.message
       };
     }
+  }
+
+  // Generate structured JSON output
+  async generateJSON(prompt, agentInstructions = null) {
+    throw new Error(`${this.constructor.name} must implement generateJSON()`);
   }
 
   // Subclass hooks — throw if not overridden

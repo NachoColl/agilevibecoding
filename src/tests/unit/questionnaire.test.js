@@ -146,7 +146,7 @@ describe('Questionnaire Feature', () => {
 
   describe('Template Processor - Pre-filled Answers', () => {
     it('should detect all answers pre-filled', () => {
-      const processor = new TemplateProcessor();
+      const processor = new TemplateProcessor('sponsor-call');
 
       // Read template content
       const templateContent = fs.readFileSync(
@@ -164,7 +164,7 @@ describe('Questionnaire Feature', () => {
     });
 
     it('should replace variables correctly', () => {
-      const processor = new TemplateProcessor();
+      const processor = new TemplateProcessor('sponsor-call');
 
       const template = `# Project
 
@@ -186,7 +186,7 @@ Users: {{TARGET_USERS}}`;
     });
 
     it('should handle array values correctly', () => {
-      const processor = new TemplateProcessor();
+      const processor = new TemplateProcessor('sponsor-call');
 
       const template = `Items: {{TEST_ITEMS}}`;
 
@@ -202,7 +202,7 @@ Users: {{TARGET_USERS}}`;
     });
 
     it('should detect plural variables', () => {
-      const processor = new TemplateProcessor();
+      const processor = new TemplateProcessor('sponsor-call');
 
       expect(processor.isPlural('REQUIREMENTS')).toBe(true);
       expect(processor.isPlural('OBJECTIVES')).toBe(true);
@@ -211,7 +211,7 @@ Users: {{TARGET_USERS}}`;
     });
 
     it('should convert variable names to display format', () => {
-      const processor = new TemplateProcessor();
+      const processor = new TemplateProcessor('sponsor-call');
 
       expect(processor.toDisplayName('MISSION_STATEMENT')).toBe('Mission Statement');
       expect(processor.toDisplayName('TARGET_USERS')).toBe('Target Users');
@@ -349,7 +349,7 @@ Users: {{TARGET_USERS}}`;
     });
 
     it('should handle multi-line answers correctly', () => {
-      const processor = new TemplateProcessor();
+      const processor = new TemplateProcessor('sponsor-call');
 
       const template = `Answer: {{TEST}}`;
 
@@ -398,7 +398,7 @@ Users: {{TARGET_USERS}}`;
     });
 
     it('should handle missing template file gracefully', () => {
-      const processor = new TemplateProcessor();
+      const processor = new TemplateProcessor('sponsor-call');
       processor.templatePath = path.join(testDir, 'nonexistent-template.md');
 
       expect(() => {

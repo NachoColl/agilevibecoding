@@ -88,18 +88,47 @@ All tests must pass before submitting a PR.
 
 ### 3. Run CLI Locally
 
-**Option A: Direct execution**
+**Option A: Direct execution (quick testing)**
 ```bash
 cd src
 node cli/index.js
 ```
 
-**Option B: Global link**
+**Option B: Install globally (recommended for full testing)**
+```bash
+# Navigate to the src directory
+cd src
+
+# Install the package globally from local source
+npm install -g .
+
+# Now 'avc' command is available globally
+cd ~/test-project
+avc
+/init
+/status
+/exit
+
+# After making code changes, reinstall
+cd /path/to/agilevibecoding/src
+npm install -g .
+
+# Uninstall when done testing
+npm uninstall -g @agile-vibe-coding/avc
+```
+
+**Option C: Symlink with npm link (alternative)**
 ```bash
 cd src
-npm link              # Link package globally
-avc                   # Run from anywhere
+npm link              # Create global symlink
+avc                   # Run from anywhere (auto-updates with code changes)
+npm unlink -g @agile-vibe-coding/avc  # Unlink when done
 ```
+
+**Which option to use:**
+- **Option A** - Quick local testing without installation
+- **Option B** - Full testing as end users would experience it (requires reinstall after changes)
+- **Option C** - Development mode with auto-updates (but can cause issues with some IDEs)
 
 ### 4. Documentation Site
 
@@ -394,12 +423,21 @@ npm install
 # Run tests
 npm test
 
-# Test CLI locally
-npm link        # Creates global symlink
-avc             # Run your local version
+# Test CLI locally (choose one method):
 
-# Or run directly
+# Method 1: Direct execution (no installation)
 node cli/index.js
+
+# Method 2: Install globally (recommended)
+npm install -g .     # Install from local source
+avc                  # Run from anywhere
+npm install -g .     # Reinstall after code changes
+npm uninstall -g @agile-vibe-coding/avc  # Uninstall when done
+
+# Method 3: Symlink (auto-updates)
+npm link            # Create global symlink
+avc                 # Run your local version
+npm unlink -g @agile-vibe-coding/avc  # Unlink when done
 ```
 
 ### Publishing (Maintainers Only)

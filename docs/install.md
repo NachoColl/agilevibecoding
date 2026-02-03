@@ -16,28 +16,26 @@ avc
 
 Type `/` and press Enter to open the command selector, or type a command name directly.
 
----
+Run init command to initialize your project:
 
-## API Keys Required
+```sh
+/init
+```
+
+## API Keys
 
 AVC uses LLM providers to power ceremonies and generate project documentation. 
 
 ### Setting Up API Keys
 
-When you run `/init`, AVC creates a `.env` file in your project directory with placeholders:
+When you run `/init`, AVC creates (if not already there) a `.env` file in your project directory with placeholders:
 
 ```env
 ANTHROPIC_API_KEY=
 GEMINI_API_KEY=
 ```
 
-**Steps:**
-
-1. Run `/init` to initialize the project.
-2. Open the `.env` file in your project directory
-3. Add your API key(s) for the provider(s) you want to use
-4. Save the file
-5. Run `/sponsor-call` to define your project with AI assistance
+Check your provider for the related keys and update the .env file.
 
 **Example:**
 
@@ -46,12 +44,12 @@ ANTHROPIC_API_KEY=sk-ant-api03-your-key-here
 GEMINI_API_KEY=AIzaSy-your-gemini-key-here
 ```
 
-> **Note:** You only need to configure keys for the providers you're actually using. Check your `.avc/avc.json` file to see which provider is configured for your ceremonies.
+> **Note:** You only need to configure keys for the providers you want to use for Agile Vibe Coding ceremonies.
 
 
 ### Configuring Providers Per Ceremony
 
-Each ceremony in `.avc/avc.json` can use a different provider:
+Each ceremony in `.avc/avc.json` can use a different provider (model) - as for example:
 
 ```json
 {
@@ -69,7 +67,6 @@ Each ceremony in `.avc/avc.json` can use a different provider:
 
 ## Supported Providers
 
-AVC currently supports the following LLM providers:
 
 | Provider | Models | API Key Variable | Get API Key |
 |----------|--------|-----------------|-------------|

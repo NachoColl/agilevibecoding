@@ -29,7 +29,7 @@ describe('TemplateProcessor with LLM Integration', () => {
 
   describe('LLM provider initialization', () => {
     it('initializes provider on first generate call', async () => {
-      const processor = new TemplateProcessor();
+      const processor = new TemplateProcessor('sponsor-call');
 
       // Mock LLMProvider.create
       const createSpy = vi.spyOn(LLMProvider, 'create').mockResolvedValue({
@@ -47,7 +47,7 @@ describe('TemplateProcessor with LLM Integration', () => {
     });
 
     it('uses provider from ceremonies config', async () => {
-      // Mock config file BEFORE creating processor (readModelConfig is called in constructor)
+      // Mock config file BEFORE creating processor (readCeremonyConfig is called in constructor)
       const fs = require('fs');
       vi.spyOn(fs, 'readFileSync').mockReturnValue(
         JSON.stringify({
@@ -61,7 +61,7 @@ describe('TemplateProcessor with LLM Integration', () => {
         })
       );
 
-      const processor = new TemplateProcessor();
+      const processor = new TemplateProcessor('sponsor-call');
 
       const createSpy = vi.spyOn(LLMProvider, 'create').mockResolvedValue({
         providerName: 'gemini',
@@ -77,7 +77,7 @@ describe('TemplateProcessor with LLM Integration', () => {
     it('handles missing API key gracefully', async () => {
       delete process.env.ANTHROPIC_API_KEY;
 
-      const processor = new TemplateProcessor();
+      const processor = new TemplateProcessor('sponsor-call');
 
       // Mock LLMProvider.create to throw an error (simulating missing API key scenario)
       vi.spyOn(LLMProvider, 'create').mockRejectedValue(
@@ -94,7 +94,7 @@ describe('TemplateProcessor with LLM Integration', () => {
 
       delete process.env.ANTHROPIC_API_KEY;
 
-      const processor = new TemplateProcessor();
+      const processor = new TemplateProcessor('sponsor-call');
 
       // Mock LLMProvider.create to throw an error
       vi.spyOn(LLMProvider, 'create').mockRejectedValue(
@@ -111,7 +111,7 @@ describe('TemplateProcessor with LLM Integration', () => {
 
   describe('AI suggestion generation', () => {
     it('generates suggestions using configured provider', async () => {
-      const processor = new TemplateProcessor();
+      const processor = new TemplateProcessor('sponsor-call');
 
       const mockProvider = {
         generate: vi.fn().mockResolvedValue('AI generated suggestion')
@@ -129,7 +129,7 @@ describe('TemplateProcessor with LLM Integration', () => {
     });
 
     it('returns null when provider not initialized', async () => {
-      const processor = new TemplateProcessor();
+      const processor = new TemplateProcessor('sponsor-call');
 
       // Ensure provider stays null
       vi.spyOn(processor, 'initializeLLMProvider').mockResolvedValue(null);
@@ -146,7 +146,7 @@ describe('TemplateProcessor with LLM Integration', () => {
     });
 
     it('handles LLM errors gracefully', async () => {
-      const processor = new TemplateProcessor();
+      const processor = new TemplateProcessor('sponsor-call');
 
       const mockProvider = {
         generate: vi.fn().mockRejectedValue(new Error('API error'))
@@ -164,7 +164,7 @@ describe('TemplateProcessor with LLM Integration', () => {
     });
 
     it('uses different token limits for plural vs singular', async () => {
-      const processor = new TemplateProcessor();
+      const processor = new TemplateProcessor('sponsor-call');
 
       const mockProvider = {
         generate: vi.fn().mockResolvedValue('suggestion')
@@ -182,19 +182,20 @@ describe('TemplateProcessor with LLM Integration', () => {
 
       mockProvider.generate.mockClear();
 
-      // Plural variable
+      // Plural variable (TARGET_USERS has a domain-specific agent)
       await processor.generateSuggestions('TARGET_USERS', true, {});
 
       expect(mockProvider.generate).toHaveBeenCalledWith(
         expect.any(String),
-        512
+        512,
+        expect.any(String)  // Agent instructions
       );
     });
   });
 
   describe('Document generation', () => {
     it('enhances document using LLM', async () => {
-      const processor = new TemplateProcessor();
+      const processor = new TemplateProcessor('sponsor-call');
 
       const mockProvider = {
         generate: vi.fn().mockResolvedValue('Enhanced document content')
@@ -209,11 +210,12 @@ describe('TemplateProcessor with LLM Integration', () => {
       expect(mockProvider.generate).toHaveBeenCalledWith(
         expect.stringContaining('project definition'),
         4096
+        // Note: Agent instructions not passed in test environment (fallback mode)
       );
     });
 
     it('returns template as-is when provider unavailable', async () => {
-      const processor = new TemplateProcessor();
+      const processor = new TemplateProcessor('sponsor-call');
 
       // Mock initialization failure
       vi.spyOn(processor, 'initializeLLMProvider').mockResolvedValue(null);
@@ -227,7 +229,7 @@ describe('TemplateProcessor with LLM Integration', () => {
     });
 
     it('falls back to template when enhancement fails', async () => {
-      const processor = new TemplateProcessor();
+      const processor = new TemplateProcessor('sponsor-call');
 
       const mockProvider = {
         generate: vi.fn().mockRejectedValue(new Error('Enhancement failed'))
@@ -242,7 +244,7 @@ describe('TemplateProcessor with LLM Integration', () => {
     });
 
     it('uses 4096 max tokens for document generation', async () => {
-      const processor = new TemplateProcessor();
+      const processor = new TemplateProcessor('sponsor-call');
 
       const mockProvider = {
         generate: vi.fn().mockResolvedValue('Enhanced')
@@ -255,13 +257,14 @@ describe('TemplateProcessor with LLM Integration', () => {
       expect(mockProvider.generate).toHaveBeenCalledWith(
         expect.any(String),
         4096
+        // Note: Agent instructions not passed in test environment (fallback mode)
       );
     });
   });
 
   describe('Provider response parsing', () => {
     it('parses single suggestion from LLM response', async () => {
-      const processor = new TemplateProcessor();
+      const processor = new TemplateProcessor('sponsor-call');
 
       const mockResponse = '1. My Project Name';
 
@@ -271,7 +274,7 @@ describe('TemplateProcessor with LLM Integration', () => {
     });
 
     it('parses multiple suggestions for plural variables', async () => {
-      const processor = new TemplateProcessor();
+      const processor = new TemplateProcessor('sponsor-call');
 
       const mockResponse = '1. User Type A\n2. User Type B\n3. User Type C';
 
@@ -284,7 +287,7 @@ describe('TemplateProcessor with LLM Integration', () => {
     });
 
     it('handles malformed responses gracefully', async () => {
-      const processor = new TemplateProcessor();
+      const processor = new TemplateProcessor('sponsor-call');
 
       const mockResponse = 'Not a numbered list';
 
@@ -297,22 +300,22 @@ describe('TemplateProcessor with LLM Integration', () => {
 
   describe('Model configuration', () => {
     it('reads provider from ceremonies config', () => {
-      const processor = new TemplateProcessor();
+      const processor = new TemplateProcessor('sponsor-call');
 
       // Mock config file
-      vi.spyOn(processor, 'readModelConfig').mockReturnValue({
+      vi.spyOn(processor, 'readCeremonyConfig').mockReturnValue({
         provider: 'gemini',
         model: 'gemini-2.5-flash'
       });
 
-      const config = processor.readModelConfig();
+      const config = processor.readCeremonyConfig('sponsor-call');
 
       expect(config.provider).toBe('gemini');
       expect(config.model).toBe('gemini-2.5-flash');
     });
 
     it('falls back to Claude when ceremonies not configured', () => {
-      const processor = new TemplateProcessor();
+      const processor = new TemplateProcessor('sponsor-call');
 
       // Mock reading config without ceremonies
       const fs = require('fs');
@@ -324,7 +327,7 @@ describe('TemplateProcessor with LLM Integration', () => {
         })
       );
 
-      const config = processor.readModelConfig();
+      const config = processor.readCeremonyConfig('sponsor-call');
 
       expect(config.provider).toBe('claude');
       expect(config.model).toBe('claude-sonnet-4-5-20250929');
