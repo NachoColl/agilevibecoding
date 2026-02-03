@@ -57,15 +57,15 @@ project/
 
 ### Context Scopes (context.md files)
 
-Context in AVC is the minimal set of information required for LLM models to properly imnplement the work item (in singular) closer to it. 
+Context in AVC is the minimal set of information required for LLM models to properly implement the work item (in singular) closer to it. 
 
 ### Documentation Scopes (doc.md files)
 
-A documentation item is the human readeable documentation related to the work item closer to it.
+A documentation item is a well structured project documentation related to the work item closer to it.
 
 ### Work Item
 
-Work items defines what needs to get done and the list of tests for work validation.
+Work items defines what needs to get done and the list of tests for its work validation.
 
 ```json
 {
@@ -101,11 +101,12 @@ Work items defines what needs to get done and the list of tests for work validat
 
 ### Work Item Statuses
 
-Work items progress through the following status values as they move through the AVC workflow:
+Work items progress through the following status values as they move through the AVC workflow.
 
-| Status | Description | Ceremonies | When |
-|--------|-------------|-------------|------------------------|
-| **planned** | Work item created with an initial definition | **Sprint Planning**   | During Epic/Story creation from questionnaire |
+**planned**
+
+This status is work item initial status.
+
 
 
 | **ready** | Work item fully defined with acceptance criteria, ready for decomposition | **Backlog Refinement ceremony** (future) | After manual refinement with detailed acceptance criteria |
@@ -115,7 +116,7 @@ Work items progress through the following status values as they move through the
 | **implemented** | Code and tests completed, awaiting final validation | **Testing agents** | After all tests pass successfully |
 | **completed** | All work done, validated, tests passed, parent dependencies met | **Validation process** | After all validations and parent checks pass |
 
-## Implementation Flow
+### Work Items Flow
 
 Work items follow a **bottom-up implementation strategy** through the tree hierarchy. **Leaf nodes** (deepest subtasks) are implemented and validated first, then their parent nodes can begin.
 
@@ -183,7 +184,7 @@ Deepest level tests must pass first. Only when all subtask tests pass do you run
 
 ## AVC Ceremonies
 
-As with Agile project management, the Agile Vibe Coding framework contains a set of ceremonies and processes to manage the project moving forward.
+The Agile Vibe Coding framework gets inspired from the Agile project management ceremonies adding AI as a principal stakeholder (AI Agents and LLM models).
 
 ```mermaid
 graph LR
@@ -198,13 +199,12 @@ graph LR
 
 ### **Sponsor Call**
 
-The first ceremony that creates the project foundation through an interactive questionnaire. Generates project documentation and architectural context that serves as the foundation for all subsequent work.
+The first ceremony creating project documentation and architectural context that serves as the foundation for all subsequent work.
 
 **Key Features:**
 - 5-question interactive questionnaire with AI-powered suggestions
 - Generates comprehensive project documentation (doc.md)
 - Creates project-level architectural context (context.md)
-- Auto-save and resume capability
 - Foundation for Epic/Story decomposition
 
 **Output:**
