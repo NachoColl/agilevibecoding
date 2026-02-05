@@ -36,10 +36,28 @@ class TemplateProcessor {
     this.nonInteractive = nonInteractive;
 
     // Read ceremony-specific configuration
-    const { provider, model } = this.readCeremonyConfig(ceremonyName);
+    const { provider, model, validationConfig } = this.readCeremonyConfig(ceremonyName);
     this._providerName = provider;
     this._modelName = model;
     this.llmProvider = null;
+
+    // Read validation provider config
+    this._validationProvider = null;
+    this._validationModel = null;
+    this.validationLLMProvider = null;
+    this.validationConfig = validationConfig;
+
+    if (validationConfig?.enabled) {
+      this._validationProvider = validationConfig.provider;
+      this._validationModel = validationConfig.model;
+
+      // Validate required fields
+      if (!this._validationProvider || !this._validationModel) {
+        throw new Error(
+          `Validation is enabled for '${ceremonyName}' but validation.provider or validation.model is not configured in avc.json`
+        );
+      }
+    }
 
     // Initialize token tracker
     this.tokenTracker = new TokenTracker(this.avcPath);
@@ -82,16 +100,25 @@ class TemplateProcessor {
 
       if (!ceremony) {
         console.warn(`⚠️  Ceremony '${ceremonyName}' not found in config, using defaults`);
-        return { provider: 'claude', model: 'claude-sonnet-4-5-20250929' };
+        return {
+          provider: 'claude',
+          model: 'claude-sonnet-4-5-20250929',
+          validationConfig: null
+        };
       }
 
       return {
         provider: ceremony.provider || 'claude',
-        model: ceremony.defaultModel || 'claude-sonnet-4-5-20250929'
+        model: ceremony.defaultModel || 'claude-sonnet-4-5-20250929',
+        validationConfig: ceremony.validation || null
       };
     } catch (error) {
       console.warn(`⚠️  Could not read ceremony config: ${error.message}`);
-      return { provider: 'claude', model: 'claude-sonnet-4-5-20250929' };
+      return {
+        provider: 'claude',
+        model: 'claude-sonnet-4-5-20250929',
+        validationConfig: null
+      };
     }
   }
 
@@ -354,12 +381,24 @@ class TemplateProcessor {
    */
   async initializeLLMProvider() {
     try {
+      // Initialize main provider
       this.llmProvider = await LLMProvider.create(this._providerName, this._modelName);
+      console.log(`   Using ${this._providerName} (${this._modelName}) for generation\n`);
+
+      // Initialize validation provider if validation is enabled
+      if (this._validationProvider) {
+        console.log(`   Using ${this._validationProvider} (${this._validationModel}) for validation\n`);
+        this.validationLLMProvider = await LLMProvider.create(
+          this._validationProvider,
+          this._validationModel
+        );
+      }
+
       return this.llmProvider;
     } catch (error) {
-      console.log(`⚠️  Could not initialize ${this._providerName} provider - AI suggestions will be skipped`);
-      console.log(`${error.message}`);
-      return null;
+      console.log(`⚠️  Could not initialize LLM provider`);
+      console.log(`   ${error.message}`);
+      throw error;
     }
   }
 
@@ -1021,19 +1060,55 @@ Return the enhanced markdown document.`;
 
     // Display token usage statistics
     if (this.llmProvider) {
-      const usage = this.llmProvider.getTokenUsage();
-      console.log('\n📊 Token Usage:');
-      console.log(`   Input: ${usage.inputTokens.toLocaleString()} tokens`);
-      console.log(`   Output: ${usage.outputTokens.toLocaleString()} tokens`);
-      console.log(`   Total: ${usage.totalTokens.toLocaleString()} tokens`);
-      console.log(`   API Calls: ${usage.totalCalls}`);
+      const mainUsage = this.llmProvider.getTokenUsage();
 
-      // Save token history
+      console.log('\n📊 Token Usage:\n');
+
+      // Main provider usage
+      console.log(`   Main Provider (${this._providerName}):`);
+      console.log(`     Input: ${mainUsage.inputTokens.toLocaleString()} tokens`);
+      console.log(`     Output: ${mainUsage.outputTokens.toLocaleString()} tokens`);
+      console.log(`     Calls: ${mainUsage.totalCalls}`);
+
+      // Validation provider usage (if used)
+      if (this.validationLLMProvider) {
+        const validationUsage = this.validationLLMProvider.getTokenUsage();
+        console.log(`\n   Validation Provider (${this._validationProvider}):`);
+        console.log(`     Input: ${validationUsage.inputTokens.toLocaleString()} tokens`);
+        console.log(`     Output: ${validationUsage.outputTokens.toLocaleString()} tokens`);
+        console.log(`     Calls: ${validationUsage.totalCalls}`);
+
+        // Total
+        const totalInput = mainUsage.inputTokens + validationUsage.inputTokens;
+        const totalOutput = mainUsage.outputTokens + validationUsage.outputTokens;
+        const totalCalls = mainUsage.totalCalls + validationUsage.totalCalls;
+
+        console.log(`\n   Total:`);
+        console.log(`     Input: ${totalInput.toLocaleString()} tokens`);
+        console.log(`     Output: ${totalOutput.toLocaleString()} tokens`);
+        console.log(`     Calls: ${totalCalls}`);
+      }
+
+      // Save token history for main provider
       this.tokenTracker.addExecution(this.ceremonyName, {
-        input: usage.inputTokens,
-        output: usage.outputTokens
-      }, this._modelName);
-      console.log('✅ Token history updated');
+        provider: this._providerName,
+        model: this._modelName,
+        input: mainUsage.inputTokens,
+        output: mainUsage.outputTokens
+      });
+
+      // Save token history for validation provider
+      if (this.validationLLMProvider) {
+        const validationUsage = this.validationLLMProvider.getTokenUsage();
+        this.tokenTracker.addExecution(`${this.ceremonyName}-validation`, {
+          provider: this._validationProvider,
+          model: this._validationModel,
+          input: validationUsage.inputTokens,
+          output: validationUsage.outputTokens
+        });
+      }
+
+      console.log('\n✅ Token history updated');
     }
   }
 
@@ -1316,13 +1391,15 @@ Return your response as JSON following the exact structure specified in your ins
       await this.initializeLLMProvider();
     }
 
-    if (!this.llmProvider || typeof this.llmProvider.generateJSON !== 'function') {
-      console.log('⚠️  Skipping validation (LLM provider not available)\n');
+    // Use validation provider if available, otherwise skip validation
+    const provider = this.validationLLMProvider;
+    if (!provider || typeof provider.generateJSON !== 'function') {
+      console.log('⚠️  Skipping validation (validation provider not available)\n');
       return {
         validationStatus: 'acceptable',
         overallScore: 75,
         issues: [],
-        strengths: ['Validation skipped - LLM provider not available'],
+        strengths: ['Validation skipped - validation provider not available'],
         improvementPriorities: [],
         readyForPublication: true
       };
@@ -1348,9 +1425,9 @@ Return your response as JSON following the exact structure specified in your ins
 
     prompt += `Return your validation as JSON following the exact structure specified in your instructions.`;
 
-    // Call LLM for validation
+    // Call validation provider for validation
     const validation = await this.retryWithBackoff(
-      () => this.llmProvider.generateJSON(prompt, validatorAgent),
+      () => provider.generateJSON(prompt, validatorAgent),
       'documentation validation'
     );
 
@@ -1365,13 +1442,15 @@ Return your response as JSON following the exact structure specified in your ins
       await this.initializeLLMProvider();
     }
 
-    if (!this.llmProvider || typeof this.llmProvider.generateJSON !== 'function') {
-      console.log('⚠️  Skipping validation (LLM provider not available)\n');
+    // Use validation provider if available, otherwise skip validation
+    const provider = this.validationLLMProvider;
+    if (!provider || typeof provider.generateJSON !== 'function') {
+      console.log('⚠️  Skipping validation (validation provider not available)\n');
       return {
         validationStatus: 'acceptable',
         overallScore: 75,
         issues: [],
-        strengths: ['Validation skipped - LLM provider not available'],
+        strengths: ['Validation skipped - validation provider not available'],
         improvementPriorities: [],
         estimatedTokenBudget: 500,
         readyForUse: true
@@ -1401,9 +1480,9 @@ Return your response as JSON following the exact structure specified in your ins
 
     prompt += `Return your validation as JSON following the exact structure specified in your instructions.`;
 
-    // Call LLM for validation
+    // Call validation provider for validation
     const validation = await this.retryWithBackoff(
-      () => this.llmProvider.generateJSON(prompt, validatorAgent),
+      () => provider.generateJSON(prompt, validatorAgent),
       'context validation'
     );
 
@@ -1418,8 +1497,10 @@ Return your response as JSON following the exact structure specified in your ins
       await this.initializeLLMProvider();
     }
 
-    if (!this.llmProvider || typeof this.llmProvider.generateJSON !== 'function') {
-      console.log('⚠️  Skipping improvement (LLM provider not available)\n');
+    // Use validation provider if available, otherwise skip improvement
+    const provider = this.validationLLMProvider;
+    if (!provider || typeof provider.generateText !== 'function') {
+      console.log('⚠️  Skipping improvement (validation provider not available)\n');
       return docContent;
     }
 
@@ -1480,9 +1561,9 @@ Return your response as JSON following the exact structure specified in your ins
     prompt += `Maintain the existing strengths while fixing the identified problems. `;
     prompt += `Return ONLY the improved markdown content, not wrapped in JSON.`;
 
-    // Call LLM to regenerate documentation
+    // Call validation provider to regenerate documentation
     const improvedDoc = await this.retryWithBackoff(
-      () => this.llmProvider.generateText(prompt, creatorAgent),
+      () => provider.generateText(prompt, creatorAgent),
       'documentation improvement'
     );
 
@@ -1497,8 +1578,10 @@ Return your response as JSON following the exact structure specified in your ins
       await this.initializeLLMProvider();
     }
 
-    if (!this.llmProvider || typeof this.llmProvider.generateJSON !== 'function') {
-      console.log('⚠️  Skipping improvement (LLM provider not available)\n');
+    // Use validation provider if available, otherwise skip improvement
+    const provider = this.validationLLMProvider;
+    if (!provider || typeof provider.generateText !== 'function') {
+      console.log('⚠️  Skipping improvement (validation provider not available)\n');
       return contextContent;
     }
 
@@ -1545,9 +1628,9 @@ Return your response as JSON following the exact structure specified in your ins
     prompt += `Aim for ${validationResult.estimatedTokenBudget} tokens or less. `;
     prompt += `Return ONLY the improved markdown content, not wrapped in JSON.`;
 
-    // Call LLM to regenerate context
+    // Call validation provider to regenerate context
     const improvedContext = await this.retryWithBackoff(
-      () => this.llmProvider.generateText(prompt, generatorAgent),
+      () => provider.generateText(prompt, generatorAgent),
       'context improvement'
     );
 

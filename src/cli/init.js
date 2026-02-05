@@ -165,7 +165,9 @@ class ProjectInitiator {
               enabled: true,
               maxIterations: 2,
               acceptanceThreshold: 75,
-              skipOnCriticalIssues: false
+              skipOnCriticalIssues: false,
+              provider: 'gemini',
+              model: 'gemini-2.5-flash'
             },
             guidelines: {
               technicalConsiderations: 'Use AWS serverless stack with Lambda functions for compute, API Gateway for REST APIs, DynamoDB for database, S3 for storage. Use CloudFormation for infrastructure definition and AWS CodePipeline/CodeBuild for CI/CD deployment.'

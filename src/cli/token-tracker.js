@@ -139,18 +139,21 @@ export class TokenTracker {
       const tokenData = {
         input: tokens.input || 0,
         output: tokens.output || 0,
-        total: (tokens.input || 0) + (tokens.output || 0)
+        total: (tokens.input || 0) + (tokens.output || 0),
+        provider: tokens.provider || 'unknown',
+        model: tokens.model || modelId || 'unknown'
       };
 
       // Calculate cost if model provided
       let costData = null;
-      if (modelId) {
-        costData = this.calculateCost(tokenData.input, tokenData.output, modelId);
+      const effectiveModelId = tokens.model || modelId;
+      if (effectiveModelId) {
+        costData = this.calculateCost(tokenData.input, tokenData.output, effectiveModelId);
       }
 
-      console.log(`   → Tracking tokens for ${ceremonyType}: ${tokenData.input} input, ${tokenData.output} output`);
+      console.log(`   → Tracking tokens for ${ceremonyType}: ${tokenData.input} input, ${tokenData.output} output (${tokenData.provider})`);
       if (costData && costData.total > 0) {
-        console.log(`   → Estimated cost: $${costData.total.toFixed(4)} (${modelId})`);
+        console.log(`   → Estimated cost: $${costData.total.toFixed(4)} (${effectiveModelId})`);
       }
 
       // Update totals (global)
