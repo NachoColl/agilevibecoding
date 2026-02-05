@@ -2826,7 +2826,7 @@ https://agilevibecoding.org
 
   // Render prompt when in prompt mode
   const renderPrompt = () => {
-    if (mode !== 'prompt' || questionnaireActive || showPreview || removeConfirmActive || killConfirmActive || processViewerActive || cancelConfirmActive) return null;
+    if (mode !== 'prompt' || questionnaireActive || showPreview || removeConfirmActive || killConfirmActive || processViewerActive || cancelConfirmActive || isExecuting) return null;
 
     return React.createElement(Box, { flexDirection: 'column', flexShrink: 0 },
       React.createElement(InputWithCursor, { input: input }),
