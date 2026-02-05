@@ -30,9 +30,11 @@ Next steps:
 
 ## /sponsor-call
 
-Run the [Sponsor Call](/#sponsor-call-project-initialization) ceremony to define your project with AI assistance.
+Run the Sponsor Call ceremony to define your project with AI assistance.
 
 **Alias:** `/sc`
+
+**📖 [View detailed ceremony documentation →](ceremonies/sponsor-call.md)**
 
 ```sh
 > /sponsor-call

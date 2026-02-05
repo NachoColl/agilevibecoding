@@ -2,307 +2,265 @@
 
 ## Overview
 
-The **Sponsor Call** ceremony is the first ceremony in the Agile Vibe Coding framework. It creates the project foundation by capturing project vision, scope, and requirements through an interactive questionnaire, then generating comprehensive project documentation and architectural context.
+The **Sponsor Call** ceremony is the foundational ceremony in the Agile Vibe Coding framework. It creates your project's blueprint through an AI-assisted questionnaire, generating comprehensive documentation and architectural context that guides all subsequent work.
 
-**Purpose:** Establish project foundation with documentation and architectural context that guides all subsequent work.
+**Purpose:** Establish project foundation with documentation (`doc.md`) and architectural context (`context.md`)
 
-**Output:** Project documentation (doc.md) and project-level architectural context (context.md).
+**Output:** Two files that serve as the single source of truth for your project
 
-**Duration:** 10-20 minutes
+**Duration:** 5-15 minutes (depending on validation settings)
+
+**Next Ceremony:** [`/project-expansion`](project-expansion.md) - Create Epics and Stories
+
+---
+
+## What It Does
+
+The Sponsor Call ceremony:
+
+1. **Collects Project Vision** - Interactive questionnaire with 5 core questions
+2. **Generates Documentation** - AI creates professional 8-section project document
+3. **Generates Context** - AI creates architectural context inherited by all work items
+4. **Validates Quality** (optional) - AI validators iteratively improve output
+5. **Syncs to VitePress** - Documentation auto-published to `.avc/documentation/index.md`
+
+**What It Does NOT Do:**
+- Does NOT create Epics or Stories (use `/project-expansion` for that)
+- Does NOT create work.json files (use `/project-expansion` for that)
+- Does NOT decompose features into hierarchy (use `/project-expansion` for that)
 
 ---
 
 ## Interactive Questionnaire
 
-The ceremony collects project information through **5 core questions**:
+### The 5 Core Questions
 
-1. **Mission Statement** - Core purpose and value proposition (text)
-2. **Target Users** - User types and roles (list)
-3. **Initial Scope** - Key features and workflows (text)
-4. **Technical Considerations** - Tech stack, constraints, preferences (text)
-5. **Security & Compliance** - Security, privacy, regulatory requirements (text)
+| # | Question | Type | Purpose | Configurable |
+|---|----------|------|---------|--------------|
+| 1 | **Mission Statement** | Text | Core purpose and value proposition | ✅ |
+| 2 | **Target Users** | Text | User types and their roles | ✅ |
+| 3 | **Initial Scope** | Text | Key features, main workflows, essential capabilities | ✅ |
+| 4 | **Technical Considerations** | Text | Technology stack, constraints, or preferences | ✅ |
+| 5 | **Security & Compliance Requirements** | Text | Regulatory, privacy, or security constraints | ✅ |
 
-### AI-Powered Suggestion System
+### Answering Questions
 
-When you skip a question, AVC uses **domain-specific AI agents** to generate contextual suggestions:
+**Input Methods:**
+- **Type your answer** - Multi-line input supported
+  - Enter on empty line to submit
+  - Supports line breaks and formatting
+- **Skip (Enter twice)** - Uses guideline OR AI generates suggestion
+  - First checks for configured guideline in `.avc/avc.json`
+  - If no guideline, invokes domain-specific AI agent
+  - AI uses context from previous answers
 
-| Question | Agent | Expertise |
-|----------|-------|-----------|
-| Mission Statement | Business Analyst | Defining clear, compelling mission statements |
-| Target Users | UX Researcher | Identifying user personas and roles |
-| Initial Scope | Product Manager | Defining features and prioritizing scope |
-| Technical Considerations | Technical Architect | Technology stack, architecture patterns, scalability |
-| Security & Compliance | Security Specialist | Security, privacy, compliance regulations |
+**Only Mission Statement is mandatory** - All others can be skipped safely
 
-Each agent has specialized knowledge of its domain and generates responses formatted according to industry best practices.
+### AI Suggestion Agents
 
-**Fallback Strategy:**
-1. **AI Generation with Specialized Agent** - Domain expert generates contextual suggestion using previous answers
-2. **Guidelines** (if configured) - Use pre-configured defaults from `.avc/avc.json`
-3. **Empty Value** - Question left unanswered, will be handled in later refinement
+When you skip a question, specialized AI agents generate contextual suggestions:
+
+| Question | Agent | Expertise | Output Format |
+|----------|-------|-----------|---------------|
+| Mission Statement | Business Analyst | Defining clear, compelling mission statements | 50-100 words following "Enable/Empower/Provide" pattern |
+| Target Users | UX Researcher | Identifying user personas and roles | 2-4 distinct user types with role descriptions |
+| Initial Scope | Product Manager | Defining features and prioritizing scope | 5-8 high-level features prioritized by importance |
+| Technical Considerations | Technical Architect | Technology stack, architecture patterns, scalability | 100-200 words covering stack, architecture, scalability |
+| Security & Compliance | Security Specialist | Security, privacy, compliance regulations | 150-250 words covering auth, data protection, compliance |
+
+**Agent Files:**
+- `suggestion-business-analyst.md` → [View Agent](/agents/suggestion-business-analyst)
+- `suggestion-ux-researcher.md` → [View Agent](/agents/suggestion-ux-researcher)
+- `suggestion-product-manager.md` → [View Agent](/agents/suggestion-product-manager)
+- `suggestion-technical-architect.md` → [View Agent](/agents/suggestion-technical-architect)
+- `suggestion-security-specialist.md` → [View Agent](/agents/suggestion-security-specialist)
 
 ---
 
-## How It Works - Workflow
+## Ceremony Workflow
 
 ```mermaid
-graph LR
-    A[1. Questionnaire] --> B[2. Template Replacement]
-    B --> C[3. Document Enhancement]
-    C --> D[4. Project Context Generation]
-    D --> E[5. File Writing]
-    E --> F[6. Token Tracking]
+graph TD
+    A[Start] --> B[1. Interactive Questionnaire]
+    B --> C{All Answers Collected?}
+    C -->|Skip| D[AI Suggestion or Guideline]
+    D --> C
+    C -->|Yes| E[2. Template Replacement]
+    E --> F[3. Generate Documentation]
+    F --> G{Validation Enabled?}
+    G -->|Yes| H[Validate & Improve]
+    H -->|Score < Threshold| H
+    H -->|Score >= Threshold| I[4. Generate Context]
+    G -->|No| I
+    I --> J{Validation Enabled?}
+    J -->|Yes| K[Validate & Improve]
+    K -->|Score < Threshold| K
+    K -->|Score >= Threshold| L[5. Write Files]
+    J -->|No| L
+    L --> M[6. Sync to VitePress]
+    M --> N[7. Track Tokens]
+    N --> O[End]
 
-    style A fill:#e1f5ff
-    style C fill:#fff4e1
-    style D fill:#fff4e1
-    style F fill:#e8f5e9
+    style B fill:#e1f5ff
+    style F fill:#fff4e1
+    style I fill:#fff4e1
+    style L fill:#e8f5e9
 ```
 
-**Next Ceremony:** After Sponsor Call completes, run `/project-expansion` to create Epics and Stories.
+### Stage 1: Interactive Questionnaire
 
-### Step 1: Questionnaire
+**What happens:**
+- Reads project template (`src/cli/templates/project.md`)
+- Extracts 5 variables from template
+- Presents each question with guidance
+- Auto-saves progress every 30 seconds to `.avc/sponsor-call-progress.json`
 
-Collect project information through interactive prompts with AI-powered suggestions.
+**User options:**
+- Type answer (multi-line supported)
+- Press Enter twice to skip
+- Edit previous answers (Ctrl+E in REPL)
 
-**Process:**
-1. Read template and extract 5 variables
-2. Present each question to user with guidance
-3. User can type answer or press Enter to skip
-4. For skipped questions, invoke domain-specific AI agent:
-   - Business Analyst for Mission Statement
-   - UX Researcher for Target Users (2-4 personas)
-   - Product Manager for Initial Scope (5-8 features)
-   - Technical Architect for Technology stack
-   - Security Specialist for Security requirements
-5. Auto-save progress every 30 seconds
+**If question skipped:**
+1. Check for guideline in `.avc/avc.json`
+2. If found → use guideline value
+3. If not found → invoke AI suggestion agent
 
-### Step 2: Template Replacement
+### Stage 2: Template Replacement
 
-Fill project template with collected answers.
+**What happens:**
+- Replaces `{{VARIABLE}}` placeholders with collected answers
+- Formats lists as bullet points
+- Creates initial markdown document
 
-**Process:**
-1. Replace all `{{VARIABLE}}` placeholders with answers
-2. Handle plural variables (arrays) as bulleted lists
-3. Create formatted markdown document
+**No AI involved** - Simple string replacement
 
-### Step 3: Document Enhancement
+### Stage 3: Generate Documentation
 
-Transform filled template into professional 8-section document.
+**Agent:** `project-documentation-creator.md` → [View Agent](/agents/project-documentation-creator)
 
-**Agent:** Documentation Specialist (`agents/documentation.md`)
+**What happens:**
+- Sends filled template to LLM
+- Agent instructions guide LLM to create professional 8-section document
+- Output: `.avc/project/doc.md` (~3000-5000 tokens)
 
-**Process:**
-1. Load Documentation Specialist agent instructions
-2. Send filled template to LLM with agent as system prompt
-3. Receive enhanced markdown document with 8 sections:
-   - Application Overview
-   - Target Users and Stakeholders
-   - Key Features and Functionality
-   - User Workflows
-   - Technical Architecture
-   - Integration Requirements
-   - Security and Compliance
-   - Success Criteria
+**8 Sections Generated:**
+1. **Application Overview** - Mission, purpose, key objectives
+2. **Target Users and Stakeholders** - User personas, roles, stakeholders
+3. **Initial Scope** - Features and functional areas to implement
+4. **Technical Considerations** - Technology stack, architecture, constraints
+5. **Security and Compliance** - Security requirements, regulations, privacy
+6. **User Workflows** - Primary user journeys and interactions
+7. **Integration Requirements** - External systems, APIs, dependencies
+8. **Success Criteria** - Metrics, KPIs, definition of done
 
-**Output:** `.avc/project/project/doc.md`
+**Token Budget:** ~3000-5000 tokens
 
-### Step 4: Hierarchy Generation
+### Stage 3b: Validation (Optional)
 
-Decompose features into Epics and Stories.
+**Agent:** `validator-documentation.md` → [View Agent](/agents/validator-documentation)
 
-**Agent:** Software Architect (`agents/decomposition.md`)
+**What happens (if validation enabled):**
+1. Validator scores documentation (0-100)
+2. If score < threshold (default 75):
+   - `documentation-improver` agent enhances document
+   - Validator re-scores improved version
+3. Repeat up to `maxIterations` (default 3)
+4. Final document must meet threshold
 
-**Process:**
-1. Load Software Architect agent instructions
-2. Build decomposition prompt with all questionnaire answers
-3. Request JSON output with strict schema
-4. Validate response (3-7 Epics, 10-30 Stories)
-5. Store hierarchy in memory for next step
-
-**Output Format:**
+**Configuration:**
 ```json
 {
-  "epics": [
-    {
-      "id": "epic-001",
-      "name": "Epic Name",
-      "description": "...",
-      "stories": [
-        {
-          "id": "story-001-001",
-          "name": "Story Name",
-          "description": "...",
-          "acceptanceCriteria": ["..."]
-        }
-      ]
+  "ceremonies": [{
+    "name": "sponsor-call",
+    "validation": {
+      "enabled": true,
+      "maxIterations": 3,
+      "acceptanceThreshold": 75,
+      "skipOnCriticalIssues": false
     }
-  ]
+  }]
 }
 ```
 
-### Step 5: Context Generation
+### Stage 4: Generate Context
 
-Generate context.md files for each hierarchy level.
+**Agent:** `project-context-generator.md` → [View Agent](/agents/project-context-generator)
 
-**Agent:** Context Generator (`agents/context-generator.md`)
+**What happens:**
+- Sends 5 questionnaire answers to LLM
+- Agent instructions guide LLM to create architectural context
+- Output: `.avc/project/context.md` (~500 tokens)
 
-**Process:**
-1. Load Context Generator agent instructions
-2. Generate project context
-3. For each Epic: Generate epic context
-4. For each Story: Generate story context
-5. Each context includes:
-   - Scope summary
-   - Token budget validation
-   - Context inheritance from parent levels
+**Context Includes:**
+- Technology stack and frameworks
+- Cross-cutting concerns (auth, logging, error handling)
+- Architecture principles and patterns
+- Development standards and conventions
 
-### Step 6: File Writing
+**Token Budget:** ~500 tokens
 
-Write all generated files to `.avc/project/` directory.
+**Inheritance:** This context is inherited by all Epic/Story/Task/Subtask contexts created in later ceremonies
 
-**Process:**
-1. Write project files:
-   - `project/doc.md` - Enhanced 8-section document
-   - `project/context.md` - Project-level context
-2. For each Epic:
-   - `{epic-id}/doc.md` - Initial placeholder
-   - `{epic-id}/context.md` - Epic context
-3. For each Story:
-   - `{epic-id}/{story-id}/doc.md` - Story description + acceptance criteria
-   - `{epic-id}/{story-id}/context.md` - Story context
+### Stage 4b: Validation (Optional)
 
-### Step 7: Token Tracking
+**Agent:** `validator-context.md` → [View Agent](/agents/validator-context)
 
-Save token usage statistics to `.avc/token-history.json`.
+**What happens (if validation enabled):**
+- Same validation process as documentation
+- Ensures context meets quality standards
+- Iteratively improves if needed
 
-**Process:**
-1. Collect token usage from all API calls
-2. Display statistics (input/output/total/calls)
-3. Update token history with aggregations:
-   - Global totals (daily, weekly, monthly, allTime)
-   - Per-ceremony totals (sponsor-call: daily, weekly, monthly, allTime)
-4. Enable tracking via `/tokens` command
+### Stage 5: Write Files
 
----
+**What happens:**
+- Creates `.avc/project/` directory if not exists
+- Writes `doc.md` to `.avc/project/doc.md`
+- Writes `context.md` to `.avc/project/context.md`
 
-## AI Agents Used
+**No AI involved** - Simple file I/O
 
-The Sponsor Call ceremony uses **7 specialized AI agents** (2 ceremony agents + 5 optional suggestion agents):
+### Stage 6: Sync to VitePress
 
-### Domain-Specific Suggestion Agents (Optional - Step 1)
+**What happens:**
+- Copies `doc.md` content to `.avc/documentation/index.md`
+- Enables immediate documentation viewing with `/documentation` command
+- Preserves VitePress-specific formatting
 
-These agents are invoked **only when the user skips a questionnaire question**. They provide AI-generated suggestions based on context from previous answers.
+**No AI involved** - File copy operation
 
-#### 1. Business Analyst
-- **File:** `agents/suggestion-business-analyst.md` → [View Full Agent Documentation](/agents/suggestion-business-analyst)
-- **Purpose:** Generate mission statements
-- **Output:** 50-100 word mission following "Enable/Empower/Provide" pattern
-- **Focus:** Value proposition, target users, core purpose
+### Stage 7: Track Tokens
 
-#### 2. UX Researcher
-- **File:** `agents/suggestion-ux-researcher.md` → [View Full Agent Documentation](/agents/suggestion-ux-researcher)
-- **Purpose:** Identify user personas
-- **Output:** 2-4 distinct user types with role descriptions
-- **Considerations:** Domain context (B2B, B2C, Healthcare), permission levels
+**What happens:**
+- Collects token usage from all LLM calls
+- Updates `.avc/token-history.json` with aggregated stats:
+  - Daily totals
+  - Weekly totals
+  - Monthly totals
+  - All-time totals
+  - Per-ceremony breakdown
+- Updates `.avc/ceremonies-history.json` with execution record
+- Displays summary to user
 
-#### 3. Product Manager
-- **File:** `agents/suggestion-product-manager.md` → [View Full Agent Documentation](/agents/suggestion-product-manager)
-- **Purpose:** Define feature scope
-- **Output:** 5-8 high-level features prioritized by importance
-- **Categories:** Core (must-have), Secondary, Enhancement
-
-#### 4. Technical Architect
-- **File:** `agents/suggestion-technical-architect.md` → [View Full Agent Documentation](/agents/suggestion-technical-architect)
-- **Purpose:** Recommend technology stack and architecture
-- **Output:** 100-200 words covering stack, architecture, scalability, constraints
-- **Patterns:** Monolith, Microservices, Serverless
-
-#### 5. Security Specialist
-- **File:** `agents/suggestion-security-specialist.md` → [View Full Agent Documentation](/agents/suggestion-security-specialist)
-- **Purpose:** Define security and compliance requirements
-- **Output:** 150-250 words covering auth, data protection, compliance, monitoring
-- **Regulations:** HIPAA, GDPR, PCI-DSS, SOC2
-
-### Core Ceremony Agents (Steps 3-4)
-
-These agents run automatically during the ceremony to create project foundation.
-
-#### 6. Project Documentation Creator
-- **File:** `agents/project-documentation-creator.md` → [View Full Agent Documentation](/agents/project-documentation-creator)
-- **Purpose:** Transform questionnaire responses into professional project document
-- **Input:** 5 questionnaire variables (filled template)
-- **Output:** `.avc/project/project/doc.md` - 8-section markdown document
-- **Token Budget:** ~3000-5000 tokens
-- **Sections:** Overview, Target Users, Initial Scope, Technical Considerations, Security/Compliance, Workflows, Integrations, Success Criteria
-
-#### 7. Project Context Generator
-- **File:** `agents/project-context-generator.md` → [View Full Agent Documentation](/agents/project-context-generator)
-- **Purpose:** Generate project-level architectural context
-- **Input:** 5 questionnaire variables
-- **Output:** `.avc/project/project/context.md` - Project context (~500 tokens)
-- **Token Budget:** ~500 tokens
-- **Focus:** Technology stack, cross-cutting concerns, architecture principles, development standards
-- **Inheritance:** This context is inherited by all Epic/Story/Task/Subtask contexts
-
-### Agents Moved to Other Ceremonies
-
-The following agents are **no longer used** in Sponsor Call (moved to other ceremonies):
-
-- **Epic/Story Decomposer** → Moved to `/project-expansion` ceremony
-- **Feature Context Generator** → Moved to `/project-expansion` and `/seed` ceremonies
-
----
-
-## Ceremony Output
-
-### File Structure
-
+**Token Usage Display:**
 ```
-.avc/project/
-└── project/
-    ├── doc.md              # Enhanced 8-section project document (~4KB)
-    └── context.md          # Project-level architectural context (~500 tokens)
+📊 Token Usage:
+   Input: 8,234 tokens
+   Output: 4,521 tokens
+   Total: 12,755 tokens
+   API Calls: 3
+   Estimated Cost: $0.07
 ```
-
-### Output Summary
-
-**1. Project Documentation (doc.md)** - Comprehensive 8-section project definition:
-  - **Application Overview** - Mission, purpose, key objectives
-  - **Target Users and Stakeholders** - User personas, roles, stakeholders
-  - **Initial Scope** - Features and functional areas to implement
-  - **Technical Considerations** - Technology stack, architecture, constraints
-  - **Security and Compliance** - Security requirements, regulations, privacy
-  - **User Workflows** - Primary user journeys and interactions
-  - **Integration Requirements** - External systems, APIs, dependencies
-  - **Success Criteria** - Metrics, KPIs, definition of done
-
-**2. Project Context (context.md)** - Architectural foundation (~500 tokens):
-  - Technology stack and frameworks
-  - Cross-cutting concerns (auth, logging, error handling)
-  - Architecture principles and patterns
-  - Development standards and conventions
-  - This context is inherited by all Epic/Story/Task/Subtask contexts
-
-### What's NOT Created (Moved to Project Expansion)
-
-The following are now created by the `/project-expansion` ceremony:
-- ~~Epic directories~~ - Created by Project Expansion
-- ~~Story directories~~ - Created by Project Expansion
-- ~~Epic/Story work.json files~~ - Created by Project Expansion
-- ~~Epic/Story context.md files~~ - Created by Project Expansion
 
 ---
 
 ## Configuration
 
-### LLM Provider Configuration
+### LLM Provider & Model
 
 **File:** `.avc/avc.json`
 
 ```json
 {
-  "version": "0.1.0",
   "settings": {
     "ceremonies": [
       {
@@ -316,26 +274,142 @@ The following are now created by the `/project-expansion` ceremony:
 ```
 
 **Supported Providers:**
-- **Claude** - Anthropic API (claude-sonnet-4-5, claude-opus-4-5)
-- **Gemini** - Google Generative AI (gemini-2.5-flash, gemini-2.5-pro)
+- **claude** - Anthropic API
+  - `claude-sonnet-4-5-20250929` (default, best balance)
+  - `claude-opus-4-5-20251101` (most capable, higher cost)
+  - `claude-haiku-4-20250514` (fastest, lowest cost)
+- **gemini** - Google Generative AI
+  - `gemini-2.5-flash-latest` (fast, low cost)
+  - `gemini-2.5-pro-latest` (high capability)
 
-### Guidelines Configuration
+### Configurable Guidelines
 
-Pre-configure default values for questionnaire questions:
+Pre-configure default answers for any question in `.avc/avc.json`. When you skip a question, AVC first checks for a guideline, then falls back to AI suggestion.
+
+**Complete Configuration Example:**
+```json
+{
+  "settings": {
+    "ceremonies": [
+      {
+        "name": "sponsor-call",
+        "provider": "claude",
+        "defaultModel": "claude-sonnet-4-5-20250929",
+        "guidelines": {
+          "missionStatement": "Your default mission statement here",
+          "targetUsers": "Your default target users here",
+          "initialScope": "Your default initial scope here",
+          "technicalConsiderations": "Your default tech stack here",
+          "securityAndComplianceRequirements": "Your default security requirements here"
+        }
+      }
+    ]
+  }
+}
+```
+
+**Default Guideline (Pre-configured):**
+
+Only `technicalConsiderations` has a default guideline out of the box:
+
+```
+Use AWS serverless stack with Lambda functions for compute,
+API Gateway for REST APIs, DynamoDB for database, S3 for storage.
+Use CloudFormation for infrastructure definition and
+AWS CodePipeline/CodeBuild for CI/CD deployment.
+```
+
+All other questions default to AI-generated suggestions when skipped (unless you configure guidelines for them).
+
+### Validation Configuration
+
+Enable AI-powered iterative validation:
 
 ```json
 {
   "settings": {
-    "guidelines": {
-      "missionstatement": "Default mission for all projects",
-      "targetusers": "Default user types",
-      "initialscope": "Default feature set",
-      "technicalconsiderations": "Default tech stack",
-      "securityandcompliancerequirements": "Default security requirements"
-    }
+    "ceremonies": [
+      {
+        "name": "sponsor-call",
+        "validation": {
+          "enabled": true,
+          "maxIterations": 3,
+          "acceptanceThreshold": 75,
+          "skipOnCriticalIssues": false
+        }
+      }
+    ]
   }
 }
 ```
+
+**Parameters:**
+- `enabled` - Enable/disable validation (default: false)
+- `maxIterations` - Max improvement cycles (default: 3)
+- `acceptanceThreshold` - Minimum score 0-100 (default: 75)
+- `skipOnCriticalIssues` - Stop if critical issues found (default: false)
+
+---
+
+## Ceremony Output
+
+### Files Created
+
+```
+.avc/project/
+├── doc.md              # 8-section project documentation (~4KB)
+└── context.md          # Project-level architectural context (~500 tokens)
+
+.avc/documentation/
+└── index.md            # Auto-synced from doc.md (for VitePress)
+```
+
+### Files Updated
+
+```
+.avc/
+├── token-history.json        # Token usage tracking
+└── ceremonies-history.json   # Ceremony execution history
+```
+
+### What's NOT Created
+
+The following are created by the **`/project-expansion`** ceremony:
+- Epic directories (`context-0001/`)
+- Story directories (`context-0001-0001/`)
+- Epic/Story `doc.md` files
+- Epic/Story `context.md` files
+- Epic/Story `work.json` metadata files
+
+---
+
+## Token Usage & Cost
+
+### Typical Usage
+
+**Without Validation:**
+- Input tokens: ~8,000-12,000
+- Output tokens: ~5,000-8,000
+- Total: ~15,000-25,000 tokens
+- API calls: 2-3
+- Cost (Claude Sonnet 4.5): ~$0.08-$0.13
+
+**With Validation:**
+- Input tokens: ~15,000-25,000
+- Output tokens: ~10,000-20,000
+- Total: ~30,000-50,000 tokens
+- API calls: 4-8
+- Cost (Claude Sonnet 4.5): ~$0.16-$0.27
+
+### Cost Breakdown (Claude Sonnet 4.5)
+
+- Input: $3.00 per 1M tokens
+- Output: $15.00 per 1M tokens
+
+**Example (no validation):**
+- 10,000 input × $3.00/1M = $0.03
+- 6,000 output × $15.00/1M = $0.09
+- **Total: $0.12**
 
 ---
 
@@ -343,10 +417,15 @@ Pre-configure default values for questionnaire questions:
 
 ### Prerequisites
 
-1. Project initialized with `/init`
-2. API key configured in `.env`:
-   - `ANTHROPIC_API_KEY` for Claude
-   - `GEMINI_API_KEY` for Gemini
+1. **Project Initialized**
+   ```bash
+   avc
+   > /init
+   ```
+
+2. **API Key Configured** (in `.env` file)
+   - For Claude: `ANTHROPIC_API_KEY=sk-ant-...`
+   - For Gemini: `GEMINI_API_KEY=...`
 
 ### Execution
 
@@ -359,23 +438,73 @@ avc
 
 ### Interactive Flow
 
-1. **Questionnaire** - Answer 5 questions (or press Enter to skip)
-2. **Preview** - Review all answers before submission
-3. **Processing** - Watch 7-stage progress:
-   - Stage 1/7: Questionnaire (interactive)
-   - Stage 2/7: Template replacement
-   - Stage 3/7: Document enhancement
-   - Stage 4/7: Hierarchy generation
-   - Stage 5/7: Context generation (29 sub-steps)
-   - Stage 6/7: File writing
-   - Stage 7/7: Token tracking
-4. **Completion** - Review generated files in `.avc/project/`
+1. **Questionnaire** (Stage 1)
+   - Answer 5 questions
+   - Press Enter twice to skip any question
+   - Auto-saves progress every 30 seconds
+
+2. **Processing** (Stages 2-7)
+   - Watch progress updates:
+     - Stage 4/5: Generating documentation...
+     - Stage 5/5: Generating context...
+
+3. **Completion**
+   - View activity summary
+   - Check token usage
+   - Review generated files
 
 ### Progress & Resume
 
-- **Auto-save:** Every 30 seconds during questionnaire
-- **Resume:** If interrupted, next `/sponsor-call` offers to resume
-- **Progress file:** `.avc/sponsor-call-progress.json`
+**Auto-Save:**
+- Every 30 seconds during questionnaire
+- Saved to `.avc/sponsor-call-progress.json`
+
+**Resume:**
+- If interrupted, next `/sponsor-call` detects incomplete progress
+- Offers to resume from where you left off
+- All previous answers preserved
+
+**Manual Resume:**
+```bash
+> /sponsor-call
+# Detects incomplete progress
+⚠️  Found incomplete ceremony from previous session
+   Last activity: 2/5/2026, 10:30:45 AM
+   Stage: questionnaire
+
+Resume from where you left off? (y/n)
+```
+
+---
+
+## Output Example
+
+```
+✅ Sponsor Call Completed
+
+Activities performed:
+• Collected 5 questionnaire answers
+• Generated project documentation
+• Generated project context
+• Synced to VitePress documentation
+
+Files created:
+• .avc/project/doc.md
+• .avc/project/context.md
+• .avc/documentation/index.md
+
+📊 Token Usage:
+   Input: 8,234 tokens
+   Output: 4,521 tokens
+   Total: 12,755 tokens
+   API Calls: 3
+   Estimated Cost: $0.07
+
+Next steps:
+   1. Review .avc/project/doc.md for your project definition
+   2. Run /documentation to view as website
+   3. Run /project-expansion to create Epics and Stories
+```
 
 ---
 
@@ -383,23 +512,41 @@ avc
 
 After completing the Sponsor Call:
 
-1. **Review Generated Documents**
-   - `.avc/project/project/doc.md` - Main project definition
-   - Epic and Story files for completeness
+### 1. Review Generated Documents
 
-2. **Refine Hierarchy** (optional)
-   - Add/remove/modify Epics and Stories as needed
-   - Update context files for clarity
+**Project Documentation:**
+```bash
+cat .avc/project/doc.md
+```
 
-3. **View Token Usage**
-   ```bash
-   > /tokens
-   ```
+**Project Context:**
+```bash
+cat .avc/project/context.md
+```
 
-4. **Proceed to Next Ceremony**
-   - **Project Expansion** - Decompose Stories into Tasks
-   - **AI Coding** - Implement individual tasks
-   - **Context Retrospective** - Update contexts based on learnings
+### 2. View as Website (Optional)
+
+```bash
+> /documentation
+# Opens http://localhost:4173
+```
+
+### 3. Check Token Usage
+
+```bash
+> /tokens
+```
+
+### 4. Proceed to Next Ceremony
+
+**Project Expansion** - Create Epics and Stories:
+```bash
+> /project-expansion
+# or
+> /pe
+```
+
+See [Project Expansion ceremony documentation](project-expansion.md)
 
 ---
 
@@ -408,38 +555,94 @@ After completing the Sponsor Call:
 ### Common Issues
 
 **Issue:** "API key not set"
-- **Solution:** Add `ANTHROPIC_API_KEY` or `GEMINI_API_KEY` to `.env` file
+
+**Solution:**
+```bash
+# Add to .env file
+ANTHROPIC_API_KEY=sk-ant-your-key-here
+```
 
 **Issue:** "Rate limit exceeded"
-- **Solution:** Wait a moment and retry. AVC includes automatic retry with exponential backoff.
 
-**Issue:** "Invalid JSON response from hierarchy generation"
-- **Solution:** This is rare. Retry the ceremony. If persistent, check API provider status.
+**Solution:**
+- Wait 1-2 minutes and retry
+- AVC includes automatic retry with exponential backoff
+- For persistent issues, consider using a different model
 
-**Issue:** "Context generation taking too long"
-- **Solution:** Normal for large projects (23+ stories). Each context is generated sequentially. Consider reducing story count or using faster model (gemini-2.5-flash).
+**Issue:** "Invalid JSON response"
 
-### Debug Mode
+**Solution:**
+- Rare issue with LLM provider
+- Retry the ceremony
+- If persistent, check provider status page
 
-View detailed logs:
+**Issue:** "Permission denied writing files"
+
+**Solution:**
+- Check `.avc/` directory permissions
+- Ensure you have write access to project directory
+
+### Debug Logs
+
+View detailed ceremony logs:
 ```bash
-.avc/logs/sponsor-call-{timestamp}.log
+cat .avc/logs/sponsor-call-*.log
 ```
+
+Logs include:
+- Full questionnaire responses
+- LLM request/response details
+- Token usage per API call
+- File write operations
+- Error stack traces
 
 ---
 
 ## Technical Implementation
 
-For developers interested in the implementation details, see:
+### Code Location
 
-- **Code:** `src/cli/template-processor.js` - Main ceremony logic
-- **Template:** `src/cli/templates/project.md` - Questionnaire template
-- **Agents:** `src/cli/agents/` - All AI agent instructions
-- **Tests:** `src/tests/unit/questionnaire.test.js` - Questionnaire tests
+- **Main Logic:** `src/cli/template-processor.js`
+  - `processTemplate()` - Main workflow orchestrator
+  - `generateFinalDocument()` - Documentation generation
+  - `generateProjectContextContent()` - Context generation
+  - `iterativeValidation()` - Validation loop
 
-**Key Methods:**
-- `processTemplate()` - Main workflow orchestrator
-- `generateSuggestions()` - Domain agent selection and invocation
-- `generateFinalDocument()` - Document enhancement
-- `generateHierarchy()` - Epic/Story decomposition
-- `generateContext()` - Context file generation
+- **Ceremony Entry:** `src/cli/init.js`
+  - `sponsorCall()` - CLI entry point
+  - `sponsorCallWithAnswers()` - REPL integration
+
+- **REPL Integration:** `src/cli/repl-ink.js`
+  - `runSponsorCall()` - REPL command handler
+  - Questionnaire UI components
+
+### AI Agents
+
+**Suggestion Agents (Optional):**
+- `src/cli/agents/suggestion-business-analyst.md`
+- `src/cli/agents/suggestion-ux-researcher.md`
+- `src/cli/agents/suggestion-product-manager.md`
+- `src/cli/agents/suggestion-technical-architect.md`
+- `src/cli/agents/suggestion-security-specialist.md`
+
+**Core Ceremony Agents:**
+- `src/cli/agents/project-documentation-creator.md`
+- `src/cli/agents/project-context-generator.md`
+
+**Validation Agents (Optional):**
+- `src/cli/agents/validator-documentation.md`
+- `src/cli/agents/validator-context.md`
+
+### Tests
+
+- **Unit Tests:** `src/tests/unit/questionnaire.test.js`
+- **Integration Tests:** `src/tests/integration/template-with-llm.test.js`
+
+---
+
+## See Also
+
+- [Project Expansion Ceremony](project-expansion.md) - Create Epics and Stories
+- [Seed Ceremony](seed.md) - Decompose Stories into Tasks/Subtasks
+- [AI Coding Ceremony](ai-coding.md) - Implement work items
+- [Context Retrospective](context-retrospective.md) - Update contexts with learnings
