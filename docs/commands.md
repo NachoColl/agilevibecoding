@@ -32,45 +32,162 @@ Next steps:
 
 Run the [Sponsor Call](/#sponsor-call-project-initialization) ceremony to define your project with AI assistance.
 
+**Alias:** `/sc`
+
 ```sh
 > /sponsor-call
 ```
 
 ### What it does
 
-The [Sponsor Call](/#sponsor-call-project-initialization) ceremony creates the foundation of your project: initial context scope, work items, and comprehensive documentation. It guides you through an interactive questionnaire to capture your project vision.
+The Sponsor Call ceremony creates your project foundation through an AI-assisted questionnaire. It generates comprehensive documentation and architectural context that serves as the blueprint for your entire project.
 
+**Process Flow:**
+1. **Interactive Questionnaire** - 5 questions to capture your project vision
+2. **Generate Documentation** - AI creates structured `doc.md` (8 sections, ~3000-5000 tokens)
+3. **Generate Context** - AI creates architectural `context.md` (~500 tokens)
+4. **Validation** (optional) - AI validators check quality and completeness
+5. **Sync to VitePress** - Documentation auto-synced to `.avc/documentation/index.md`
 
-| # | Variable | Description |
-|---|----------|-------------|
-| 1 | Mission Statement | Core purpose and value proposition of the application |
-| 2 | Target Users | User types and their roles |
-| 3 | Initial Scope | Key features, main workflows, and essential capabilities |
-| 4 | Technical Considerations | Technology stack, constraints, or preferences |
-| 5 | Security & Compliance Requirements | Regulatory, privacy, or security constraints |
+**AI Agents Used:**
+- **Suggestion Agents** (if you skip questions): Business Analyst, UX Researcher, Product Manager, Technical Architect, Security Specialist
+- **Documentation Creator**: `project-documentation-creator.md` → Creates 8-section project doc
+- **Context Generator**: `project-context-generator.md` → Creates architectural context
+- **Validators** (optional): `validator-documentation.md`, `validator-context.md`
 
-Only the **Mission Statement** is mandatory. If you skip other questions, the ceremony provides intelligent defaults: Technical Considerations uses an AWS serverless guideline, while other questions are filled with AI-generated proposals based on your mission statement.
+### Questionnaire
 
-After collecting all inputs, the LLM enhances them into a structured project definition document saved to `.avc/project/doc.md`.
+| # | Variable | Description | Configurable |
+|---|----------|-------------|--------------|
+| 1 | Mission Statement | Core purpose and value proposition | ✅ |
+| 2 | Target Users | User types and their roles | ✅ |
+| 3 | Initial Scope | Key features, main workflows, essential capabilities | ✅ |
+| 4 | Technical Considerations | Technology stack, constraints, or preferences | ✅ |
+| 5 | Security & Compliance Requirements | Regulatory, privacy, or security constraints | ✅ |
 
-### Default Technical Guideline
+**Answering Questions:**
+- **Type your answer** - Multi-line input supported (Enter on empty line to submit)
+- **Skip (Enter twice)** - Uses guideline from config OR AI generates suggestion
+- **Only Mission Statement is mandatory** - All others can be skipped
 
-When you skip the Technical Considerations question, AVC applies a default setup:
+### Configurable Guidelines
 
-> Use AWS serverless stack with Lambda functions for compute, API Gateway for REST APIs, DynamoDB for database, S3 for storage. Use CloudFormation for infrastructure definition and AWS CodePipeline/CodeBuild for CI/CD deployment.
+You can pre-configure default answers for any question in `.avc/avc.json`. When you skip a question, AVC first checks for a guideline, then falls back to AI suggestion.
 
-You can customize this guideline in `.avc/avc.json` under `settings.ceremonies[0].guidelines.technicalConsiderations`.
+**Configuration Structure:**
+```json
+{
+  "settings": {
+    "ceremonies": [
+      {
+        "name": "sponsor-call",
+        "provider": "claude",
+        "defaultModel": "claude-sonnet-4-5-20250929",
+        "guidelines": {
+          "missionStatement": "Your default mission statement here",
+          "targetUsers": "Your default target users here",
+          "initialScope": "Your default initial scope here",
+          "technicalConsiderations": "Your default tech stack here",
+          "securityAndComplianceRequirements": "Your default security requirements here"
+        }
+      }
+    ]
+  }
+}
+```
 
-### Output
+**Default Guideline (Pre-configured):**
+
+Only `technicalConsiderations` has a default guideline out of the box:
 
 ```
-✅ Project defined successfully!
+Use AWS serverless stack with Lambda functions for compute,
+API Gateway for REST APIs, DynamoDB for database, S3 for storage.
+Use CloudFormation for infrastructure definition and
+AWS CodePipeline/CodeBuild for CI/CD deployment.
+```
+
+**All other questions default to AI-generated suggestions** when skipped (unless you configure guidelines for them).
+
+### Output Files
+
+**Created:**
+- `.avc/project/doc.md` - 8-section project documentation (Mission, Users, Scope, Tech Stack, Architecture, Security, Quality, Success Metrics)
+- `.avc/project/context.md` - Architectural context (~500 tokens, inherited by all work items)
+- `.avc/documentation/index.md` - Auto-synced from `doc.md` for VitePress documentation
+
+**Updated:**
+- `.avc/token-history.json` - Token usage tracking
+- `.avc/ceremonies-history.json` - Ceremony execution history
+
+### Validation (Optional)
+
+Enable AI-powered validation to iteratively improve documentation quality:
+
+```json
+{
+  "settings": {
+    "ceremonies": [
+      {
+        "name": "sponsor-call",
+        "validation": {
+          "enabled": true,
+          "maxIterations": 3,
+          "acceptanceThreshold": 75,
+          "skipOnCriticalIssues": false
+        }
+      }
+    ]
+  }
+}
+```
+
+**Validation Process:**
+1. Validator agent scores documentation (0-100)
+2. If score < threshold → Improvement agent enhances document
+3. Repeat up to `maxIterations` times
+4. Final document must meet threshold or show critical issues
+
+### Token Usage & Cost
+
+The ceremony tracks and displays:
+- **Input tokens** - Prompt + context sent to LLM
+- **Output tokens** - Generated content from LLM
+- **Total tokens** - Sum of input + output
+- **API calls** - Number of LLM requests
+- **Estimated cost** - Based on model pricing
+
+**Typical Usage:**
+- Without validation: ~15,000-25,000 tokens (~$0.08-$0.13 with Claude Sonnet 4.5)
+- With validation: ~30,000-50,000 tokens (~$0.16-$0.27 with Claude Sonnet 4.5)
+
+### Output Example
+
+```
+✅ Sponsor Call Completed
+
+Activities performed:
+• Collected 5 questionnaire answers
+• Generated project documentation
+• Generated project context
+• Synced to VitePress documentation
+
+Files created:
+• .avc/project/doc.md
+• .avc/project/context.md
+• .avc/documentation/index.md
+
+📊 Token Usage:
+   Input: 8,234 tokens
+   Output: 4,521 tokens
+   Total: 12,755 tokens
+   API Calls: 3
+   Estimated Cost: $0.07
 
 Next steps:
-  1. Review .avc/project/doc.md for your project definition
-  2. Review .avc/avc.json configuration
-  3. Create your project context and work items
-  4. Use AI agents to implement features
+   1. Review .avc/project/doc.md for your project definition
+   2. Run /documentation to view as website
+   3. Run /project-expansion to create Epics and Stories
 ```
 
 
