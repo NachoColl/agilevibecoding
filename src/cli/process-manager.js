@@ -175,7 +175,12 @@ export class BackgroundProcessManager extends EventEmitter {
 
     metadata.exitCode = code;
     metadata.exitSignal = signal;
-    metadata.status = code === 0 ? 'exited' : 'crashed';
+
+    // Don't overwrite 'stopped' status (intentional termination via stopProcess)
+    // Only set crashed/exited if process wasn't manually stopped
+    if (metadata.status !== 'stopped') {
+      metadata.status = code === 0 ? 'exited' : 'crashed';
+    }
 
     this.emit('process-exited', {
       id,
@@ -184,6 +189,15 @@ export class BackgroundProcessManager extends EventEmitter {
       signal,
       status: metadata.status
     });
+
+    // Auto-cleanup finished processes after 3 seconds
+    // Gives user time to see final status before removal
+    setTimeout(() => {
+      if (this.processes.has(id)) {
+        this.processes.delete(id);
+        this.emit('process-removed', { id, name: metadata.name });
+      }
+    }, 3000);
   }
 
   /**

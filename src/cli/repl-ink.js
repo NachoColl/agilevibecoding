@@ -1,9 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { render, Box, Text, useInput, useApp } from 'ink';
 import SelectInput from 'ink-select-input';
 import Spinner from 'ink-spinner';
 import { execSync } from 'child_process';
-import { readFileSync, existsSync } from 'fs';
+import { readFileSync, existsSync, unlinkSync } from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { ProjectInitiator } from './init.js';
@@ -96,7 +96,7 @@ const Banner = () => {
     React.createElement(Text, null, ' '),
     React.createElement(Text, { bold: true, color: 'red' }, 'UNDER DEVELOPMENT - DO NOT USE'),
     React.createElement(Text, null, ' '),
-    React.createElement(Text, { dimColor: true }, 'Type / to see commands'),
+    React.createElement(Text, { dimColor: true }, 'Type / to see commands (check https://agilevibecoding.org to learn how to use AVC framework)'),
     React.createElement(Text, null, ' ')
   );
 };
@@ -133,82 +133,89 @@ const questionnaireQuestions = [
   {
     key: 'MISSION_STATEMENT',
     title: 'Mission Statement',
-    guidance: 'Describe the core purpose and value proposition of your application',
-    example: 'A platform to streamline team collaboration through real-time messaging and task management'
+    guidance: 'What is the core purpose and value proposition of your application?',
+    example: 'Enable small businesses to manage inventory and sales through an intuitive mobile-first platform that syncs across devices and provides real-time analytics.'
   },
   {
     key: 'TARGET_USERS',
     title: 'Target Users',
-    guidance: 'Who will use this application? List user types and their roles',
-    example: 'Small business owners, Team managers, Remote workers'
+    guidance: 'Who will use this application? Describe the user types and their roles.',
+    example: 'Small business owners managing daily operations, inventory managers tracking stock levels, sales staff processing orders, and administrators overseeing system configuration.'
   },
   {
     key: 'INITIAL_SCOPE',
-    title: 'Initial Scope',
-    guidance: 'What are the main features and functional areas? Focus on MVP',
-    example: 'User authentication, Real-time chat, Task boards, File sharing'
+    title: 'Initial Scope & Key Features',
+    guidance: 'Describe the initial scope: key features, main workflows, and core functionality. What will users be able to do?',
+    example: 'Users can create and manage tasks, assign them to team members with due dates, track progress through kanban boards, receive notifications for updates, and generate reports on team productivity.'
   },
   {
     key: 'TECHNICAL_CONSIDERATIONS',
     title: 'Technical Considerations',
-    guidance: 'Tech stack, infrastructure, performance requirements, scalability needs',
-    example: 'React frontend, Node.js backend, PostgreSQL database, AWS hosting'
+    guidance: 'Technical requirements, constraints, or preferences for your application.',
+    example: 'Mobile-first responsive design, must work offline with data sync when online, real-time updates using WebSockets, PostgreSQL database, deployed on AWS with auto-scaling.'
   },
   {
     key: 'SECURITY_AND_COMPLIANCE_REQUIREMENTS',
     title: 'Security & Compliance',
-    guidance: 'Security measures, data privacy, regulatory compliance (GDPR, HIPAA, etc.)',
-    example: 'End-to-end encryption, GDPR compliance, SOC 2 Type II certification'
+    guidance: 'Security, privacy, or regulatory requirements your application must meet.',
+    example: 'GDPR compliance for EU users, PCI DSS for payment processing, two-factor authentication, data encryption at rest and in transit, regular security audits, SOC 2 Type II certification.'
   }
 ];
 
 // Question display component
 const QuestionDisplay = ({ question, index, total, editMode }) => {
-  const helpText = `\n   Enter your response (Enter twice=done, Enter=skip, Esc=cancel):\n`;
+  const helpText = `\n💡 Tip: You can paste multi-line text from other apps\n↵↵ Press Enter twice when done, or Enter once to skip\n`;
 
   return React.createElement(Box, { flexDirection: 'column', flexShrink: 0 },
     React.createElement(Text, { bold: true, color: 'white' },
-      `\n📝 Question ${index + 1} of ${total}: ${question.title}${editMode ? ' [EDIT MODE]' : ''}`
+      `\n📝 Question ${index + 1} of ${total}: ${question.title}${editMode ? ' [EDIT MODE]' : ''}\n`
     ),
-    React.createElement(Text, { dimColor: true },
-      `   ${question.guidance}`
+    React.createElement(Text, { color: 'white' },
+      question.guidance
     ),
     React.createElement(Text, { italic: true, dimColor: true },
-      `   Example: "${question.example}"`
+      `Example: "${question.example}"`
     ),
     React.createElement(Text, { dimColor: true }, helpText)
   );
 };
 
 // Multi-line input component with line numbers and character count
-const MultiLineInput = ({ lines, showLineNumbers = true, showCharCount = true }) => {
+const MultiLineInput = ({ lines, showCharCount = true, justPasted = false }) => {
+  // Log what we're about to render
   if (lines.length === 0) {
     return React.createElement(Box, { flexDirection: 'column', flexShrink: 0 },
       React.createElement(Text, { dimColor: true },
-        '   > ',
         React.createElement(Text, { inverse: true }, ' ')
       )
     );
   }
 
   const totalChars = lines.join('\n').length;
-  // Fixed width for line numbers to prevent layout shift (supports up to 999 lines)
-  const lineNumberWidth = 3;
 
-  return React.createElement(Box, { flexDirection: 'column', flexShrink: 0, overflow: 'hidden' },
-    ...lines.map((line, idx) => {
-      const lineNum = showLineNumbers ? `${String(idx + 1).padStart(lineNumberWidth, ' ')} │ ` : '';
-      const prefix = idx === lines.length - 1 ? '   > ' : '     ';
-      const isLastLine = idx === lines.length - 1;
+  // Show last N lines to fit in viewport (with indicator if more lines exist)
+  const maxVisibleLines = 15; // Show up to 15 lines
+  const hasMoreLines = lines.length > maxVisibleLines;
+  const visibleLines = hasMoreLines ? lines.slice(-maxVisibleLines) : lines;
+  const hiddenCount = lines.length - visibleLines.length;
 
-      return React.createElement(Text, { key: idx },
-        isLastLine ? prefix + lineNum + line : '     ' + lineNum + line,
+  return React.createElement(Box, { flexDirection: 'column', flexShrink: 0 },
+    hasMoreLines && React.createElement(Text, { dimColor: true },
+      `... ${hiddenCount} more line${hiddenCount > 1 ? 's' : ''} above (scroll up to see)`
+    ),
+    // Render each line as separate Text (Box handles line breaks automatically)
+    ...visibleLines.map((line, idx) => {
+      const actualIdx = hasMoreLines ? idx + hiddenCount : idx;
+      const isLastLine = actualIdx === lines.length - 1;
+
+      return React.createElement(Text, { key: actualIdx },
+        line,
         isLastLine && React.createElement(Text, { inverse: true }, ' ')
       );
     }),
     showCharCount && React.createElement(Box, { flexShrink: 0 },
       React.createElement(Text, { dimColor: true },
-        `\n   ${totalChars} characters`
+        `\n${totalChars} characters`
       )
     )
   );
@@ -221,10 +228,10 @@ const QuestionnaireProgress = ({ current, total, answers, lastSave }) => {
 
   return React.createElement(Box, { flexDirection: 'column', flexShrink: 0 },
     React.createElement(Text, { dimColor: true },
-      `\n   Progress: ${answered}/${total} questions answered | Current: ${current + 1}/${total}`
+      `\nProgress: ${answered}/${total} questions answered | Current: ${current + 1}/${total}`
     ),
     React.createElement(Text, { dimColor: true },
-      `   Last saved: ${saveTime}`
+      `Last saved: ${saveTime}`
     )
   );
 };
@@ -241,18 +248,50 @@ const AnswersPreview = ({ answers, questions }) => {
 
       return React.createElement(Box, { key: idx, flexDirection: 'column', marginBottom: 1 },
         React.createElement(Text, { bold: true },
-          `${idx + 1}. ${question.title}`
+          `${idx + 1}. ${question.title}\n`
         ),
         ...lines.map((line, lineIdx) =>
           React.createElement(Text, { key: lineIdx, dimColor: !answers[question.key] },
-            `   ${line}`
+            line
           )
         )
       );
     }),
     React.createElement(Box, { marginTop: 1 },
       React.createElement(Text, { dimColor: true },
-        '\n   Type 1-5 to edit a question | Enter to submit | Escape to cancel\n'
+        '\nType 1-5 to edit a question | Enter to submit | Escape to cancel\n'
+      )
+    )
+  );
+};
+
+// Cancel questionnaire confirmation component
+const CancelQuestionnaireConfirmation = () => {
+  return React.createElement(Box, { flexDirection: 'column', marginTop: 1 },
+    React.createElement(Text, { bold: true, color: 'yellow' },
+      '\n⚠️  Cancel Questionnaire\n'
+    ),
+    React.createElement(Text, null,
+      'You have answered some questions. What would you like to do with your progress?\n'
+    ),
+    React.createElement(Box, { flexDirection: 'column', marginY: 1 },
+      React.createElement(Text, { bold: true, color: 'cyan' },
+        'K - Keep answers (resume later)'
+      ),
+      React.createElement(Text, { dimColor: true },
+        'Your progress will be saved and you can continue later'
+      ),
+      React.createElement(Text, null, '\n'),
+      React.createElement(Text, { bold: true, color: 'red' },
+        'D - Delete answers (start fresh)'
+      ),
+      React.createElement(Text, { dimColor: true },
+        'All progress will be deleted and you\'ll start from scratch'
+      )
+    ),
+    React.createElement(Box, { marginTop: 1 },
+      React.createElement(Text, { dimColor: true },
+        '\nPress K to keep | D to delete | Escape to go back\n'
       )
     )
   );
@@ -274,7 +313,7 @@ const RemoveConfirmation = ({ contents, confirmInput }) => {
       React.createElement(Text, { bold: true }, '📁 .avc/ folder contents:'),
       ...contents.map((item, idx) =>
         React.createElement(Text, { key: idx, dimColor: true },
-          `   • ${item}`
+          `• ${item}`
         )
       )
     ),
@@ -290,7 +329,7 @@ const RemoveConfirmation = ({ contents, confirmInput }) => {
     React.createElement(Text, { dimColor: true },
       'ℹ️  Note: The .env file will NOT be deleted.\n'
     ),
-    React.createElement(Box, { borderStyle: 'round', borderColor: 'yellow', paddingX: 1, marginY: 1 },
+    React.createElement(Box, { borderStyle: 'round', borderColor: 'yellow', marginY: 1 },
       React.createElement(Box, { flexDirection: 'column' },
         React.createElement(Text, { bold: true, color: 'yellow' },
           'To confirm deletion, type exactly: delete all'
@@ -322,7 +361,7 @@ const KillProcessConfirmation = ({ processInfo, confirmInput }) => {
     React.createElement(Text, null,
       `Port ${processInfo.port} is currently in use by an external process:\n`
     ),
-    React.createElement(Box, { flexDirection: 'column', marginY: 1, paddingX: 2 },
+    React.createElement(Box, { flexDirection: 'column', marginY: 1 },
       React.createElement(Text, { bold: true },
         `Process: ${processInfo.command}`
       ),
@@ -339,7 +378,7 @@ const KillProcessConfirmation = ({ processInfo, confirmInput }) => {
     React.createElement(Text, null,
       'another application or service you\'re running.\n'
     ),
-    React.createElement(Box, { borderStyle: 'round', borderColor: 'yellow', paddingX: 1, marginY: 1 },
+    React.createElement(Box, { borderStyle: 'round', borderColor: 'yellow', marginY: 1 },
       React.createElement(Box, { flexDirection: 'column' },
         React.createElement(Text, { bold: true, color: 'yellow' },
           'Do you want to kill this process anyway?'
@@ -417,10 +456,10 @@ const CommandSelector = ({ onSelect, onCancel, filter }) => {
   const filteredCommands = shouldShowGroups
     ? null
     : allCommands.filter(c => {
-        const lowerFilter = filter.toLowerCase();
-        return c.value.startsWith(lowerFilter) ||
-               c.aliases.some(alias => alias.startsWith(lowerFilter));
-      });
+      const lowerFilter = filter.toLowerCase();
+      return c.value.startsWith(lowerFilter) ||
+        c.aliases.some(alias => alias.startsWith(lowerFilter));
+    });
 
   const commands = filteredCommands || allCommands;
 
@@ -570,8 +609,8 @@ const ProcessViewer = ({ processes, onSelect, onCancel }) => {
       ...processList.map((process, idx) => {
         const isSelected = idx === selectedIndex;
         const statusIcon = process.status === 'running' ? '▶' :
-                          process.status === 'stopped' ? '⏸' :
-                          process.status === 'exited' ? '✓' : '✗';
+          process.status === 'stopped' ? '⏸' :
+            process.status === 'exited' ? '✓' : '✗';
         const uptime = manager.formatUptime(manager.getUptime(process.id));
 
         return React.createElement(Box, { key: process.id },
@@ -624,8 +663,8 @@ const ProcessDetailsViewer = ({ process, onBack, onStop }) => {
   const recentOutput = process.output.slice(-50);
 
   const statusColor = process.status === 'running' ? 'green' :
-                     process.status === 'stopped' ? 'yellow' :
-                     process.status === 'exited' ? 'blue' : 'red';
+    process.status === 'stopped' ? 'yellow' :
+      process.status === 'exited' ? 'blue' : 'red';
 
   return React.createElement(Box, { flexDirection: 'column', marginTop: 1 },
     // Header
@@ -664,18 +703,18 @@ const ProcessDetailsViewer = ({ process, onBack, onStop }) => {
     ),
 
     recentOutput.length === 0
-      ? React.createElement(Text, { dimColor: true }, '   No output yet\n')
-      : React.createElement(Box, { flexDirection: 'column', borderStyle: 'single', paddingX: 1 },
-          ...recentOutput.map((line, idx) =>
-            React.createElement(Text, {
-              key: idx,
-              color: line.type === 'stderr' ? 'red' : undefined,
-              dimColor: line.type === 'stderr'
-            },
-              line.text
-            )
+      ? React.createElement(Text, { dimColor: true }, 'No output yet\n')
+      : React.createElement(Box, { flexDirection: 'column', borderStyle: 'single' },
+        ...recentOutput.map((line, idx) =>
+          React.createElement(Text, {
+            key: idx,
+            color: line.type === 'stderr' ? 'red' : undefined,
+            dimColor: line.type === 'stderr'
+          },
+            line.text
           )
-        ),
+        )
+      ),
 
     // Actions
     React.createElement(Box, { marginTop: 1 },
@@ -722,7 +761,7 @@ const ProcessStatusIndicator = ({ processes }) => {
 };
 
 // Bottom-right status display (version + update info + processes)
-const BottomRightStatus = ({ backgroundProcesses }) => {
+const BottomRightStatus = React.memo(({ backgroundProcesses }) => {
   const version = getVersion();
 
   // Option B: Pre-initialize updateState synchronously to prevent post-mount re-render
@@ -753,7 +792,13 @@ const BottomRightStatus = ({ backgroundProcesses }) => {
 
     const updateStatus = () => {
       const state = checker.readState();
-      setUpdateState(state);
+      // Only update if state actually changed (prevent unnecessary re-renders)
+      setUpdateState(prevState => {
+        if (JSON.stringify(prevState) === JSON.stringify(state)) {
+          return prevState; // No change, return same reference
+        }
+        return state;
+      });
     };
 
     // Defer initial update check to prevent cursor positioning issues
@@ -786,15 +831,17 @@ const BottomRightStatus = ({ backgroundProcesses }) => {
     }
   }
 
-  // Check for running processes (priority: processes > updates > version)
-  const runningCount = Array.from(backgroundProcesses.values()).filter(
-    p => p.status === 'running'
-  ).length;
+  // Memoize running processes to avoid recalculating on every render
+  const runningProcesses = useMemo(() =>
+    Array.from(backgroundProcesses.values()).filter(p => p.status === 'running'),
+    [backgroundProcesses]
+  );
+
+  const runningCount = runningProcesses.length;
 
   if (runningCount > 0) {
     const processIndicator = React.createElement(ProcessStatusIndicator, { processes: backgroundProcesses });
     // Get the text content to calculate padding
-    const runningProcesses = Array.from(backgroundProcesses.values()).filter(p => p.status === 'running');
     const processText = runningCount === 1
       ? `📦 ${runningProcesses[0].name} running`
       : `📦 ${runningCount} processes running`;
@@ -817,7 +864,11 @@ const BottomRightStatus = ({ backgroundProcesses }) => {
       statusText
     )
   );
-};
+});
+
+// Global ceremony execution tracking (for signal handler cleanup)
+let activeExecutionId = null;
+let activeCeremony = null;
 
 // Main App component
 const App = () => {
@@ -841,6 +892,17 @@ const App = () => {
   const [lastAutoSave, setLastAutoSave] = useState(null);
   const [editingQuestionIndex, setEditingQuestionIndex] = useState(-1);
   const [isEditingFromPreview, setIsEditingFromPreview] = useState(false);
+  const [justPasted, setJustPasted] = useState(false);
+
+  // Cursor position for multi-line editing
+  const [cursorLine, setCursorLine] = useState(0);
+  const [cursorChar, setCursorChar] = useState(0);
+
+  // Sponsor call execution tracking
+  const [sponsorCallExecutionId, setSponsorCallExecutionId] = useState(null);
+
+  // Cancel questionnaire confirmation state
+  const [cancelConfirmActive, setCancelConfirmActive] = useState(false);
 
   // Remove confirmation state
   const [removeConfirmActive, setRemoveConfirmActive] = useState(false);
@@ -856,6 +918,26 @@ const App = () => {
   const [backgroundProcesses, setBackgroundProcesses] = useState(new Map());
   const [processViewerActive, setProcessViewerActive] = useState(false);
   const [selectedProcessId, setSelectedProcessId] = useState(null);
+
+  // Stable initial render state - prevents first-keypress layout glitch
+  const [isStableRender, setIsStableRender] = useState(false);
+
+  // Active logger for long-running commands (e.g., /sponsor-call with questionnaire)
+  const [activeLogger, setActiveLogger] = useState(null);
+
+  // Force stable initial render to prevent React Ink layout race condition
+  // On first mount, React Ink hasn't fully measured terminal dimensions
+  // The first state update (keypress) triggers layout recalculation causing
+  // visual glitch (character appears in wrong position or banner duplicates)
+  // Solution: Force re-render after mount to stabilize layout before user input
+  useEffect(() => {
+    // Delay to ensure React Ink has completed initial layout pass
+    const timer = setTimeout(() => {
+      setIsStableRender(true);
+    }, 50); // 50ms is enough for React Ink to stabilize
+
+    return () => clearTimeout(timer);
+  }, []);
 
   // Start update checker on mount
   useEffect(() => {
@@ -894,11 +976,29 @@ const App = () => {
     const manager = getProcessManager();
 
     const updateProcesses = () => {
-      const processes = new Map();
+      const newProcesses = new Map();
       for (const p of manager.getAllProcesses()) {
-        processes.set(p.id, p);
+        newProcesses.set(p.id, p);
       }
-      setBackgroundProcesses(processes);
+
+      // Only update if data actually changed (prevents unnecessary re-renders)
+      setBackgroundProcesses(prevProcesses => {
+        // Check if size changed
+        if (prevProcesses.size !== newProcesses.size) {
+          return newProcesses;
+        }
+
+        // Check if any process data changed
+        for (const [id, process] of newProcesses) {
+          const prev = prevProcesses.get(id);
+          if (!prev || prev.status !== process.status || prev.pid !== process.pid) {
+            return newProcesses;
+          }
+        }
+
+        // No changes detected, return same reference to prevent re-render
+        return prevProcesses;
+      });
     };
 
     // Initial sync
@@ -909,12 +1009,14 @@ const App = () => {
     manager.on('process-stopped', updateProcesses);
     manager.on('process-exited', updateProcesses);
     manager.on('process-error', updateProcesses);
+    manager.on('process-removed', updateProcesses);
 
     return () => {
       manager.removeListener('process-started', updateProcesses);
       manager.removeListener('process-stopped', updateProcesses);
       manager.removeListener('process-exited', updateProcesses);
       manager.removeListener('process-error', updateProcesses);
+      manager.removeListener('process-removed', updateProcesses);
     };
   }, []);
 
@@ -930,6 +1032,19 @@ const App = () => {
       }
     };
   }, []);
+
+  // Track active ceremony execution for signal handler cleanup
+  useEffect(() => {
+    if (sponsorCallExecutionId) {
+      activeExecutionId = sponsorCallExecutionId;
+      activeCeremony = 'sponsor-call';
+    }
+
+    return () => {
+      activeExecutionId = null;
+      activeCeremony = null;
+    };
+  }, [sponsorCallExecutionId]);
 
   // Available commands for Tab completion (including aliases)
   const allCommands = [
@@ -1042,7 +1157,7 @@ const App = () => {
       setIsExecuting(true);
 
       // Add command to output history (don't clear previous output)
-      setOutput(output + `\n> ${command}\n`);
+      setOutput(prev => prev + `\n> ${command}\n`);
 
       // Create command logger
       const commandName = command.replace('/', '').toLowerCase();
@@ -1082,7 +1197,7 @@ const App = () => {
             if (running.length > 0) {
               setOutput(prev => prev + '\n🛑 Stopping background processes...\n');
               const stopped = manager.stopAll();
-              setOutput(prev => prev + `   Stopped ${stopped} process(es)\n\n`);
+              setOutput(prev => prev + `Stopped ${stopped} process(es)\n\n`);
             }
 
             setOutput(prev => prev + '\n👋 Thanks for using AVC!\n');
@@ -1114,9 +1229,11 @@ const App = () => {
             // Parse story ID from command
             const storyIdMatch = input.match(/^\/seed\s+(\S+)/);
             if (!storyIdMatch) {
-              setOutput(prev => prev + '\n❌ Story ID required\n');
-              setOutput(prev => prev + '   Usage: /seed <story-id>\n');
-              setOutput(prev => prev + '   Example: /seed context-0001-0001\n\n');
+              setOutput(prev => prev +
+                '\n❌ Story ID required\n' +
+                'Usage: /seed <story-id>\n' +
+                'Example: /seed context-0001-0001\n\n'
+              );
               break;
             }
             const storyId = storyIdMatch[1];
@@ -1162,7 +1279,7 @@ const App = () => {
             if (runningOnRestart.length > 0) {
               setOutput(prev => prev + '\n🛑 Stopping background processes...\n');
               const stopped = restartManager.stopAll();
-              setOutput(prev => prev + `   Stopped ${stopped} process(es)\n\n`);
+              setOutput(prev => prev + `Stopped ${stopped} process(es)\n\n`);
             }
 
             setOutput(prev => prev + '🔄 Restarting AVC...\n');
@@ -1177,24 +1294,27 @@ const App = () => {
 
           default:
             if (command.startsWith('/')) {
-              setOutput(prev => prev + `\n❌ Unknown command: ${command}\n   Type /help to see available commands\n   Tip: Try /h for help, /v for version, /q to exit\n`);
+              setOutput(prev => prev + `\n❌ Unknown command: ${command}\nType /help to see available commands\nTip: Try /h for help, /v for version, /q to exit\n`);
             } else {
-              setOutput(prev => prev + `\n💡 Commands must start with /\n   Example: /init, /status, /help\n   Tip: Type / and press Enter to see all commands\n`);
+              setOutput(prev => prev + `\n💡 Commands must start with /\nExample: /init, /status, /help\nTip: Type / and press Enter to see all commands\n`);
             }
         }
       } catch (error) {
         setOutput(prev => prev + `\n❌ Error: ${error.message}\n`);
       } finally {
-        // Stop logger and show log file location
+        // For /sponsor-call, keep logger active during questionnaire
+        // For other commands, stop logger immediately
         if (logger) {
-          logger.stop();
-          const logPath = logger.getLogPath();
-          if (logPath) {
-            console.log(`\n📝 Command log saved: ${logPath}`);
-          }
+          if (command.toLowerCase() === '/sponsor-call' || command.toLowerCase() === '/sc') {
+            // Store logger to keep it active during questionnaire
+            setActiveLogger(logger);
+          } else {
+            // Stop logger for all other commands
+            logger.stop();
 
-          // Cleanup old logs (keep last 10 per command)
-          CommandLogger.cleanupOldLogs();
+            // Cleanup old logs (keep last 10 per command)
+            CommandLogger.cleanupOldLogs();
+          }
         }
       }
 
@@ -1206,7 +1326,7 @@ const App = () => {
 
         // Only return to prompt if not in a special viewer/confirmation mode
         setMode((currentMode) => {
-          if (currentMode === 'process-viewer' || currentMode === 'kill-confirm') {
+          if (currentMode === 'process-viewer' || currentMode === 'kill-confirm' || currentMode === 'cancel-confirm') {
             return currentMode; // Keep special modes
           }
           return 'prompt';
@@ -1226,25 +1346,25 @@ const App = () => {
     return `
 📚 Available Commands:
 
-  /init (or /i)            Create AVC project structure and config files
-  /documentation (/d)      Build and serve project documentation
-  /sponsor-call (/sc)      Run Sponsor Call ceremony
-  /status (or /s)          Show current project status
-  /processes (/p)          View and manage background processes
-  /remove (or /rm)         Remove AVC project structure
-  /help (or /h)            Show this help message
-  /version (or /v)         Show version information
-  /restart                 Restart AVC (Ctrl+R)
-  /exit (or /q)            Exit AVC interactive mode
+/init (or /i)            Create AVC project structure and config files
+/documentation (/d)      Build and serve project documentation
+/sponsor-call (/sc)      Run Sponsor Call ceremony
+/status (or /s)          Show current project status
+/processes (/p)          View and manage background processes
+/remove (or /rm)         Remove AVC project structure
+/help (or /h)            Show this help message
+/version (or /v)         Show version information
+/restart                 Restart AVC (Ctrl+R)
+/exit (or /q)            Exit AVC interactive mode
 
 💡 Tips:
-  - Type / and press Enter to see interactive command selector
-  - Use arrow keys (↑/↓) to navigate command history
-  - Use Tab key to auto-complete commands
-  - Use number keys to quickly select commands from the menu
-  - Press Esc to cancel command selector or dismiss notifications
-  - Press Ctrl+R to restart after updates
-  - Background processes are shown in bottom-right corner
+- Type / and press Enter to see interactive command selector
+- Use arrow keys (↑/↓) to navigate command history
+- Use Tab key to auto-complete commands
+- Use number keys to quickly select commands from the menu
+- Press Esc to cancel command selector or dismiss notifications
+- Press Ctrl+R to restart after updates
+- Background processes are shown in bottom-right corner
 `;
   };
 
@@ -1252,8 +1372,8 @@ const App = () => {
     const version = getVersion();
     return `
 🎯 AVC Framework v${version}
-   Agile Vibe Coding - AI-powered development framework
-   https://agilevibecoding.org
+Agile Vibe Coding - AI-powered development framework
+https://agilevibecoding.org
 `;
   };
 
@@ -1273,15 +1393,20 @@ const App = () => {
       console.log = originalLog;
     }
 
-    setOutput(prev => prev + logs.join('\n') + '\n');
+    setOutput(prev => prev +
+      logs.join('\n') + '\n' +
+      '📖 https://agilevibecoding.org/ceremonies/sponsor-call.html\n'
+    );
   };
 
   const runProjectExpansion = async () => {
     const initiator = new ProjectInitiator();
 
     if (!initiator.isAvcProject()) {
-      setOutput(prev => prev + '\n❌ Project not initialized\n\n');
-      setOutput(prev => prev + '   Please run /init first to create the project structure.\n\n');
+      setOutput(prev => prev +
+        '\n❌ Project not initialized\n\n' +
+        'Please run /init first to create the project structure.\n\n'
+      );
       return;
     }
 
@@ -1295,15 +1420,20 @@ const App = () => {
       console.log = originalLog;
     }
 
-    setOutput(prev => prev + logs.join('\n') + '\n');
+    setOutput(prev => prev +
+      logs.join('\n') + '\n' +
+      '📖 https://agilevibecoding.org/ceremonies/project-expansion\n'
+    );
   };
 
   const runSeed = async (storyId) => {
     const initiator = new ProjectInitiator();
 
     if (!initiator.isAvcProject()) {
-      setOutput(prev => prev + '\n❌ Project not initialized\n\n');
-      setOutput(prev => prev + '   Please run /init first to create the project structure.\n\n');
+      setOutput(prev => prev +
+        '\n❌ Project not initialized\n\n' +
+        'Please run /init first to create the project structure.\n\n'
+      );
       return;
     }
 
@@ -1317,7 +1447,10 @@ const App = () => {
       console.log = originalLog;
     }
 
-    setOutput(prev => prev + logs.join('\n') + '\n');
+    setOutput(prev => prev +
+      logs.join('\n') + '\n' +
+      '📖 https://agilevibecoding.org/ceremonies/seed\n'
+    );
   };
 
   const runSponsorCall = async () => {
@@ -1325,29 +1458,58 @@ const App = () => {
 
     // Check if project is initialized
     if (!initiator.isAvcProject()) {
-      setOutput(prev => prev + '\n❌ Project not initialized\n\n');
-      setOutput(prev => prev + '   Please run /init first to create the project structure.\n\n');
+      setOutput(prev => prev +
+        '\n❌ Project not initialized\n\n' +
+        'Please run /init first to create the project structure.\n\n'
+      );
       return;
     }
 
     const progressPath = initiator.sponsorCallProgressPath;
 
-    // Check for incomplete progress
+    // Initialize ceremony history
+    const { CeremonyHistory } = await import('./ceremony-history.js');
+    const history = new CeremonyHistory(path.join(process.cwd(), '.avc'));
+    history.init();
+
+    // Detect abrupt termination from previous run
+    const abruptTermination = history.detectAbruptTermination('sponsor-call');
+
+    if (abruptTermination) {
+      // Previous run was interrupted during LLM generation
+      history.cleanupAbruptTermination('sponsor-call');
+
+      setOutput(prev => prev +
+        '\n⚠️  Previous sponsor call was interrupted during document generation.\n' +
+        'Starting fresh...\n\n'
+      );
+
+      // Delete stale progress file
+      if (fs.existsSync(progressPath)) {
+        fs.unlinkSync(progressPath);
+      }
+    }
+
+    // Check for incomplete progress (questionnaire only)
     if (initiator.hasIncompleteProgress(progressPath)) {
       const savedProgress = initiator.readProgress(progressPath);
 
-      if (savedProgress && savedProgress.stage !== 'completed') {
-        // Resume from saved progress
-        setQuestionnaireActive(true);
-        setCurrentQuestionIndex(savedProgress.currentQuestionIndex || 0);
+      if (savedProgress && savedProgress.stage === 'questionnaire') {
+        // Resume from saved progress - show preview to allow editing any question
         setQuestionnaireAnswers(savedProgress.collectedValues || {});
-        setCurrentAnswer(savedProgress.currentAnswer ? savedProgress.currentAnswer.split('\n') : []);
-        setOutput(prev => prev + '\n🎯 Sponsor Call Ceremony - Resuming from saved progress\n');
+        setShowPreview(true);
+        setOutput(prev => prev +
+          '\n🎯 Sponsor Call Ceremony - Resuming from saved progress\n' +
+          '📖 https://agilevibecoding.org/ceremonies/sponsor-call\n'
+        );
         return;
       }
     }
 
-    // Start fresh
+    // Start fresh - create execution record
+    const executionId = history.startExecution('sponsor-call', 'questionnaire');
+    setSponsorCallExecutionId(executionId);
+
     setQuestionnaireActive(true);
     setCurrentQuestionIndex(0);
     setQuestionnaireAnswers({});
@@ -1355,40 +1517,100 @@ const App = () => {
     setEmptyLineCount(0);
     setEditMode(false);
     setShowPreview(false);
-    setOutput(prev => prev + '\n🎯 Sponsor Call Ceremony - Interactive Questionnaire\n');
+    setOutput(prev => prev +
+      '\n🎯 Sponsor Call Ceremony - Interactive Questionnaire\n' +
+      '📖 https://agilevibecoding.org/ceremonies/sponsor-call\n'
+    );
   };
 
   const runSponsorCallWithAnswers = async (answers) => {
     const initiator = new ProjectInitiator();
 
-    // Capture console output
+    // Suppress console.log during execution (will show summary after)
     const originalLog = console.log;
     const originalError = console.error;
-    let logs = [];
-    console.log = (...args) => logs.push(args.join(' '));
-    console.error = (...args) => logs.push(args.join(' '));
+    let capturedLogs = [];
+    console.log = (...args) => {
+      capturedLogs.push(args.join(' '));
+    };
+    console.error = (...args) => {
+      capturedLogs.push(args.join(' '));
+    };
+
+    // Progress callback to update spinner message
+    const progressCallback = (message) => {
+      setExecutingMessage(message);
+    };
 
     try {
-      // Pass answers to ceremony
-      await initiator.sponsorCallWithAnswers(answers);
+      // Pass answers and progress callback to ceremony
+      const result = await initiator.sponsorCallWithAnswers(answers, progressCallback);
+
+      // Check for error result
+      if (result && result.error) {
+        setOutput(prev => prev + `\n❌ ${result.message}\n\n`);
+        return;
+      }
+
+      // Build complete summary message
+      let summary = '\n✅ Sponsor Call Completed\n\n';
+
+      // Activities performed
+      if (result && result.activities && result.activities.length > 0) {
+        summary += 'Activities performed:\n';
+        result.activities.forEach(activity => {
+          summary += `• ${activity}\n`;
+        });
+        summary += '\n';
+      }
+
+      // Files created
+      summary += 'Files created:\n';
+      if (result && result.outputPath) {
+        summary += `• ${result.outputPath}\n`;
+      }
+      if (result && result.contextPath) {
+        summary += `• ${result.contextPath}\n`;
+      }
+
+      // Token usage
+      if (result && result.tokenUsage) {
+        summary += '\n📊 Token Usage:\n';
+        summary += `Input: ${result.tokenUsage.input.toLocaleString()} tokens | `;
+        summary += `Output: ${result.tokenUsage.output.toLocaleString()} tokens | `;
+        summary += `Total: ${result.tokenUsage.total.toLocaleString()} tokens\n`;
+
+        if (result.cost && result.cost.total > 0) {
+          summary += `Estimated cost: $${result.cost.total.toFixed(4)}\n`;
+        }
+      }
+
+      // Next steps
+      summary += '\nNext steps:\n';
+      summary += '1. Review project documentation\n';
+      summary += '2. Run /project-expansion to create Epics and Stories\n';
+
+      // Single output update with complete summary
+      setOutput(prev => prev + summary);
+
     } finally {
       console.log = originalLog;
       console.error = originalError;
     }
-
-    setOutput(prev => prev + logs.join('\n') + '\n');
   };
 
   const saveQuestionnaireAnswer = (key, value) => {
-    setQuestionnaireAnswers({
-      ...questionnaireAnswers,
+    setQuestionnaireAnswers(prev => ({
+      ...prev,
       [key]: value
-    });
+    }));
   };
 
   const moveToNextQuestion = () => {
     setCurrentAnswer([]);
     setEmptyLineCount(0);
+    setCursorLine(0);
+    setCursorChar(0);
 
     // If editing from preview, return to preview after submitting the edit
     if (isEditingFromPreview) {
@@ -1409,6 +1631,7 @@ const App = () => {
 
   const submitQuestionnaire = () => {
     // Show preview instead of immediate submission
+    setQuestionnaireActive(false);
     setShowPreview(true);
   };
 
@@ -1419,15 +1642,42 @@ const App = () => {
     setIsExecuting(true);
     setExecutingMessage('Generating project document with AI...');
 
-    // Call ceremony with pre-filled answers
-    await runSponsorCallWithAnswers(questionnaireAnswers);
+    try {
+      // Archive answers to history BEFORE calling LLM
+      if (sponsorCallExecutionId) {
+        const { CeremonyHistory } = await import('./ceremony-history.js');
+        const history = new CeremonyHistory(path.join(process.cwd(), '.avc'));
 
-    // Return to prompt mode
-    setIsExecuting(false);
-    setTimeout(() => {
-      setMode('prompt');
-      setInput('');
-    }, 100);
+        history.archiveAnswers('sponsor-call', sponsorCallExecutionId, questionnaireAnswers);
+        history.updateExecution('sponsor-call', sponsorCallExecutionId, {
+          stage: 'llm-generation',
+          answers: questionnaireAnswers
+        });
+      }
+
+      // Call ceremony with pre-filled answers
+      await runSponsorCallWithAnswers(questionnaireAnswers);
+
+      // Reset execution ID after completion
+      setSponsorCallExecutionId(null);
+    } catch (error) {
+      // Show error but don't reset mode prematurely
+      setOutput(prev => prev + `\n❌ Error: ${error.message}\n`);
+    } finally {
+      // Stop active logger after questionnaire completes
+      if (activeLogger) {
+        activeLogger.stop();
+        CommandLogger.cleanupOldLogs();
+        setActiveLogger(null);
+      }
+
+      // Return to prompt mode only after everything completes
+      setIsExecuting(false);
+      setTimeout(() => {
+        setMode('prompt');
+        setInput('');
+      }, 100);
+    }
   };
 
   const autoSaveProgress = () => {
@@ -1476,89 +1726,24 @@ const App = () => {
 
     // Check if project is initialized
     if (!initiator.isAvcProject()) {
-      setOutput(prev => prev + '\n❌ Project not initialized\n\n');
-      setOutput(prev => prev + '   Please run /init first to create the project structure.\n\n');
+      setOutput(prev => prev +
+        '\n❌ Project not initialized\n\n' +
+        'Please run /init first to create the project structure.\n\n'
+      );
       return;
     }
 
+    // Stream console output in real-time
+    const originalLog = console.log;
+    console.log = (...args) => {
+      const message = args.join(' ');
+      setOutput(prev => prev + message + '\n');
+    };
+
     try {
-      const { TokenTracker } = await import('./token-tracker.js');
-      const tracker = new TokenTracker();
-
-      // Load token data
-      const data = tracker.load();
-
-      let output = '\n📊 Token Usage Report\n\n';
-
-      // Display totals
-      output += '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n';
-      output += '  TOTALS (All Ceremonies)\n';
-      output += '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n';
-
-      const totalsToday = tracker.getTotalsToday();
-      const totalsWeek = tracker.getTotalsThisWeek();
-      const totalsMonth = tracker.getTotalsThisMonth();
-      const totalsAllTime = tracker.getTotalsAllTime();
-
-      output += `📅 Today (${totalsToday.date}):\n`;
-      output += `   Input:      ${totalsToday.input.toLocaleString()} tokens\n`;
-      output += `   Output:     ${totalsToday.output.toLocaleString()} tokens\n`;
-      output += `   Total:      ${totalsToday.total.toLocaleString()} tokens\n`;
-      output += `   Executions: ${totalsToday.executions}\n\n`;
-
-      output += `📅 This Week (${totalsWeek.week}):\n`;
-      output += `   Input:      ${totalsWeek.input.toLocaleString()} tokens\n`;
-      output += `   Output:     ${totalsWeek.output.toLocaleString()} tokens\n`;
-      output += `   Total:      ${totalsWeek.total.toLocaleString()} tokens\n`;
-      output += `   Executions: ${totalsWeek.executions}\n\n`;
-
-      output += `📅 This Month (${totalsMonth.month}):\n`;
-      output += `   Input:      ${totalsMonth.input.toLocaleString()} tokens\n`;
-      output += `   Output:     ${totalsMonth.output.toLocaleString()} tokens\n`;
-      output += `   Total:      ${totalsMonth.total.toLocaleString()} tokens\n`;
-      output += `   Executions: ${totalsMonth.executions}\n\n`;
-
-      output += `📅 All Time:\n`;
-      output += `   Input:      ${totalsAllTime.input.toLocaleString()} tokens\n`;
-      output += `   Output:     ${totalsAllTime.output.toLocaleString()} tokens\n`;
-      output += `   Total:      ${totalsAllTime.total.toLocaleString()} tokens\n`;
-      output += `   Executions: ${totalsAllTime.executions}\n`;
-      if (totalsAllTime.firstExecution) {
-        output += `   First:      ${new Date(totalsAllTime.firstExecution).toLocaleString()}\n`;
-      }
-      if (totalsAllTime.lastExecution) {
-        output += `   Last:       ${new Date(totalsAllTime.lastExecution).toLocaleString()}\n`;
-      }
-
-      // Display per-ceremony breakdown
-      const ceremonyTypes = tracker.getAllCeremonyTypes();
-      if (ceremonyTypes.length > 0) {
-        output += '\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n';
-        output += '  BY CEREMONY TYPE\n';
-        output += '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n';
-
-        for (const ceremonyType of ceremonyTypes) {
-          const ceremonyAllTime = tracker.getCeremonyAllTime(ceremonyType);
-          output += `🎭 ${ceremonyType}:\n`;
-          output += `   Input:      ${ceremonyAllTime.input.toLocaleString()} tokens\n`;
-          output += `   Output:     ${ceremonyAllTime.output.toLocaleString()} tokens\n`;
-          output += `   Total:      ${ceremonyAllTime.total.toLocaleString()} tokens\n`;
-          output += `   Executions: ${ceremonyAllTime.executions}\n`;
-          if (ceremonyAllTime.firstExecution) {
-            output += `   First:      ${new Date(ceremonyAllTime.firstExecution).toLocaleString()}\n`;
-          }
-          if (ceremonyAllTime.lastExecution) {
-            output += `   Last:       ${new Date(ceremonyAllTime.lastExecution).toLocaleString()}\n`;
-          }
-          output += '\n';
-        }
-      }
-
-      output += '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n';
-
-      setOutput(prev => prev + output);
-    } catch (error) {
-      setOutput(prev => prev + `\n❌ Error reading token history: ${error.message}\n\n`);
+      await initiator.showTokenStats();
+    } finally {
+      console.log = originalLog;
     }
   };
 
@@ -1648,7 +1833,7 @@ const App = () => {
     // Check if project is initialized
     if (!builder.hasDocumentation()) {
       setOutput(prev => prev + '\n❌ Documentation not found\n\n');
-      setOutput(prev => prev + '   Please run /init first to create documentation structure.\n\n');
+      setOutput(prev => prev + 'Please run /init first to create documentation structure.\n\n');
       return;
     }
 
@@ -1695,25 +1880,27 @@ const App = () => {
           if (isOurDocs) {
             // It's confirmed to be AVC documentation server - safe to kill
             setOutput(prev => prev + '\n⚠️  AVC documentation server already running (external process)\n');
-            setOutput(prev => prev + `   Process: ${processInfo.command} (PID: ${processInfo.pid})\n`);
-            setOutput(prev => prev + '   Killing external process and restarting...\n\n');
+            setOutput(prev => prev + `Process: ${processInfo.command} (PID: ${processInfo.pid})\n`);
+            setOutput(prev => prev + 'Killing external process and restarting...\n\n');
 
             // Try to kill the process
             const killed = await builder.killProcess(processInfo.pid);
 
             if (!killed) {
               // Failed to kill (permission denied, etc.)
-              setOutput(prev => prev + `❌ Failed to kill process ${processInfo.pid}\n\n`);
-              setOutput(prev => prev + `   Unable to stop the process (permission denied or process protected).\n`);
-              setOutput(prev => prev + `   Please manually stop the process or change the port.\n\n`);
-              setOutput(prev => prev + `   To change the port, edit .avc/avc.json:\n`);
-              setOutput(prev => prev + `   {\n`);
-              setOutput(prev => prev + `     "settings": {\n`);
-              setOutput(prev => prev + `       "documentation": {\n`);
-              setOutput(prev => prev + `         "port": 5173\n`);
-              setOutput(prev => prev + `       }\n`);
-              setOutput(prev => prev + `     }\n`);
-              setOutput(prev => prev + `   }\n\n`);
+              setOutput(prev => prev +
+                `❌ Failed to kill process ${processInfo.pid}\n\n` +
+                `   Unable to stop the process (permission denied or process protected).\n` +
+                `   Please manually stop the process or change the port.\n\n` +
+                `   To change the port, edit .avc/avc.json:\n` +
+                `   {\n` +
+                `     "settings": {\n` +
+                `       "documentation": {\n` +
+                `         "port": 5173\n` +
+                `       }\n` +
+                `     }\n` +
+                `   }\n\n`
+              );
               return;
             }
 
@@ -1770,9 +1957,11 @@ const App = () => {
       cwd: builder.docsDir
     });
 
-    setOutput(prev => prev + '📦 Starting documentation server in background...\n');
-    setOutput(prev => prev + `   URL: http://localhost:${port}\n`);
-    setOutput(prev => prev + `   View process output: /processes\n\n`);
+    setOutput(prev => prev +
+      '📦 Starting documentation server in background...\n' +
+      `   URL: http://localhost:${port}\n` +
+      `   View process output: /processes\n\n`
+    );
   };
 
   // Handle keyboard input in prompt mode
@@ -1891,7 +2080,7 @@ const App = () => {
         setMode('selector');
       }
     }
-  }, { isActive: mode === 'prompt' && !questionnaireActive });
+  }, { isActive: mode === 'prompt' && !questionnaireActive && isStableRender });
 
   // Handle keyboard input in selector mode
   useInput((inputChar, key) => {
@@ -1920,7 +2109,7 @@ const App = () => {
       const newInput = input + inputChar;
       setInput(newInput);
     }
-  }, { isActive: mode === 'selector' });
+  }, { isActive: mode === 'selector' && isStableRender });
 
   // Questionnaire mode input handler
   useInput((inputChar, key) => {
@@ -1931,20 +2120,55 @@ const App = () => {
     // Edit mode disabled (Ctrl+ shortcuts not available in all environments)
     // Users must provide complete answers in first pass
 
+    // Handle Arrow Keys for cursor movement
+    if (key.leftArrow) {
+      setCursorChar(prev => Math.max(0, prev - 1));
+      return;
+    }
+
+    if (key.rightArrow) {
+      const currentLineLength = currentAnswer[cursorLine]?.length || 0;
+      setCursorChar(prev => Math.min(currentLineLength, prev + 1));
+      return;
+    }
+
+    if (key.upArrow) {
+      setCursorLine(prev => {
+        const newLine = Math.max(0, prev - 1);
+        // Adjust cursor char to not exceed new line length
+        const newLineLength = currentAnswer[newLine]?.length || 0;
+        setCursorChar(c => Math.min(c, newLineLength));
+        return newLine;
+      });
+      return;
+    }
+
+    if (key.downArrow) {
+      setCursorLine(prev => {
+        const newLine = Math.min(currentAnswer.length - 1, prev + 1);
+        // Adjust cursor char to not exceed new line length
+        const newLineLength = currentAnswer[newLine]?.length || 0;
+        setCursorChar(c => Math.min(c, newLineLength));
+        return newLine;
+      });
+      return;
+    }
+
     // Handle Enter key
     if (key.return) {
-      const currentLineText = currentAnswer[currentAnswer.length - 1] || '';
+      const currentLineText = currentAnswer[cursorLine] || '';
 
       // Empty line on first input = skip question
       if (currentAnswer.length === 0 && currentLineText === '') {
-        console.log('   Skipping - will use AI suggestion...');
+        console.log('Skipping - will use AI suggestion...');
         saveQuestionnaireAnswer(currentQuestion.key, null);
         moveToNextQuestion();
         return;
       }
 
-      // Empty line after text = increment empty line counter
-      if (currentLineText === '') {
+      // Check if last line is empty (for double-enter submission)
+      const lastLine = currentAnswer[currentAnswer.length - 1] || '';
+      if (lastLine === '' && cursorLine === currentAnswer.length - 1) {
         const newEmptyCount = emptyLineCount + 1;
         setEmptyLineCount(newEmptyCount);
 
@@ -1956,8 +2180,17 @@ const App = () => {
           return;
         }
       } else {
-        // Non-empty line, add new line for next input
-        setCurrentAnswer([...currentAnswer, '']);
+        // Split current line at cursor position
+        const newLines = [...currentAnswer];
+        const beforeCursor = currentLineText.slice(0, cursorChar);
+        const afterCursor = currentLineText.slice(cursorChar);
+
+        newLines[cursorLine] = beforeCursor;
+        newLines.splice(cursorLine + 1, 0, afterCursor);
+
+        setCurrentAnswer(newLines);
+        setCursorLine(prev => prev + 1);
+        setCursorChar(0);
         setEmptyLineCount(0);
       }
 
@@ -1966,57 +2199,138 @@ const App = () => {
 
     // Handle Backspace
     if (key.backspace || key.delete) {
-      const lastLineIndex = currentAnswer.length - 1;
-      const lastLine = currentAnswer[lastLineIndex] || '';
-
-      if (lastLine.length > 0) {
-        // Remove last character from current line
+      if (cursorChar > 0) {
+        // Delete character before cursor on current line
         const newLines = [...currentAnswer];
-        newLines[lastLineIndex] = lastLine.slice(0, -1);
+        const line = newLines[cursorLine] || '';
+        newLines[cursorLine] = line.slice(0, cursorChar - 1) + line.slice(cursorChar);
         setCurrentAnswer(newLines);
-      } else if (lastLineIndex > 0) {
-        // Remove empty line, go back to previous line
-        setCurrentAnswer(currentAnswer.slice(0, -1));
+        setCursorChar(prev => prev - 1);
+      } else if (cursorLine > 0) {
+        // At beginning of line, merge with previous line
+        const newLines = [...currentAnswer];
+        const prevLine = newLines[cursorLine - 1] || '';
+        const currentLine = newLines[cursorLine] || '';
+        newLines[cursorLine - 1] = prevLine + currentLine;
+        newLines.splice(cursorLine, 1);
+        setCurrentAnswer(newLines);
+        setCursorLine(prev => prev - 1);
+        setCursorChar(prevLine.length);
       }
       return;
     }
 
     // Handle Escape (cancel edit or questionnaire)
     if (key.escape) {
-      // If editing from preview, return to preview instead of canceling
+      // If editing from preview, save changes and return to preview
       if (isEditingFromPreview) {
+        // Save the edited answer before returning to preview
+        const currentQuestion = questionnaireQuestions[currentQuestionIndex];
+        const answerText = currentAnswer.join('\n').trim();
+        saveQuestionnaireAnswer(currentQuestion.key, answerText || null);
+
         setIsEditingFromPreview(false);
         setEditingQuestionIndex(-1);
         setShowPreview(true);
         setQuestionnaireActive(false);
         setCurrentAnswer([]);
+        setMode('prompt');
         return;
       }
 
-      // Otherwise, cancel entire questionnaire
+      // Otherwise, show cancel confirmation
+      setCancelConfirmActive(true);
       setQuestionnaireActive(false);
-      setCurrentQuestionIndex(0);
-      setQuestionnaireAnswers({});
-      setCurrentAnswer([]);
-      setMode('prompt');
-      setOutput(prev => prev + '\n❌ Questionnaire cancelled\n');
+      setMode('cancel-confirm');
       return;
     }
 
-    // Regular character input
+    // Regular character input (handles both typing and paste)
     if (inputChar && !key.ctrl && !key.meta) {
-      const lastLineIndex = currentAnswer.length - 1;
-      const lastLine = currentAnswer[lastLineIndex] || '';
+      // Check if input contains newlines (paste operation)
+      // Also check for carriage returns and large character count
+      const isPaste = inputChar.includes('\n') || inputChar.includes('\r') || inputChar.length > 50;
 
-      const newLines = [...currentAnswer];
-      if (newLines.length === 0) {
-        newLines.push(inputChar);
+      if (isPaste) {
+        // DEBUG: Log raw paste input
+        console.log('\n=== PASTE DEBUG ===');
+        console.log('Length:', inputChar.length);
+        console.log('First 100 chars:', inputChar.substring(0, 100));
+        console.log('Has \\n:', inputChar.includes('\n'));
+        console.log('Has \\r:', inputChar.includes('\r'));
+        console.log('Char codes (first 200):', Array.from(inputChar.substring(0, 200)).map(c => c.charCodeAt(0)).join(','));
+
+        // Split by newlines - handle all line ending types
+        // Use a regex that matches \r\n, \n, or \r as line separators
+        let pastedLines = inputChar.split(/\r\n|\r|\n/);
+
+        console.log('After split:', pastedLines.length, 'lines');
+        pastedLines.forEach((line, idx) => {
+          console.log(`  [${idx}] "${line.substring(0, 50)}..." (${line.length} chars)`);
+        });
+
+        // Remove empty lines (but this also removes intentional blank lines)
+        // Only remove if they're truly empty after trimming
+        pastedLines = pastedLines.filter(line => line.trim().length > 0);
+
+        console.log('After filter:', pastedLines.length, 'lines');
+        console.log('===================\n');
+
+        // Use functional setState to avoid race conditions with rapid paste input
+        setCurrentAnswer(prevLines => {
+          const lastLineIndex = prevLines.length - 1;
+          const lastLine = prevLines[lastLineIndex] || '';
+
+          // Pre-calculate the final line count
+          const finalLineCount = prevLines.length === 0 ? pastedLines.length : prevLines.length + pastedLines.length - 1;
+
+          // Pre-expand array to final size with empty strings
+          const newLines = new Array(finalLineCount).fill('');
+
+          // Copy existing lines
+          for (let i = 0; i < prevLines.length; i++) {
+            newLines[i] = prevLines[i];
+          }
+
+          // Now fill in pasted content
+          if (prevLines.length === 0) {
+            // Empty answer - just copy all pasted lines
+            for (let i = 0; i < pastedLines.length; i++) {
+              newLines[i] = pastedLines[i];
+            }
+          } else {
+            // Append first pasted line to current line
+            newLines[lastLineIndex] = lastLine + pastedLines[0];
+
+            // Add remaining pasted lines
+            for (let i = 1; i < pastedLines.length; i++) {
+              newLines[lastLineIndex + i] = pastedLines[i];
+            }
+          }
+
+          return newLines;
+        });
+
+        // Move cursor to end of pasted content
+        setCursorLine(pastedLines.length - 1);
+        setCursorChar(pastedLines[pastedLines.length - 1].length);
+
+        setEmptyLineCount(0);
       } else {
-        newLines[lastLineIndex] = lastLine + inputChar;
+        // Single character input (typing)
+        // Insert at cursor position
+        const newLines = [...currentAnswer];
+        if (newLines.length === 0) {
+          newLines.push(inputChar);
+          setCursorChar(1);
+        } else {
+          const line = newLines[cursorLine] || '';
+          newLines[cursorLine] = line.slice(0, cursorChar) + inputChar + line.slice(cursorChar);
+          setCursorChar(prev => prev + 1);
+        }
+        setCurrentAnswer(newLines);
+        setEmptyLineCount(0);
       }
-
-      setCurrentAnswer(newLines);
-      setEmptyLineCount(0); // Reset on any character input
     }
   }, { isActive: questionnaireActive && !showPreview });
 
@@ -2046,24 +2360,121 @@ const App = () => {
         // Load existing answer if any
         const question = questionnaireQuestions[questionIndex];
         const existingAnswer = questionnaireAnswers[question.key] || '';
-        setCurrentAnswer(existingAnswer.split('\n'));
+        const lines = existingAnswer.split('\n');
+        setCurrentAnswer(lines);
         setEmptyLineCount(0);
+
+        // Set cursor to end of answer
+        setCursorLine(lines.length - 1);
+        setCursorChar(lines[lines.length - 1]?.length || 0);
       }
       return;
     }
 
-    // Escape to cancel
+    // Escape to show cancel confirmation
     if (key.escape) {
       setShowPreview(false);
-      setQuestionnaireActive(false);
+      setCancelConfirmActive(true);
+      setMode('cancel-confirm');
+      return;
+    }
+  }, { isActive: showPreview });
+
+  // Cancel questionnaire confirmation input handler
+  useInput((inputChar, key) => {
+    if (!cancelConfirmActive) return;
+
+    // Handle K (keep answers)
+    if (inputChar && inputChar.toLowerCase() === 'k') {
+      // Actually save progress to file
+      try {
+        const initiator = new ProjectInitiator();
+        const progress = {
+          stage: 'questionnaire',
+          totalQuestions: questionnaireQuestions.length,
+          answeredQuestions: Object.keys(questionnaireAnswers).length,
+          collectedValues: questionnaireAnswers,
+          currentQuestionIndex,
+          currentAnswer: currentAnswer.join('\n'),
+          lastUpdate: new Date().toISOString()
+        };
+        initiator.writeProgress(progress, initiator.sponsorCallProgressPath);
+      } catch (error) {
+        // Show error if save fails
+        setOutput(prev => prev + `\n❌ Failed to save progress: ${error.message}\n`);
+        return;
+      }
+
+      // Stop active logger before exiting
+      if (activeLogger) {
+        activeLogger.stop();
+        CommandLogger.cleanupOldLogs();
+        setActiveLogger(null);
+      }
+
+      setCancelConfirmActive(false);
+      setMode('prompt');
+      setInput('');
+      setOutput(prev => prev + '\n✅ Progress saved. Run /sponsor-call again to resume.\n');
+      return;
+    }
+
+    // Handle D (delete answers)
+    if (inputChar && inputChar.toLowerCase() === 'd') {
+      // Mark execution as cancelled in history
+      if (sponsorCallExecutionId) {
+        (async () => {
+          try {
+            const { CeremonyHistory } = await import('./ceremony-history.js');
+            const history = new CeremonyHistory(path.join(process.cwd(), '.avc'));
+            history.completeExecution('sponsor-call', sponsorCallExecutionId, 'user-cancelled', {
+              answers: questionnaireAnswers,
+              stage: 'questionnaire'
+            });
+          } catch (error) {
+            // Silently fail
+          }
+        })();
+        setSponsorCallExecutionId(null);
+      }
+
+      // Delete progress file
+      try {
+        const initiator = new ProjectInitiator();
+        const progressPath = initiator.sponsorCallProgressPath;
+        if (existsSync(progressPath)) {
+          unlinkSync(progressPath);
+        }
+      } catch (error) {
+        // Silently fail
+      }
+
+      // Stop active logger before exiting
+      if (activeLogger) {
+        activeLogger.stop();
+        CommandLogger.cleanupOldLogs();
+        setActiveLogger(null);
+      }
+
+      // Reset all state
+      setCancelConfirmActive(false);
       setCurrentQuestionIndex(0);
       setQuestionnaireAnswers({});
       setCurrentAnswer([]);
       setMode('prompt');
-      setOutput(prev => prev + '\n❌ Questionnaire cancelled\n');
+      setInput('');
+      setOutput(prev => prev + '\n❌ Questionnaire cancelled. All progress deleted.\n');
       return;
     }
-  }, { isActive: showPreview });
+
+    // Handle Escape (go back to questionnaire)
+    if (key.escape) {
+      setCancelConfirmActive(false);
+      setQuestionnaireActive(true);
+      setMode('prompt');
+      return;
+    }
+  }, { isActive: cancelConfirmActive });
 
   // Remove confirmation input handler
   useInput((inputChar, key) => {
@@ -2128,17 +2539,19 @@ const App = () => {
           // Failed to kill - reset mode and show error
           setIsExecuting(false);
           setMode('prompt');
-          setOutput(prev => prev + `\n❌ Failed to kill process ${processToKill.pid}\n\n`);
-          setOutput(prev => prev + `   Unable to stop the process (permission denied or process protected).\n`);
-          setOutput(prev => prev + `   Please manually stop the process or change the port.\n\n`);
-          setOutput(prev => prev + `   To change the port, edit .avc/avc.json:\n`);
-          setOutput(prev => prev + `   {\n`);
-          setOutput(prev => prev + `     "settings": {\n`);
-          setOutput(prev => prev + `       "documentation": {\n`);
-          setOutput(prev => prev + `         "port": 5173\n`);
-          setOutput(prev => prev + `       }\n`);
-          setOutput(prev => prev + `     }\n`);
-          setOutput(prev => prev + `   }\n\n`);
+          setOutput(prev => prev +
+            `\n❌ Failed to kill process ${processToKill.pid}\n\n` +
+            `   Unable to stop the process (permission denied or process protected).\n` +
+            `   Please manually stop the process or change the port.\n\n` +
+            `   To change the port, edit .avc/avc.json:\n` +
+            `   {\n` +
+            `     "settings": {\n` +
+            `       "documentation": {\n` +
+            `         "port": 5173\n` +
+            `       }\n` +
+            `     }\n` +
+            `   }\n\n`
+          );
           return;
         }
 
@@ -2171,9 +2584,11 @@ const App = () => {
             cwd: builder.docsDir
           });
 
-          setOutput(prev => prev + '📦 Starting documentation server in background...\n');
-          setOutput(prev => prev + `   URL: http://localhost:${port}\n`);
-          setOutput(prev => prev + `   View process output: /processes\n\n`);
+          setOutput(prev => prev +
+            '📦 Starting documentation server in background...\n' +
+            `   URL: http://localhost:${port}\n` +
+            `   View process output: /processes\n\n`
+          );
         } catch (error) {
           setOutput(prev => prev + `\n❌ Error: ${error.message}\n\n`);
         } finally {
@@ -2186,15 +2601,17 @@ const App = () => {
         setKillConfirmActive(false);
         setKillConfirmInput('');
         setMode('prompt');
-        setOutput(prev => prev + '\n❌ Operation cancelled.\n\n');
-        setOutput(prev => prev + `   To change the port, edit .avc/avc.json:\n`);
-        setOutput(prev => prev + `   {\n`);
-        setOutput(prev => prev + `     "settings": {\n`);
-        setOutput(prev => prev + `       "documentation": {\n`);
-        setOutput(prev => prev + `         "port": 5173\n`);
-        setOutput(prev => prev + `       }\n`);
-        setOutput(prev => prev + `     }\n`);
-        setOutput(prev => prev + `   }\n\n`);
+        setOutput(prev => prev +
+          '\n❌ Operation cancelled.\n\n' +
+          `   To change the port, edit .avc/avc.json:\n` +
+          `   {\n` +
+          `     "settings": {\n` +
+          `       "documentation": {\n` +
+          `         "port": 5173\n` +
+          `       }\n` +
+          `     }\n` +
+          `   }\n\n`
+        );
       } else {
         // Invalid input
         setKillConfirmActive(false);
@@ -2297,9 +2714,17 @@ const App = () => {
       );
     }
 
+    // Show cancel questionnaire confirmation if active
+    if (cancelConfirmActive) {
+      return React.createElement(Box, { flexDirection: 'column', marginY: 1 },
+        React.createElement(Text, null, output),
+        React.createElement(CancelQuestionnaireConfirmation)
+      );
+    }
+
     // Show preview if active
     if (showPreview) {
-      return React.createElement(Box, { marginY: 1 },
+      return React.createElement(Box, { flexDirection: 'column', marginY: 1 },
         React.createElement(Text, null, output),
         React.createElement(AnswersPreview, {
           answers: questionnaireAnswers,
@@ -2312,7 +2737,7 @@ const App = () => {
     if (questionnaireActive) {
       const currentQuestion = questionnaireQuestions[currentQuestionIndex];
 
-      return React.createElement(Box, { flexDirection: 'column', flexShrink: 0, overflow: 'hidden' },
+      return React.createElement(Box, { flexDirection: 'column', flexShrink: 0 },
         React.createElement(Text, null, output),
         React.createElement(QuestionDisplay, {
           question: currentQuestion,
@@ -2322,8 +2747,8 @@ const App = () => {
         }),
         React.createElement(MultiLineInput, {
           lines: currentAnswer,
-          showLineNumbers: true,
-          showCharCount: true
+          showCharCount: true,
+          justPasted: justPasted
         }),
         React.createElement(QuestionnaireProgress, {
           current: currentQuestionIndex,
@@ -2334,15 +2759,19 @@ const App = () => {
       );
     }
 
-    // Show spinner while executing
+    // Show spinner while executing - WITH real-time output below
     if (isExecuting) {
-      return React.createElement(Box, { marginY: 1, flexShrink: 0 },
-        React.createElement(LoadingSpinner, { message: executingMessage })
+      return React.createElement(Box, { flexDirection: 'column', marginY: 1, flexShrink: 0 },
+        React.createElement(LoadingSpinner, { message: executingMessage }),
+        // Show real-time console output below spinner
+        output ? React.createElement(Box, { marginTop: 1 },
+          React.createElement(Text, null, output)
+        ) : null
       );
     }
 
-    // Show output if available (even after returning to prompt mode)
-    if (output) {
+    // Show output if available (but not when in selector mode to avoid overlap)
+    if (output && mode !== 'selector') {
       return React.createElement(Box, { marginY: 1, flexShrink: 0 },
         React.createElement(Text, null, output)
       );
@@ -2380,7 +2809,7 @@ const App = () => {
 
   // Render prompt when in prompt mode
   const renderPrompt = () => {
-    if (mode !== 'prompt' || questionnaireActive || showPreview || removeConfirmActive || killConfirmActive || processViewerActive) return null;
+    if (mode !== 'prompt' || questionnaireActive || showPreview || removeConfirmActive || killConfirmActive || processViewerActive || cancelConfirmActive) return null;
 
     return React.createElement(Box, { flexDirection: 'column', flexShrink: 0 },
       React.createElement(InputWithCursor, { input: input }),
@@ -2394,7 +2823,7 @@ const App = () => {
     renderProcessViewer(),
     renderSelector(),
     renderPrompt(),
-    !questionnaireActive && !showPreview && !removeConfirmActive && !killConfirmActive && !processViewerActive && React.createElement(BottomRightStatus, { backgroundProcesses })
+    !questionnaireActive && !showPreview && !removeConfirmActive && !killConfirmActive && !processViewerActive && !cancelConfirmActive && mode !== 'executing' && React.createElement(BottomRightStatus, { backgroundProcesses })
   );
 };
 
@@ -2405,6 +2834,22 @@ export function startRepl() {
 
   // Set up signal handlers for graceful shutdown
   const cleanupAndExit = (signal) => {
+    // Mark any in-progress ceremony as aborted
+    if (activeExecutionId && activeCeremony) {
+      try {
+        const { CeremonyHistory } = require('./ceremony-history.js');
+        const history = new CeremonyHistory(path.join(process.cwd(), '.avc'));
+        history.load();
+
+        history.completeExecution(activeCeremony, activeExecutionId, 'abrupt-termination', {
+          note: `Process terminated by signal: ${signal}`
+        });
+      } catch (error) {
+        // Silent fail - we're exiting anyway
+      }
+    }
+
+    // Stop background processes
     const manager = getProcessManager();
     const running = manager.getRunningProcesses();
 
