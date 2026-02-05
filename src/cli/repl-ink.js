@@ -925,6 +925,9 @@ const App = () => {
   // Active logger for long-running commands (e.g., /sponsor-call with questionnaire)
   const [activeLogger, setActiveLogger] = useState(null);
 
+  // Track if user has interacted (to hide Banner permanently after first interaction)
+  const [hasInteracted, setHasInteracted] = useState(false);
+
   // Force stable initial render to prevent React Ink layout race condition
   // On first mount, React Ink hasn't fully measured terminal dimensions
   // The first state update (keypress) triggers layout recalculation causing
@@ -1139,6 +1142,9 @@ const App = () => {
   // Handle command execution
   const executeCommand = async (cmd) => {
     try {
+      // Mark that user has interacted (hide Banner permanently)
+      setHasInteracted(true);
+
       const command = resolveAlias(cmd.trim());
 
       if (!command) {
@@ -2094,6 +2100,7 @@ https://agilevibecoding.org
 
       // Show selector immediately when "/" is typed
       if (newInput === '/' || (newInput.startsWith('/') && newInput.length > 1)) {
+        setHasInteracted(true); // Hide Banner permanently
         setMode('selector');
       }
     }
@@ -2835,7 +2842,7 @@ https://agilevibecoding.org
   };
 
   return React.createElement(Box, { flexDirection: 'column', overflow: 'hidden' },
-    mode !== 'selector' && React.createElement(Banner),
+    !hasInteracted && mode !== 'selector' && React.createElement(Banner),
     renderOutput(),
     renderProcessViewer(),
     renderSelector(),
