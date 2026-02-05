@@ -2818,7 +2818,7 @@ https://agilevibecoding.org
   };
 
   return React.createElement(Box, { flexDirection: 'column', overflow: 'hidden' },
-    React.createElement(Banner),
+    mode !== 'selector' && React.createElement(Banner),
     renderOutput(),
     renderProcessViewer(),
     renderSelector(),
