@@ -1465,6 +1465,23 @@ https://agilevibecoding.org
       return;
     }
 
+    // Validate API keys BEFORE starting questionnaire
+    setExecutingMessage('Validating API keys...');
+    setIsExecuting(true);
+
+    const validationResult = await initiator.validateProviderApiKey();
+
+    setIsExecuting(false);
+
+    if (!validationResult.valid) {
+      setOutput(prev => prev +
+        '\n❌ API Key Validation Failed\n\n' +
+        `   ${validationResult.message}\n\n`
+      );
+      setMode('prompt');
+      return; // Exit early - don't show questionnaire
+    }
+
     const progressPath = initiator.sponsorCallProgressPath;
 
     // Initialize ceremony history
