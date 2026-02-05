@@ -44,6 +44,32 @@ class TemplateProcessor {
     // Initialize token tracker
     this.tokenTracker = new TokenTracker(this.avcPath);
     this.tokenTracker.init();
+
+    // Track last token usage for ceremony history
+    this._lastTokenUsage = null;
+
+    // Progress reporting
+    this.progressCallback = null;
+    this.activityLog = [];
+  }
+
+  /**
+   * Set progress callback for updating UI during execution
+   */
+  setProgressCallback(callback) {
+    this.progressCallback = callback;
+  }
+
+  /**
+   * Report progress to callback and log activity
+   */
+  reportProgress(message, activity = null) {
+    if (this.progressCallback) {
+      this.progressCallback(message);
+    }
+    if (activity) {
+      this.activityLog.push(activity);
+    }
   }
 
   /**
@@ -75,11 +101,38 @@ class TemplateProcessor {
   readGuidelines() {
     try {
       const config = JSON.parse(fs.readFileSync(this.avcConfigPath, 'utf8'));
-      const ceremony = config.settings?.ceremonies?.[0];
+      const ceremony = config.settings?.ceremonies?.find(c => c.name === this.ceremonyName);
       return ceremony?.guidelines || {};
     } catch (error) {
       return {};
     }
+  }
+
+  /**
+   * Get guideline value for a specific variable
+   * Maps variable names (TECHNICAL_CONSIDERATIONS) to guideline keys (technicalConsiderations)
+   * @param {string} variableName - Variable name in UPPER_SNAKE_CASE
+   * @returns {string|null} - Guideline value or null if not found
+   */
+  getGuidelineForVariable(variableName) {
+    const guidelines = this.readGuidelines();
+
+    // Map variable names to guideline keys (UPPER_SNAKE_CASE to camelCase)
+    const variableToGuidelineMap = {
+      'MISSION_STATEMENT': 'missionStatement',
+      'TARGET_USERS': 'targetUsers',
+      'INITIAL_SCOPE': 'initialScope',
+      'TECHNICAL_CONSIDERATIONS': 'technicalConsiderations',
+      'SECURITY_AND_COMPLIANCE_REQUIREMENTS': 'securityAndComplianceRequirements'
+    };
+
+    const guidelineKey = variableToGuidelineMap[variableName];
+    if (!guidelineKey) {
+      return null;
+    }
+
+    const guidelineValue = guidelines[guidelineKey];
+    return guidelineValue || null;
   }
 
   /**
@@ -177,7 +230,7 @@ class TemplateProcessor {
 
       'INITIAL_SCOPE': 'Describe the initial scope of your application: key features, main workflows, and core functionality.\n   What will users be able to do? What are the essential capabilities?\n   Example: "Users can create tasks, assign them to team members, track progress, set deadlines, and receive notifications."',
 
-      'TECHNICAL_CONSIDERATIONS': 'Technical requirements, constraints, or preferences for your application.\n   Examples: "Mobile-first responsive design", "Must work offline", "Real-time data sync", "PostgreSQL database"',
+      'TECHNICAL_CONSIDERATIONS': 'Technical stack and requirements for your application (backend AND frontend).\n   Backend examples: "Node.js with Express API", "PostgreSQL database", "Real-time data sync with WebSockets"\n   Frontend examples: "React SPA with TypeScript", "VitePress for documentation", "Next.js with SSR for e-commerce", "Material-UI design system"\n   UI/UX examples: "Mobile-first responsive design", "WCAG 2.1 AA accessibility", "Must work offline", "Multi-language support"',
 
       'SECURITY_AND_COMPLIANCE_REQUIREMENTS': 'Security, privacy, or regulatory requirements your application must meet.\n   Examples: "GDPR compliance for EU users", "PCI DSS for payment data", "Two-factor authentication", "Data encryption at rest"'
     };
@@ -211,9 +264,9 @@ class TemplateProcessor {
 
     console.log(`\n📝 ${name}`);
     if (guidance) {
-      console.log(`   ${guidance}`);
+      console.log(`${guidance}`);
     }
-    console.log('   Enter response (press Enter twice when done, or Enter immediately to skip):\n');
+    console.log('Enter response (press Enter twice when done, or Enter immediately to skip):\n');
 
     const lines = [];
     let emptyLineCount = 0;
@@ -260,9 +313,9 @@ class TemplateProcessor {
 
     console.log(`\n📝 ${name}`);
     if (guidance) {
-      console.log(`   ${guidance}`);
+      console.log(`${guidance}`);
     }
-    console.log('   Enter items one per line (empty line to finish, or Enter immediately to skip):\n');
+    console.log('Enter items one per line (empty line to finish, or Enter immediately to skip):\n');
 
     const items = [];
     let itemNumber = 1;
@@ -305,7 +358,7 @@ class TemplateProcessor {
       return this.llmProvider;
     } catch (error) {
       console.log(`⚠️  Could not initialize ${this._providerName} provider - AI suggestions will be skipped`);
-      console.log(`   ${error.message}`);
+      console.log(`${error.message}`);
       return null;
     }
   }
@@ -334,7 +387,7 @@ class TemplateProcessor {
 
         const delay = Math.pow(2, attempt) * 1000; // 2s, 4s, 8s
         console.log(`⚠️  Retry ${attempt}/${maxRetries} in ${delay/1000}s: ${operation}`);
-        console.log(`   Error: ${error.message}`);
+        console.log(`Error: ${error.message}`);
         await new Promise(resolve => setTimeout(resolve, delay));
       }
     }
@@ -420,7 +473,7 @@ class TemplateProcessor {
       if (agentInstructions) {
         // Use domain-specific agent with context
         const prompt = this.buildPrompt(variableName, isPlural, context);
-        console.log(`   Using specialized agent: ${variableName.toLowerCase().replace(/_/g, '-')}`);
+        console.log(`Using specialized agent: ${variableName.toLowerCase().replace(/_/g, '-')}`);
 
         const text = await this.retryWithBackoff(
           () => this.llmProvider.generate(prompt, isPlural ? 512 : 1024, agentInstructions),
@@ -453,7 +506,7 @@ class TemplateProcessor {
       if (variable.guidance) {
         console.log(`   ${variable.guidance}`);
       }
-      console.log('   Generating AI response...');
+      console.log('Generating AI response...');
       value = null; // Force AI generation
     } else {
       // Interactive mode - use readline prompts
@@ -471,30 +524,30 @@ class TemplateProcessor {
       const guidelineKey = variable.name.toLowerCase().replace(/_/g, '');
 
       if (guidelines[guidelineKey]) {
-        console.log('   📋 Using default guideline...');
+        console.log('📋 Using default guideline...');
         value = variable.isPlural
           ? [guidelines[guidelineKey]]  // Wrap in array for plural variables
           : guidelines[guidelineKey];
 
-        console.log('   ✅ Guideline applied:');
+        console.log('✅ Guideline applied:');
         if (Array.isArray(value)) {
-          value.forEach((item, idx) => console.log(`      ${idx + 1}. ${item}`));
+          value.forEach((item, idx) => console.log(`${idx + 1}. ${item}`));
         } else {
-          console.log(`      ${value}`);
+          console.log(`${value}`);
         }
         return { variable: variable.name, value, source: 'guideline', skipped: true };
       }
 
       // No guideline available, try AI suggestions
-      console.log('   ✨ Generating AI suggestion...');
+      console.log('✨ Generating AI suggestion...');
       value = await this.generateSuggestions(variable.name, variable.isPlural, context);
 
       if (value) {
-        console.log('   ✅ AI suggestion:');
+        console.log('✅ AI suggestion:');
         if (Array.isArray(value)) {
-          value.forEach((item, idx) => console.log(`      ${idx + 1}. ${item}`));
+          value.forEach((item, idx) => console.log(`${idx + 1}. ${item}`));
         } else {
-          console.log(`      ${value}`);
+          console.log(`${value}`);
         }
         return { variable: variable.name, value, source: 'ai', skipped: true };
       } else {
@@ -537,18 +590,14 @@ class TemplateProcessor {
   async generateFinalDocument(templateWithValues) {
     if (!this.llmProvider && !(await this.initializeLLMProvider())) {
       // No provider available - save template as-is
-      console.log('\n⚠️  AI enhancement skipped (no LLM provider available)');
       return templateWithValues;
     }
-
-    console.log('\n🤖 Stage 4/7: Enhancing document with AI...');
 
     try {
       // Try to load agent instructions for enhancement stage
       const agentInstructions = this.getAgentForStage('enhancement');
 
       if (agentInstructions) {
-        console.log('   Using documentation agent instructions');
         // Use agent instructions as system context
         const userPrompt = `Here is the project information with all variables filled in:
 
@@ -560,10 +609,8 @@ Please review and enhance this document according to your role.`;
           () => this.llmProvider.generate(userPrompt, 4096, agentInstructions),
           'document enhancement'
         );
-        console.log('   ✓ Document enhanced successfully');
         return enhanced;
       } else {
-        console.log('   Using default enhancement instructions');
         // Fallback to legacy hardcoded prompt for backward compatibility
         const legacyPrompt = `You are creating a project definition document for an Agile Vibe Coding (AVC) project.
 
@@ -583,12 +630,9 @@ Return the enhanced markdown document.`;
           () => this.llmProvider.generate(legacyPrompt, 4096),
           'document enhancement (legacy)'
         );
-        console.log('   ✓ Document enhanced successfully');
         return enhanced;
       }
     } catch (error) {
-      console.warn(`\n⚠️  Could not enhance document: ${error.message}`);
-      console.log('   Using template without AI enhancement');
       return templateWithValues;
     }
   }
@@ -675,23 +719,7 @@ Return the enhanced markdown document.`;
     // Write doc.md
     fs.writeFileSync(this.outputPath, content, 'utf8');
 
-    if (this.ceremonyName === 'sponsor-call') {
-      console.log(`\n✅ Project foundation created!`);
-      console.log(`\nFiles created:`);
-      console.log(`   • ${this.outputPath}`);
-      const projectContextPath = path.join(this.outputDir, 'project/context.md');
-      if (fs.existsSync(projectContextPath)) {
-        console.log(`   • ${projectContextPath}`);
-      }
-      console.log(`\nNext steps:`);
-      console.log(`   1. Review project documentation`);
-      console.log(`   2. Run /project-expansion to create Epics and Stories`);
-    } else {
-      console.log(`\n✅ Project document generated!`);
-      console.log(`   Location: ${this.outputPath}`);
-    }
-
-    // Sync to VitePress if configured
+    // Sync to VitePress if configured (silent for sponsor-call)
     const synced = this.syncToVitePress(content);
 
     // Optionally build VitePress (commented out by default to avoid slow builds during dev)
@@ -724,13 +752,23 @@ Return the enhanced markdown document.`;
       if (answeredCount === variables.length) {
         console.log(`✅ Using ${answeredCount} pre-filled answers from questionnaire.\n`);
 
-        // Use pre-filled answers, but still allow AI enhancement for skipped (null) answers
+        // Use pre-filled answers, but check guidelines or AI for skipped (null) answers
         for (const variable of variables) {
           if (collectedValues[variable.name] === null) {
             console.log(`\n📝 ${variable.displayName}`);
-            console.log('   Generating AI suggestion...');
-            const aiValue = await this.generateSuggestions(variable.name, variable.isPlural, collectedValues);
-            collectedValues[variable.name] = aiValue || '';
+
+            // First, check if there's a guideline for this question
+            const guideline = this.getGuidelineForVariable(variable.name);
+
+            if (guideline) {
+              console.log('✓ Using guideline from avc.json');
+              collectedValues[variable.name] = guideline;
+            } else {
+              // No guideline found, generate AI suggestion
+              console.log('Generating AI suggestion...');
+              const aiValue = await this.generateSuggestions(variable.name, variable.isPlural, collectedValues);
+              collectedValues[variable.name] = aiValue || '';
+            }
           }
         }
       } else {
@@ -781,43 +819,99 @@ Return the enhanced markdown document.`;
     }
 
     // 5. Replace variables in template
-    console.log('\n🔄 Preparing project document...');
     const templateWithValues = this.replaceVariables(templateContent, collectedValues);
 
     // 6. Enhance document with LLM
-    const finalDocument = await this.generateFinalDocument(templateWithValues);
+    this.reportProgress('Stage 4/5: Generating documentation...', 'Generated project documentation');
+    let finalDocument = await this.generateFinalDocument(templateWithValues);
 
-    // 7. Generate project context only (for Sponsor Call)
-    if (this.ceremonyName === 'sponsor-call' && !this.nonInteractive) {
+    // 7. Validate and improve documentation (if validation enabled)
+    if (this.ceremonyName === 'sponsor-call' && this.isValidationEnabled()) {
+      finalDocument = await this.iterativeValidation(finalDocument, 'documentation', collectedValues);
+    }
+
+    // 8. Generate project context only (for Sponsor Call)
+    let contextContent = null;
+    let contextPath = null;
+    if (this.ceremonyName === 'sponsor-call') {
       // Only generate project context if provider is initialized and has generateJSON method
       if (!this.llmProvider) {
         await this.initializeLLMProvider();
       }
 
       if (this.llmProvider && typeof this.llmProvider.generateJSON === 'function') {
-        await this.generateProjectContext(collectedValues);
-      } else {
-        console.log('\n⚠️  Skipping project context generation (LLM provider not available)\n');
+        this.reportProgress('Stage 5/5: Generating context...', 'Generated project context');
+        contextContent = await this.generateProjectContextContent(collectedValues);
+
+        // 9. Validate and improve context (if validation enabled)
+        if (this.isValidationEnabled()) {
+          contextContent = await this.iterativeValidation(contextContent, 'context', collectedValues, finalDocument);
+        }
+
+        // Write context.md - ensure directory exists first
+        if (!fs.existsSync(this.outputDir)) {
+          fs.mkdirSync(this.outputDir, { recursive: true });
+        }
+        contextPath = path.join(this.outputDir, 'context.md');
+        fs.writeFileSync(contextPath, contextContent, 'utf8');
       }
     }
 
-    // 8. Write to file
+    // 10. Write documentation to file
     await this.writeDocument(finalDocument);
+
+    // 11. Track token usage (only for sponsor-call)
+    let tokenUsage = null;
+    let cost = null;
+    if (this.ceremonyName === 'sponsor-call' && this.llmProvider && typeof this.llmProvider.getTokenUsage === 'function') {
+      const usage = this.llmProvider.getTokenUsage();
+      tokenUsage = {
+        input: usage.inputTokens,
+        output: usage.outputTokens,
+        total: usage.totalTokens,
+        calls: usage.totalCalls
+      };
+
+      // Calculate cost
+      cost = this.tokenTracker.calculateCost(
+        usage.inputTokens,
+        usage.outputTokens,
+        this._modelName
+      );
+
+      // Track in token history
+      this.tokenTracker.addExecution(this.ceremonyName, {
+        input: usage.inputTokens,
+        output: usage.outputTokens
+      }, this._modelName);
+
+      // Store usage for ceremony history
+      this._lastTokenUsage = usage;
+    }
+
+    // 12. Return comprehensive result
+    return {
+      outputPath: this.outputPath,
+      contextPath: contextPath,
+      activities: this.activityLog,
+      tokenUsage: tokenUsage,
+      cost: cost,
+      model: this._modelName
+    };
   }
 
   /**
-   * Generate project context only (for Sponsor Call ceremony)
+   * Generate project context content (for Sponsor Call ceremony)
+   * Returns the markdown content without writing to file
    * @param {Object} collectedValues - Values from questionnaire
+   * @returns {string} Context markdown content
    */
-  async generateProjectContext(collectedValues) {
-    console.log('\n📝 Stage 5/5: Generating project context...\n');
-
+  async generateProjectContextContent(collectedValues) {
     if (!this.llmProvider) {
       await this.initializeLLMProvider();
     }
 
     if (!this.llmProvider || typeof this.llmProvider.generateJSON !== 'function') {
-      console.log('\n⚠️  Skipping project context generation (LLM provider not available)\n');
       return null;
     }
 
@@ -828,43 +922,20 @@ Return the enhanced markdown document.`;
     );
 
     // Generate project context
-    console.log('   → Generating project context.md');
     const projectContext = await this.retryWithBackoff(
       () => this.generateContext('project', 'project', collectedValues, projectContextGeneratorAgent),
       'project context'
     );
 
-    // Write to file
-    const projectDir = path.join(this.outputDir, 'project');
-    if (!fs.existsSync(projectDir)) {
-      fs.mkdirSync(projectDir, { recursive: true });
-    }
+    return projectContext.contextMarkdown;
+  }
 
-    fs.writeFileSync(
-      path.join(projectDir, 'context.md'),
-      projectContext.contextMarkdown,
-      'utf8'
-    );
-
-    console.log('   ✅ project/context.md\n');
-
-    // Display token usage
-    if (this.llmProvider) {
-      const usage = this.llmProvider.getTokenUsage();
-      console.log('\n📊 Token Usage:');
-      console.log(`   Input: ${usage.inputTokens.toLocaleString()} tokens`);
-      console.log(`   Output: ${usage.outputTokens.toLocaleString()} tokens`);
-      console.log(`   Total: ${usage.totalTokens.toLocaleString()} tokens`);
-      console.log(`   API Calls: ${usage.totalCalls}`);
-
-      this.tokenTracker.addExecution(this.ceremonyName, {
-        input: usage.inputTokens,
-        output: usage.outputTokens
-      });
-      console.log('✅ Token history updated');
-    }
-
-    return projectContext;
+  /**
+   * Get token usage from last LLM execution
+   * @returns {Object|null} Token usage object or null
+   */
+  getLastTokenUsage() {
+    return this._lastTokenUsage;
   }
 
   /**
@@ -961,7 +1032,7 @@ Return the enhanced markdown document.`;
       this.tokenTracker.addExecution(this.ceremonyName, {
         input: usage.inputTokens,
         output: usage.outputTokens
-      });
+      }, this._modelName);
       console.log('✅ Token history updated');
     }
   }
@@ -1202,6 +1273,364 @@ Return your response as JSON following the exact structure specified in your ins
     const storyCount = hierarchy.validation?.storyCount || 0;
     const totalFiles = 2 + (3 * epicCount) + (3 * storyCount); // Project: 2, Epic: 3 each, Story: 3 each
     console.log(`   • ${totalFiles} files created\n`);
+  }
+
+  /**
+   * Get validation settings from ceremony configuration
+   */
+  getValidationSettings() {
+    try {
+      const config = JSON.parse(fs.readFileSync(this.avcConfigPath, 'utf8'));
+      const ceremony = config.settings?.ceremonies?.find(c => c.name === this.ceremonyName);
+
+      return ceremony?.validation || {
+        enabled: true,
+        maxIterations: 2,
+        acceptanceThreshold: 75,
+        skipOnCriticalIssues: false
+      };
+    } catch (error) {
+      // Default settings if config can't be read
+      return {
+        enabled: true,
+        maxIterations: 2,
+        acceptanceThreshold: 75,
+        skipOnCriticalIssues: false
+      };
+    }
+  }
+
+  /**
+   * Check if validation is enabled for this ceremony
+   */
+  isValidationEnabled() {
+    const settings = this.getValidationSettings();
+    return settings.enabled !== false;
+  }
+
+  /**
+   * Validate documentation (doc.md) using validator-documentation agent
+   */
+  async validateDocument(docContent, questionnaire, contextContent = null) {
+    if (!this.llmProvider) {
+      await this.initializeLLMProvider();
+    }
+
+    if (!this.llmProvider || typeof this.llmProvider.generateJSON !== 'function') {
+      console.log('⚠️  Skipping validation (LLM provider not available)\n');
+      return {
+        validationStatus: 'acceptable',
+        overallScore: 75,
+        issues: [],
+        strengths: ['Validation skipped - LLM provider not available'],
+        improvementPriorities: [],
+        readyForPublication: true
+      };
+    }
+
+    // Read validator agent instructions
+    const validatorAgent = this.loadAgentInstructions('validator-documentation.md');
+
+    // Build validation prompt
+    let prompt = `Validate the following project documentation:\n\n`;
+    prompt += `**doc.md Content:**\n\`\`\`markdown\n${docContent}\n\`\`\`\n\n`;
+
+    prompt += `**Original Questionnaire Data:**\n`;
+    prompt += `- MISSION_STATEMENT: ${questionnaire.MISSION_STATEMENT || 'N/A'}\n`;
+    prompt += `- TARGET_USERS: ${questionnaire.TARGET_USERS || 'N/A'}\n`;
+    prompt += `- INITIAL_SCOPE: ${questionnaire.INITIAL_SCOPE || 'N/A'}\n`;
+    prompt += `- TECHNICAL_CONSIDERATIONS: ${questionnaire.TECHNICAL_CONSIDERATIONS || 'N/A'}\n`;
+    prompt += `- SECURITY_AND_COMPLIANCE_REQUIREMENTS: ${questionnaire.SECURITY_AND_COMPLIANCE_REQUIREMENTS || 'N/A'}\n\n`;
+
+    if (contextContent) {
+      prompt += `**context.md Content (for cross-validation):**\n\`\`\`markdown\n${contextContent}\n\`\`\`\n\n`;
+    }
+
+    prompt += `Return your validation as JSON following the exact structure specified in your instructions.`;
+
+    // Call LLM for validation
+    const validation = await this.retryWithBackoff(
+      () => this.llmProvider.generateJSON(prompt, validatorAgent),
+      'documentation validation'
+    );
+
+    return validation;
+  }
+
+  /**
+   * Validate context (context.md) using validator-context agent
+   */
+  async validateContext(contextContent, level, questionnaire, parentContext = null) {
+    if (!this.llmProvider) {
+      await this.initializeLLMProvider();
+    }
+
+    if (!this.llmProvider || typeof this.llmProvider.generateJSON !== 'function') {
+      console.log('⚠️  Skipping validation (LLM provider not available)\n');
+      return {
+        validationStatus: 'acceptable',
+        overallScore: 75,
+        issues: [],
+        strengths: ['Validation skipped - LLM provider not available'],
+        improvementPriorities: [],
+        estimatedTokenBudget: 500,
+        readyForUse: true
+      };
+    }
+
+    // Read validator agent instructions
+    const validatorAgent = this.loadAgentInstructions('validator-context.md');
+
+    // Build validation prompt
+    let prompt = `Validate the following context file:\n\n`;
+    prompt += `**Context Level:** ${level}\n\n`;
+    prompt += `**context.md Content:**\n\`\`\`markdown\n${contextContent}\n\`\`\`\n\n`;
+
+    if (level === 'project' && questionnaire) {
+      prompt += `**Original Questionnaire Data:**\n`;
+      prompt += `- MISSION_STATEMENT: ${questionnaire.MISSION_STATEMENT || 'N/A'}\n`;
+      prompt += `- TARGET_USERS: ${questionnaire.TARGET_USERS || 'N/A'}\n`;
+      prompt += `- INITIAL_SCOPE: ${questionnaire.INITIAL_SCOPE || 'N/A'}\n`;
+      prompt += `- TECHNICAL_CONSIDERATIONS: ${questionnaire.TECHNICAL_CONSIDERATIONS || 'N/A'}\n`;
+      prompt += `- SECURITY_AND_COMPLIANCE_REQUIREMENTS: ${questionnaire.SECURITY_AND_COMPLIANCE_REQUIREMENTS || 'N/A'}\n\n`;
+    }
+
+    if (parentContext) {
+      prompt += `**Parent Context (for consistency check):**\n\`\`\`markdown\n${parentContext}\n\`\`\`\n\n`;
+    }
+
+    prompt += `Return your validation as JSON following the exact structure specified in your instructions.`;
+
+    // Call LLM for validation
+    const validation = await this.retryWithBackoff(
+      () => this.llmProvider.generateJSON(prompt, validatorAgent),
+      'context validation'
+    );
+
+    return validation;
+  }
+
+  /**
+   * Improve documentation based on validation feedback
+   */
+  async improveDocument(docContent, validationResult, questionnaire) {
+    if (!this.llmProvider) {
+      await this.initializeLLMProvider();
+    }
+
+    if (!this.llmProvider || typeof this.llmProvider.generateJSON !== 'function') {
+      console.log('⚠️  Skipping improvement (LLM provider not available)\n');
+      return docContent;
+    }
+
+    // Read documentation creator agent
+    const creatorAgent = this.loadAgentInstructions('project-documentation-creator.md');
+
+    // Build improvement prompt with validation feedback
+    let prompt = `Improve the following project documentation based on validation feedback:\n\n`;
+
+    prompt += `**Current doc.md:**\n\`\`\`markdown\n${docContent}\n\`\`\`\n\n`;
+
+    prompt += `**Validation Feedback:**\n`;
+    prompt += `- Overall Score: ${validationResult.overallScore}/100\n`;
+    prompt += `- Status: ${validationResult.validationStatus}\n\n`;
+
+    if (validationResult.structuralIssues && validationResult.structuralIssues.length > 0) {
+      prompt += `**Structural Issues to Fix:**\n`;
+      validationResult.structuralIssues.forEach((issue, i) => {
+        prompt += `${i + 1}. [${issue.severity.toUpperCase()}] ${issue.section}: ${issue.issue}\n`;
+        prompt += `   Suggestion: ${issue.suggestion}\n`;
+      });
+      prompt += `\n`;
+    }
+
+    if (validationResult.contentIssues && validationResult.contentIssues.length > 0) {
+      prompt += `**Content Issues to Fix:**\n`;
+      validationResult.contentIssues.forEach((issue, i) => {
+        prompt += `${i + 1}. [${issue.severity.toUpperCase()}] ${issue.section}: ${issue.description}\n`;
+        prompt += `   Suggestion: ${issue.suggestion}\n`;
+      });
+      prompt += `\n`;
+    }
+
+    if (validationResult.applicationFlowGaps && validationResult.applicationFlowGaps.length > 0) {
+      prompt += `**Application Flow Gaps to Address:**\n`;
+      validationResult.applicationFlowGaps.forEach((gap, i) => {
+        prompt += `${i + 1}. Missing: ${gap.missingFlow}\n`;
+        prompt += `   Impact: ${gap.impact}\n`;
+        prompt += `   Suggestion: ${gap.suggestion}\n`;
+      });
+      prompt += `\n`;
+    }
+
+    prompt += `**Improvement Priorities:**\n`;
+    validationResult.improvementPriorities.forEach((priority, i) => {
+      prompt += `${i + 1}. ${priority}\n`;
+    });
+    prompt += `\n`;
+
+    prompt += `**Original Questionnaire Data:**\n`;
+    prompt += `- MISSION_STATEMENT: ${questionnaire.MISSION_STATEMENT || 'N/A'}\n`;
+    prompt += `- TARGET_USERS: ${questionnaire.TARGET_USERS || 'N/A'}\n`;
+    prompt += `- INITIAL_SCOPE: ${questionnaire.INITIAL_SCOPE || 'N/A'}\n`;
+    prompt += `- TECHNICAL_CONSIDERATIONS: ${questionnaire.TECHNICAL_CONSIDERATIONS || 'N/A'}\n`;
+    prompt += `- SECURITY_AND_COMPLIANCE_REQUIREMENTS: ${questionnaire.SECURITY_AND_COMPLIANCE_REQUIREMENTS || 'N/A'}\n\n`;
+
+    prompt += `Generate an improved version of the project documentation that addresses all the issues identified above. `;
+    prompt += `Maintain the existing strengths while fixing the identified problems. `;
+    prompt += `Return ONLY the improved markdown content, not wrapped in JSON.`;
+
+    // Call LLM to regenerate documentation
+    const improvedDoc = await this.retryWithBackoff(
+      () => this.llmProvider.generateText(prompt, creatorAgent),
+      'documentation improvement'
+    );
+
+    return improvedDoc;
+  }
+
+  /**
+   * Improve context based on validation feedback
+   */
+  async improveContext(contextContent, validationResult, level, questionnaire) {
+    if (!this.llmProvider) {
+      await this.initializeLLMProvider();
+    }
+
+    if (!this.llmProvider || typeof this.llmProvider.generateJSON !== 'function') {
+      console.log('⚠️  Skipping improvement (LLM provider not available)\n');
+      return contextContent;
+    }
+
+    // Read context generator agent
+    const generatorAgent = this.loadAgentInstructions('project-context-generator.md');
+
+    // Build improvement prompt with validation feedback
+    let prompt = `Improve the following project context based on validation feedback:\n\n`;
+
+    prompt += `**Context Level:** ${level}\n\n`;
+    prompt += `**Current context.md:**\n\`\`\`markdown\n${contextContent}\n\`\`\`\n\n`;
+
+    prompt += `**Validation Feedback:**\n`;
+    prompt += `- Overall Score: ${validationResult.overallScore}/100\n`;
+    prompt += `- Status: ${validationResult.validationStatus}\n`;
+    prompt += `- Estimated Token Budget: ${validationResult.estimatedTokenBudget} tokens\n\n`;
+
+    if (validationResult.issues && validationResult.issues.length > 0) {
+      prompt += `**Issues to Fix:**\n`;
+      validationResult.issues.forEach((issue, i) => {
+        prompt += `${i + 1}. [${issue.severity.toUpperCase()}] ${issue.category} - ${issue.section}: ${issue.description}\n`;
+        prompt += `   Suggestion: ${issue.suggestion}\n`;
+      });
+      prompt += `\n`;
+    }
+
+    prompt += `**Improvement Priorities:**\n`;
+    validationResult.improvementPriorities.forEach((priority, i) => {
+      prompt += `${i + 1}. ${priority}\n`;
+    });
+    prompt += `\n`;
+
+    if (level === 'project' && questionnaire) {
+      prompt += `**Original Questionnaire Data:**\n`;
+      prompt += `- MISSION_STATEMENT: ${questionnaire.MISSION_STATEMENT || 'N/A'}\n`;
+      prompt += `- TARGET_USERS: ${questionnaire.TARGET_USERS || 'N/A'}\n`;
+      prompt += `- INITIAL_SCOPE: ${questionnaire.INITIAL_SCOPE || 'N/A'}\n`;
+      prompt += `- TECHNICAL_CONSIDERATIONS: ${questionnaire.TECHNICAL_CONSIDERATIONS || 'N/A'}\n`;
+      prompt += `- SECURITY_AND_COMPLIANCE_REQUIREMENTS: ${questionnaire.SECURITY_AND_COMPLIANCE_REQUIREMENTS || 'N/A'}\n\n`;
+    }
+
+    prompt += `Generate an improved version of the context that addresses all the issues identified above. `;
+    prompt += `Maintain the existing strengths while fixing the identified problems. `;
+    prompt += `Aim for ${validationResult.estimatedTokenBudget} tokens or less. `;
+    prompt += `Return ONLY the improved markdown content, not wrapped in JSON.`;
+
+    // Call LLM to regenerate context
+    const improvedContext = await this.retryWithBackoff(
+      () => this.llmProvider.generateText(prompt, generatorAgent),
+      'context improvement'
+    );
+
+    return improvedContext;
+  }
+
+  /**
+   * Iterative validation and improvement loop
+   */
+  async iterativeValidation(content, type, questionnaire, contextContent = null) {
+    const settings = this.getValidationSettings();
+    const maxIterations = settings.maxIterations || 2;
+    const threshold = settings.acceptanceThreshold || 75;
+
+    let currentContent = content;
+    let iteration = 0;
+
+    while (iteration < maxIterations) {
+      console.log(`\n🔍 Validation iteration ${iteration + 1}/${maxIterations} for ${type}...\n`);
+
+      // Validate
+      const validation = type === 'documentation'
+        ? await this.validateDocument(currentContent, questionnaire, contextContent)
+        : await this.validateContext(currentContent, 'project', questionnaire);
+
+      // Display results
+      console.log(`📊 Score: ${validation.overallScore}/100`);
+      console.log(`   Status: ${validation.validationStatus}`);
+
+      // Count issues by severity
+      const issues = validation.issues || validation.contentIssues || [];
+      const structuralIssues = validation.structuralIssues || [];
+      const flowGaps = validation.applicationFlowGaps || [];
+      const allIssues = [...issues, ...structuralIssues];
+
+      const criticalCount = allIssues.filter(i => i.severity === 'critical').length;
+      const majorCount = allIssues.filter(i => i.severity === 'major').length;
+      const minorCount = allIssues.filter(i => i.severity === 'minor').length;
+
+      if (allIssues.length > 0 || flowGaps.length > 0) {
+        console.log(`   Issues: ${criticalCount} critical, ${majorCount} major, ${minorCount} minor`);
+        if (flowGaps.length > 0) {
+          console.log(`   Flow gaps: ${flowGaps.length}`);
+        }
+
+        // Show top 3 issues
+        const topIssues = allIssues.slice(0, 3);
+        topIssues.forEach(issue => {
+          const icon = issue.severity === 'critical' ? '❌' : issue.severity === 'major' ? '⚠️' : 'ℹ️';
+          const section = issue.section || issue.category;
+          const desc = issue.description || issue.issue;
+          console.log(`   ${icon} ${section}: ${desc.substring(0, 80)}${desc.length > 80 ? '...' : ''}`);
+        });
+      } else {
+        console.log(`   ✅ No issues found`);
+      }
+
+      // Check if ready
+      const isReady = type === 'documentation'
+        ? validation.readyForPublication
+        : validation.readyForUse;
+
+      if (isReady && validation.overallScore >= threshold) {
+        console.log(`\n   ✅ ${type} passed validation!\n`);
+        break;
+      }
+
+      // Check if max iterations reached
+      if (iteration + 1 >= maxIterations) {
+        console.log(`\n   ⚠️  Max iterations reached. Accepting current version.\n`);
+        break;
+      }
+
+      // Improve
+      console.log(`\n🔄 Improving ${type} based on feedback...\n`);
+      currentContent = type === 'documentation'
+        ? await this.improveDocument(currentContent, validation, questionnaire)
+        : await this.improveContext(currentContent, validation, 'project', questionnaire);
+
+      iteration++;
+    }
+
+    return currentContent;
   }
 }
 

@@ -3,12 +3,12 @@
 **A framework for managing agent-based software development projects**
 
 
-Agile Vibe Coding (AVC) is a structured approach to consistent long-term software development with AI agents. 
+Agile Vibe Coding (AVC) is a structured approach to consistent long-term software development with AI. 
 
 
 ## The Challenge
 
-Large software projects stress LLM-based coding agents in ways that differ fundamentally from how human development teams operate. Unlike humans, which retain long-term memory and build overall abstract understanding through iteration, LLMs do not have these capacities. 
+Large software projects stress LLM-based coding in ways that differ fundamentally from how human development teams operate. Unlike humans, which retain long-term memory and build overall abstract understanding through iteration, LLMs do not have these capacities. 
 
 - LLMs are probabilistic and sensitive to prompt formulation.
 - LLM's context should not be understood as a memory but as information.
@@ -57,15 +57,15 @@ project/
 
 ### Context Scopes (context.md files)
 
-Context in AVC is the minimal set of information required for LLM models to properly imnplement the work item (in singular) closer to it. 
+Context in AVC is the minimal set of information required for LLM models to properly implement the work item (in singular) closer to it. 
 
 ### Documentation Scopes (doc.md files)
 
-A documentation item is the human readeable documentation related to the work item closer to it.
+A documentation item is a well structured project documentation related to the work item closer to it.
 
 ### Work Item
 
-Work items defines what needs to get done and the list of tests for work validation.
+Work items defines what needs to get done and the list of tests for its work validation.
 
 ```json
 {
@@ -101,11 +101,12 @@ Work items defines what needs to get done and the list of tests for work validat
 
 ### Work Item Statuses
 
-Work items progress through the following status values as they move through the AVC workflow:
+Work items progress through the following status values as they move through the AVC workflow.
 
-| Status | Description | Ceremonies | When |
-|--------|-------------|-------------|------------------------|
-| **planned** | Work item created with an initial definition | **Sprint Planning**   | During Epic/Story creation from questionnaire |
+**planned**
+
+This status is work item initial status.
+
 
 
 | **ready** | Work item fully defined with acceptance criteria, ready for decomposition | **Backlog Refinement ceremony** (future) | After manual refinement with detailed acceptance criteria |
@@ -115,18 +116,19 @@ Work items progress through the following status values as they move through the
 | **implemented** | Code and tests completed, awaiting final validation | **Testing agents** | After all tests pass successfully |
 | **completed** | All work done, validated, tests passed, parent dependencies met | **Validation process** | After all validations and parent checks pass |
 
-## Implementation Flow
+### Work Items Flow
 
 Work items follow a **bottom-up implementation strategy** through the tree hierarchy. **Leaf nodes** (deepest subtasks) are implemented and validated first, then their parent nodes can begin.
 
-**Implementation Rules:**
+**Implementation Rules**
 
 1. **Depth-first execution** - Start with the deepest atomic work items (leaf nodes) in each branch
 2. **Upward propagation** - A parent node cannot start until all its child nodes are `completed` and tests pass
 3. **Parallel execution** - Only **sibling nodes** (work items at the same level under different parents) can be implemented in parallel
 
 
-**Example execution order:**
+**Example execution order**
+
 ```
 context-0001/                          # Epic
 ├── context-0001-0001/                 # Story
@@ -183,7 +185,7 @@ Deepest level tests must pass first. Only when all subtask tests pass do you run
 
 ## AVC Ceremonies
 
-As with Agile project management, the Agile Vibe Coding framework contains a set of ceremonies and processes to manage the project moving forward.
+The Agile Vibe Coding framework gets inspired from the Agile project management ceremonies adding AI as a principal stakeholder (AI Agents and LLM models).
 
 ```mermaid
 graph LR
@@ -198,16 +200,17 @@ graph LR
 
 ### **Sponsor Call**
 
-The first ceremony that creates the project foundation through an interactive questionnaire. Generates project documentation and architectural context that serves as the foundation for all subsequent work.
+The first ceremony creating project documentation and architectural context that serves as the foundation for all subsequent work.
 
-**Key Features:**
+**Key Features**
+
 - 5-question interactive questionnaire with AI-powered suggestions
 - Generates comprehensive project documentation (doc.md)
 - Creates project-level architectural context (context.md)
-- Auto-save and resume capability
 - Foundation for Epic/Story decomposition
 
-**Output:**
+**Output**
+
 - `.avc/project/project/doc.md` - 8-section project documentation
 - `.avc/project/project/context.md` - Project-level architectural context (~500 tokens)
 
@@ -219,14 +222,16 @@ The first ceremony that creates the project foundation through an interactive qu
 
 Creates or expands project Epics and Stories with intelligent duplicate detection. Decomposes project scope into domain-based Epics (3-7) and user-facing Stories (2-8 per Epic) with proper context inheritance.
 
-**Key Features:**
+**Key Features**
+
 - Duplicate detection - skips existing Epics/Stories
 - ID renumbering to avoid collisions
 - Generates Epic and Story context.md files
 - Incremental expansion support
 - Context inheritance from project level
 
-**Output:**
+**Output**
+
 - Epic directories: `context-XXXX/` with doc.md, context.md (~800 tokens), work.json
 - Story directories: `context-XXXX-XXXX/` with doc.md, context.md (~1500 tokens), work.json
 
@@ -238,18 +243,22 @@ Creates or expands project Epics and Stories with intelligent duplicate detectio
 
 Decomposes a Story into Tasks (2-5) and Subtasks (1-3 per Task) for implementation. Creates atomic work units with complete context inheritance from Story, Epic, and Project levels.
 
-**Key Features:**
+**Key Features**
+
 - Story-level decomposition into technical Tasks
 - Task categories: backend, frontend, database, testing, infrastructure
 - Atomic Subtasks (1-4 hours each)
 - Generates Task and Subtask context.md files
 - Updates Story work.json with Task children
 
-**Output:**
+**Output**
+
 - Task directories: `context-XXXX-XXXX-XXXX/` with doc.md, context.md (~1200 tokens), work.json
 - Subtask directories: `context-XXXX-XXXX-XXXX-XXXX/` with doc.md, context.md (~800 tokens), work.json
 
-**Usage:** `/seed <story-id>` (e.g., `/seed context-0001-0001`)
+**Usage**
+
+`/seed <story-id>` (e.g., `/seed context-0001-0001`)
 
 **[📖 Read Full Documentation](/ceremonies/seed.md)**
 
@@ -257,11 +266,14 @@ Decomposes a Story into Tasks (2-5) and Subtasks (1-3 per Task) for implementati
 
 ### **AI Coding** - Implementation
 
-**Status:** 🚧 **Under Development**
+**Status**
+
+🚧 **Under Development**
 
 Autonomous implementation of atomic work units by specialized AI agents. Generates code, tests, and documentation based on context from all parent levels.
 
-**Key Features:**
+**Key Features**
+
 - Specialized agents (Server, Client, Infrastructure, Testing)
 - Context-aware implementation
 - Automated testing and validation
@@ -273,11 +285,14 @@ Autonomous implementation of atomic work units by specialized AI agents. Generat
 
 ### **Context Retrospective** - Learning & Refinement
 
-**Status:** 🚧 **Under Development**
+**Status**
+
+🚧 **Under Development**
 
 Updates all context scopes based on learnings from implementation. Ensures AI agents have accurate, up-to-date context for future work by capturing architectural decisions, domain knowledge, and technical insights.
 
-**Key Features:**
+**Key Features**
+
 - Analyzes completed work for insights
 - Updates context.md files at all levels
 - Maintains context inheritance
@@ -292,7 +307,9 @@ AVC supports **different LLM providers for each ceremony**, allowing you to opti
 
 ### Configuration
 
-**File:** `.avc/avc.json`
+**File**
+
+`.avc/avc.json`
 
 ```json
 {
@@ -359,7 +376,7 @@ AVC uses a **single prompt strategy** where agent instructions and task data are
 - Both are sent together as a single user message to the LLM
 - System instructions are reserved only for generic behavior (e.g., "return valid JSON")
 
-**Why We Chose This Strategy:**
+**Why We Chose This Strategy**
 
 1. **Research Evidence**: Studies show LLMs experience 40-80% performance degradation when combining knowledge retrieval with instruction-following in separate channels ([arXiv:2410.12972](https://arxiv.org/html/2410.12972v2)). Processing agent role and task data together in unified context eliminates this split-attention problem.
 
@@ -372,9 +389,19 @@ AVC uses a **single prompt strategy** where agent instructions and task data are
 5. **Empirical Results**: Testing showed significantly better Epic/Story decomposition and context generation quality compared to system instruction approach.
 
 **AI Agent Templates** (`src/cli/agents/`):
-- `documentation.md` (303 lines) - 8-section document structure, technology-specific output, hierarchical documentation
-- `decomposition.md` (143 lines) - Domain-driven design rules, Epic/Story decomposition strategy, dependency management
-- `context-generator.md` (264 lines) - Layered specificity templates, concrete implementation details
+
+**Generation Agents**
+
+- `project-documentation-creator.md` - 9-section document structure, technology-specific output, hierarchical documentation
+- `project-context-generator.md` - Project-level architectural context with technology stack and patterns
+- `epic-story-decomposer.md` - Domain-driven design rules, Epic/Story decomposition strategy
+- `feature-context-generator.md` - Epic/Story context generation with layered specificity
+
+**Validator Agents (Quality Assurance):**
+- `validator-documentation.md` - Reviews `doc.md` for structural coherence, completeness, and application flow clarity
+- `validator-context.md` - Reviews `context.md` for technical depth, consistency, and best practices
+
+Validators run automatically in Sponsor Call ceremony to iteratively improve generated artifacts through LLM-powered feedback loops (max 2 iterations per artifact).
 
 **Implementation Pattern** (works for both Claude and Gemini):
 ```javascript

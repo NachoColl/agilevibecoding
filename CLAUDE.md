@@ -103,6 +103,7 @@ useInput((inputChar, key) => {
 - Command execution shows `> /command` before output for context
 - All error handlers must append to output, not replace
 - BottomRightStatus shows version + update notifications (right-aligned)
+- **All console output must be fully left-aligned** - no indentation or leading spaces (command-line style)
 
 **Mode Transition Best Practices:**
 - Only reset UI state in the `finally` block of async operations, not between stages

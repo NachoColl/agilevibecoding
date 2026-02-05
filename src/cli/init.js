@@ -28,6 +28,9 @@ class ProjectInitiator {
     this.initProgressPath = path.join(this.avcDir, 'init-progress.json');
     this.sponsorCallProgressPath = path.join(this.avcDir, 'sponsor-call-progress.json');
 
+    // Template processor for token usage tracking
+    this._lastTemplateProcessor = null;
+
     // Load environment variables from project .env file
     // Use override: true to reload even if already set (user may have edited .env)
     dotenv.config({
@@ -138,14 +141,32 @@ class ProjectInitiator {
               {
                 name: 'project-documentation-creator',
                 instruction: 'project-documentation-creator.md',
-                stage: 'enhancement'
+                stage: 'documentation-generation'
               },
               {
                 name: 'project-context-generator',
                 instruction: 'project-context-generator.md',
-                stage: 'project-context-generation'
+                stage: 'context-generation'
+              },
+              {
+                name: 'validator-documentation',
+                instruction: 'validator-documentation.md',
+                stage: 'documentation-validation',
+                group: 'validators'
+              },
+              {
+                name: 'validator-context',
+                instruction: 'validator-context.md',
+                stage: 'context-validation',
+                group: 'validators'
               }
             ],
+            validation: {
+              enabled: true,
+              maxIterations: 2,
+              acceptanceThreshold: 75,
+              skipOnCriticalIssues: false
+            },
             guidelines: {
               technicalConsiderations: 'Use AWS serverless stack with Lambda functions for compute, API Gateway for REST APIs, DynamoDB for database, S3 for storage. Use CloudFormation for infrastructure definition and AWS CodePipeline/CodeBuild for CI/CD deployment.'
             }
@@ -201,7 +222,66 @@ class ProjectInitiator {
               }
             ]
           }
-        ]
+        ],
+        models: {
+          // Anthropic Claude models (prices per 1M tokens in USD)
+          'claude-sonnet-4-5-20250929': {
+            provider: 'claude',
+            displayName: 'Claude Sonnet 4.5',
+            pricing: {
+              input: 3.00,      // $3 per 1M tokens
+              output: 15.00,    // $15 per 1M tokens
+              unit: 'million'   // per million tokens
+            }
+          },
+          'claude-3-5-haiku-20241022': {
+            provider: 'claude',
+            displayName: 'Claude Haiku 3.5',
+            pricing: {
+              input: 1.00,
+              output: 5.00,
+              unit: 'million'
+            }
+          },
+          'claude-opus-4-5-20250929': {
+            provider: 'claude',
+            displayName: 'Claude Opus 4.5',
+            pricing: {
+              input: 5.00,
+              output: 25.00,
+              unit: 'million'
+            }
+          },
+
+          // Google Gemini models (prices per 1M tokens in USD)
+          'gemini-2.5-flash': {
+            provider: 'gemini',
+            displayName: 'Gemini 2.5 Flash',
+            pricing: {
+              input: 0.15,
+              output: 0.60,
+              unit: 'million'
+            }
+          },
+          'gemini-2.5-flash-lite': {
+            provider: 'gemini',
+            displayName: 'Gemini 2.5 Flash-Lite',
+            pricing: {
+              input: 0.10,
+              output: 0.40,
+              unit: 'million'
+            }
+          },
+          'gemini-2.5-pro': {
+            provider: 'gemini',
+            displayName: 'Gemini 2.5 Pro',
+            pricing: {
+              input: 1.25,
+              output: 5.00,
+              unit: 'million'
+            }
+          }
+        }
       }
     };
 
@@ -302,7 +382,8 @@ GEMINI_API_KEY=
       { pattern: '.avc/documentation/.vitepress/dist', comment: 'VitePress build output' },
       { pattern: '.avc/documentation/.vitepress/cache', comment: 'VitePress cache' },
       { pattern: '.avc/logs', comment: 'Command execution logs' },
-      { pattern: '.avc/token-history.json', comment: 'Token usage tracking' }
+      { pattern: '.avc/token-history.json', comment: 'Token usage tracking' },
+      { pattern: '.avc/ceremonies-history.json', comment: 'Ceremony execution history' }
     ];
 
     let newContent = gitignoreContent;
@@ -591,9 +672,45 @@ If you're new to Agile Vibe Coding, visit the [AVC Documentation](https://agilev
   /**
    * Generate project document via Sponsor Call ceremony
    */
-  async generateProjectDocument(progress = null, progressPath = null, nonInteractive = false) {
+  async generateProjectDocument(progress = null, progressPath = null, nonInteractive = false, progressCallback = null) {
     const processor = new TemplateProcessor('sponsor-call', progressPath || this.sponsorCallProgressPath, nonInteractive);
-    await processor.processTemplate(progress);
+
+    // Set progress callback if provided
+    if (progressCallback) {
+      processor.setProgressCallback(progressCallback);
+    }
+
+    const result = await processor.processTemplate(progress);
+
+    // Store processor for token usage retrieval
+    this._lastTemplateProcessor = processor;
+
+    return result;
+  }
+
+  /**
+   * Get token usage from last template processor execution
+   * @returns {Object|null} Token usage object or null
+   */
+  getLastTokenUsage() {
+    if (this._lastTemplateProcessor) {
+      return this._lastTemplateProcessor.getLastTokenUsage();
+    }
+    return null;
+  }
+
+  /**
+   * Read ceremony configuration from avc.json
+   * @param {string} ceremonyName - Name of the ceremony
+   * @returns {Object|null} Ceremony config or null
+   */
+  readCeremonyConfig(ceremonyName) {
+    try {
+      const config = JSON.parse(fs.readFileSync(this.avcConfigPath, 'utf8'));
+      return config.settings?.ceremonies?.find(c => c.name === ceremonyName);
+    } catch (error) {
+      return null;
+    }
   }
 
   /**
@@ -645,9 +762,8 @@ If you're new to Agile Vibe Coding, visit the [AVC Documentation](https://agilev
    * Run Sponsor Call ceremony with pre-filled answers from REPL questionnaire
    * Used when all answers are collected via REPL UI
    */
-  async sponsorCallWithAnswers(answers) {
-    console.log('\n🎯 Sponsor Call Ceremony\n');
-    console.log(`Project directory: ${this.projectRoot}\n`);
+  async sponsorCallWithAnswers(answers, progressCallback = null) {
+    // Remove initial ceremony banner - will be shown in summary
 
     // Check if project is initialized
     if (!this.isAvcProject()) {
@@ -658,23 +774,44 @@ If you're new to Agile Vibe Coding, visit the [AVC Documentation](https://agilev
 
     const progressPath = this.sponsorCallProgressPath;
 
-    console.log('Starting Sponsor Call ceremony with provided answers...\n');
+    // Initialize ceremony history
+    const { CeremonyHistory } = await import('./ceremony-history.js');
+    const history = new CeremonyHistory(this.avcDir);
+    history.init();
 
-    // Count answers provided
+    // Get or create execution record
+    let executionId;
+    const lastExecution = history.getLastExecution('sponsor-call');
+
+    if (lastExecution && lastExecution.status === 'in-progress' && lastExecution.stage === 'llm-generation') {
+      // Resume existing execution (from REPL flow)
+      executionId = lastExecution.id;
+    } else {
+      // This shouldn't normally happen if called from REPL, but handle it
+      executionId = history.startExecution('sponsor-call', 'llm-generation');
+    }
+
+    // Count answers provided (for logging)
     const answeredCount = Object.values(answers).filter(v => v !== null && v !== '').length;
-    console.log(`📊 Received ${answeredCount}/5 answers from questionnaire\n`);
 
     // Validate API key before starting ceremony
-    console.log('Step 1/3: Validating API configuration...');
     const validationResult = await this.validateProviderApiKey();
     if (!validationResult.valid) {
-      console.log('\n❌ API Key Validation Failed\n');
-      console.log(`   ${validationResult.message}\n`);
-      return;
+      // Mark execution as aborted
+      history.completeExecution('sponsor-call', executionId, 'abrupt-termination', {
+        answers,
+        stage: 'llm-generation',
+        error: 'API key validation failed'
+      });
+
+      // Return error for REPL to display
+      return {
+        error: true,
+        message: `API Key Validation Failed: ${validationResult.message}`
+      };
     }
 
     // Create progress with pre-filled answers
-    console.log('Step 2/3: Processing questionnaire answers...');
     const progress = {
       stage: 'questionnaire',
       totalQuestions: 5,
@@ -684,20 +821,109 @@ If you're new to Agile Vibe Coding, visit the [AVC Documentation](https://agilev
     };
     this.writeProgress(progress, progressPath);
 
-    // Generate project document with pre-filled answers
-    console.log('Step 3/3: Generating project document...');
-    await this.generateProjectDocument(progress, progressPath, true); // nonInteractive = true
+    try {
+      // Generate project document with pre-filled answers
+      const result = await this.generateProjectDocument(progress, progressPath, true, progressCallback);
 
-    // Mark as completed and clean up
-    progress.stage = 'completed';
-    progress.lastUpdate = new Date().toISOString();
-    this.writeProgress(progress, progressPath);
-    this.clearProgress(progressPath);
+      // Get token usage from template processor
+      const tokenUsage = this.getLastTokenUsage();
 
-    console.log('\n✅ Project defined successfully!');
-    console.log('\nNext steps:');
-    console.log('  1. Review .avc/project/doc.md for your project definition');
-    console.log('  2. Review .avc/avc.json configuration');
+      // Get model ID from ceremony config
+      const ceremony = this.readCeremonyConfig('sponsor-call');
+      const modelId = ceremony?.defaultModel || 'claude-sonnet-4-5-20250929';
+
+      // Calculate cost using token tracker
+      const { TokenTracker } = await import('./token-tracker.js');
+      const tracker = new TokenTracker(this.avcDir);
+      const cost = tracker.calculateCost(
+        tokenUsage?.inputTokens || 0,
+        tokenUsage?.outputTokens || 0,
+        modelId
+      );
+
+      // Mark execution as completed with metadata
+      history.completeExecution('sponsor-call', executionId, 'success', {
+        answers,
+        filesGenerated: [
+          path.join(this.avcDir, 'project/doc.md'),
+          path.join(this.avcDir, 'project/context.md')
+        ],
+        tokenUsage: {
+          input: tokenUsage?.inputTokens || 0,
+          output: tokenUsage?.outputTokens || 0,
+          total: tokenUsage?.totalTokens || 0
+        },
+        model: modelId,
+        cost: cost,
+        stage: 'completed'
+      });
+
+      // Mark progress as completed and clean up
+      progress.stage = 'completed';
+      progress.lastUpdate = new Date().toISOString();
+      this.writeProgress(progress, progressPath);
+      this.clearProgress(progressPath);
+
+      // Return result for display in REPL
+      return result;
+
+    } catch (error) {
+      // Mark execution as aborted on error
+      history.completeExecution('sponsor-call', executionId, 'abrupt-termination', {
+        answers,
+        stage: 'llm-generation',
+        error: error.message
+      });
+
+      throw error;
+    }
+  }
+
+  /**
+   * Display token usage statistics and costs
+   */
+  async showTokenStats() {
+    console.log('\n📊 Token Usage Statistics\n');
+
+    const { TokenTracker } = await import('./token-tracker.js');
+    const tracker = new TokenTracker(this.avcDir);
+    tracker.init();
+    tracker.load();
+
+    const data = tracker.data;
+
+    // All-time totals
+    const allTime = data.totals.allTime;
+    console.log('All-Time Totals:');
+    console.log(`   Input Tokens: ${allTime.input.toLocaleString()}`);
+    console.log(`   Output Tokens: ${allTime.output.toLocaleString()}`);
+    console.log(`   Total Tokens: ${allTime.total.toLocaleString()}`);
+    console.log(`   Executions: ${allTime.executions}`);
+
+    if (allTime.cost && allTime.cost.total > 0) {
+      console.log(`\n💰 Estimated Total Cost:`);
+      console.log(`   Input: $${allTime.cost.input.toFixed(4)}`);
+      console.log(`   Output: $${allTime.cost.output.toFixed(4)}`);
+      console.log(`   Total: $${allTime.cost.total.toFixed(4)}`);
+    }
+
+    // Show breakdown by ceremony type
+    console.log(`\n📋 By Ceremony Type:`);
+    const ceremonyTypes = Object.keys(data).filter(k => !['version', 'lastUpdated', 'totals'].includes(k));
+
+    for (const ceremonyType of ceremonyTypes) {
+      const ceremony = data[ceremonyType];
+      if (ceremony.allTime && ceremony.allTime.executions > 0) {
+        console.log(`\n   ${ceremonyType}:`);
+        console.log(`      Executions: ${ceremony.allTime.executions}`);
+        console.log(`      Tokens: ${ceremony.allTime.total.toLocaleString()}`);
+        if (ceremony.allTime.cost && ceremony.allTime.cost.total > 0) {
+          console.log(`      Cost: $${ceremony.allTime.cost.total.toFixed(4)}`);
+        }
+      }
+    }
+
+    console.log('');
   }
 
   /**

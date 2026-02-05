@@ -59,4 +59,28 @@ export class GeminiProvider extends LLMProvider {
       throw new Error(`Failed to parse JSON response: ${error.message}\n\nResponse was:\n${content}`);
     }
   }
+
+  async generateText(prompt, agentInstructions = null) {
+    if (!this._client) {
+      this._client = this._createClient();
+    }
+
+    const fullPrompt = agentInstructions ? `${agentInstructions}\n\n${prompt}` : prompt;
+
+    const params = {
+      model: this.model,
+      contents: fullPrompt,
+      generationConfig: {
+        maxOutputTokens: 8000
+      }
+    };
+
+    const response = await this._client.models.generateContent(params);
+    if (!response.text) {
+      throw new Error('Gemini returned no text (possible safety filter block).');
+    }
+
+    this._trackTokens(response.usageMetadata);
+    return response.text;
+  }
 }

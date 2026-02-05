@@ -4,13 +4,17 @@
 
 The **Sponsor Call** ceremony is the foundational ceremony in the Agile Vibe Coding framework. It creates your project's blueprint through an AI-assisted questionnaire, generating comprehensive documentation and architectural context that guides all subsequent work.
 
-**Purpose:** Establish project foundation with documentation (`doc.md`) and architectural context (`context.md`)
+**Purpose**
 
-**Output:** Two files that serve as the single source of truth for your project
+Establish project foundation with documentation (`doc.md`) and architectural context (`context.md`)
 
-**Duration:** 5-15 minutes (depending on validation settings)
+**Output**
 
-**Next Ceremony:** [`/project-expansion`](project-expansion.md) - Create Epics and Stories
+Two files that serve as the single source of truth for your project
+
+**Next Ceremony**
+
+[`/project-expansion`](project-expansion.md) - Create Epics and Stories
 
 ---
 
@@ -45,7 +49,8 @@ The Sponsor Call ceremony:
 
 ### Answering Questions
 
-**Input Methods:**
+**Input Methods**
+
 - **Type your answer** - Multi-line input supported
   - Enter on empty line to submit
   - Supports line breaks and formatting
@@ -143,7 +148,8 @@ graph TD
 - Agent instructions guide LLM to create professional 8-section document
 - Output: `.avc/project/doc.md` (~3000-5000 tokens)
 
-**8 Sections Generated:**
+**8 Sections Generated**
+
 1. **Application Overview** - Mission, purpose, key objectives
 2. **Target Users and Stakeholders** - User personas, roles, stakeholders
 3. **Initial Scope** - Features and functional areas to implement
@@ -153,7 +159,9 @@ graph TD
 7. **Integration Requirements** - External systems, APIs, dependencies
 8. **Success Criteria** - Metrics, KPIs, definition of done
 
-**Token Budget:** ~3000-5000 tokens
+**Token Budget**
+
+~3000-5000 tokens
 
 ### Stage 3b: Validation (Optional)
 
@@ -167,7 +175,8 @@ graph TD
 3. Repeat up to `maxIterations` (default 3)
 4. Final document must meet threshold
 
-**Configuration:**
+**Configuration**
+
 ```json
 {
   "ceremonies": [{
@@ -197,9 +206,13 @@ graph TD
 - Architecture principles and patterns
 - Development standards and conventions
 
-**Token Budget:** ~500 tokens
+**Token Budget**
 
-**Inheritance:** This context is inherited by all Epic/Story/Task/Subtask contexts created in later ceremonies
+~500 tokens
+
+**Inheritance**
+
+This context is inherited by all Epic/Story/Task/Subtask contexts created in later ceremonies
 
 ### Stage 4b: Validation (Optional)
 
@@ -241,7 +254,8 @@ graph TD
 - Updates `.avc/ceremonies-history.json` with execution record
 - Displays summary to user
 
-**Token Usage Display:**
+**Token Usage Display**
+
 ```
 📊 Token Usage:
    Input: 8,234 tokens
@@ -257,7 +271,9 @@ graph TD
 
 ### LLM Provider & Model
 
-**File:** `.avc/avc.json`
+**File**
+
+`.avc/avc.json`
 
 ```json
 {
@@ -273,7 +289,8 @@ graph TD
 }
 ```
 
-**Supported Providers:**
+**Supported Providers**
+
 - **claude** - Anthropic API
   - `claude-sonnet-4-5-20250929` (default, best balance)
   - `claude-opus-4-5-20251101` (most capable, higher cost)
@@ -286,7 +303,8 @@ graph TD
 
 Pre-configure default answers for any question in `.avc/avc.json`. When you skip a question, AVC first checks for a guideline, then falls back to AI suggestion.
 
-**Complete Configuration Example:**
+**Complete Configuration Example**
+
 ```json
 {
   "settings": {
@@ -308,7 +326,7 @@ Pre-configure default answers for any question in `.avc/avc.json`. When you skip
 }
 ```
 
-**Default Guideline (Pre-configured):**
+**Default Guideline (Pre-configured)**
 
 Only `technicalConsiderations` has a default guideline out of the box:
 
@@ -343,7 +361,8 @@ Enable AI-powered iterative validation:
 }
 ```
 
-**Parameters:**
+**Parameters**
+
 - `enabled` - Enable/disable validation (default: false)
 - `maxIterations` - Max improvement cycles (default: 3)
 - `acceptanceThreshold` - Minimum score 0-100 (default: 75)
@@ -387,14 +406,16 @@ The following are created by the **`/project-expansion`** ceremony:
 
 ### Typical Usage
 
-**Without Validation:**
+**Without Validation**
+
 - Input tokens: ~8,000-12,000
 - Output tokens: ~5,000-8,000
 - Total: ~15,000-25,000 tokens
 - API calls: 2-3
 - Cost (Claude Sonnet 4.5): ~$0.08-$0.13
 
-**With Validation:**
+**With Validation**
+
 - Input tokens: ~15,000-25,000
 - Output tokens: ~10,000-20,000
 - Total: ~30,000-50,000 tokens
@@ -406,7 +427,8 @@ The following are created by the **`/project-expansion`** ceremony:
 - Input: $3.00 per 1M tokens
 - Output: $15.00 per 1M tokens
 
-**Example (no validation):**
+**Example (no validation)**
+
 - 10,000 input × $3.00/1M = $0.03
 - 6,000 output × $15.00/1M = $0.09
 - **Total: $0.12**
@@ -455,16 +477,19 @@ avc
 
 ### Progress & Resume
 
-**Auto-Save:**
+**Auto-Save**
+
 - Every 30 seconds during questionnaire
 - Saved to `.avc/sponsor-call-progress.json`
 
-**Resume:**
+**Resume**
+
 - If interrupted, next `/sponsor-call` detects incomplete progress
 - Offers to resume from where you left off
 - All previous answers preserved
 
-**Manual Resume:**
+**Manual Resume**
+
 ```bash
 > /sponsor-call
 # Detects incomplete progress
@@ -514,12 +539,14 @@ After completing the Sponsor Call:
 
 ### 1. Review Generated Documents
 
-**Project Documentation:**
+**Project Documentation**
+
 ```bash
 cat .avc/project/doc.md
 ```
 
-**Project Context:**
+**Project Context**
+
 ```bash
 cat .avc/project/context.md
 ```
@@ -554,31 +581,43 @@ See [Project Expansion ceremony documentation](project-expansion.md)
 
 ### Common Issues
 
-**Issue:** "API key not set"
+**Issue**
 
-**Solution:**
+"API key not set"
+
+**Solution**
+
 ```bash
 # Add to .env file
 ANTHROPIC_API_KEY=sk-ant-your-key-here
 ```
 
-**Issue:** "Rate limit exceeded"
+**Issue**
 
-**Solution:**
+"Rate limit exceeded"
+
+**Solution**
+
 - Wait 1-2 minutes and retry
 - AVC includes automatic retry with exponential backoff
 - For persistent issues, consider using a different model
 
-**Issue:** "Invalid JSON response"
+**Issue**
 
-**Solution:**
+"Invalid JSON response"
+
+**Solution**
+
 - Rare issue with LLM provider
 - Retry the ceremony
 - If persistent, check provider status page
 
-**Issue:** "Permission denied writing files"
+**Issue**
 
-**Solution:**
+"Permission denied writing files"
+
+**Solution**
+
 - Check `.avc/` directory permissions
 - Ensure you have write access to project directory
 
@@ -618,18 +657,21 @@ Logs include:
 
 ### AI Agents
 
-**Suggestion Agents (Optional):**
+**Suggestion Agents (Optional)**
+
 - `src/cli/agents/suggestion-business-analyst.md`
 - `src/cli/agents/suggestion-ux-researcher.md`
 - `src/cli/agents/suggestion-product-manager.md`
 - `src/cli/agents/suggestion-technical-architect.md`
 - `src/cli/agents/suggestion-security-specialist.md`
 
-**Core Ceremony Agents:**
+**Core Ceremony Agents**
+
 - `src/cli/agents/project-documentation-creator.md`
 - `src/cli/agents/project-context-generator.md`
 
-**Validation Agents (Optional):**
+**Validation Agents (Optional)**
+
 - `src/cli/agents/validator-documentation.md`
 - `src/cli/agents/validator-context.md`
 

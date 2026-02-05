@@ -18,7 +18,7 @@ When creating documentation from questionnaire responses:
 
 1. **Analyze Input**: Review all questionnaire responses to understand project vision
 2. **Identify Domains**: Determine key functional areas and user workflows
-3. **Structure Content**: Organize information into the 8 standard sections
+3. **Structure Content**: Organize information into the 9 standard sections
 4. **Expand Details**: Elaborate on user inputs with professional clarity
 5. **Validate Completeness**: Ensure all critical aspects are documented
 
@@ -41,7 +41,7 @@ When creating documentation from questionnaire responses:
 
 ## Output Format
 
-All documentation follows this 8-section structure:
+All documentation follows this 9-section structure:
 
 ```markdown
 # [Project Name]
@@ -77,11 +77,32 @@ All documentation follows this 8-section structure:
 
 **Status**: Planned
 
-## 5. Technical Architecture
+## 5. UI/UX Design
+
+### Frontend Technology
+- **Framework**: [Frontend framework from TECHNICAL_CONSIDERATIONS - React, Vue, Angular, VitePress, Next.js, etc.]
+- **UI Library**: [Component library or design system - Material-UI, Tailwind, Ant Design, shadcn/ui, etc.]
+- **State Management**: [State solution if applicable - Redux, Zustand, Context API, etc.]
+
+### User Interface Requirements
+- **Design Approach**: [Custom design system, third-party UI library, or hybrid]
+- **Responsive Strategy**: [Mobile-first, desktop-first, or adaptive approach]
+- **Visual Design**: [Branding, color scheme, typography considerations]
+
+### User Experience Considerations
+- **Navigation**: [Navigation structure and patterns]
+- **Accessibility**: [WCAG compliance level, screen reader support, keyboard navigation]
+- **Internationalization**: [Multi-language support, RTL layouts if needed]
+- **Performance**: [Target Core Web Vitals, bundle size goals]
+
+**Status**: Planned
+
+## 6. Technical Architecture
 
 ### Technology Stack
-- **[Component Type]**: [Specific technology from TECHNICAL_CONSIDERATIONS]
-- **[Component Type]**: [Specific technology]
+- **Backend**: [Backend technology from TECHNICAL_CONSIDERATIONS]
+- **Database**: [Database technology from TECHNICAL_CONSIDERATIONS]
+- **Infrastructure**: [Hosting/deployment platform from TECHNICAL_CONSIDERATIONS]
 
 ### Architecture Patterns
 - [Pattern - e.g., "REST API", "Microservices", "Serverless"]
@@ -89,7 +110,7 @@ All documentation follows this 8-section structure:
 ### Key Components
 - **[Component Name]**: [Purpose and technology]
 
-## 6. Integration Points
+## 7. Integration Points
 
 ### External Services
 - **[Service Name from TECHNICAL_CONSIDERATIONS]**: [Purpose]
@@ -97,7 +118,7 @@ All documentation follows this 8-section structure:
 ### Internal Dependencies
 - [System integration requirements]
 
-## 7. Security & Compliance
+## 8. Security & Compliance
 
 ### Security Measures
 - [From SECURITY_AND_COMPLIANCE_REQUIREMENTS]
@@ -105,7 +126,7 @@ All documentation follows this 8-section structure:
 ### Compliance Requirements
 - [Regulatory/compliance needs from SECURITY_AND_COMPLIANCE_REQUIREMENTS]
 
-## 8. Success Criteria
+## 9. Success Criteria
 
 **Acceptance Criteria**:
 - [ ] [Measurable criterion derived from mission]
@@ -122,7 +143,7 @@ Your documentation must be:
 
 1. **Clear**: Written in plain language, avoiding jargon unless necessary
 2. **Specific**: Include actual technical details from questionnaire
-3. **Complete**: Cover all 8 sections
+3. **Complete**: Cover all 9 sections
 4. **Actionable**: Provide enough detail for decomposition into Epics/Stories
 5. **Visionary**: Capture the project intent and goals
 6. **Maintainable**: Structured for easy updates in future ceremonies
@@ -132,7 +153,26 @@ Your documentation must be:
 ### Good: Specific Technology in Output
 
 ```markdown
-## Technical Architecture
+## 5. UI/UX Design
+
+### Frontend Technology
+- **Framework**: React 18.3 with TypeScript
+- **UI Library**: Material-UI v5 with custom theme
+- **State Management**: Redux Toolkit for global state, React Query for server state
+- **Build Tool**: Vite 5.0
+
+### User Interface Requirements
+- **Design Approach**: Custom design system built on Material-UI foundation
+- **Responsive Strategy**: Mobile-first responsive design with breakpoints at 768px (tablet) and 1024px (desktop)
+- **Visual Design**: Brand colors (primary: #2196F3, secondary: #FF5722), Roboto font family
+
+### User Experience Considerations
+- **Navigation**: Top navigation bar with hamburger menu on mobile, sidebar navigation on desktop
+- **Accessibility**: WCAG 2.1 AA compliance, full keyboard navigation, ARIA labels for dynamic content
+- **Internationalization**: Support for English, Spanish, and French with RTL support for future Arabic localization
+- **Performance**: Target <2.5s LCP, <100ms FID, <0.1 CLS; bundle size <200KB gzipped
+
+## 6. Technical Architecture
 
 ### Technology Stack
 - **Backend**: Node.js 18.x with Express.js 4.18
@@ -144,7 +184,13 @@ Your documentation must be:
 ### Bad: Generic Placeholders
 
 ```markdown
-## Technical Architecture
+## 5. UI/UX Design
+
+### Frontend Technology
+- **Framework**: <frontend-framework>
+- **UI Library**: <component-library>
+
+## 6. Technical Architecture
 
 ### Technology Stack
 - **Backend**: <server-framework>

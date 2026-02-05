@@ -60,4 +60,24 @@ export class ClaudeProvider extends LLMProvider {
       throw new Error(`Failed to parse JSON response: ${error.message}\n\nResponse was:\n${content}`);
     }
   }
+
+  async generateText(prompt, agentInstructions = null) {
+    if (!this._client) {
+      this._client = this._createClient();
+    }
+
+    const fullPrompt = agentInstructions ? `${agentInstructions}\n\n${prompt}` : prompt;
+
+    const response = await this._client.messages.create({
+      model: this.model,
+      max_tokens: 8000,
+      messages: [{
+        role: 'user',
+        content: fullPrompt
+      }]
+    });
+
+    this._trackTokens(response.usage);
+    return response.content[0].text;
+  }
 }

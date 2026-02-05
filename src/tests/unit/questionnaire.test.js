@@ -145,6 +145,8 @@ describe('Questionnaire Feature', () => {
   });
 
   describe('Template Processor - Pre-filled Answers', () => {
+    // No beforeEach needed - TemplateProcessor creates .avc directory automatically via TokenTracker.init()
+
     it('should detect all answers pre-filled', () => {
       const processor = new TemplateProcessor('sponsor-call');
 

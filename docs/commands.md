@@ -32,7 +32,9 @@ Next steps:
 
 Run the Sponsor Call ceremony to define your project with AI assistance.
 
-**Alias:** `/sc`
+**Alias**
+
+`/sc`
 
 **📖 [View detailed ceremony documentation →](ceremonies/sponsor-call.md)**
 
@@ -44,14 +46,16 @@ Run the Sponsor Call ceremony to define your project with AI assistance.
 
 The Sponsor Call ceremony creates your project foundation through an AI-assisted questionnaire. It generates comprehensive documentation and architectural context that serves as the blueprint for your entire project.
 
-**Process Flow:**
+**Process Flow**
+
 1. **Interactive Questionnaire** - 5 questions to capture your project vision
 2. **Generate Documentation** - AI creates structured `doc.md` (8 sections, ~3000-5000 tokens)
 3. **Generate Context** - AI creates architectural `context.md` (~500 tokens)
 4. **Validation** (optional) - AI validators check quality and completeness
 5. **Sync to VitePress** - Documentation auto-synced to `.avc/documentation/index.md`
 
-**AI Agents Used:**
+**AI Agents Used**
+
 - **Suggestion Agents** (if you skip questions): Business Analyst, UX Researcher, Product Manager, Technical Architect, Security Specialist
 - **Documentation Creator**: `project-documentation-creator.md` → Creates 8-section project doc
 - **Context Generator**: `project-context-generator.md` → Creates architectural context
@@ -67,7 +71,8 @@ The Sponsor Call ceremony creates your project foundation through an AI-assisted
 | 4 | Technical Considerations | Technology stack, constraints, or preferences | ✅ |
 | 5 | Security & Compliance Requirements | Regulatory, privacy, or security constraints | ✅ |
 
-**Answering Questions:**
+**Answering Questions**
+
 - **Type your answer** - Multi-line input supported (Enter on empty line to submit)
 - **Skip (Enter twice)** - Uses guideline from config OR AI generates suggestion
 - **Only Mission Statement is mandatory** - All others can be skipped
@@ -76,7 +81,8 @@ The Sponsor Call ceremony creates your project foundation through an AI-assisted
 
 You can pre-configure default answers for any question in `.avc/avc.json`. When you skip a question, AVC first checks for a guideline, then falls back to AI suggestion.
 
-**Configuration Structure:**
+**Configuration Structure**
+
 ```json
 {
   "settings": {
@@ -113,12 +119,14 @@ AWS CodePipeline/CodeBuild for CI/CD deployment.
 
 ### Output Files
 
-**Created:**
+**Created**
+
 - `.avc/project/doc.md` - 8-section project documentation (Mission, Users, Scope, Tech Stack, Architecture, Security, Quality, Success Metrics)
 - `.avc/project/context.md` - Architectural context (~500 tokens, inherited by all work items)
 - `.avc/documentation/index.md` - Auto-synced from `doc.md` for VitePress documentation
 
-**Updated:**
+**Updated**
+
 - `.avc/token-history.json` - Token usage tracking
 - `.avc/ceremonies-history.json` - Ceremony execution history
 
@@ -144,7 +152,8 @@ Enable AI-powered validation to iteratively improve documentation quality:
 }
 ```
 
-**Validation Process:**
+**Validation Process**
+
 1. Validator agent scores documentation (0-100)
 2. If score < threshold → Improvement agent enhances document
 3. Repeat up to `maxIterations` times
@@ -159,7 +168,8 @@ The ceremony tracks and displays:
 - **API calls** - Number of LLM requests
 - **Estimated cost** - Based on model pricing
 
-**Typical Usage:**
+**Typical Usage**
+
 - Without validation: ~15,000-25,000 tokens (~$0.08-$0.13 with Claude Sonnet 4.5)
 - With validation: ~30,000-50,000 tokens (~$0.16-$0.27 with Claude Sonnet 4.5)
 
@@ -199,7 +209,9 @@ Next steps:
 
 Build and serve project documentation as a local website.
 
-**Alias:** `/d`
+**Alias**
+
+`/d`
 
 ```sh
 > /documentation
@@ -217,7 +229,8 @@ The command runs the documentation server as a **background process**, allowing 
 
 The `/documentation` command works with files created during project initialization:
 
-**Source Files:**
+**Source Files**
+
 - `.avc/documentation/index.md` - Main documentation page (auto-synced from `.avc/project/doc.md` during Sponsor Call)
 - `.avc/documentation/.vitepress/config.mts` - VitePress configuration (site title, theme, navigation)
 - `.avc/documentation/public/` - Static assets (images, logos, custom files)
@@ -240,7 +253,9 @@ The documentation server port is configurable in `.avc/avc.json`:
 }
 ```
 
-**Default port:** 4173 (VitePress preview default)
+**Default port**
+
+4173 (VitePress preview default)
 
 ### Port Conflict Handling
 
@@ -302,7 +317,8 @@ The documentation server runs as a managed background process:
 
 ### Troubleshooting
 
-**Port already in use:**
+**Port already in use**
+
 Edit `.avc/avc.json` to change the port:
 ```json
 {
@@ -314,10 +330,12 @@ Edit `.avc/avc.json` to change the port:
 }
 ```
 
-**Documentation not found:**
+**Documentation not found**
+
 Run `/init` first to create the documentation structure.
 
-**Build fails:**
+**Build fails**
+
 Ensure VitePress dependencies are installed:
 ```sh
 npm install vitepress --save-dev

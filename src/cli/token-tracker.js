@@ -54,65 +54,141 @@ export class TokenTracker {
    * Write data to disk atomically
    */
   _writeData(data) {
+    // Ensure directory exists before writing (handles race conditions in tests)
+    if (!fs.existsSync(this.avcPath)) {
+      fs.mkdirSync(this.avcPath, { recursive: true });
+    }
+
     try {
       const tempPath = this.tokenHistoryPath + '.tmp';
       fs.writeFileSync(tempPath, JSON.stringify(data, null, 2), 'utf8');
       fs.renameSync(tempPath, this.tokenHistoryPath);
     } catch (error) {
-      fs.writeFileSync(this.tokenHistoryPath, JSON.stringify(data, null, 2), 'utf8');
+      // Fallback to direct write if atomic write fails
+      try {
+        fs.writeFileSync(this.tokenHistoryPath, JSON.stringify(data, null, 2), 'utf8');
+      } catch (fallbackError) {
+        console.error(`Failed to write token history: ${fallbackError.message}`);
+        console.error(`Path: ${this.tokenHistoryPath}`);
+        throw fallbackError;
+      }
     }
+  }
+
+  /**
+   * Read avc.json configuration
+   */
+  readConfig() {
+    try {
+      const configPath = path.join(this.avcPath, 'avc.json');
+      if (fs.existsSync(configPath)) {
+        return JSON.parse(fs.readFileSync(configPath, 'utf8'));
+      }
+    } catch (error) {
+      console.warn(`Could not read avc.json: ${error.message}`);
+    }
+    return { settings: {} };
+  }
+
+  /**
+   * Calculate cost for token usage based on model pricing
+   * @param {number} inputTokens - Input tokens consumed
+   * @param {number} outputTokens - Output tokens consumed
+   * @param {string} modelId - Model identifier (e.g., 'claude-sonnet-4-5-20250929')
+   * @returns {Object} Cost breakdown { input: number, output: number, total: number }
+   */
+  calculateCost(inputTokens, outputTokens, modelId) {
+    const config = this.readConfig();
+    const modelConfig = config.settings?.models?.[modelId];
+
+    if (!modelConfig || !modelConfig.pricing) {
+      // Model not found or no pricing - return zero cost
+      return { input: 0, output: 0, total: 0 };
+    }
+
+    const pricing = modelConfig.pricing;
+    const divisor = pricing.unit === 'million' ? 1_000_000 : 1_000;
+
+    // Calculate costs (price per unit * tokens / divisor)
+    const inputCost = (pricing.input * inputTokens) / divisor;
+    const outputCost = (pricing.output * outputTokens) / divisor;
+
+    return {
+      input: inputCost,
+      output: outputCost,
+      total: inputCost + outputCost
+    };
   }
 
   /**
    * Add tokens from a completed ceremony execution
    * @param {string} ceremonyType - e.g., 'sponsor-call'
    * @param {Object} tokens - { input, output }
+   * @param {string} modelId - Model identifier (optional)
    */
-  addExecution(ceremonyType, tokens) {
-    this.load();
+  addExecution(ceremonyType, tokens, modelId = null) {
+    try {
+      this.load();
 
-    const now = new Date();
-    const dateKey = now.toISOString().split('T')[0]; // YYYY-MM-DD
-    const weekKey = this._getWeekKey(now);            // YYYY-Www
-    const monthKey = dateKey.substring(0, 7);         // YYYY-MM
-    const timestamp = now.toISOString();
+      const now = new Date();
+      const dateKey = now.toISOString().split('T')[0]; // YYYY-MM-DD
+      const weekKey = this._getWeekKey(now);            // YYYY-Www
+      const monthKey = dateKey.substring(0, 7);         // YYYY-MM
+      const timestamp = now.toISOString();
 
-    const tokenData = {
-      input: tokens.input || 0,
-      output: tokens.output || 0,
-      total: (tokens.input || 0) + (tokens.output || 0)
-    };
-
-    // Update totals (global)
-    this._updateAggregation(this.data.totals, dateKey, weekKey, monthKey, tokenData, timestamp);
-
-    // Update ceremony-specific aggregations
-    if (!this.data[ceremonyType]) {
-      this.data[ceremonyType] = {
-        daily: {},
-        weekly: {},
-        monthly: {},
-        allTime: {
-          input: 0,
-          output: 0,
-          total: 0,
-          executions: 0
-        }
+      const tokenData = {
+        input: tokens.input || 0,
+        output: tokens.output || 0,
+        total: (tokens.input || 0) + (tokens.output || 0)
       };
+
+      // Calculate cost if model provided
+      let costData = null;
+      if (modelId) {
+        costData = this.calculateCost(tokenData.input, tokenData.output, modelId);
+      }
+
+      console.log(`   → Tracking tokens for ${ceremonyType}: ${tokenData.input} input, ${tokenData.output} output`);
+      if (costData && costData.total > 0) {
+        console.log(`   → Estimated cost: $${costData.total.toFixed(4)} (${modelId})`);
+      }
+
+      // Update totals (global)
+      this._updateAggregation(this.data.totals, dateKey, weekKey, monthKey, tokenData, timestamp, costData);
+
+      // Update ceremony-specific aggregations
+      if (!this.data[ceremonyType]) {
+        this.data[ceremonyType] = {
+          daily: {},
+          weekly: {},
+          monthly: {},
+          allTime: {
+            input: 0,
+            output: 0,
+            total: 0,
+            executions: 0,
+            cost: { input: 0, output: 0, total: 0 }
+          }
+        };
+      }
+      this._updateAggregation(this.data[ceremonyType], dateKey, weekKey, monthKey, tokenData, timestamp, costData);
+
+      // Update lastUpdated
+      this.data.lastUpdated = timestamp;
+
+      // Write to disk
+      this._writeData(this.data);
+      console.log(`   → Token history saved to ${this.tokenHistoryPath}`);
+    } catch (error) {
+      console.error(`Failed to add token execution: ${error.message}`);
+      throw error;
     }
-    this._updateAggregation(this.data[ceremonyType], dateKey, weekKey, monthKey, tokenData, timestamp);
-
-    // Update lastUpdated
-    this.data.lastUpdated = timestamp;
-
-    // Write to disk
-    this._writeData(this.data);
   }
 
   /**
    * Update aggregations for a given scope (totals or ceremony-type)
    */
-  _updateAggregation(scope, dateKey, weekKey, monthKey, tokenData, timestamp) {
+  _updateAggregation(scope, dateKey, weekKey, monthKey, tokenData, timestamp, costData = null) {
     // Update daily
     if (!scope.daily[dateKey]) {
       scope.daily[dateKey] = {
@@ -120,13 +196,19 @@ export class TokenTracker {
         input: 0,
         output: 0,
         total: 0,
-        executions: 0
+        executions: 0,
+        cost: { input: 0, output: 0, total: 0 }
       };
     }
     scope.daily[dateKey].input += tokenData.input;
     scope.daily[dateKey].output += tokenData.output;
     scope.daily[dateKey].total += tokenData.total;
     scope.daily[dateKey].executions++;
+    if (costData) {
+      scope.daily[dateKey].cost.input += costData.input;
+      scope.daily[dateKey].cost.output += costData.output;
+      scope.daily[dateKey].cost.total += costData.total;
+    }
 
     // Update weekly
     if (!scope.weekly[weekKey]) {
@@ -135,13 +217,19 @@ export class TokenTracker {
         input: 0,
         output: 0,
         total: 0,
-        executions: 0
+        executions: 0,
+        cost: { input: 0, output: 0, total: 0 }
       };
     }
     scope.weekly[weekKey].input += tokenData.input;
     scope.weekly[weekKey].output += tokenData.output;
     scope.weekly[weekKey].total += tokenData.total;
     scope.weekly[weekKey].executions++;
+    if (costData) {
+      scope.weekly[weekKey].cost.input += costData.input;
+      scope.weekly[weekKey].cost.output += costData.output;
+      scope.weekly[weekKey].cost.total += costData.total;
+    }
 
     // Update monthly
     if (!scope.monthly[monthKey]) {
@@ -150,19 +238,35 @@ export class TokenTracker {
         input: 0,
         output: 0,
         total: 0,
-        executions: 0
+        executions: 0,
+        cost: { input: 0, output: 0, total: 0 }
       };
     }
     scope.monthly[monthKey].input += tokenData.input;
     scope.monthly[monthKey].output += tokenData.output;
     scope.monthly[monthKey].total += tokenData.total;
     scope.monthly[monthKey].executions++;
+    if (costData) {
+      scope.monthly[monthKey].cost.input += costData.input;
+      scope.monthly[monthKey].cost.output += costData.output;
+      scope.monthly[monthKey].cost.total += costData.total;
+    }
 
     // Update all-time
     scope.allTime.input += tokenData.input;
     scope.allTime.output += tokenData.output;
     scope.allTime.total += tokenData.total;
     scope.allTime.executions++;
+
+    // Initialize cost tracking if not present
+    if (!scope.allTime.cost) {
+      scope.allTime.cost = { input: 0, output: 0, total: 0 };
+    }
+    if (costData) {
+      scope.allTime.cost.input += costData.input;
+      scope.allTime.cost.output += costData.output;
+      scope.allTime.cost.total += costData.total;
+    }
 
     if (!scope.allTime.firstExecution) {
       scope.allTime.firstExecution = timestamp;

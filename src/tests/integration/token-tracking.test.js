@@ -34,9 +34,12 @@ describe('Token Tracking Integration', () => {
   });
 
   afterEach(() => {
-    // Clean up test files
-    if (fs.existsSync(testAvcPath)) {
-      fs.rmSync(testAvcPath, { recursive: true, force: true });
+    // Clean up test files (but not the directory, as other tests may use it)
+    if (fs.existsSync(testTokenHistoryPath)) {
+      fs.unlinkSync(testTokenHistoryPath);
+    }
+    if (fs.existsSync(testAvcConfigPath)) {
+      fs.unlinkSync(testAvcConfigPath);
     }
   });
 
