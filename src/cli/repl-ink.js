@@ -2783,14 +2783,15 @@ https://agilevibecoding.org
       );
     }
 
-    // Show spinner while executing - WITH real-time output below
+    // Show spinner while executing - WITH real-time output above
     if (isExecuting) {
       return React.createElement(Box, { flexDirection: 'column', marginY: 1, flexShrink: 0 },
-        React.createElement(LoadingSpinner, { message: executingMessage }),
-        // Show real-time console output below spinner
-        output ? React.createElement(Box, { marginTop: 1 },
+        // Show output first (includes command echo)
+        output ? React.createElement(Box, { marginBottom: 1 },
           React.createElement(Text, null, output)
-        ) : null
+        ) : null,
+        // Show spinner below output
+        React.createElement(LoadingSpinner, { message: executingMessage })
       );
     }
 
