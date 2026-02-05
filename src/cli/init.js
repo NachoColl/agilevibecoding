@@ -723,8 +723,6 @@ If you're new to Agile Vibe Coding, visit the [AVC Documentation](https://agilev
       };
     }
 
-    console.log(`\n🔑 Validating ${mainProvider} API key...`);
-
     // Test the API key with a minimal call
     let result;
     try {
@@ -744,8 +742,6 @@ If you're new to Agile Vibe Coding, visit the [AVC Documentation](https://agilev
         message: `${mainEnvVar} is set but API call failed.\n\n   ${parsedError}\n\n   Get a new API key if needed:\n   • ${urlMap[mainProvider]}`
       };
     }
-
-    console.log(`✓ Main provider API key validated successfully\n`);
 
     // Validate validation provider if enabled and different from main
     if (validationEnabled && validationProvider && validationProvider !== mainProvider) {
@@ -773,8 +769,6 @@ If you're new to Agile Vibe Coding, visit the [AVC Documentation](https://agilev
         };
       }
 
-      console.log(`🔑 Validating ${validationProvider} API key...`);
-
       try {
         result = await LLMProvider.validate(validationProvider, validationModel);
       } catch (error) {
@@ -793,7 +787,6 @@ If you're new to Agile Vibe Coding, visit the [AVC Documentation](https://agilev
         };
       }
 
-      console.log(`✓ Validation provider API key validated successfully\n`);
     }
 
     return { valid: true };
