@@ -212,7 +212,7 @@ The first ceremony creating project documentation and architectural context that
 **Output**
 
 - `.avc/project/project/doc.md` - 8-section project documentation
-- `.avc/project/project/context.md` - Project-level architectural context (~500 tokens)
+- `.avc/project/project/context.md` - Project-level architectural context
 
 **[📖 Read Full Documentation](ceremonies/sponsor-call.md)**
 
@@ -232,8 +232,8 @@ Creates or expands project Epics and Stories with intelligent duplicate detectio
 
 **Output**
 
-- Epic directories: `context-XXXX/` with doc.md, context.md (~800 tokens), work.json
-- Story directories: `context-XXXX-XXXX/` with doc.md, context.md (~1500 tokens), work.json
+- Epic directories: `context-XXXX/` with doc.md, context.md, work.json
+- Story directories: `context-XXXX-XXXX/` with doc.md, context.md, work.json
 
 **[📖 Read Full Documentation](ceremonies/project-expansion.md)**
 
@@ -253,8 +253,8 @@ Decomposes a Story into Tasks (2-5) and Subtasks (1-3 per Task) for implementati
 
 **Output**
 
-- Task directories: `context-XXXX-XXXX-XXXX/` with doc.md, context.md (~1200 tokens), work.json
-- Subtask directories: `context-XXXX-XXXX-XXXX-XXXX/` with doc.md, context.md (~800 tokens), work.json
+- Task directories: `context-XXXX-XXXX-XXXX/` with doc.md, context.md, work.json
+- Subtask directories: `context-XXXX-XXXX-XXXX-XXXX/` with doc.md, context.md, work.json
 
 **Usage**
 

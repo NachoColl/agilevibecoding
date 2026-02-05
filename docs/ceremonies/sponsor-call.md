@@ -74,11 +74,11 @@ When you skip a question, specialized AI agents generate contextual suggestions:
 | Security & Compliance | Security Specialist | Security, privacy, compliance regulations | 150-250 words covering auth, data protection, compliance |
 
 **Agent Files:**
-- `suggestion-business-analyst.md` → [View Agent](/agents/suggestion-business-analyst)
-- `suggestion-ux-researcher.md` → [View Agent](/agents/suggestion-ux-researcher)
-- `suggestion-product-manager.md` → [View Agent](/agents/suggestion-product-manager)
-- `suggestion-technical-architect.md` → [View Agent](/agents/suggestion-technical-architect)
-- `suggestion-security-specialist.md` → [View Agent](/agents/suggestion-security-specialist)
+- [`suggestion-business-analyst.md`](/agents/suggestion-business-analyst)
+- [`suggestion-ux-researcher.md`](/agents/suggestion-ux-researcher)
+- [`suggestion-product-manager.md`](/agents/suggestion-product-manager)
+- [`suggestion-technical-architect.md`](/agents/suggestion-technical-architect)
+- [`suggestion-security-specialist.md`](/agents/suggestion-security-specialist)
 
 ---
 
@@ -103,8 +103,7 @@ graph TD
     K -->|Score >= Threshold| L[5. Write Files]
     J -->|No| L
     L --> M[6. Sync to VitePress]
-    M --> N[7. Track Tokens]
-    N --> O[End]
+    M --> N[End]
 
     style B fill:#e1f5ff
     style F fill:#fff4e1
@@ -141,12 +140,14 @@ graph TD
 
 ### Stage 3: Generate Documentation
 
-**Agent:** `project-documentation-creator.md` → [View Agent](/agents/project-documentation-creator)
+**Agent**
+
+[`project-documentation-creator.md`](/agents/project-documentation-creator)
 
 **What happens:**
 - Sends filled template to LLM
 - Agent instructions guide LLM to create professional 8-section document
-- Output: `.avc/project/doc.md` (~3000-5000 tokens)
+- Output: `.avc/project/doc.md`
 
 **8 Sections Generated**
 
@@ -159,13 +160,11 @@ graph TD
 7. **Integration Requirements** - External systems, APIs, dependencies
 8. **Success Criteria** - Metrics, KPIs, definition of done
 
-**Token Budget**
-
-~3000-5000 tokens
-
 ### Stage 3b: Validation (Optional)
 
-**Agent:** `validator-documentation.md` → [View Agent](/agents/validator-documentation)
+**Agent**
+
+[`validator-documentation.md`](/agents/validator-documentation)
 
 **What happens (if validation enabled):**
 1. Validator scores documentation (0-100)
@@ -193,12 +192,14 @@ graph TD
 
 ### Stage 4: Generate Context
 
-**Agent:** `project-context-generator.md` → [View Agent](/agents/project-context-generator)
+**Agent**
+
+[`project-context-generator.md`](/agents/project-context-generator)
 
 **What happens:**
 - Sends 5 questionnaire answers to LLM
 - Agent instructions guide LLM to create architectural context
-- Output: `.avc/project/context.md` (~500 tokens)
+- Output: `.avc/project/context.md`
 
 **Context Includes:**
 - Technology stack and frameworks
@@ -206,17 +207,15 @@ graph TD
 - Architecture principles and patterns
 - Development standards and conventions
 
-**Token Budget**
-
-~500 tokens
-
 **Inheritance**
 
 This context is inherited by all Epic/Story/Task/Subtask contexts created in later ceremonies
 
 ### Stage 4b: Validation (Optional)
 
-**Agent:** `validator-context.md` → [View Agent](/agents/validator-context)
+**Agent**
+
+[`validator-context.md`](/agents/validator-context)
 
 **What happens (if validation enabled):**
 - Same validation process as documentation
@@ -240,30 +239,6 @@ This context is inherited by all Epic/Story/Task/Subtask contexts created in lat
 - Preserves VitePress-specific formatting
 
 **No AI involved** - File copy operation
-
-### Stage 7: Track Tokens
-
-**What happens:**
-- Collects token usage from all LLM calls
-- Updates `.avc/token-history.json` with aggregated stats:
-  - Daily totals
-  - Weekly totals
-  - Monthly totals
-  - All-time totals
-  - Per-ceremony breakdown
-- Updates `.avc/ceremonies-history.json` with execution record
-- Displays summary to user
-
-**Token Usage Display**
-
-```
-📊 Token Usage:
-   Input: 8,234 tokens
-   Output: 4,521 tokens
-   Total: 12,755 tokens
-   API Calls: 3
-   Estimated Cost: $0.07
-```
 
 ---
 
@@ -376,8 +351,8 @@ Enable AI-powered iterative validation:
 
 ```
 .avc/project/
-├── doc.md              # 8-section project documentation (~4KB)
-└── context.md          # Project-level architectural context (~500 tokens)
+├── doc.md              # 8-section project documentation
+└── context.md          # Project-level architectural context
 
 .avc/documentation/
 └── index.md            # Auto-synced from doc.md (for VitePress)
@@ -387,7 +362,6 @@ Enable AI-powered iterative validation:
 
 ```
 .avc/
-├── token-history.json        # Token usage tracking
 └── ceremonies-history.json   # Ceremony execution history
 ```
 
@@ -399,39 +373,6 @@ The following are created by the **`/project-expansion`** ceremony:
 - Epic/Story `doc.md` files
 - Epic/Story `context.md` files
 - Epic/Story `work.json` metadata files
-
----
-
-## Token Usage & Cost
-
-### Typical Usage
-
-**Without Validation**
-
-- Input tokens: ~8,000-12,000
-- Output tokens: ~5,000-8,000
-- Total: ~15,000-25,000 tokens
-- API calls: 2-3
-- Cost (Claude Sonnet 4.5): ~$0.08-$0.13
-
-**With Validation**
-
-- Input tokens: ~15,000-25,000
-- Output tokens: ~10,000-20,000
-- Total: ~30,000-50,000 tokens
-- API calls: 4-8
-- Cost (Claude Sonnet 4.5): ~$0.16-$0.27
-
-### Cost Breakdown (Claude Sonnet 4.5)
-
-- Input: $3.00 per 1M tokens
-- Output: $15.00 per 1M tokens
-
-**Example (no validation)**
-
-- 10,000 input × $3.00/1M = $0.03
-- 6,000 output × $15.00/1M = $0.09
-- **Total: $0.12**
 
 ---
 
@@ -518,13 +459,6 @@ Files created:
 • .avc/project/context.md
 • .avc/documentation/index.md
 
-📊 Token Usage:
-   Input: 8,234 tokens
-   Output: 4,521 tokens
-   Total: 12,755 tokens
-   API Calls: 3
-   Estimated Cost: $0.07
-
 Next steps:
    1. Review .avc/project/doc.md for your project definition
    2. Run /documentation to view as website
@@ -558,13 +492,7 @@ cat .avc/project/context.md
 # Opens http://localhost:4173
 ```
 
-### 3. Check Token Usage
-
-```bash
-> /tokens
-```
-
-### 4. Proceed to Next Ceremony
+### 3. Proceed to Next Ceremony
 
 **Project Expansion** - Create Epics and Stories:
 ```bash
@@ -631,7 +559,6 @@ cat .avc/logs/sponsor-call-*.log
 Logs include:
 - Full questionnaire responses
 - LLM request/response details
-- Token usage per API call
 - File write operations
 - Error stack traces
 

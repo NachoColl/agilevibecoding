@@ -49,8 +49,8 @@ The Sponsor Call ceremony creates your project foundation through an AI-assisted
 **Process Flow**
 
 1. **Interactive Questionnaire** - 5 questions to capture your project vision
-2. **Generate Documentation** - AI creates structured `doc.md` (8 sections, ~3000-5000 tokens)
-3. **Generate Context** - AI creates architectural `context.md` (~500 tokens)
+2. **Generate Documentation** - AI creates structured `doc.md` (8 sections)
+3. **Generate Context** - AI creates architectural `context.md`
 4. **Validation** (optional) - AI validators check quality and completeness
 5. **Sync to VitePress** - Documentation auto-synced to `.avc/documentation/index.md`
 
@@ -122,12 +122,11 @@ AWS CodePipeline/CodeBuild for CI/CD deployment.
 **Created**
 
 - `.avc/project/doc.md` - 8-section project documentation (Mission, Users, Scope, Tech Stack, Architecture, Security, Quality, Success Metrics)
-- `.avc/project/context.md` - Architectural context (~500 tokens, inherited by all work items)
+- `.avc/project/context.md` - Architectural context (inherited by all work items)
 - `.avc/documentation/index.md` - Auto-synced from `doc.md` for VitePress documentation
 
 **Updated**
 
-- `.avc/token-history.json` - Token usage tracking
 - `.avc/ceremonies-history.json` - Ceremony execution history
 
 ### Validation (Optional)
@@ -159,20 +158,6 @@ Enable AI-powered validation to iteratively improve documentation quality:
 3. Repeat up to `maxIterations` times
 4. Final document must meet threshold or show critical issues
 
-### Token Usage & Cost
-
-The ceremony tracks and displays:
-- **Input tokens** - Prompt + context sent to LLM
-- **Output tokens** - Generated content from LLM
-- **Total tokens** - Sum of input + output
-- **API calls** - Number of LLM requests
-- **Estimated cost** - Based on model pricing
-
-**Typical Usage**
-
-- Without validation: ~15,000-25,000 tokens (~$0.08-$0.13 with Claude Sonnet 4.5)
-- With validation: ~30,000-50,000 tokens (~$0.16-$0.27 with Claude Sonnet 4.5)
-
 ### Output Example
 
 ```
@@ -188,13 +173,6 @@ Files created:
 • .avc/project/doc.md
 • .avc/project/context.md
 • .avc/documentation/index.md
-
-📊 Token Usage:
-   Input: 8,234 tokens
-   Output: 4,521 tokens
-   Total: 12,755 tokens
-   API Calls: 3
-   Estimated Cost: $0.07
 
 Next steps:
    1. Review .avc/project/doc.md for your project definition
