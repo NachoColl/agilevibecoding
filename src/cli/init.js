@@ -596,6 +596,74 @@ If you're new to Agile Vibe Coding, visit the [AVC Documentation](https://agilev
 
 
   /**
+   * Parse and simplify API error messages for better UX
+   * @param {string|object} error - Error from API call
+   * @returns {string} - Human-readable error message
+   */
+  parseApiError(error) {
+    let errorStr = typeof error === 'string' ? error : JSON.stringify(error);
+
+    // Try to parse as JSON to extract meaningful information
+    let errorObj = null;
+    try {
+      errorObj = typeof error === 'object' ? error : JSON.parse(error);
+    } catch (e) {
+      // Not JSON, use as-is
+    }
+
+    // Check for common error patterns
+    if (errorStr.includes('quota') || errorStr.includes('RESOURCE_EXHAUSTED')) {
+      return 'API quota exceeded. You have reached your free tier limit.\n\n   Please check your usage at the provider dashboard or upgrade your plan.';
+    }
+
+    if (errorStr.includes('rate limit') || errorStr.includes('429')) {
+      const retryMatch = errorStr.match(/retry.*?(\d+)\.?\d*s/i);
+      const retryTime = retryMatch ? ` Try again in ${Math.ceil(parseFloat(retryMatch[1]))} seconds.` : '';
+      return `Rate limit exceeded.${retryTime}\n\n   Please wait before making more requests.`;
+    }
+
+    if (errorStr.includes('401') || errorStr.includes('authentication') || errorStr.includes('unauthorized')) {
+      return 'Invalid API key or authentication failed.\n\n   Please verify your API key is correct.';
+    }
+
+    if (errorStr.includes('403') || errorStr.includes('forbidden')) {
+      return 'Access forbidden. Your API key may not have permission for this operation.\n\n   Check your API key permissions or contact support.';
+    }
+
+    if (errorStr.includes('404') || errorStr.includes('not found')) {
+      return 'API endpoint not found. The model or API version may not be available.\n\n   Check that you\'re using a valid model name.';
+    }
+
+    if (errorStr.includes('timeout') || errorStr.includes('ETIMEDOUT')) {
+      return 'Request timed out.\n\n   Check your internet connection and try again.';
+    }
+
+    if (errorStr.includes('ENOTFOUND') || errorStr.includes('DNS')) {
+      return 'Network error: Could not reach API server.\n\n   Check your internet connection.';
+    }
+
+    // Extract just the error message if it's an object with a message field
+    if (errorObj) {
+      if (errorObj.error?.message) {
+        // Take first line or first 150 characters of the message
+        const msg = errorObj.error.message.split('\n')[0];
+        return msg.length > 150 ? msg.substring(0, 150) + '...' : msg;
+      }
+      if (errorObj.message) {
+        const msg = errorObj.message.split('\n')[0];
+        return msg.length > 150 ? msg.substring(0, 150) + '...' : msg;
+      }
+    }
+
+    // Fallback: truncate the error if it's too long
+    if (errorStr.length > 200) {
+      return errorStr.substring(0, 200) + '...\n\n   (Full error logged to console)';
+    }
+
+    return errorStr;
+  }
+
+  /**
    * Validate that the configured provider's API key is present and working
    */
   async validateProviderApiKey() {
@@ -662,17 +730,18 @@ If you're new to Agile Vibe Coding, visit the [AVC Documentation](https://agilev
     try {
       result = await LLMProvider.validate(mainProvider, mainModel);
     } catch (error) {
+      const parsedError = this.parseApiError(error.message || error);
       return {
         valid: false,
-        message: `${mainEnvVar} validation failed.\n\n   Error: ${error.message}\n\n   This could be due to:\n   • Network connectivity issues\n   • API service temporarily unavailable\n   • Invalid API key\n\n   Please check your connection and try again.`
+        message: `${mainEnvVar} validation failed.\n\n   ${parsedError}\n\n   Get a new API key if needed:\n   • ${urlMap[mainProvider]}`
       };
     }
 
     if (!result.valid) {
-      const errorMsg = result.error || 'Unknown error';
+      const parsedError = this.parseApiError(result.error || 'Unknown error');
       return {
         valid: false,
-        message: `${mainEnvVar} is set but API call failed.\n\n   Error: ${errorMsg}\n\n   Steps to fix:\n   1. Verify your API key is correct in .env file\n   2. Check that the key has not expired\n   3. Ensure you have API credits/quota available\n\n   Get a new API key if needed:\n   • ${urlMap[mainProvider]}`
+        message: `${mainEnvVar} is set but API call failed.\n\n   ${parsedError}\n\n   Get a new API key if needed:\n   • ${urlMap[mainProvider]}`
       };
     }
 
@@ -709,17 +778,18 @@ If you're new to Agile Vibe Coding, visit the [AVC Documentation](https://agilev
       try {
         result = await LLMProvider.validate(validationProvider, validationModel);
       } catch (error) {
+        const parsedError = this.parseApiError(error.message || error);
         return {
           valid: false,
-          message: `${validationEnvVar} validation failed.\n\n   Error: ${error.message}\n\n   This could be due to:\n   • Network connectivity issues\n   • API service temporarily unavailable\n   • Invalid API key\n\n   Please check your connection and try again.`
+          message: `${validationEnvVar} validation failed.\n\n   ${parsedError}\n\n   Get a new API key if needed:\n   • ${urlMap[validationProvider]}`
         };
       }
 
       if (!result.valid) {
-        const errorMsg = result.error || 'Unknown error';
+        const parsedError = this.parseApiError(result.error || 'Unknown error');
         return {
           valid: false,
-          message: `${validationEnvVar} is set but API call failed.\n\n   Error: ${errorMsg}\n\n   Steps to fix:\n   1. Verify your API key is correct in .env file\n   2. Check that the key has not expired\n   3. Ensure you have API credits/quota available\n\n   Get a new API key if needed:\n   • ${urlMap[validationProvider]}`
+          message: `${validationEnvVar} is set but API call failed.\n\n   ${parsedError}\n\n   Get a new API key if needed:\n   • ${urlMap[validationProvider]}`
         };
       }
 
