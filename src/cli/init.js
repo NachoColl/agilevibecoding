@@ -610,7 +610,7 @@ If you're new to Agile Vibe Coding, visit the [AVC Documentation](https://agilev
       };
     }
 
-    // Read provider config from avc.json
+    // Read ceremony config
     const config = JSON.parse(fs.readFileSync(this.avcConfigPath, 'utf8'));
     const ceremony = config.settings?.ceremonies?.[0];
 
@@ -621,41 +621,50 @@ If you're new to Agile Vibe Coding, visit the [AVC Documentation](https://agilev
       };
     }
 
-    const providerName = ceremony.provider || 'claude';
-    const modelName = ceremony.defaultModel || 'claude-sonnet-4-5-20250929';
+    const mainProvider = ceremony.provider || 'claude';
+    const mainModel = ceremony.defaultModel || 'claude-sonnet-4-5-20250929';
 
-    // Check which env var is required
+    // Check validation provider if validation is enabled
+    const validationEnabled = ceremony.validation?.enabled !== false;
+    const validationProvider = ceremony.validation?.provider || null;
+    const validationModel = ceremony.validation?.model || null;
+
     const envVarMap = {
       'claude': 'ANTHROPIC_API_KEY',
       'gemini': 'GEMINI_API_KEY'
     };
 
-    const requiredEnvVar = envVarMap[providerName];
-    if (!requiredEnvVar) {
+    const urlMap = {
+      'claude': 'https://console.anthropic.com/settings/keys',
+      'gemini': 'https://aistudio.google.com/app/apikey'
+    };
+
+    // Validate main provider
+    const mainEnvVar = envVarMap[mainProvider];
+    if (!mainEnvVar) {
       return {
         valid: false,
-        message: `Unknown provider "${providerName}".\n   Supported providers: claude, gemini`
+        message: `Unknown provider "${mainProvider}".\n   Supported providers: claude, gemini`
       };
     }
 
-    // Check if API key is set in environment
-    if (!process.env[requiredEnvVar]) {
+    if (!process.env[mainEnvVar]) {
       return {
         valid: false,
-        message: `${requiredEnvVar} not found in .env file.\n\n   Steps to fix:\n   1. Open .env file in the current directory\n   2. Add your API key: ${requiredEnvVar}=your-key-here\n   3. Save the file and run /init again\n\n   Get your API key:\n   ${providerName === 'claude' ? '• https://console.anthropic.com/settings/keys' : '• https://aistudio.google.com/app/apikey'}`
+        message: `${mainEnvVar} not found in .env file.\n\n   Steps to fix:\n   1. Open .env file in the current directory\n   2. Add your API key: ${mainEnvVar}=your-key-here\n   3. Save the file and run /sponsor-call again\n\n   Get your API key:\n   • ${urlMap[mainProvider]}`
       };
     }
 
-    console.log(`\n🔑 Validating ${providerName} API key...`);
+    console.log(`\n🔑 Validating ${mainProvider} API key...`);
 
     // Test the API key with a minimal call
     let result;
     try {
-      result = await LLMProvider.validate(providerName, modelName);
+      result = await LLMProvider.validate(mainProvider, mainModel);
     } catch (error) {
       return {
         valid: false,
-        message: `${requiredEnvVar} validation failed.\n\n   Error: ${error.message}\n\n   This could be due to:\n   • Network connectivity issues\n   • API service temporarily unavailable\n   • Invalid API key\n\n   Please check your connection and try again.`
+        message: `${mainEnvVar} validation failed.\n\n   Error: ${error.message}\n\n   This could be due to:\n   • Network connectivity issues\n   • API service temporarily unavailable\n   • Invalid API key\n\n   Please check your connection and try again.`
       };
     }
 
@@ -663,11 +672,60 @@ If you're new to Agile Vibe Coding, visit the [AVC Documentation](https://agilev
       const errorMsg = result.error || 'Unknown error';
       return {
         valid: false,
-        message: `${requiredEnvVar} is set but API call failed.\n\n   Error: ${errorMsg}\n\n   Steps to fix:\n   1. Verify your API key is correct in .env file\n   2. Check that the key has not expired\n   3. Ensure you have API credits/quota available\n\n   Get a new API key if needed:\n   ${providerName === 'claude' ? '• https://console.anthropic.com/settings/keys' : '• https://aistudio.google.com/app/apikey'}`
+        message: `${mainEnvVar} is set but API call failed.\n\n   Error: ${errorMsg}\n\n   Steps to fix:\n   1. Verify your API key is correct in .env file\n   2. Check that the key has not expired\n   3. Ensure you have API credits/quota available\n\n   Get a new API key if needed:\n   • ${urlMap[mainProvider]}`
       };
     }
 
-    console.log(`✓ API key validated successfully\n`);
+    console.log(`✓ Main provider API key validated successfully\n`);
+
+    // Validate validation provider if enabled and different from main
+    if (validationEnabled && validationProvider && validationProvider !== mainProvider) {
+      const validationEnvVar = envVarMap[validationProvider];
+
+      if (!validationEnvVar) {
+        return {
+          valid: false,
+          message: `Unknown validation provider "${validationProvider}".\n   Supported providers: claude, gemini`
+        };
+      }
+
+      if (!process.env[validationEnvVar]) {
+        // Enhanced error message with 3 options
+        return {
+          valid: false,
+          validationProviderMissing: true,
+          ceremonyConfig: {
+            mainProvider,
+            mainModel,
+            validationProvider,
+            validationModel
+          },
+          message: `Validation Provider API Key Missing\n\nYour ceremony is configured to use:\n  • Generation: ${mainProvider} (${mainModel}) ✓\n  • Validation: ${validationProvider} (${validationModel}) ✗ (${validationEnvVar} not found)\n\nYou have 3 options:\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\nOption 1: Add the missing API key\n\n  1. Get API key: ${urlMap[validationProvider]}\n  2. Add to .env file: ${validationEnvVar}=your-key-here\n  3. Run /sponsor-call again\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\nOption 2: Disable validation (faster, lower quality)\n\n  1. Edit .avc/avc.json\n  2. Find "sponsor-call" ceremony config\n  3. Set:\n     "validation": {\n       "enabled": false\n     }\n  4. Run /sponsor-call again\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\nOption 3: Use same provider for validation (simpler setup)\n\n  1. Edit .avc/avc.json\n  2. Find "sponsor-call" ceremony config\n  3. Change:\n     "validation": {\n       "enabled": true,\n       "provider": "${mainProvider}",\n       "model": "${mainModel}"\n     }\n  4. Run /sponsor-call again\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`
+        };
+      }
+
+      console.log(`🔑 Validating ${validationProvider} API key...`);
+
+      try {
+        result = await LLMProvider.validate(validationProvider, validationModel);
+      } catch (error) {
+        return {
+          valid: false,
+          message: `${validationEnvVar} validation failed.\n\n   Error: ${error.message}\n\n   This could be due to:\n   • Network connectivity issues\n   • API service temporarily unavailable\n   • Invalid API key\n\n   Please check your connection and try again.`
+        };
+      }
+
+      if (!result.valid) {
+        const errorMsg = result.error || 'Unknown error';
+        return {
+          valid: false,
+          message: `${validationEnvVar} is set but API call failed.\n\n   Error: ${errorMsg}\n\n   Steps to fix:\n   1. Verify your API key is correct in .env file\n   2. Check that the key has not expired\n   3. Ensure you have API credits/quota available\n\n   Get a new API key if needed:\n   • ${urlMap[validationProvider]}`
+        };
+      }
+
+      console.log(`✓ Validation provider API key validated successfully\n`);
+    }
+
     return { valid: true };
   }
 
