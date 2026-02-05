@@ -2276,29 +2276,13 @@ https://agilevibecoding.org
       const isPaste = inputChar.includes('\n') || inputChar.includes('\r') || inputChar.length > 50;
 
       if (isPaste) {
-        // DEBUG: Log raw paste input
-        console.log('\n=== PASTE DEBUG ===');
-        console.log('Length:', inputChar.length);
-        console.log('First 100 chars:', inputChar.substring(0, 100));
-        console.log('Has \\n:', inputChar.includes('\n'));
-        console.log('Has \\r:', inputChar.includes('\r'));
-        console.log('Char codes (first 200):', Array.from(inputChar.substring(0, 200)).map(c => c.charCodeAt(0)).join(','));
-
         // Split by newlines - handle all line ending types
         // Use a regex that matches \r\n, \n, or \r as line separators
         let pastedLines = inputChar.split(/\r\n|\r|\n/);
 
-        console.log('After split:', pastedLines.length, 'lines');
-        pastedLines.forEach((line, idx) => {
-          console.log(`  [${idx}] "${line.substring(0, 50)}..." (${line.length} chars)`);
-        });
-
         // Remove empty lines (but this also removes intentional blank lines)
         // Only remove if they're truly empty after trimming
         pastedLines = pastedLines.filter(line => line.trim().length > 0);
-
-        console.log('After filter:', pastedLines.length, 'lines');
-        console.log('===================\n');
 
         // Use functional setState to avoid race conditions with rapid paste input
         setCurrentAnswer(prevLines => {
