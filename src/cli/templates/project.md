@@ -1,4 +1,4 @@
-You will be helping to create a comprehensive software application definition document. This document will serve as a foundational specification that can later be broken down into domain-specific details and related prompts for development agents.
+You will be helping to create a comprehensive Project Brief. This document will serve as a foundational specification that can later be broken down into domain-specific details and related prompts for development agents.
 
 ## Project Information
 
@@ -39,7 +39,7 @@ In your scratchpad, consider:
 - What are the primary user journeys through the application?
 </scratchpad>
 
-Now, create a comprehensive application definition that includes the following sections:
+Now, create a comprehensive Project Brief that includes the following sections:
 
 1. **Application Overview**: A clear, concise summary of what the application does and its primary purpose
 
@@ -66,6 +66,6 @@ Now, create a comprehensive application definition that includes the following s
 
 9. **Success Criteria**: Define what success looks like for this application
 
-Your final output should be a complete, well-structured application definition document that provides enough detail to serve as a foundation for creating domain-specific specifications and work items for AI agents, while remaining at a high enough level to give a comprehensive view of the entire application.
+Your final output should be a complete, well-structured Project Brief that provides enough detail to serve as a foundation for creating domain-specific specifications and work items for AI agents, while remaining at a high enough level to give a comprehensive view of the entire project.
 
 Use clear markdown formatting with headers, bullet points, and emphasis where appropriate. Do not include the scratchpad in your final output - only include the sections listed above.

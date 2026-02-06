@@ -80,11 +80,11 @@ project/
 
 ### Context Scopes (context.md files)
 
-A context scope is the minimal set of information required for LLM models to properly implement the work item (in singular) closer to it or the 
+A context scope is the minimal set of information required for LLM models to properly implement the work item (in singular) closer to it.
 
 ### Documentation Scopes (doc.md files)
 
-A documentation item is a project documentation related to the work item closer to it.
+A documentation item contains project documentation related to the work item closer to it.
 
 ### Work Item
 
