@@ -74,7 +74,7 @@ describe('TemplateProcessor with LLM Integration', () => {
       expect(createSpy).toHaveBeenCalledWith('gemini', 'gemini-2.5-flash');
     });
 
-    it('handles missing API key gracefully', async () => {
+    it('handles missing API key by throwing error', async () => {
       delete process.env.ANTHROPIC_API_KEY;
 
       const processor = new TemplateProcessor('sponsor-call');
@@ -84,13 +84,11 @@ describe('TemplateProcessor with LLM Integration', () => {
         new Error('ANTHROPIC_API_KEY not set')
       );
 
-      const result = await processor.initializeLLMProvider();
-
-      expect(result).toBeNull();
+      await expect(processor.initializeLLMProvider()).rejects.toThrow('ANTHROPIC_API_KEY not set');
     });
 
     it('logs warning when provider initialization fails', async () => {
-      const warnSpy = vi.spyOn(console, 'log');
+      const logSpy = vi.spyOn(console, 'log');
 
       delete process.env.ANTHROPIC_API_KEY;
 
@@ -101,9 +99,13 @@ describe('TemplateProcessor with LLM Integration', () => {
         new Error('ANTHROPIC_API_KEY not set')
       );
 
-      await processor.initializeLLMProvider();
+      try {
+        await processor.initializeLLMProvider();
+      } catch (error) {
+        // Expected to throw
+      }
 
-      expect(warnSpy).toHaveBeenCalledWith(
+      expect(logSpy).toHaveBeenCalledWith(
         expect.stringContaining('Could not initialize')
       );
     });

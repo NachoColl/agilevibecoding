@@ -186,24 +186,26 @@ describe('ProjectInitiator', () => {
       expect(result.message).toContain('Supported providers: claude, gemini');
     });
 
-    it('logs validation message when checking API key', async () => {
-      const logSpy = vi.spyOn(console, 'log');
+    it('returns valid result when API key validation succeeds', async () => {
       const { LLMProvider } = await import('../../cli/llm-provider.js');
       vi.spyOn(LLMProvider, 'validate').mockResolvedValue({ valid: true });
 
-      await initiator.validateProviderApiKey();
+      const result = await initiator.validateProviderApiKey();
 
-      expect(logSpy).toHaveBeenCalledWith(expect.stringContaining('Validating claude API key'));
+      expect(result.valid).toBe(true);
     });
 
-    it('logs success message when validation passes', async () => {
-      const logSpy = vi.spyOn(console, 'log');
+    it('returns error message when validation fails', async () => {
       const { LLMProvider } = await import('../../cli/llm-provider.js');
-      vi.spyOn(LLMProvider, 'validate').mockResolvedValue({ valid: true });
+      vi.spyOn(LLMProvider, 'validate').mockResolvedValue({
+        valid: false,
+        error: 'Invalid API key'
+      });
 
-      await initiator.validateProviderApiKey();
+      const result = await initiator.validateProviderApiKey();
 
-      expect(logSpy).toHaveBeenCalledWith(expect.stringContaining('API key validated successfully'));
+      expect(result.valid).toBe(false);
+      expect(result.message).toBeDefined();
     });
   });
 

@@ -255,9 +255,7 @@ describe('ProjectInitiator with Provider Integration', () => {
       expect(validateSpy).toHaveBeenCalledWith('claude', 'claude-sonnet-4-5-20250929');
     });
 
-    it('logs validation progress', async () => {
-      const logSpy = vi.spyOn(console, 'log');
-
+    it('returns valid result when API key validation succeeds', async () => {
       const initiator = new ProjectInitiator(testProjectPath);
 
       vi.spyOn(fs, 'existsSync').mockReturnValue(true);
@@ -275,14 +273,9 @@ describe('ProjectInitiator with Provider Integration', () => {
 
       vi.spyOn(LLMProvider, 'validate').mockResolvedValue({ valid: true });
 
-      await initiator.validateProviderApiKey();
+      const result = await initiator.validateProviderApiKey();
 
-      expect(logSpy).toHaveBeenCalledWith(
-        expect.stringContaining('Validating claude API key')
-      );
-      expect(logSpy).toHaveBeenCalledWith(
-        expect.stringContaining('API key validated successfully')
-      );
+      expect(result.valid).toBe(true);
     });
   });
 });
