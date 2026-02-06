@@ -23,6 +23,7 @@ class ProjectInitiator {
   constructor(projectRoot = null) {
     this.projectRoot = projectRoot || process.cwd();
     this.avcDir = path.join(this.projectRoot, '.avc');
+    this.srcDir = path.join(this.projectRoot, '.src');
     this.avcConfigPath = path.join(this.avcDir, 'avc.json');
     // Progress files are ceremony-specific
     this.initProgressPath = path.join(this.avcDir, 'init-progress.json');
@@ -111,6 +112,26 @@ class ProjectInitiator {
       return true;
     }
     console.log('✓ .avc/ folder already exists');
+    return false;
+  }
+
+  /**
+   * Check if .src folder exists
+   */
+  hasSrcFolder() {
+    return fs.existsSync(this.srcDir);
+  }
+
+  /**
+   * Create .src folder for AVC-managed code
+   */
+  createSrcFolder() {
+    if (!this.hasSrcFolder()) {
+      fs.mkdirSync(this.srcDir, { recursive: true });
+      console.log('✓ Created .src/ folder (for AVC-managed code)');
+      return true;
+    }
+    console.log('✓ .src/ folder already exists');
     return false;
   }
 
@@ -865,6 +886,7 @@ If you're new to Agile Vibe Coding, visit the [AVC Documentation](https://agilev
     try {
       // Create project structure silently
       this.createAvcFolder();
+      this.createSrcFolder();
       this.createAvcConfig();
       this.createEnvFile();
       this.addToGitignore();
@@ -1193,6 +1215,7 @@ If you're new to Agile Vibe Coding, visit the [AVC Documentation](https://agilev
 
     console.log('Components:');
     console.log(`  .avc/ folder:   ${this.hasAvcFolder() ? '✓' : '✗'}`);
+    console.log(`  .src/ folder:   ${this.hasSrcFolder() ? '✓' : '✗'}`);
     console.log(`  avc.json:       ${this.hasAvcConfig() ? '✓' : '✗'}`);
 
     console.log(`\nStatus: ${this.isAvcProject() ? '✅ Initialized' : '⚠️  Not initialized'}`);
@@ -1243,6 +1266,13 @@ If you're new to Agile Vibe Coding, visit the [AVC Documentation](https://agilev
       console.log('You may want to manually remove API keys if no longer needed.\n');
     }
 
+    // Check for .src folder
+    const hasSrcFolder = this.hasSrcFolder();
+    if (hasSrcFolder) {
+      console.log('✅ IMPORTANT: The .src/ folder will NOT be deleted.');
+      console.log('All your AVC-managed code will be preserved.\n');
+    }
+
     // Check if running in REPL mode
     const isReplMode = process.env.AVC_REPL_MODE === 'true';
 
@@ -1290,16 +1320,24 @@ If you're new to Agile Vibe Coding, visit the [AVC Documentation](https://agilev
             });
             console.log('');
 
-            // Reminder about .env file
-            if (hasEnvFile) {
-              console.log('ℹ️  Manual cleanup reminder:\n');
-              console.log('The .env file was NOT deleted and still contains:');
-              console.log('   • ANTHROPIC_API_KEY');
-              console.log('   • GEMINI_API_KEY');
-              console.log('   • (and any other API keys you added)\n');
-              console.log('If these API keys are not used elsewhere in your project,');
-              console.log('you may want to manually delete the .env file or remove');
-              console.log('the unused keys.\n');
+            // Reminder about preserved files
+            if (hasEnvFile || hasSrcFolder) {
+              console.log('ℹ️  Preserved files:\n');
+
+              if (hasEnvFile) {
+                console.log('The .env file was NOT deleted and still contains:');
+                console.log('   • ANTHROPIC_API_KEY');
+                console.log('   • GEMINI_API_KEY');
+                console.log('   • (and any other API keys you added)');
+                console.log('If these API keys are not used elsewhere in your project,');
+                console.log('you may want to manually delete the .env file or remove');
+                console.log('the unused keys.\n');
+              }
+
+              if (hasSrcFolder) {
+                console.log('✅ The .src/ folder was NOT deleted.');
+                console.log('All your AVC-managed code has been preserved.\n');
+              }
             }
 
             console.log('✅ AVC project structure has been completely removed.\n');

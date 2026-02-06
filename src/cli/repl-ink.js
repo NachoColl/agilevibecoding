@@ -1838,15 +1838,26 @@ https://agilevibecoding.org
       });
       logs.push('');
 
-      // Check for .env file
+      // Check for preserved files
       const path = await import('path');
       const envPath = path.join(initiator.projectRoot, '.env');
-      if (fs.existsSync(envPath)) {
-        logs.push('ℹ️  Manual cleanup reminder:\n');
-        logs.push('   The .env file was NOT deleted and still contains:');
-        logs.push('   • ANTHROPIC_API_KEY');
-        logs.push('   • GEMINI_API_KEY');
-        logs.push('   • (and any other API keys you added)\n');
+      const hasEnvFile = fs.existsSync(envPath);
+      const hasSrcFolder = initiator.hasSrcFolder();
+
+      if (hasEnvFile || hasSrcFolder) {
+        logs.push('ℹ️  Preserved files:\n');
+
+        if (hasEnvFile) {
+          logs.push('   The .env file was NOT deleted and still contains:');
+          logs.push('   • ANTHROPIC_API_KEY');
+          logs.push('   • GEMINI_API_KEY');
+          logs.push('   • (and any other API keys you added)\n');
+        }
+
+        if (hasSrcFolder) {
+          logs.push('✅ The .src/ folder was NOT deleted.');
+          logs.push('   All your AVC-managed code has been preserved.\n');
+        }
       }
 
       logs.push('✅ AVC project structure has been completely removed.\n');
