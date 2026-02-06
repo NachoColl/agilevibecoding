@@ -434,9 +434,10 @@ GEMINI_API_KEY=
   }
 
   /**
-   * Create VitePress documentation setup
+   * Create VitePress documentation structure (folders and config files)
+   * Note: VitePress is bundled with AVC, no need to modify user's package.json
    */
-  createVitePressSetup() {
+  createVitePressStructure() {
     const docsDir = path.join(this.avcDir, 'documentation');
     const vitepressDir = path.join(docsDir, '.vitepress');
     const publicDir = path.join(docsDir, 'public');
@@ -508,72 +509,6 @@ If you're new to Agile Vibe Coding, visit the [AVC Documentation](https://agilev
       console.log('✓ Created .avc/documentation/index.md');
     } else {
       console.log('✓ .avc/documentation/index.md already exists');
-    }
-
-    // Update package.json with VitePress scripts
-    this.updatePackageJsonForVitePress();
-  }
-
-  /**
-   * Update package.json with VitePress dependencies and scripts
-   */
-  updatePackageJsonForVitePress() {
-    const packagePath = path.join(this.projectRoot, 'package.json');
-
-    let packageJson;
-    if (fs.existsSync(packagePath)) {
-      packageJson = JSON.parse(fs.readFileSync(packagePath, 'utf8'));
-    } else {
-      packageJson = {
-        name: this.getProjectName(),
-        version: '1.0.0',
-        private: true
-      };
-    }
-
-    // Add scripts
-    if (!packageJson.scripts) {
-      packageJson.scripts = {};
-    }
-
-    const scriptsToAdd = {
-      'docs:dev': 'vitepress dev .avc/documentation',
-      'docs:build': 'vitepress build .avc/documentation',
-      'docs:preview': 'vitepress preview .avc/documentation'
-    };
-
-    let addedScripts = [];
-    for (const [name, command] of Object.entries(scriptsToAdd)) {
-      if (!packageJson.scripts[name]) {
-        packageJson.scripts[name] = command;
-        addedScripts.push(name);
-      }
-    }
-
-    // Add devDependencies
-    if (!packageJson.devDependencies) {
-      packageJson.devDependencies = {};
-    }
-
-    let addedDeps = false;
-    if (!packageJson.devDependencies.vitepress) {
-      packageJson.devDependencies.vitepress = '^1.6.4';
-      addedDeps = true;
-    }
-
-    // Write package.json
-    fs.writeFileSync(packagePath, JSON.stringify(packageJson, null, 2) + '\n', 'utf8');
-
-    if (addedScripts.length > 0 || addedDeps) {
-      console.log('✓ Updated package.json with VitePress configuration');
-      if (addedScripts.length > 0) {
-        console.log(`  Added scripts: ${addedScripts.join(', ')}`);
-      }
-      if (addedDeps) {
-        console.log('  Added devDependency: vitepress');
-      }
-    } else {
-      console.log('✓ package.json already has VitePress configuration');
     }
   }
 
@@ -890,7 +825,7 @@ If you're new to Agile Vibe Coding, visit the [AVC Documentation](https://agilev
       this.createAvcConfig();
       this.createEnvFile();
       this.addToGitignore();
-      this.createVitePressSetup();
+      this.createVitePressStructure();
     } finally {
       console.log = originalLog;
     }
