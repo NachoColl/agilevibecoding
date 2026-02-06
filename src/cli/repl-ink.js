@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { render, Box, Text, useInput, useApp } from 'ink';
 import SelectInput from 'ink-select-input';
 import Spinner from 'ink-spinner';
@@ -181,8 +181,9 @@ const QuestionDisplay = ({ question, index, total, editMode }) => {
 };
 
 // Multi-line input component with line numbers and character count
-const MultiLineInput = ({ lines, showCharCount = true, justPasted = false }) => {
-  // Log what we're about to render
+// Memoized to prevent unnecessary re-renders when props haven't changed
+const MultiLineInput = React.memo(({ lines, showCharCount = true }) => {
+  // Early return for empty lines (no memoization needed)
   if (lines.length === 0) {
     return React.createElement(Box, { flexDirection: 'column', flexShrink: 0 },
       React.createElement(Text, { dimColor: true },
@@ -191,13 +192,25 @@ const MultiLineInput = ({ lines, showCharCount = true, justPasted = false }) => 
     );
   }
 
-  const totalChars = lines.join('\n').length;
+  // Memoize character count calculation (only recalculate when lines change)
+  const totalChars = useMemo(() =>
+    lines.join('\n').length,
+    [lines]
+  );
 
-  // Show last N lines to fit in viewport (with indicator if more lines exist)
-  const maxVisibleLines = 15; // Show up to 15 lines
-  const hasMoreLines = lines.length > maxVisibleLines;
-  const visibleLines = hasMoreLines ? lines.slice(-maxVisibleLines) : lines;
-  const hiddenCount = lines.length - visibleLines.length;
+  // Memoize visible lines calculation (only recalculate when lines change)
+  const { visibleLines, hasMoreLines, hiddenCount } = useMemo(() => {
+    const maxVisibleLines = 15; // Show up to 15 lines
+    const hasMore = lines.length > maxVisibleLines;
+    const visible = hasMore ? lines.slice(-maxVisibleLines) : lines;
+    const hidden = lines.length - visible.length;
+
+    return {
+      visibleLines: visible,
+      hasMoreLines: hasMore,
+      hiddenCount: hidden
+    };
+  }, [lines]);
 
   return React.createElement(Box, { flexDirection: 'column', flexShrink: 0 },
     hasMoreLines && React.createElement(Text, { dimColor: true },
@@ -219,7 +232,7 @@ const MultiLineInput = ({ lines, showCharCount = true, justPasted = false }) => 
       )
     )
   );
-};
+});
 
 // Questionnaire progress component
 const QuestionnaireProgress = ({ current, total, answers, lastSave }) => {
@@ -892,7 +905,14 @@ const App = () => {
   const [lastAutoSave, setLastAutoSave] = useState(null);
   const [editingQuestionIndex, setEditingQuestionIndex] = useState(-1);
   const [isEditingFromPreview, setIsEditingFromPreview] = useState(false);
-  const [justPasted, setJustPasted] = useState(false);
+
+  // Paste placeholder state
+  const [pastedContent, setPastedContent] = useState({}); // { questionKey: fullContent }
+  const [isPasted, setIsPasted] = useState({}); // { questionKey: boolean }
+
+  // Paste buffer for accumulating chunks (useRef to avoid re-renders)
+  const pasteBuffer = useRef([]);
+  const pasteTimer = useRef(null);
 
   // Cursor position for multi-line editing
   const [cursorLine, setCursorLine] = useState(0);
@@ -2198,8 +2218,43 @@ https://agilevibecoding.org
 
         // Two consecutive empty lines = done with this answer
         if (newEmptyCount >= 1) {
-          const answerText = currentAnswer.slice(0, -1).join('\n').trim();
-          saveQuestionnaireAnswer(currentQuestion.key, answerText);
+          // Combine pasted content with typed content
+          const questionKey = currentQuestion.key;
+          const hasPastedContent = isPasted[questionKey];
+          const typedLines = currentAnswer.slice(0, -1); // Remove last empty line
+
+          // Filter out placeholder lines (they start with "[pasted text")
+          const nonPlaceholderLines = typedLines.filter(line => !line.startsWith('[pasted text'));
+          const typedContent = nonPlaceholderLines.join('\n').trim();
+
+          let finalAnswer = '';
+
+          if (hasPastedContent) {
+            const pastedContentStr = pastedContent[questionKey] || '';
+            if (typedContent) {
+              // Combine pasted and typed content
+              finalAnswer = pastedContentStr + '\n\n' + typedContent;
+            } else {
+              // Only pasted content
+              finalAnswer = pastedContentStr;
+            }
+
+            // Clear paste state
+            setPastedContent(prev => {
+              const newState = { ...prev };
+              delete newState[questionKey];
+              return newState;
+            });
+            setIsPasted(prev => ({
+              ...prev,
+              [questionKey]: false
+            }));
+          } else {
+            // Only typed content (no paste)
+            finalAnswer = typedContent;
+          }
+
+          saveQuestionnaireAnswer(currentQuestion.key, finalAnswer);
           moveToNextQuestion();
           return;
         }
@@ -2223,6 +2278,27 @@ https://agilevibecoding.org
 
     // Handle Backspace
     if (key.backspace || key.delete) {
+      const questionKey = questionnaireQuestions[currentQuestionIndex].key;
+
+      // If current answer is a pasted placeholder, clear it entirely
+      if (isPasted[questionKey]) {
+        React.startTransition(() => {
+          setPastedContent(prev => {
+            const newState = { ...prev };
+            delete newState[questionKey];
+            return newState;
+          });
+          setIsPasted(prev => ({
+            ...prev,
+            [questionKey]: false
+          }));
+          setCurrentAnswer([]);
+          setCursorLine(0);
+          setCursorChar(0);
+        });
+        return;
+      }
+
       if (cursorChar > 0) {
         // Delete character before cursor on current line
         const newLines = [...currentAnswer];
@@ -2250,8 +2326,18 @@ https://agilevibecoding.org
       if (isEditingFromPreview) {
         // Save the edited answer before returning to preview
         const currentQuestion = questionnaireQuestions[currentQuestionIndex];
-        const answerText = currentAnswer.join('\n').trim();
-        saveQuestionnaireAnswer(currentQuestion.key, answerText || null);
+
+        // Check if this question has pasted content
+        let finalAnswer;
+        if (isPasted[currentQuestion.key]) {
+          // Use full pasted content (not the placeholder)
+          finalAnswer = pastedContent[currentQuestion.key];
+        } else {
+          // Use typed content
+          finalAnswer = currentAnswer.join('\n').trim();
+        }
+
+        saveQuestionnaireAnswer(currentQuestion.key, finalAnswer || null);
 
         setIsEditingFromPreview(false);
         setEditingQuestionIndex(-1);
@@ -2271,74 +2357,123 @@ https://agilevibecoding.org
 
     // Regular character input (handles both typing and paste)
     if (inputChar && !key.ctrl && !key.meta) {
-      // Check if input contains newlines (paste operation)
-      // Also check for carriage returns and large character count
-      const isPaste = inputChar.includes('\n') || inputChar.includes('\r') || inputChar.length > 50;
+      const questionKey = questionnaireQuestions[currentQuestionIndex].key;
 
-      if (isPaste) {
-        // Split by newlines - handle all line ending types
-        // Use a regex that matches \r\n, \n, or \r as line separators
-        let pastedLines = inputChar.split(/\r\n|\r|\n/);
+      // PASTE CHUNK ACCUMULATION STRATEGY:
+      // Paste often arrives in multiple chunks. Buffer ALL input and use
+      // adaptive timeouts to detect when paste is complete.
 
-        // Remove empty lines (but this also removes intentional blank lines)
-        // Only remove if they're truly empty after trimming
-        pastedLines = pastedLines.filter(line => line.trim().length > 0);
+      // Add to buffer (always, even single chars)
+      pasteBuffer.current.push(inputChar);
 
-        // Use functional setState to avoid race conditions with rapid paste input
-        setCurrentAnswer(prevLines => {
-          const lastLineIndex = prevLines.length - 1;
-          const lastLine = prevLines[lastLineIndex] || '';
-
-          // Pre-calculate the final line count
-          const finalLineCount = prevLines.length === 0 ? pastedLines.length : prevLines.length + pastedLines.length - 1;
-
-          // Pre-expand array to final size with empty strings
-          const newLines = new Array(finalLineCount).fill('');
-
-          // Copy existing lines
-          for (let i = 0; i < prevLines.length; i++) {
-            newLines[i] = prevLines[i];
-          }
-
-          // Now fill in pasted content
-          if (prevLines.length === 0) {
-            // Empty answer - just copy all pasted lines
-            for (let i = 0; i < pastedLines.length; i++) {
-              newLines[i] = pastedLines[i];
-            }
-          } else {
-            // Append first pasted line to current line
-            newLines[lastLineIndex] = lastLine + pastedLines[0];
-
-            // Add remaining pasted lines
-            for (let i = 1; i < pastedLines.length; i++) {
-              newLines[lastLineIndex + i] = pastedLines[i];
-            }
-          }
-
-          return newLines;
-        });
-
-        // Move cursor to end of pasted content
-        setCursorLine(pastedLines.length - 1);
-        setCursorChar(pastedLines[pastedLines.length - 1].length);
-
-        setEmptyLineCount(0);
-      } else {
-        // Single character input (typing)
-        // Insert at cursor position
-        const newLines = [...currentAnswer];
-        if (newLines.length === 0) {
-          newLines.push(inputChar);
-          setCursorChar(1);
-        } else {
-          const line = newLines[cursorLine] || '';
-          newLines[cursorLine] = line.slice(0, cursorChar) + inputChar + line.slice(cursorChar);
-          setCursorChar(prev => prev + 1);
-        }
-        setCurrentAnswer(newLines);
-        setEmptyLineCount(0);
+      // Clear existing timer
+      if (pasteTimer.current) {
+        clearTimeout(pasteTimer.current);
       }
+
+      // Adaptive timeout:
+      // - Multi-char input (> 5): likely paste chunk, wait 100ms for more
+      // - Small input (1-5 chars): might be fast typing, wait 20ms
+      const isPotentialPaste = inputChar.length > 5 || inputChar.includes('\n') || inputChar.includes('\r');
+      const timeout = isPotentialPaste ? 100 : 20;
+
+      // Set timer to process buffer after timeout
+      pasteTimer.current = setTimeout(() => {
+          // Combine all buffered chunks
+          const combinedContent = pasteBuffer.current.join('');
+          pasteBuffer.current = []; // Clear buffer
+
+          // Check if combined content is a paste
+          const isPasteEvent = combinedContent.length > 50 || combinedContent.includes('\n') || combinedContent.includes('\r');
+
+          if (isPasteEvent) {
+            // PASTE DETECTED - Use placeholder strategy
+            // Normalize line endings: convert \r\n and \r to \n
+            const fullContent = combinedContent.trim().replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+
+            // Extract first line for preview
+            const allLines = fullContent.split(/\r\n|\r|\n/);
+            const firstLine = allLines[0] || '';
+            const preview = firstLine.length > 40
+              ? firstLine.substring(0, 40) + '...'
+              : firstLine;
+
+            // Create placeholder text
+            const placeholder = `[pasted text "${preview}"...]`;
+
+            // Check if there's already pasted content for this question
+            const existingContent = pastedContent[questionKey];
+            const isMultiplePaste = existingContent && isPasted[questionKey];
+
+            // Batch all state updates
+            React.startTransition(() => {
+              // Store full pasted content (append if multiple paste)
+              setPastedContent(prev => ({
+                ...prev,
+                [questionKey]: isMultiplePaste
+                  ? prev[questionKey] + '\n\n' + fullContent  // Append with separator
+                  : fullContent  // First paste
+              }));
+
+              // Mark this question as pasted
+              setIsPasted(prev => ({
+                ...prev,
+                [questionKey]: true
+              }));
+
+              // Display placeholder (append if multiple paste)
+              if (isMultiplePaste) {
+                // Append new placeholder to existing answer
+                setCurrentAnswer(prev => [...prev, placeholder]);
+                setCursorLine(prev => prev + 1);
+                setCursorChar(placeholder.length);
+              } else {
+                // First paste - replace answer with placeholder
+                setCurrentAnswer([placeholder]);
+                setCursorLine(0);
+                setCursorChar(placeholder.length);
+              }
+
+              setEmptyLineCount(0);
+            });
+          } else {
+            // Not a paste, treat as typing
+
+            // Check if we're typing after a paste - if so, clear the paste and start fresh
+            if (isPasted[questionKey]) {
+              React.startTransition(() => {
+                setPastedContent(prev => {
+                  const newState = { ...prev };
+                  delete newState[questionKey];
+                  return newState;
+                });
+                setIsPasted(prev => ({
+                  ...prev,
+                  [questionKey]: false
+                }));
+                setCurrentAnswer([combinedContent]);
+                setCursorLine(0);
+                setCursorChar(combinedContent.length);
+                setEmptyLineCount(0);
+              });
+            } else {
+              // Normal typing - insert at cursor position
+              const newLines = [...currentAnswer];
+              if (newLines.length === 0) {
+                newLines.push(combinedContent);
+                setCursorChar(combinedContent.length);
+              } else {
+                const line = newLines[cursorLine] || '';
+                newLines[cursorLine] = line.slice(0, cursorChar) + combinedContent + line.slice(cursorChar);
+                setCursorChar(prev => prev + combinedContent.length);
+              }
+              setCurrentAnswer(newLines);
+              setEmptyLineCount(0);
+            }
+          }
+        }, timeout); // Use adaptive timeout
+
+      return; // Exit handler - timer will process the buffered input
     }
   }, { isActive: questionnaireActive && !showPreview });
 
@@ -2755,8 +2890,7 @@ https://agilevibecoding.org
         }),
         React.createElement(MultiLineInput, {
           lines: currentAnswer,
-          showCharCount: true,
-          justPasted: justPasted
+          showCharCount: true
         }),
         React.createElement(QuestionnaireProgress, {
           current: currentQuestionIndex,
