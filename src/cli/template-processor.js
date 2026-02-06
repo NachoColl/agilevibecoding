@@ -861,7 +861,7 @@ Return the enhanced markdown document.`;
     const templateWithValues = this.replaceVariables(templateContent, collectedValues);
 
     // 6. Enhance document with LLM
-    this.reportProgress('Stage 4/5: Generating documentation...', 'Generated project documentation');
+    this.reportProgress('Stage 4/5: Creating project documentation...', 'Created project documentation');
     let finalDocument = await this.generateFinalDocument(templateWithValues);
 
     // 7. Validate and improve documentation (if validation enabled)
@@ -879,7 +879,7 @@ Return the enhanced markdown document.`;
       }
 
       if (this.llmProvider && typeof this.llmProvider.generateJSON === 'function') {
-        this.reportProgress('Stage 5/5: Generating context...', 'Generated project context');
+        this.reportProgress('Stage 5/5: Creating context scope...', 'Created context scope');
         contextContent = await this.generateProjectContextContent(collectedValues);
 
         // 9. Validate and improve context (if validation enabled)
@@ -1649,7 +1649,7 @@ Return your response as JSON following the exact structure specified in your ins
     let iteration = 0;
 
     while (iteration < maxIterations) {
-      console.log(`\n🔍 Validation iteration ${iteration + 1}/${maxIterations} for ${type}...\n`);
+      console.log(`\n🔍 Validation iteration ${iteration + 1}/${maxIterations} for ${type === 'context' ? 'context scope' : type}...\n`);
 
       // Validate
       const validation = type === 'documentation'
@@ -1694,7 +1694,7 @@ Return your response as JSON following the exact structure specified in your ins
         : validation.readyForUse;
 
       if (isReady && validation.overallScore >= threshold) {
-        console.log(`\n   ✅ ${type} passed validation!\n`);
+        console.log(`\n   ✅ ${type === 'context' ? 'context scope' : type} passed validation!\n`);
         break;
       }
 
@@ -1705,7 +1705,7 @@ Return your response as JSON following the exact structure specified in your ins
       }
 
       // Improve
-      console.log(`\n🔄 Improving ${type} based on feedback...\n`);
+      console.log(`\n🔄 Improving ${type === 'context' ? 'context scope' : type} based on feedback...\n`);
       currentContent = type === 'documentation'
         ? await this.improveDocument(currentContent, validation, questionnaire)
         : await this.improveContext(currentContent, validation, 'project', questionnaire);

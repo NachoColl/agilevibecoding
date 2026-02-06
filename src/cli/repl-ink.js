@@ -1683,7 +1683,7 @@ https://agilevibecoding.org
     setQuestionnaireActive(false);
     setMode('executing');
     setIsExecuting(true);
-    setExecutingMessage('Generating project document with AI...');
+    setExecutingMessage('Generating initial project documentation with AI...');
 
     try {
       // Archive answers to history BEFORE calling LLM
@@ -2390,99 +2390,99 @@ https://agilevibecoding.org
 
       // Set timer to process buffer after timeout
       pasteTimer.current = setTimeout(() => {
-          // Combine all buffered chunks
-          const combinedContent = pasteBuffer.current.join('');
-          pasteBuffer.current = []; // Clear buffer
+        // Combine all buffered chunks
+        const combinedContent = pasteBuffer.current.join('');
+        pasteBuffer.current = []; // Clear buffer
 
-          // Check if combined content is a paste
-          const isPasteEvent = combinedContent.length > 50 || combinedContent.includes('\n') || combinedContent.includes('\r');
+        // Check if combined content is a paste
+        const isPasteEvent = combinedContent.length > 50 || combinedContent.includes('\n') || combinedContent.includes('\r');
 
-          if (isPasteEvent) {
-            // PASTE DETECTED - Use placeholder strategy
-            // Normalize line endings: convert \r\n and \r to \n
-            const fullContent = combinedContent.trim().replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+        if (isPasteEvent) {
+          // PASTE DETECTED - Use placeholder strategy
+          // Normalize line endings: convert \r\n and \r to \n
+          const fullContent = combinedContent.trim().replace(/\r\n/g, '\n').replace(/\r/g, '\n');
 
-            // Extract first line for preview
-            const allLines = fullContent.split(/\r\n|\r|\n/);
-            const firstLine = allLines[0] || '';
-            const preview = firstLine.length > 40
-              ? firstLine.substring(0, 40) + '...'
-              : firstLine;
+          // Extract first line for preview
+          const allLines = fullContent.split(/\r\n|\r|\n/);
+          const firstLine = allLines[0] || '';
+          const preview = firstLine.length > 40
+            ? firstLine.substring(0, 40) + '...'
+            : firstLine;
 
-            // Create placeholder text
-            const placeholder = `[pasted text "${preview}"]`;
+          // Create placeholder text
+          const placeholder = `[pasted text "${preview}"]`;
 
-            // Check if there's already pasted content for this question
-            const existingContent = pastedContent[questionKey];
-            const isMultiplePaste = existingContent && isPasted[questionKey];
+          // Check if there's already pasted content for this question
+          const existingContent = pastedContent[questionKey];
+          const isMultiplePaste = existingContent && isPasted[questionKey];
 
-            // Batch all state updates
+          // Batch all state updates
+          React.startTransition(() => {
+            // Store full pasted content (append if multiple paste)
+            setPastedContent(prev => ({
+              ...prev,
+              [questionKey]: isMultiplePaste
+                ? prev[questionKey] + '\n\n' + fullContent  // Append with separator
+                : fullContent  // First paste
+            }));
+
+            // Mark this question as pasted
+            setIsPasted(prev => ({
+              ...prev,
+              [questionKey]: true
+            }));
+
+            // Display placeholder (append if multiple paste)
+            if (isMultiplePaste) {
+              // Append new placeholder to existing answer
+              setCurrentAnswer(prev => [...prev, placeholder]);
+              setCursorLine(prev => prev + 1);
+              setCursorChar(placeholder.length);
+            } else {
+              // First paste - replace answer with placeholder
+              setCurrentAnswer([placeholder]);
+              setCursorLine(0);
+              setCursorChar(placeholder.length);
+            }
+
+            setEmptyLineCount(0);
+          });
+        } else {
+          // Not a paste, treat as typing
+
+          // Check if we're typing after a paste - if so, clear the paste and start fresh
+          if (isPasted[questionKey]) {
             React.startTransition(() => {
-              // Store full pasted content (append if multiple paste)
-              setPastedContent(prev => ({
-                ...prev,
-                [questionKey]: isMultiplePaste
-                  ? prev[questionKey] + '\n\n' + fullContent  // Append with separator
-                  : fullContent  // First paste
-              }));
-
-              // Mark this question as pasted
+              setPastedContent(prev => {
+                const newState = { ...prev };
+                delete newState[questionKey];
+                return newState;
+              });
               setIsPasted(prev => ({
                 ...prev,
-                [questionKey]: true
+                [questionKey]: false
               }));
-
-              // Display placeholder (append if multiple paste)
-              if (isMultiplePaste) {
-                // Append new placeholder to existing answer
-                setCurrentAnswer(prev => [...prev, placeholder]);
-                setCursorLine(prev => prev + 1);
-                setCursorChar(placeholder.length);
-              } else {
-                // First paste - replace answer with placeholder
-                setCurrentAnswer([placeholder]);
-                setCursorLine(0);
-                setCursorChar(placeholder.length);
-              }
-
+              setCurrentAnswer([combinedContent]);
+              setCursorLine(0);
+              setCursorChar(combinedContent.length);
               setEmptyLineCount(0);
             });
           } else {
-            // Not a paste, treat as typing
-
-            // Check if we're typing after a paste - if so, clear the paste and start fresh
-            if (isPasted[questionKey]) {
-              React.startTransition(() => {
-                setPastedContent(prev => {
-                  const newState = { ...prev };
-                  delete newState[questionKey];
-                  return newState;
-                });
-                setIsPasted(prev => ({
-                  ...prev,
-                  [questionKey]: false
-                }));
-                setCurrentAnswer([combinedContent]);
-                setCursorLine(0);
-                setCursorChar(combinedContent.length);
-                setEmptyLineCount(0);
-              });
+            // Normal typing - insert at cursor position
+            const newLines = [...currentAnswer];
+            if (newLines.length === 0) {
+              newLines.push(combinedContent);
+              setCursorChar(combinedContent.length);
             } else {
-              // Normal typing - insert at cursor position
-              const newLines = [...currentAnswer];
-              if (newLines.length === 0) {
-                newLines.push(combinedContent);
-                setCursorChar(combinedContent.length);
-              } else {
-                const line = newLines[cursorLine] || '';
-                newLines[cursorLine] = line.slice(0, cursorChar) + combinedContent + line.slice(cursorChar);
-                setCursorChar(prev => prev + combinedContent.length);
-              }
-              setCurrentAnswer(newLines);
-              setEmptyLineCount(0);
+              const line = newLines[cursorLine] || '';
+              newLines[cursorLine] = line.slice(0, cursorChar) + combinedContent + line.slice(cursorChar);
+              setCursorChar(prev => prev + combinedContent.length);
             }
+            setCurrentAnswer(newLines);
+            setEmptyLineCount(0);
           }
-        }, timeout); // Use adaptive timeout
+        }
+      }, timeout); // Use adaptive timeout
 
       return; // Exit handler - timer will process the buffered input
     }
