@@ -53,8 +53,18 @@ export class GeminiProvider extends LLMProvider {
     this._trackTokens(response.usageMetadata);
     const content = response.text;
 
+    // Strip markdown code fences if present (more robust)
+    let jsonStr = content.trim();
+    if (jsonStr.startsWith('```')) {
+      // Remove opening fence (```json or ```)
+      jsonStr = jsonStr.replace(/^```(?:json)?\s*\n?/, '');
+      // Remove closing fence
+      jsonStr = jsonStr.replace(/\n?\s*```\s*$/, '');
+      jsonStr = jsonStr.trim();
+    }
+
     try {
-      return JSON.parse(content);
+      return JSON.parse(jsonStr);
     } catch (error) {
       throw new Error(`Failed to parse JSON response: ${error.message}\n\nResponse was:\n${content}`);
     }

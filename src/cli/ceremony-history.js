@@ -350,4 +350,20 @@ export class CeremonyHistory {
       lastSuccess: ceremony.lastSuccess
     };
   }
+
+  /**
+   * Check if a ceremony has completed successfully at least once
+   * @param {string} ceremonyName - Ceremony name
+   * @returns {boolean} True if ceremony has a successful completion
+   */
+  hasSuccessfulCompletion(ceremonyName) {
+    this.load();
+
+    if (!this.data.ceremonies[ceremonyName]) {
+      return false;
+    }
+
+    // Check if lastSuccess is set (indicates at least one successful execution)
+    return this.data.ceremonies[ceremonyName].lastSuccess !== null;
+  }
 }

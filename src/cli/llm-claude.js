@@ -47,11 +47,14 @@ export class ClaudeProvider extends LLMProvider {
     const content = response.content[0].text;
 
     // Extract JSON from response (handle markdown code blocks)
+    // Strip markdown code fences if present (more robust)
     let jsonStr = content.trim();
-    if (jsonStr.startsWith('```json')) {
-      jsonStr = jsonStr.replace(/```json\n?/, '').replace(/\n?```$/, '');
-    } else if (jsonStr.startsWith('```')) {
-      jsonStr = jsonStr.replace(/```\n?/, '').replace(/\n?```$/, '');
+    if (jsonStr.startsWith('```')) {
+      // Remove opening fence (```json or ```)
+      jsonStr = jsonStr.replace(/^```(?:json)?\s*\n?/, '');
+      // Remove closing fence
+      jsonStr = jsonStr.replace(/\n?\s*```\s*$/, '');
+      jsonStr = jsonStr.trim();
     }
 
     try {

@@ -57,7 +57,7 @@ class ProjectExpansionProcessor {
       return this.llmProvider;
     } catch (error) {
       console.log(`⚠️  Could not initialize ${this._providerName} provider`);
-      console.log(`   ${error.message}`);
+      console.log(`${error.message}`);
       return null;
     }
   }
@@ -78,7 +78,7 @@ class ProjectExpansionProcessor {
 
         const delay = Math.pow(2, attempt) * 1000;
         console.log(`⚠️  Retry ${attempt}/${maxRetries} in ${delay/1000}s: ${operation}`);
-        console.log(`   Error: ${error.message}`);
+        console.log(`Error: ${error.message}`);
         await new Promise(resolve => setTimeout(resolve, delay));
       }
     }

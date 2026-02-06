@@ -397,7 +397,7 @@ class TemplateProcessor {
       return this.llmProvider;
     } catch (error) {
       console.log(`⚠️  Could not initialize LLM provider`);
-      console.log(`   ${error.message}`);
+      console.log(`${error.message}`);
       throw error;
     }
   }
@@ -695,7 +695,7 @@ Return the enhanced markdown document.`;
 
       // Check if documentation folder exists
       if (!fs.existsSync(docsDir)) {
-        console.log('   ℹ️  VitePress documentation folder not found, skipping sync');
+        console.log('ℹ️  VitePress documentation folder not found, skipping sync');
         return false;
       }
 
@@ -1232,7 +1232,7 @@ Return your response as JSON following the exact structure specified in your ins
       projectContext.contextMarkdown,
       'utf8'
     );
-    console.log('   ✅ project/context.md\n');
+    console.log('✅ project/context.md\n');
 
     // 2. Write Epic and Story files
     for (const epic of hierarchy.epics) {

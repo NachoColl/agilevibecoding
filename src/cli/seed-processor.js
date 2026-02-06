@@ -57,7 +57,7 @@ class SeedProcessor {
       return this.llmProvider;
     } catch (error) {
       console.log(`⚠️  Could not initialize ${this._providerName} provider`);
-      console.log(`   ${error.message}`);
+      console.log(`${error.message}`);
       return null;
     }
   }
@@ -78,7 +78,7 @@ class SeedProcessor {
 
         const delay = Math.pow(2, attempt) * 1000;
         console.log(`⚠️  Retry ${attempt}/${maxRetries} in ${delay/1000}s: ${operation}`);
-        console.log(`   Error: ${error.message}`);
+        console.log(`Error: ${error.message}`);
         await new Promise(resolve => setTimeout(resolve, delay));
       }
     }
@@ -89,14 +89,14 @@ class SeedProcessor {
     // Check Story ID format
     if (!this.storyId || !this.storyId.match(/^context-\d{4}-\d{4}$/)) {
       throw new Error(
-        `Invalid Story ID format: ${this.storyId}\n   Expected format: context-XXXX-XXXX (e.g., context-0001-0001)`
+        `Invalid Story ID format: ${this.storyId}\nExpected format: context-XXXX-XXXX (e.g., context-0001-0001)`
       );
     }
 
     // Check Story directory exists
     if (!fs.existsSync(this.storyPath)) {
       throw new Error(
-        `Story ${this.storyId} not found.\n   Please run /project-expansion first to create Stories.`
+        `Story ${this.storyId} not found.\nPlease run /project-expansion first to create Stories.`
       );
     }
 
@@ -112,7 +112,7 @@ class SeedProcessor {
     const storyWork = JSON.parse(fs.readFileSync(storyWorkJsonPath, 'utf8'));
     if (storyWork.children && storyWork.children.length > 0) {
       throw new Error(
-        `Story ${this.storyId} already has tasks\n   Children: ${storyWork.children.join(', ')}\n   Cannot re-seed a Story that already has Tasks.`
+        `Story ${this.storyId} already has tasks\nChildren: ${storyWork.children.join(', ')}\nCannot re-seed a Story that already has Tasks.`
       );
     }
 

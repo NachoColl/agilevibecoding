@@ -891,7 +891,7 @@ If you're new to Agile Vibe Coding, visit the [AVC Documentation](https://agilev
     // Check if project is initialized
     if (!this.isAvcProject()) {
       console.log('❌ Project not initialized\n');
-      console.log('   Please run /init first to create the project structure.\n');
+      console.log('Please run /init first to create the project structure.\n');
       return;
     }
 
@@ -1057,7 +1057,7 @@ If you're new to Agile Vibe Coding, visit the [AVC Documentation](https://agilev
 
     if (!this.isAvcProject()) {
       console.log('❌ Project not initialized\n');
-      console.log('   Please run /init first.\n');
+      console.log('Please run /init first.\n');
       return;
     }
 
@@ -1075,14 +1075,14 @@ If you're new to Agile Vibe Coding, visit the [AVC Documentation](https://agilev
 
     if (!this.isAvcProject()) {
       console.log('❌ Project not initialized\n');
-      console.log('   Please run /init first.\n');
+      console.log('Please run /init first.\n');
       return;
     }
 
     if (!storyId) {
       console.log('❌ Story ID required\n');
-      console.log('   Usage: /seed <story-id>\n');
-      console.log('   Example: /seed context-0001-0001\n');
+      console.log('Usage: /seed <story-id>\n');
+      console.log('Example: /seed context-0001-0001\n');
       return;
     }
 
@@ -1111,8 +1111,20 @@ If you're new to Agile Vibe Coding, visit the [AVC Documentation](https://agilev
     // Check if project is initialized
     if (!this.isAvcProject()) {
       console.log('❌ Project not initialized\n');
-      console.log('   Please run /init first to create the project structure.\n');
+      console.log('Please run /init first to create the project structure.\n');
       return; // Don't exit in REPL mode
+    }
+
+    // Check if sponsor call has already completed successfully
+    const { CeremonyHistory } = await import('./ceremony-history.js');
+    const history = new CeremonyHistory(this.avcDir);
+
+    if (history.hasSuccessfulCompletion('sponsor-call')) {
+      console.log('❌ Sponsor Call has already completed successfully\n');
+      console.log('Project documentation already exists at .avc/project/doc.md\n');
+      console.log('To regenerate documentation, first run /remove to clear the project,');
+      console.log('then run /init followed by /sponsor-call again.\n');
+      return; // Don't allow re-running
     }
 
     let progress = null;
@@ -1228,7 +1240,7 @@ If you're new to Agile Vibe Coding, visit the [AVC Documentation](https://agilev
     const hasEnvFile = fs.existsSync(envPath);
     if (hasEnvFile) {
       console.log('ℹ️  Note: The .env file will NOT be deleted.');
-      console.log('   You may want to manually remove API keys if no longer needed.\n');
+      console.log('You may want to manually remove API keys if no longer needed.\n');
     }
 
     // Check if running in REPL mode
@@ -1272,7 +1284,7 @@ If you're new to Agile Vibe Coding, visit the [AVC Documentation](https://agilev
             fs.rmSync(this.avcDir, { recursive: true, force: true });
 
             console.log('✅ Successfully deleted:\n');
-            console.log('   📁 .avc/ folder and all contents:');
+            console.log('📁 .avc/ folder and all contents:');
             deletedItems.forEach(item => {
               console.log(`      • ${item}`);
             });
@@ -1281,13 +1293,13 @@ If you're new to Agile Vibe Coding, visit the [AVC Documentation](https://agilev
             // Reminder about .env file
             if (hasEnvFile) {
               console.log('ℹ️  Manual cleanup reminder:\n');
-              console.log('   The .env file was NOT deleted and still contains:');
+              console.log('The .env file was NOT deleted and still contains:');
               console.log('   • ANTHROPIC_API_KEY');
               console.log('   • GEMINI_API_KEY');
               console.log('   • (and any other API keys you added)\n');
-              console.log('   If these API keys are not used elsewhere in your project,');
-              console.log('   you may want to manually delete the .env file or remove');
-              console.log('   the unused keys.\n');
+              console.log('If these API keys are not used elsewhere in your project,');
+              console.log('you may want to manually delete the .env file or remove');
+              console.log('the unused keys.\n');
             }
 
             console.log('✅ AVC project structure has been completely removed.\n');

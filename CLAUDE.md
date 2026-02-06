@@ -952,6 +952,7 @@ AVC provides organizational structure for long-term AI-assisted development:
 3. **Project Initialization Guard** - All commands except `/init` must check `isAvcProject()`
 4. **Logger Conditional Creation** - Only create logger if `.avc` exists (or for `/init`)
 5. **Documentation Sync** - Edit root MD files, never `docs/` directly
+6. **Console Output Formatting** - All console.log messages must be **fully left-aligned** with NO leading tabs or spaces (command-line style)
 
 ---
 
