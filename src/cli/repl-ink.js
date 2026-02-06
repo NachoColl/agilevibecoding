@@ -2399,7 +2399,7 @@ https://agilevibecoding.org
               : firstLine;
 
             // Create placeholder text
-            const placeholder = `[pasted text "${preview}"...]`;
+            const placeholder = `[pasted text "${preview}"]`;
 
             // Check if there's already pasted content for this question
             const existingContent = pastedContent[questionKey];
