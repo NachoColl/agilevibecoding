@@ -1,6 +1,6 @@
 {
   "name": "@agile-vibe-coding/avc",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Agile Vibe Coding (AVC) - Framework for managing AI agent-based software development projects",
   "type": "module",
   "main": "cli/index.js",
