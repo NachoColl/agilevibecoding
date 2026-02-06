@@ -91,6 +91,15 @@ class TemplateProcessor {
   }
 
   /**
+   * Report substep to callback (for detailed progress tracking)
+   */
+  reportSubstep(substep) {
+    if (this.progressCallback) {
+      this.progressCallback(null, substep);
+    }
+  }
+
+  /**
    * Read ceremony-specific configuration from avc.json
    */
   readCeremonyConfig(ceremonyName) {
@@ -634,6 +643,7 @@ class TemplateProcessor {
 
     try {
       // Try to load agent instructions for enhancement stage
+      this.reportSubstep('Reading documentation creator agent...');
       const agentInstructions = this.getAgentForStage('enhancement');
 
       if (agentInstructions) {
@@ -644,10 +654,12 @@ ${templateWithValues}
 
 Please review and enhance this document according to your role.`;
 
+        this.reportSubstep('Calling Claude API for enhancement...');
         const enhanced = await this.retryWithBackoff(
           () => this.llmProvider.generate(userPrompt, 4096, agentInstructions),
           'document enhancement'
         );
+        this.reportSubstep('Parsing enhanced documentation...');
         return enhanced;
       } else {
         // Fallback to legacy hardcoded prompt for backward compatibility
@@ -862,6 +874,7 @@ Return the enhanced markdown document.`;
 
     // 6. Enhance document with LLM
     this.reportProgress('Stage 4/5: Creating project documentation...', 'Created project documentation');
+    this.reportSubstep('Preparing template with your answers...');
     let finalDocument = await this.generateFinalDocument(templateWithValues);
 
     // 7. Validate and improve documentation (if validation enabled)
@@ -888,6 +901,7 @@ Return the enhanced markdown document.`;
         }
 
         // Write context.md - ensure directory exists first
+        this.reportSubstep('Writing context.md file...');
         if (!fs.existsSync(this.outputDir)) {
           fs.mkdirSync(this.outputDir, { recursive: true });
         }
@@ -955,17 +969,20 @@ Return the enhanced markdown document.`;
     }
 
     // Read agent instructions
+    this.reportSubstep('Reading context generator agent...');
     const projectContextGeneratorAgent = fs.readFileSync(
       path.join(this.agentsPath, 'project-context-generator.md'),
       'utf8'
     );
 
     // Generate project context
+    this.reportSubstep('Calling Claude API for context generation...');
     const projectContext = await this.retryWithBackoff(
       () => this.generateContext('project', 'project', collectedValues, projectContextGeneratorAgent),
       'project context'
     );
 
+    this.reportSubstep('Parsing context scope...');
     return projectContext.contextMarkdown;
   }
 
@@ -1652,9 +1669,12 @@ Return your response as JSON following the exact structure specified in your ins
       console.log(`\n🔍 Validation iteration ${iteration + 1}/${maxIterations} for ${type === 'context' ? 'context scope' : type}...\n`);
 
       // Validate
+      this.reportSubstep('Calling validation API...');
       const validation = type === 'documentation'
         ? await this.validateDocument(currentContent, questionnaire, contextContent)
         : await this.validateContext(currentContent, 'project', questionnaire);
+
+      this.reportSubstep('Analyzing validation results...');
 
       // Display results
       console.log(`📊 Score: ${validation.overallScore}/100`);
@@ -1706,10 +1726,12 @@ Return your response as JSON following the exact structure specified in your ins
 
       // Improve
       console.log(`\n🔄 Improving ${type === 'context' ? 'context scope' : type} based on feedback...\n`);
+      this.reportSubstep('Calling improvement API...');
       currentContent = type === 'documentation'
         ? await this.improveDocument(currentContent, validation, questionnaire)
         : await this.improveContext(currentContent, validation, 'project', questionnaire);
 
+      this.reportSubstep('Applying improvements...');
       iteration++;
     }
 

@@ -117,14 +117,21 @@ const Separator = () => {
   return React.createElement(Text, null, '─'.repeat(width));
 };
 
-// Loading spinner component
-const LoadingSpinner = ({ message }) => {
-  return React.createElement(Box, null,
-    React.createElement(Text, { color: 'green' },
-      React.createElement(Spinner, { type: 'dots' }),
-      ' ',
-      message
-    )
+// Loading spinner component with two-line status
+const LoadingSpinner = ({ message, substep }) => {
+  return React.createElement(Box, { flexDirection: 'column' },
+    // Line 1: Main status (green)
+    React.createElement(Box, null,
+      React.createElement(Text, { color: 'green' },
+        React.createElement(Spinner, { type: 'dots' }),
+        ' ',
+        message
+      )
+    ),
+    // Line 2: Substep (yellow, indented, only if exists)
+    substep ? React.createElement(Box, { marginLeft: 2 },
+      React.createElement(Text, { color: 'yellow' }, `└─ ${substep}`)
+    ) : null
   );
 };
 
@@ -893,6 +900,7 @@ const App = () => {
   const [historyIndex, setHistoryIndex] = useState(-1);
   const [isExecuting, setIsExecuting] = useState(false);
   const [executingMessage, setExecutingMessage] = useState('');
+  const [executingSubstep, setExecutingSubstep] = useState('');
 
   // Questionnaire state
   const [questionnaireActive, setQuestionnaireActive] = useState(false);
@@ -1349,6 +1357,8 @@ const App = () => {
       setTimeout(() => {
         // Clear input first to prevent UI corruption
         setInput('');
+        setExecutingMessage('');
+        setExecutingSubstep('');
 
         // Only return to prompt if not in a special viewer/confirmation mode
         setMode((currentMode) => {
@@ -1363,6 +1373,8 @@ const App = () => {
       console.error('Unexpected error in executeCommand:', outerError);
       setOutput(prev => prev + `\n❌ Unexpected error: ${outerError.message}\n   Please try again or type /help for assistance\n`);
       setIsExecuting(false);
+      setExecutingMessage('');
+      setExecutingSubstep('');
       setMode('prompt');
       setInput('');
     }
@@ -1580,9 +1592,16 @@ https://agilevibecoding.org
       capturedLogs.push(args.join(' '));
     };
 
-    // Progress callback to update spinner message
-    const progressCallback = (message) => {
-      setExecutingMessage(message);
+    // Progress callback to update spinner message and substep
+    const progressCallback = (message, substep = null) => {
+      if (substep !== null) {
+        // Update substep only
+        setExecutingSubstep(substep);
+      } else {
+        // Update main message and clear substep
+        setExecutingMessage(message);
+        setExecutingSubstep('');
+      }
     };
 
     try {
@@ -2920,7 +2939,10 @@ https://agilevibecoding.org
           React.createElement(Text, null, output)
         ) : null,
         // Show spinner below output
-        React.createElement(LoadingSpinner, { message: executingMessage })
+        React.createElement(LoadingSpinner, {
+          message: executingMessage,
+          substep: executingSubstep
+        })
       );
     }
 

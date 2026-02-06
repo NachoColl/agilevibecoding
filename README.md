@@ -80,7 +80,7 @@ project/
 
 ### Context Scopes (context.md files)
 
-A context scope in AVC is the minimal set of information required for LLM models to properly implement the work item (in singular) closer to it. 
+A context scope is the minimal set of information required for LLM models to properly implement the work item (in singular) closer to it or the 
 
 ### Documentation Scopes (doc.md files)
 
