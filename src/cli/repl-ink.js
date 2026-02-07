@@ -2014,7 +2014,7 @@ https://agilevibecoding.org
         }
 
         if (hasSrcFolder) {
-          logs.push('✅ The .src/ folder was NOT deleted.');
+          logs.push('✅ The src/ folder was NOT deleted.');
           logs.push('   All your AVC-managed code has been preserved.\n');
         }
       }

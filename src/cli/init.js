@@ -23,7 +23,7 @@ class ProjectInitiator {
   constructor(projectRoot = null) {
     this.projectRoot = projectRoot || process.cwd();
     this.avcDir = path.join(this.projectRoot, '.avc');
-    this.srcDir = path.join(this.projectRoot, '.src');
+    this.srcDir = path.join(this.projectRoot, 'src');
     this.avcConfigPath = path.join(this.avcDir, 'avc.json');
     // Progress files are ceremony-specific
     this.initProgressPath = path.join(this.avcDir, 'init-progress.json');
@@ -116,22 +116,22 @@ class ProjectInitiator {
   }
 
   /**
-   * Check if .src folder exists
+   * Check if src folder exists
    */
   hasSrcFolder() {
     return fs.existsSync(this.srcDir);
   }
 
   /**
-   * Create .src folder for AVC-managed code
+   * Create src folder for AVC-managed code
    */
   createSrcFolder() {
     if (!this.hasSrcFolder()) {
       fs.mkdirSync(this.srcDir, { recursive: true });
-      console.log('✓ Created .src/ folder (for AVC-managed code)');
+      console.log('✓ Created src/ folder (for AVC-managed code)');
       return true;
     }
-    console.log('✓ .src/ folder already exists');
+    console.log('✓ src/ folder already exists');
     return false;
   }
 
@@ -1159,7 +1159,7 @@ If you're new to Agile Vibe Coding, visit the [AVC Documentation](https://agilev
 
     console.log('Components:');
     console.log(`  .avc/ folder:   ${this.hasAvcFolder() ? '✓' : '✗'}`);
-    console.log(`  .src/ folder:   ${this.hasSrcFolder() ? '✓' : '✗'}`);
+    console.log(`  src/ folder:    ${this.hasSrcFolder() ? '✓' : '✗'}`);
     console.log(`  avc.json:       ${this.hasAvcConfig() ? '✓' : '✗'}`);
 
     console.log(`\nStatus: ${this.isAvcProject() ? '✅ Initialized' : '⚠️  Not initialized'}`);
@@ -1210,10 +1210,10 @@ If you're new to Agile Vibe Coding, visit the [AVC Documentation](https://agilev
       console.log('You may want to manually remove API keys if no longer needed.\n');
     }
 
-    // Check for .src folder
+    // Check for src folder
     const hasSrcFolder = this.hasSrcFolder();
     if (hasSrcFolder) {
-      console.log('✅ IMPORTANT: The .src/ folder will NOT be deleted.');
+      console.log('✅ IMPORTANT: The src/ folder will NOT be deleted.');
       console.log('All your AVC-managed code will be preserved.\n');
     }
 
@@ -1279,7 +1279,7 @@ If you're new to Agile Vibe Coding, visit the [AVC Documentation](https://agilev
               }
 
               if (hasSrcFolder) {
-                console.log('✅ The .src/ folder was NOT deleted.');
+                console.log('✅ The src/ folder was NOT deleted.');
                 console.log('All your AVC-managed code has been preserved.\n');
               }
             }
