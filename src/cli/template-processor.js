@@ -92,10 +92,12 @@ class TemplateProcessor {
 
   /**
    * Report substep to callback (for detailed progress tracking)
+   * @param {string} substep - The substep message
+   * @param {Object} metadata - Additional metadata (tokensUsed, filesCreated)
    */
-  reportSubstep(substep) {
+  reportSubstep(substep, metadata = {}) {
     if (this.progressCallback) {
-      this.progressCallback(null, substep);
+      this.progressCallback(null, substep, metadata);
     }
   }
 
@@ -643,7 +645,7 @@ class TemplateProcessor {
 
     try {
       // Try to load agent instructions for enhancement stage
-      this.reportSubstep('Reading documentation creator agent...');
+      this.reportSubstep('Reading agent: project-documentation-creator.md');
       const agentInstructions = this.getAgentForStage('enhancement');
 
       if (agentInstructions) {
@@ -654,12 +656,23 @@ ${templateWithValues}
 
 Please review and enhance this document according to your role.`;
 
-        this.reportSubstep('Calling Claude API for enhancement...');
+        this.reportSubstep('Generating Project Brief (this may take 20-30 seconds)...');
         const enhanced = await this.retryWithBackoff(
           () => this.llmProvider.generate(userPrompt, 4096, agentInstructions),
           'document enhancement'
         );
-        this.reportSubstep('Parsing enhanced documentation...');
+
+        // Report token usage after generation
+        if (this.llmProvider && typeof this.llmProvider.getTokenUsage === 'function') {
+          const usage = this.llmProvider.getTokenUsage();
+          this.reportSubstep('Processing generated content...', {
+            tokensUsed: {
+              input: usage.inputTokens,
+              output: usage.outputTokens
+            }
+          });
+        }
+
         return enhanced;
       } else {
         // Fallback to legacy hardcoded prompt for backward compatibility
@@ -768,7 +781,13 @@ Return the enhanced markdown document.`;
     }
 
     // Write doc.md
+    const fileSize = Math.ceil(Buffer.byteLength(content, 'utf8') / 1024); // Size in KB
+    this.reportSubstep(`Writing doc.md (${fileSize} KB)`);
     fs.writeFileSync(this.outputPath, content, 'utf8');
+
+    // Report files created
+    const filesCreated = ['.avc/project/project/doc.md'];
+    this.reportSubstep('Project Brief created successfully', { filesCreated });
 
     // Sync to VitePress if configured (silent for sponsor-call)
     const synced = this.syncToVitePress(content);
@@ -870,11 +889,12 @@ Return the enhanced markdown document.`;
     }
 
     // 5. Replace variables in template
+    this.reportSubstep('Reading template: project.md');
     const templateWithValues = this.replaceVariables(templateContent, collectedValues);
+    this.reportSubstep('Replacing 5 template variables...');
 
     // 6. Enhance document with LLM
     this.reportProgress('Stage 4/5: Creating project documentation...', 'Created project documentation');
-    this.reportSubstep('Preparing template with your answers...');
     let finalDocument = await this.generateFinalDocument(templateWithValues);
 
     // 7. Validate and improve documentation (if validation enabled)
@@ -901,12 +921,20 @@ Return the enhanced markdown document.`;
         }
 
         // Write context.md - ensure directory exists first
-        this.reportSubstep('Writing context.md file...');
         if (!fs.existsSync(this.outputDir)) {
           fs.mkdirSync(this.outputDir, { recursive: true });
         }
         contextPath = path.join(this.outputDir, 'context.md');
+
+        // Calculate token count for context
+        const contextTokenCount = Math.ceil(contextContent.length / 4); // Rough estimate: 4 chars per token
+        this.reportSubstep(`Writing context.md (~${contextTokenCount} tokens)`);
         fs.writeFileSync(contextPath, contextContent, 'utf8');
+
+        // Report files created
+        const filesCreated = [];
+        if (contextPath) filesCreated.push('.avc/project/project/context.md');
+        this.reportSubstep('Project context created successfully', { filesCreated });
       }
     }
 
@@ -969,20 +997,30 @@ Return the enhanced markdown document.`;
     }
 
     // Read agent instructions
-    this.reportSubstep('Reading context generator agent...');
+    this.reportSubstep('Reading agent: project-context-generator.md');
     const projectContextGeneratorAgent = fs.readFileSync(
       path.join(this.agentsPath, 'project-context-generator.md'),
       'utf8'
     );
 
     // Generate project context
-    this.reportSubstep('Calling Claude API for context generation...');
+    this.reportSubstep('Generating project context (target: ~500 tokens)...');
     const projectContext = await this.retryWithBackoff(
       () => this.generateContext('project', 'project', collectedValues, projectContextGeneratorAgent),
       'project context'
     );
 
-    this.reportSubstep('Parsing context scope...');
+    // Report token usage and validation
+    if (this.llmProvider && typeof this.llmProvider.getTokenUsage === 'function') {
+      const usage = this.llmProvider.getTokenUsage();
+      this.reportSubstep('Validating context token count...', {
+        tokensUsed: {
+          input: usage.inputTokens,
+          output: usage.outputTokens
+        }
+      });
+    }
+
     return projectContext.contextMarkdown;
   }
 
@@ -1669,12 +1707,24 @@ Return your response as JSON following the exact structure specified in your ins
       console.log(`\n🔍 Validation iteration ${iteration + 1}/${maxIterations} for ${type === 'context' ? 'context scope' : type}...\n`);
 
       // Validate
-      this.reportSubstep('Calling validation API...');
+      const validationType = type === 'documentation' ? 'Project Brief structure' : 'project context';
+      this.reportSubstep(`Validating ${validationType}...`);
       const validation = type === 'documentation'
         ? await this.validateDocument(currentContent, questionnaire, contextContent)
         : await this.validateContext(currentContent, 'project', questionnaire);
 
       this.reportSubstep('Analyzing validation results...');
+
+      // Report token usage
+      if (this.validationLLMProvider && typeof this.validationLLMProvider.getTokenUsage === 'function') {
+        const usage = this.validationLLMProvider.getTokenUsage();
+        this.reportSubstep('Validation complete', {
+          tokensUsed: {
+            input: usage.inputTokens,
+            output: usage.outputTokens
+          }
+        });
+      }
 
       // Display results
       console.log(`📊 Score: ${validation.overallScore}/100`);
@@ -1726,12 +1776,25 @@ Return your response as JSON following the exact structure specified in your ins
 
       // Improve
       console.log(`\n🔄 Improving ${type === 'context' ? 'context scope' : type} based on feedback...\n`);
-      this.reportSubstep('Calling improvement API...');
+      const improvementType = type === 'documentation' ? 'Project Brief' : 'project context';
+      this.reportSubstep(`Improving ${improvementType} based on validation...`);
       currentContent = type === 'documentation'
         ? await this.improveDocument(currentContent, validation, questionnaire)
         : await this.improveContext(currentContent, validation, 'project', questionnaire);
 
-      this.reportSubstep('Applying improvements...');
+      // Report token usage after improvement
+      if (this.validationLLMProvider && typeof this.validationLLMProvider.getTokenUsage === 'function') {
+        const usage = this.validationLLMProvider.getTokenUsage();
+        this.reportSubstep('Applying improvements...', {
+          tokensUsed: {
+            input: usage.inputTokens,
+            output: usage.outputTokens
+          }
+        });
+      } else {
+        this.reportSubstep('Applying improvements...');
+      }
+
       iteration++;
     }
 

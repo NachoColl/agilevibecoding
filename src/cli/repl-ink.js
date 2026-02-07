@@ -325,6 +325,58 @@ const CancelQuestionnaireConfirmation = () => {
   );
 };
 
+// Cancel execution confirmation component
+const CancelExecutionConfirmation = ({ executionState }) => {
+  const { stage, substep, tokensUsed, filesCreated } = executionState;
+  const currentOperation = substep || stage || 'Processing...';
+  const hasFiles = filesCreated.length > 0;
+
+  return React.createElement(Box, { flexDirection: 'column', marginTop: 1 },
+    React.createElement(Text, { bold: true, color: 'yellow' },
+      '\n⚠️  Cancel Operation\n'
+    ),
+    React.createElement(Text, null,
+      'Do you want to cancel the current operation?\n'
+    ),
+    React.createElement(Box, { flexDirection: 'column', marginY: 1, paddingLeft: 2 },
+      React.createElement(Text, { bold: true },
+        'Current operation:'
+      ),
+      React.createElement(Text, { dimColor: true },
+        `  ${currentOperation}`
+      ),
+      React.createElement(Text, null, '\n'),
+      React.createElement(Text, { bold: true },
+        'Tokens consumed:'
+      ),
+      React.createElement(Text, { dimColor: true },
+        `  ${tokensUsed.input.toLocaleString()} input, ${tokensUsed.output.toLocaleString()} output (${tokensUsed.total.toLocaleString()} total)`
+      ),
+      React.createElement(Text, null, '\n'),
+      React.createElement(Text, { bold: true },
+        'Files created:'
+      ),
+      hasFiles ? filesCreated.map((file, idx) =>
+        React.createElement(Text, { key: idx, dimColor: true },
+          `  • ${file}`
+        )
+      ) : React.createElement(Text, { dimColor: true },
+        '  None'
+      )
+    ),
+    React.createElement(Box, { marginTop: 1, borderStyle: 'round', borderColor: 'red', paddingX: 1 },
+      React.createElement(Text, { bold: true, color: 'red' },
+        'Warning: Partial work will be deleted and cannot be recovered'
+      )
+    ),
+    React.createElement(Box, { marginTop: 1 },
+      React.createElement(Text, { dimColor: true },
+        '\nPress Y to cancel operation | N or Escape to continue\n'
+      )
+    )
+  );
+};
+
 // Remove confirmation component
 const RemoveConfirmation = ({ contents, confirmInput }) => {
   return React.createElement(Box, { flexDirection: 'column', marginTop: 1 },
@@ -963,6 +1015,15 @@ const App = () => {
   // Active logger for long-running commands (e.g., /sponsor-call with questionnaire)
   const [activeLogger, setActiveLogger] = useState(null);
 
+  // Cancel execution confirmation state
+  const [cancelExecutionActive, setCancelExecutionActive] = useState(false);
+  const [executionState, setExecutionState] = useState({
+    stage: '',
+    substep: '',
+    tokensUsed: { input: 0, output: 0, total: 0 },
+    filesCreated: []
+  });
+
   // Track if user has interacted (to hide Banner permanently after first interaction)
   const [hasInteracted, setHasInteracted] = useState(false);
 
@@ -1596,6 +1657,14 @@ https://agilevibecoding.org
   const runSponsorCallWithAnswers = async (answers) => {
     const initiator = new ProjectInitiator();
 
+    // Reset execution state at start
+    setExecutionState({
+      stage: '',
+      substep: '',
+      tokensUsed: { input: 0, output: 0, total: 0 },
+      filesCreated: []
+    });
+
     // Suppress console.log during execution (will show summary after)
     const originalLog = console.log;
     const originalError = console.error;
@@ -1607,15 +1676,48 @@ https://agilevibecoding.org
       capturedLogs.push(args.join(' '));
     };
 
-    // Progress callback to update spinner message and substep
-    const progressCallback = (message, substep = null) => {
+    // Progress callback to update spinner message, substep, and execution state
+    const progressCallback = (message, substep = null, metadata = {}) => {
       if (substep !== null) {
         // Update substep only
         setExecutingSubstep(substep);
+
+        // Update execution state substep
+        setExecutionState(prev => ({
+          ...prev,
+          substep: substep
+        }));
       } else {
         // Update main message and clear substep
         setExecutingMessage(message);
         setExecutingSubstep('');
+
+        // Update execution state stage
+        setExecutionState(prev => ({
+          ...prev,
+          stage: message,
+          substep: ''
+        }));
+      }
+
+      // Update token usage if provided
+      if (metadata.tokensUsed) {
+        setExecutionState(prev => ({
+          ...prev,
+          tokensUsed: {
+            input: metadata.tokensUsed.input || 0,
+            output: metadata.tokensUsed.output || 0,
+            total: (metadata.tokensUsed.input || 0) + (metadata.tokensUsed.output || 0)
+          }
+        }));
+      }
+
+      // Update files created if provided
+      if (metadata.filesCreated) {
+        setExecutionState(prev => ({
+          ...prev,
+          filesCreated: metadata.filesCreated
+        }));
       }
     };
 
@@ -2722,6 +2824,116 @@ https://agilevibecoding.org
     }
   }, { isActive: cancelConfirmActive });
 
+  // Executing mode input handler (capture Escape to cancel)
+  useInput((inputChar, key) => {
+    if (mode !== 'executing') return;
+
+    // Handle Escape (show cancel confirmation)
+    if (key.escape) {
+      setCancelExecutionActive(true);
+      setMode('cancel-execution');
+      return;
+    }
+  }, { isActive: mode === 'executing' });
+
+  // Cancel execution confirmation input handler
+  useInput((inputChar, key) => {
+    if (!cancelExecutionActive) return;
+
+    // Handle Y (confirm cancellation)
+    if (inputChar && inputChar.toLowerCase() === 'y') {
+      // Mark execution as cancelled
+      if (sponsorCallExecutionId) {
+        (async () => {
+          try {
+            const { CeremonyHistory } = await import('./ceremony-history.js');
+            const history = new CeremonyHistory(path.join(process.cwd(), '.avc'));
+            history.completeExecution('sponsor-call', sponsorCallExecutionId, 'user-cancelled', {
+              stage: executionState.stage,
+              substep: executionState.substep,
+              tokensUsed: executionState.tokensUsed
+            });
+          } catch (error) {
+            // Silently fail
+          }
+        })();
+        setSponsorCallExecutionId(null);
+      }
+
+      // Delete created files
+      const filesDeleted = [];
+      for (const file of executionState.filesCreated) {
+        try {
+          const fullPath = path.join(process.cwd(), file);
+          if (existsSync(fullPath)) {
+            unlinkSync(fullPath);
+            filesDeleted.push(file);
+          }
+        } catch (error) {
+          // Silently fail
+        }
+      }
+
+      // Delete progress file
+      try {
+        const initiator = new ProjectInitiator();
+        const progressPath = initiator.sponsorCallProgressPath;
+        if (existsSync(progressPath)) {
+          unlinkSync(progressPath);
+        }
+      } catch (error) {
+        // Silently fail
+      }
+
+      // Stop active logger
+      if (activeLogger) {
+        activeLogger.stop();
+        CommandLogger.cleanupOldLogs();
+        setActiveLogger(null);
+      }
+
+      // Reset state
+      setCancelExecutionActive(false);
+      setMode('prompt');
+      setInput('');
+      setIsExecuting(false);
+      setExecutingMessage('');
+      setExecutingSubstep('');
+      setExecutionState({
+        stage: '',
+        substep: '',
+        tokensUsed: { input: 0, output: 0, total: 0 },
+        filesCreated: []
+      });
+
+      let message = '\n❌ Operation cancelled.\n';
+      if (filesDeleted.length > 0) {
+        message += '\nDeleted files:\n';
+        filesDeleted.forEach(f => {
+          message += `  • ${f}\n`;
+        });
+      }
+      message += `\nTokens consumed: ${executionState.tokensUsed.input.toLocaleString()} input, ${executionState.tokensUsed.output.toLocaleString()} output (${executionState.tokensUsed.total.toLocaleString()} total)\n`;
+
+      setOutput(prev => prev + message);
+      return;
+    }
+
+    // Handle N (continue execution)
+    if (inputChar && inputChar.toLowerCase() === 'n') {
+      setCancelExecutionActive(false);
+      setMode('executing');
+      return;
+    }
+
+    // Handle Escape (continue execution)
+    if (key.escape) {
+      setCancelExecutionActive(false);
+      setMode('executing');
+      return;
+    }
+  }, { isActive: cancelExecutionActive });
+
   // Remove confirmation input handler
   useInput((inputChar, key) => {
     if (!removeConfirmActive) return;
@@ -2965,6 +3177,16 @@ https://agilevibecoding.org
       return React.createElement(Box, { flexDirection: 'column', marginY: 1 },
         React.createElement(Text, null, output),
         React.createElement(CancelQuestionnaireConfirmation)
+      );
+    }
+
+    // Show cancel execution confirmation if active
+    if (cancelExecutionActive) {
+      return React.createElement(Box, { flexDirection: 'column', marginY: 1 },
+        React.createElement(Text, null, output),
+        React.createElement(CancelExecutionConfirmation, {
+          executionState: executionState
+        })
       );
     }
 
