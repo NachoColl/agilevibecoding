@@ -24,6 +24,7 @@ class ProjectInitiator {
     this.projectRoot = projectRoot || process.cwd();
     this.avcDir = path.join(this.projectRoot, '.avc');
     this.srcDir = path.join(this.projectRoot, 'src');
+    this.worktreesDir = path.join(this.projectRoot, 'worktrees');
     this.avcConfigPath = path.join(this.avcDir, 'avc.json');
     // Progress files are ceremony-specific
     this.initProgressPath = path.join(this.avcDir, 'init-progress.json');
@@ -132,6 +133,26 @@ class ProjectInitiator {
       return true;
     }
     console.log('✓ src/ folder already exists');
+    return false;
+  }
+
+  /**
+   * Check if worktrees folder exists
+   */
+  hasWorktreesFolder() {
+    return fs.existsSync(this.worktreesDir);
+  }
+
+  /**
+   * Create worktrees folder for git worktree management
+   */
+  createWorktreesFolder() {
+    if (!this.hasWorktreesFolder()) {
+      fs.mkdirSync(this.worktreesDir, { recursive: true });
+      console.log('✓ Created worktrees/ folder (for git worktrees)');
+      return true;
+    }
+    console.log('✓ worktrees/ folder already exists');
     return false;
   }
 
@@ -831,6 +852,7 @@ If you're new to Agile Vibe Coding, visit the [AVC Documentation](https://agilev
       // Create project structure silently
       this.createAvcFolder();
       this.createSrcFolder();
+      this.createWorktreesFolder();
       this.createAvcConfig();
       this.createEnvFile();
       this.addToGitignore();
@@ -1158,9 +1180,10 @@ If you're new to Agile Vibe Coding, visit the [AVC Documentation](https://agilev
     console.log(`Project name: ${this.getProjectName()}\n`);
 
     console.log('Components:');
-    console.log(`  .avc/ folder:   ${this.hasAvcFolder() ? '✓' : '✗'}`);
-    console.log(`  src/ folder:    ${this.hasSrcFolder() ? '✓' : '✗'}`);
-    console.log(`  avc.json:       ${this.hasAvcConfig() ? '✓' : '✗'}`);
+    console.log(`  .avc/ folder:      ${this.hasAvcFolder() ? '✓' : '✗'}`);
+    console.log(`  src/ folder:       ${this.hasSrcFolder() ? '✓' : '✗'}`);
+    console.log(`  worktrees/ folder: ${this.hasWorktreesFolder() ? '✓' : '✗'}`);
+    console.log(`  avc.json:          ${this.hasAvcConfig() ? '✓' : '✗'}`);
 
     console.log(`\nStatus: ${this.isAvcProject() ? '✅ Initialized' : '⚠️  Not initialized'}`);
 
@@ -1217,6 +1240,13 @@ If you're new to Agile Vibe Coding, visit the [AVC Documentation](https://agilev
       console.log('All your AVC-managed code will be preserved.\n');
     }
 
+    // Check for worktrees folder
+    const hasWorktreesFolder = this.hasWorktreesFolder();
+    if (hasWorktreesFolder) {
+      console.log('✅ IMPORTANT: The worktrees/ folder will NOT be deleted.');
+      console.log('All your git worktrees will be preserved.\n');
+    }
+
     // Check if running in REPL mode
     const isReplMode = process.env.AVC_REPL_MODE === 'true';
 
@@ -1265,7 +1295,7 @@ If you're new to Agile Vibe Coding, visit the [AVC Documentation](https://agilev
             console.log('');
 
             // Reminder about preserved files
-            if (hasEnvFile || hasSrcFolder) {
+            if (hasEnvFile || hasSrcFolder || hasWorktreesFolder) {
               console.log('ℹ️  Preserved files:\n');
 
               if (hasEnvFile) {
@@ -1281,6 +1311,11 @@ If you're new to Agile Vibe Coding, visit the [AVC Documentation](https://agilev
               if (hasSrcFolder) {
                 console.log('✅ The src/ folder was NOT deleted.');
                 console.log('All your AVC-managed code has been preserved.\n');
+              }
+
+              if (hasWorktreesFolder) {
+                console.log('✅ The worktrees/ folder was NOT deleted.');
+                console.log('All your git worktrees have been preserved.\n');
               }
             }
 

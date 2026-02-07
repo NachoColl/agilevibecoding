@@ -2002,8 +2002,9 @@ https://agilevibecoding.org
       const envPath = path.join(initiator.projectRoot, '.env');
       const hasEnvFile = fs.existsSync(envPath);
       const hasSrcFolder = initiator.hasSrcFolder();
+      const hasWorktreesFolder = initiator.hasWorktreesFolder();
 
-      if (hasEnvFile || hasSrcFolder) {
+      if (hasEnvFile || hasSrcFolder || hasWorktreesFolder) {
         logs.push('ℹ️  Preserved files:\n');
 
         if (hasEnvFile) {
@@ -2016,6 +2017,11 @@ https://agilevibecoding.org
         if (hasSrcFolder) {
           logs.push('✅ The src/ folder was NOT deleted.');
           logs.push('   All your AVC-managed code has been preserved.\n');
+        }
+
+        if (hasWorktreesFolder) {
+          logs.push('✅ The worktrees/ folder was NOT deleted.');
+          logs.push('   All your git worktrees have been preserved.\n');
         }
       }
 
