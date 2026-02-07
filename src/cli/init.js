@@ -274,6 +274,13 @@ class ProjectInitiator {
             INITIAL_SCOPE: null,
             TECHNICAL_CONSIDERATIONS: null,
             SECURITY_AND_COMPLIANCE_REQUIREMENTS: null
+          },
+          guidelines: {
+            MISSION_STATEMENT: "What core problem does this application solve? Who benefits?",
+            TARGET_USERS: "Who are the primary users? What are their roles and needs?",
+            INITIAL_SCOPE: "What are the essential features for the first version?",
+            TECHNICAL_CONSIDERATIONS: "Tech stack, architecture, scalability, performance requirements",
+            SECURITY_AND_COMPLIANCE_REQUIREMENTS: "Authentication, authorization, data protection, compliance needs"
           }
         },
         models: {

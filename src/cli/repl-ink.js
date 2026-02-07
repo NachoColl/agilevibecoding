@@ -257,7 +257,7 @@ const QuestionnaireProgress = ({ current, total, answers, lastSave }) => {
 };
 
 // Answers preview component
-const AnswersPreview = ({ answers, questions, defaultSuggested }) => {
+const AnswersPreview = ({ answers, questions, defaultSuggested, guidelineSuggested }) => {
   return React.createElement(Box, { flexDirection: 'column', marginTop: 1 },
     React.createElement(Text, { bold: true, color: 'cyan' },
       '\n📋 Review Your Answers\n'
@@ -266,20 +266,27 @@ const AnswersPreview = ({ answers, questions, defaultSuggested }) => {
       const answer = answers[question.key] || '(Skipped - will use AI suggestion)';
       const lines = answer.split('\n');
       const isDefault = defaultSuggested && defaultSuggested.has(question.key);
+      const isGuideline = guidelineSuggested && guidelineSuggested.has(question.key);
+
+      // Determine color: red for defaults, yellow for guidelines, default for others
+      const textColor = isDefault ? 'red' : (isGuideline ? 'yellow' : undefined);
+      const labelText = isDefault
+        ? '   (default suggestion from settings)\n'
+        : (isGuideline ? '   (guideline from avc.json)\n' : null);
 
       return React.createElement(Box, { key: idx, flexDirection: 'column', marginBottom: 1 },
         React.createElement(Text, { bold: true },
           `${idx + 1}. ${question.title}\n`
         ),
-        isDefault ? React.createElement(Text, {
-          color: 'red',
+        labelText ? React.createElement(Text, {
+          color: textColor,
           italic: true,
           dimColor: true
-        }, '   (default suggestion from settings)\n') : null,
+        }, labelText) : null,
         ...lines.map((line, lineIdx) =>
           React.createElement(Text, {
             key: lineIdx,
-            color: isDefault ? 'red' : undefined,
+            color: textColor,
             dimColor: !answers[question.key]
           }, line)
         )
@@ -975,6 +982,9 @@ const App = () => {
   const [isEditingFromPreview, setIsEditingFromPreview] = useState(false);
   const [questionnaireDefaults, setQuestionnaireDefaults] = useState({});
   const [defaultSuggestedAnswers, setDefaultSuggestedAnswers] = useState(new Set());
+  const [questionnaireGuidelines, setQuestionnaireGuidelines] = useState({});
+  const [guidelineSuggestedAnswers, setGuidelineSuggestedAnswers] = useState(new Set());
+  const [userDeletedGuidelines, setUserDeletedGuidelines] = useState(new Set());
 
   // Paste placeholder state
   const [pastedContent, setPastedContent] = useState({}); // { questionKey: fullContent }
@@ -1636,10 +1646,13 @@ https://agilevibecoding.org
     const executionId = history.startExecution('sponsor-call', 'questionnaire');
     setSponsorCallExecutionId(executionId);
 
-    // Load questionnaire defaults from settings
-    const defaults = loadQuestionnaireDefaults();
-    setQuestionnaireDefaults(defaults);
+    // Load questionnaire config (defaults + guidelines) from settings
+    const config = loadQuestionnaireConfig();
+    setQuestionnaireDefaults(config.defaults);
+    setQuestionnaireGuidelines(config.guidelines);
     setDefaultSuggestedAnswers(new Set()); // Reset tracking
+    setGuidelineSuggestedAnswers(new Set());
+    setUserDeletedGuidelines(new Set());
 
     setQuestionnaireActive(true);
     setCurrentQuestionIndex(0);
@@ -1778,18 +1791,21 @@ https://agilevibecoding.org
     }
   };
 
-  const loadQuestionnaireDefaults = () => {
+  const loadQuestionnaireConfig = () => {
     try {
       const avcConfigPath = path.join(process.cwd(), '.avc', 'avc.json');
       if (!fs.existsSync(avcConfigPath)) {
-        return {};
+        return { defaults: {}, guidelines: {} };
       }
 
       const config = JSON.parse(fs.readFileSync(avcConfigPath, 'utf8'));
-      return config.settings?.questionnaire?.defaults || {};
+      return {
+        defaults: config.settings?.questionnaire?.defaults || {},
+        guidelines: config.settings?.questionnaire?.guidelines || {}
+      };
     } catch (error) {
-      console.log('⚠️  Could not load questionnaire defaults:', error.message);
-      return {};
+      console.log('⚠️  Could not load questionnaire config:', error.message);
+      return { defaults: {}, guidelines: {} };
     }
   };
 
@@ -1797,8 +1813,20 @@ https://agilevibecoding.org
     setDefaultSuggestedAnswers(prev => new Set([...prev, key]));
   };
 
+  const markAnswerAsGuidelineSuggested = (key) => {
+    setGuidelineSuggestedAnswers(prev => new Set([...prev, key]));
+  };
+
+  const markGuidelineAsDeleted = (key) => {
+    setUserDeletedGuidelines(prev => new Set([...prev, key]));
+  };
+
   const getDefaultAnswer = (key) => {
     return questionnaireDefaults[key] || null;
+  };
+
+  const getGuideline = (key) => {
+    return questionnaireGuidelines[key] || null;
   };
 
   const saveQuestionnaireAnswer = (key, value) => {
@@ -2380,18 +2408,35 @@ https://agilevibecoding.org
 
       // Empty line on first input = skip question
       if (currentAnswer.length === 0 && currentLineText === '') {
-        // Check for default in settings first
-        const defaultAnswer = getDefaultAnswer(currentQuestion.key);
+        const questionKey = currentQuestion.key;
 
+        // Priority cascade: defaults > guidelines > AI
+
+        // 1. Check for default in settings (highest priority)
+        const defaultAnswer = getDefaultAnswer(questionKey);
         if (defaultAnswer) {
           console.log('Using default suggestion from settings...');
-          saveQuestionnaireAnswer(currentQuestion.key, defaultAnswer);
-          markAnswerAsDefaultSuggested(currentQuestion.key);
-        } else {
-          console.log('Skipping - will use AI suggestion...');
-          saveQuestionnaireAnswer(currentQuestion.key, null);
+          saveQuestionnaireAnswer(questionKey, defaultAnswer);
+          markAnswerAsDefaultSuggested(questionKey);
+          moveToNextQuestion();
+          return;
         }
 
+        // 2. Check for guideline in avc.json (medium priority)
+        const guidelineAnswer = getGuideline(questionKey);
+        const userDeleted = userDeletedGuidelines.has(questionKey);
+
+        if (guidelineAnswer && !userDeleted) {
+          console.log('Using guideline from avc.json...');
+          saveQuestionnaireAnswer(questionKey, guidelineAnswer);
+          markAnswerAsGuidelineSuggested(questionKey);
+          moveToNextQuestion();
+          return;
+        }
+
+        // 3. Fall back to AI suggestion (lowest priority)
+        console.log('Skipping - will use AI suggestion...');
+        saveQuestionnaireAnswer(questionKey, null);
         moveToNextQuestion();
         return;
       }
@@ -2537,18 +2582,34 @@ https://agilevibecoding.org
       if (isEditingFromPreview) {
         // Save the edited answer before returning to preview
         const currentQuestion = questionnaireQuestions[currentQuestionIndex];
+        const questionKey = currentQuestion.key;
 
         // Check if this question has pasted content
         let finalAnswer;
-        if (isPasted[currentQuestion.key]) {
+        if (isPasted[questionKey]) {
           // Use full pasted content (not the placeholder)
-          finalAnswer = pastedContent[currentQuestion.key];
+          finalAnswer = pastedContent[questionKey];
         } else {
           // Use typed content
           finalAnswer = currentAnswer.join('\n').trim();
         }
 
-        saveQuestionnaireAnswer(currentQuestion.key, finalAnswer || null);
+        // Track if user deleted a guideline answer
+        const wasGuidelineSuggested = guidelineSuggestedAnswers.has(questionKey);
+        const answerIsEmpty = !finalAnswer || finalAnswer.length === 0;
+
+        if (wasGuidelineSuggested && answerIsEmpty) {
+          // User explicitly deleted guideline - mark as deleted to prevent re-showing
+          markGuidelineAsDeleted(questionKey);
+          // Remove from guideline-suggested set
+          setGuidelineSuggestedAnswers(prev => {
+            const newSet = new Set(prev);
+            newSet.delete(questionKey);
+            return newSet;
+          });
+        }
+
+        saveQuestionnaireAnswer(questionKey, finalAnswer || null);
 
         setIsEditingFromPreview(false);
         setEditingQuestionIndex(-1);
@@ -3203,7 +3264,8 @@ https://agilevibecoding.org
         React.createElement(AnswersPreview, {
           answers: questionnaireAnswers,
           questions: questionnaireQuestions,
-          defaultSuggested: defaultSuggestedAnswers
+          defaultSuggested: defaultSuggestedAnswers,
+          guidelineSuggested: guidelineSuggestedAnswers
         })
       );
     }
