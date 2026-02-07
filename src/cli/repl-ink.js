@@ -171,7 +171,7 @@ const questionnaireQuestions = [
 
 // Question display component
 const QuestionDisplay = ({ question, index, total, editMode }) => {
-  const helpText = `\n💡 Tip: You can paste multi-line text from other apps\n↵↵ Press Enter twice when done, or Enter once to skip\n`;
+  const helpText = `\n💡 Tip: You can paste multi-line text from other apps\n↵↵ Press Enter twice when done, or Enter once to skip\n^U Press Ctrl+U to clear all text\n`;
 
   return React.createElement(Box, { flexDirection: 'column', flexShrink: 0 },
     React.createElement(Text, { bold: true, color: 'white' },
@@ -257,7 +257,7 @@ const QuestionnaireProgress = ({ current, total, answers, lastSave }) => {
 };
 
 // Answers preview component
-const AnswersPreview = ({ answers, questions }) => {
+const AnswersPreview = ({ answers, questions, defaultSuggested }) => {
   return React.createElement(Box, { flexDirection: 'column', marginTop: 1 },
     React.createElement(Text, { bold: true, color: 'cyan' },
       '\n📋 Review Your Answers\n'
@@ -265,15 +265,23 @@ const AnswersPreview = ({ answers, questions }) => {
     ...questions.map((question, idx) => {
       const answer = answers[question.key] || '(Skipped - will use AI suggestion)';
       const lines = answer.split('\n');
+      const isDefault = defaultSuggested && defaultSuggested.has(question.key);
 
       return React.createElement(Box, { key: idx, flexDirection: 'column', marginBottom: 1 },
         React.createElement(Text, { bold: true },
           `${idx + 1}. ${question.title}\n`
         ),
+        isDefault ? React.createElement(Text, {
+          color: 'red',
+          italic: true,
+          dimColor: true
+        }, '   (default suggestion from settings)\n') : null,
         ...lines.map((line, lineIdx) =>
-          React.createElement(Text, { key: lineIdx, dimColor: !answers[question.key] },
-            line
-          )
+          React.createElement(Text, {
+            key: lineIdx,
+            color: isDefault ? 'red' : undefined,
+            dimColor: !answers[question.key]
+          }, line)
         )
       );
     }),
@@ -913,6 +921,8 @@ const App = () => {
   const [lastAutoSave, setLastAutoSave] = useState(null);
   const [editingQuestionIndex, setEditingQuestionIndex] = useState(-1);
   const [isEditingFromPreview, setIsEditingFromPreview] = useState(false);
+  const [questionnaireDefaults, setQuestionnaireDefaults] = useState({});
+  const [defaultSuggestedAnswers, setDefaultSuggestedAnswers] = useState(new Set());
 
   // Paste placeholder state
   const [pastedContent, setPastedContent] = useState({}); // { questionKey: fullContent }
@@ -1565,6 +1575,11 @@ https://agilevibecoding.org
     const executionId = history.startExecution('sponsor-call', 'questionnaire');
     setSponsorCallExecutionId(executionId);
 
+    // Load questionnaire defaults from settings
+    const defaults = loadQuestionnaireDefaults();
+    setQuestionnaireDefaults(defaults);
+    setDefaultSuggestedAnswers(new Set()); // Reset tracking
+
     setQuestionnaireActive(true);
     setCurrentQuestionIndex(0);
     setQuestionnaireAnswers({});
@@ -1659,6 +1674,29 @@ https://agilevibecoding.org
       console.log = originalLog;
       console.error = originalError;
     }
+  };
+
+  const loadQuestionnaireDefaults = () => {
+    try {
+      const avcConfigPath = path.join(process.cwd(), '.avc', 'avc.json');
+      if (!fs.existsSync(avcConfigPath)) {
+        return {};
+      }
+
+      const config = JSON.parse(fs.readFileSync(avcConfigPath, 'utf8'));
+      return config.settings?.questionnaire?.defaults || {};
+    } catch (error) {
+      console.log('⚠️  Could not load questionnaire defaults:', error.message);
+      return {};
+    }
+  };
+
+  const markAnswerAsDefaultSuggested = (key) => {
+    setDefaultSuggestedAnswers(prev => new Set([...prev, key]));
+  };
+
+  const getDefaultAnswer = (key) => {
+    return questionnaireDefaults[key] || null;
   };
 
   const saveQuestionnaireAnswer = (key, value) => {
@@ -2234,8 +2272,18 @@ https://agilevibecoding.org
 
       // Empty line on first input = skip question
       if (currentAnswer.length === 0 && currentLineText === '') {
-        console.log('Skipping - will use AI suggestion...');
-        saveQuestionnaireAnswer(currentQuestion.key, null);
+        // Check for default in settings first
+        const defaultAnswer = getDefaultAnswer(currentQuestion.key);
+
+        if (defaultAnswer) {
+          console.log('Using default suggestion from settings...');
+          saveQuestionnaireAnswer(currentQuestion.key, defaultAnswer);
+          markAnswerAsDefaultSuggested(currentQuestion.key);
+        } else {
+          console.log('Skipping - will use AI suggestion...');
+          saveQuestionnaireAnswer(currentQuestion.key, null);
+        }
+
         moveToNextQuestion();
         return;
       }
@@ -2347,6 +2395,31 @@ https://agilevibecoding.org
         setCursorLine(prev => prev - 1);
         setCursorChar(prevLine.length);
       }
+      return;
+    }
+
+    // Handle Ctrl+U (clear all text - Unix standard "kill line" binding)
+    if (key.ctrl && inputChar === 'u') {
+      const questionKey = questionnaireQuestions[currentQuestionIndex].key;
+
+      // Clear pasted content if any
+      if (isPasted[questionKey]) {
+        setPastedContent(prev => {
+          const newState = { ...prev };
+          delete newState[questionKey];
+          return newState;
+        });
+        setIsPasted(prev => ({
+          ...prev,
+          [questionKey]: false
+        }));
+      }
+
+      // Clear all text
+      setCurrentAnswer([]);
+      setCursorLine(0);
+      setCursorChar(0);
+      setEmptyLineCount(0);
       return;
     }
 
@@ -2901,7 +2974,8 @@ https://agilevibecoding.org
         React.createElement(Text, null, output),
         React.createElement(AnswersPreview, {
           answers: questionnaireAnswers,
-          questions: questionnaireQuestions
+          questions: questionnaireQuestions,
+          defaultSuggested: defaultSuggestedAnswers
         })
       );
     }

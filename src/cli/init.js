@@ -246,6 +246,15 @@ class ProjectInitiator {
             ]
           }
         ],
+        questionnaire: {
+          defaults: {
+            MISSION_STATEMENT: null,
+            TARGET_USERS: null,
+            INITIAL_SCOPE: null,
+            TECHNICAL_CONSIDERATIONS: null,
+            SECURITY_AND_COMPLIANCE_REQUIREMENTS: null
+          }
+        },
         models: {
           // Anthropic Claude models (prices per 1M tokens in USD)
           'claude-sonnet-4-5-20250929': {
