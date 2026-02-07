@@ -1842,6 +1842,13 @@ https://agilevibecoding.org
     setCursorLine(0);
     setCursorChar(0);
 
+    // Clear paste buffer to prevent cross-question contamination
+    pasteBuffer.current = [];
+    if (pasteTimer.current) {
+      clearTimeout(pasteTimer.current);
+      pasteTimer.current = null;
+    }
+
     // If editing from preview, return to preview after submitting the edit
     if (isEditingFromPreview) {
       setIsEditingFromPreview(false);
@@ -2566,6 +2573,15 @@ https://agilevibecoding.org
           ...prev,
           [questionKey]: false
         }));
+      }
+
+      // Clear paste buffer to prevent corruption
+      pasteBuffer.current = [];
+
+      // Cancel pending paste timer
+      if (pasteTimer.current) {
+        clearTimeout(pasteTimer.current);
+        pasteTimer.current = null;
       }
 
       // Clear all text
