@@ -112,6 +112,8 @@ export class LLMVerifier {
       // Report progress: checking
       if (progressCallback) {
         progressCallback(null, `Checking: ${rule.name}...`);
+        // Small delay to allow UI to update
+        await new Promise(resolve => setTimeout(resolve, 20));
       }
 
       // Check if rule is violated
@@ -121,6 +123,8 @@ export class LLMVerifier {
         // Report progress: fixing
         if (progressCallback) {
           progressCallback(null, `Fixing: ${rule.name}...`);
+          // Small delay to allow UI to update
+          await new Promise(resolve => setTimeout(resolve, 20));
         }
 
         // Apply fix

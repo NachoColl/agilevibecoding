@@ -103,6 +103,21 @@ class TemplateProcessor {
   }
 
   /**
+   * Report progress with small delay to ensure UI updates
+   * Adds async delay to force React state updates and re-renders between stages
+   * @param {string} message - Main progress message
+   * @param {string} activity - Activity to log
+   * @param {number} delayMs - Delay in milliseconds (default 50ms)
+   */
+  async reportProgressWithDelay(message, activity = null, delayMs = 50) {
+    this.reportProgress(message, activity);
+    // Only delay in non-interactive mode (REPL UI) to allow UI re-renders
+    if (!this.nonInteractive && this.progressCallback) {
+      await new Promise(resolve => setTimeout(resolve, delayMs));
+    }
+  }
+
+  /**
    * Read ceremony-specific configuration from avc.json
    */
   readCeremonyConfig(ceremonyName) {
@@ -890,20 +905,20 @@ Return the enhanced markdown document.`;
       }
     }
 
-    // Report questionnaire completion
-    this.reportProgress('Stage 1/5: Processing questionnaire answers...', 'Processed questionnaire responses');
+    // Report questionnaire completion (with delay for UI update)
+    await this.reportProgressWithDelay('Stage 1/5: Processing questionnaire answers...', 'Processed questionnaire responses');
 
     // 5. Replace variables in template
-    this.reportProgress('Stage 2/5: Preparing project template...', 'Template preparation complete');
+    await this.reportProgressWithDelay('Stage 2/5: Preparing project template...', 'Template preparation complete');
     this.reportSubstep('Reading template: project.md');
     const templateWithValues = this.replaceVariables(templateContent, collectedValues);
     this.reportSubstep('Replaced 6 template variables');
 
     // Preparation complete
-    this.reportProgress('Stage 3/5: Preparing for documentation generation...', 'Ready to generate documentation');
+    await this.reportProgressWithDelay('Stage 3/5: Preparing for documentation generation...', 'Ready to generate documentation');
 
     // 6. Enhance document with LLM
-    this.reportProgress('Stage 4/5: Creating project documentation...', 'Created project documentation');
+    await this.reportProgressWithDelay('Stage 4/5: Creating project documentation...', 'Created project documentation');
     let finalDocument = await this.generateFinalDocument(templateWithValues);
 
     // 7. Validate and improve documentation (if validation enabled)
@@ -921,7 +936,7 @@ Return the enhanced markdown document.`;
       }
 
       if (this.llmProvider && typeof this.llmProvider.generateJSON === 'function') {
-        this.reportProgress('Stage 5/5: Creating context scope...', 'Created context scope');
+        await this.reportProgressWithDelay('Stage 5/5: Creating context scope...', 'Created context scope');
         contextContent = await this.generateProjectContextContent(collectedValues);
 
         // 9. Validate and improve context (if validation enabled)
