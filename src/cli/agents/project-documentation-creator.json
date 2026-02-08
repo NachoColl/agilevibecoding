@@ -1,0 +1,197 @@
+{
+  "$schema": "verification-rules-v1",
+  "agent": "project-documentation-creator",
+  "description": "Post-processing verification for Project Brief documentation",
+  "model": "claude-sonnet-4-5",
+  "verifications": [
+    {
+      "id": "remove-status-fields",
+      "name": "Remove Status Fields",
+      "enabled": true,
+      "severity": "critical",
+      "description": "Remove all task-tracking status information",
+      "check": {
+        "prompt": "Check if content contains ANY status fields (Status: Planned, Status: Initial Definition, Status: In Progress, Status: Completed, **Status**:, or similar).\n\nCONTENT:\n{content}\n\nDoes this contain status fields?\n\nRespond ONLY 'YES' or 'NO'.",
+        "expectedResponse": "YES|NO",
+        "maxTokens": 10
+      },
+      "fix": {
+        "prompt": "Remove ALL status-related lines from the content.\n\nStatus patterns to remove:\n- 'Status: Planned'\n- 'Status: Initial Definition'\n- 'Status: In Progress'\n- 'Status: Completed'\n- '**Status**:' and its value\n\nRemove the ENTIRE line containing status (including newline).\nPreserve all other content exactly as-is.\n\nCONTENT:\n{content}\n\nReturn ONLY the cleaned content.",
+        "returnFormat": "text",
+        "maxTokens": 8192
+      },
+      "metadata": {
+        "category": "content",
+        "addedVersion": "0.1.2"
+      }
+    },
+    {
+      "id": "remove-bold-labels",
+      "name": "Convert Bold Labels to Headers",
+      "enabled": true,
+      "severity": "major",
+      "description": "Convert **Label**: text patterns to #### headers",
+      "check": {
+        "prompt": "Check if content contains bold label patterns: **Label**: text\n\nExamples: **Framework**: React, **Design Approach**: Custom\n\nCONTENT:\n{content}\n\nDoes this contain **Label**: text patterns?\n\nRespond ONLY 'YES' or 'NO'.",
+        "expectedResponse": "YES|NO",
+        "maxTokens": 10
+      },
+      "fix": {
+        "prompt": "Convert all **Label**: text patterns to #### headers.\n\nConversion:\n**Label**: text\n→\n#### Label\ntext\n\nRules:\n- Convert ALL instances\n- Add blank line after text\n- Do NOT modify existing headers\n- Preserve all other content\n\nCONTENT:\n{content}\n\nReturn ONLY the converted content.",
+        "returnFormat": "text",
+        "maxTokens": 8192
+      },
+      "metadata": {
+        "category": "formatting",
+        "addedVersion": "0.1.2"
+      }
+    },
+    {
+      "id": "remove-generic-placeholders",
+      "name": "Remove Generic Placeholders",
+      "enabled": true,
+      "severity": "critical",
+      "description": "Remove angle-bracket placeholders like <technology>",
+      "check": {
+        "prompt": "Check if content contains generic placeholders in angle brackets: <technology>, <framework>, <database>, etc.\n\nCONTENT:\n{content}\n\nDoes this contain <placeholder> patterns?\n\nRespond ONLY 'YES' or 'NO'.",
+        "expectedResponse": "YES|NO",
+        "maxTokens": 10
+      },
+      "fix": {
+        "prompt": "Replace all <placeholder> patterns.\n\nStrategy:\n- Technical fields: Replace with 'To be determined based on project requirements'\n- In sentences: Remove and rephrase grammatically\n- Placeholder-only lines: Replace with 'Details to be specified during implementation'\n\nCONTENT:\n{content}\n\nReturn ONLY the cleaned content.",
+        "returnFormat": "text",
+        "maxTokens": 8192
+      },
+      "metadata": {
+        "category": "content",
+        "addedVersion": "0.1.2"
+      }
+    },
+    {
+      "id": "fix-section-9-main-title",
+      "name": "Fix Section 9 Main Title",
+      "enabled": true,
+      "severity": "minor",
+      "description": "Ensure section 9 main header is '## 9. Success Metrics'",
+      "check": {
+        "prompt": "Check if section 9's MAIN HEADER (## 9. ...) is titled 'Success Metrics'.\n\nCorrect: ## 9. Success Metrics\nWrong: ## 9. Success Criteria, ## 9. Acceptance Criteria, ## 9. Definition of Done\n\nCONTENT:\n{content}\n\nIs section 9's main title WRONG?\n\nRespond ONLY 'YES' or 'NO'.",
+        "expectedResponse": "YES|NO",
+        "maxTokens": 10
+      },
+      "fix": {
+        "prompt": "Change section 9's main header to '## 9. Success Metrics'.\n\nONLY change the main ## 9. header.\nDo NOT modify subsections (### headers).\nPreserve all content and formatting.\n\nCONTENT:\n{content}\n\nReturn ONLY the corrected content.",
+        "returnFormat": "text",
+        "maxTokens": 8192
+      },
+      "metadata": {
+        "category": "structure",
+        "addedVersion": "0.1.2"
+      }
+    },
+    {
+      "id": "fix-section-9-subsections",
+      "name": "Fix Section 9 Subsection Names",
+      "enabled": true,
+      "severity": "minor",
+      "description": "Ensure section 9 has correct subsection names",
+      "check": {
+        "prompt": "Check if section 9 has the correct subsection structure:\n- ### Key Outcomes\n- ### Technical Goals\n- ### User Experience Goals\n\nWrong names: 'Acceptance Criteria', 'Definition of Done'\n\nCONTENT:\n{content}\n\nDoes section 9 have WRONG or MISSING subsections?\n\nRespond ONLY 'YES' or 'NO'.",
+        "expectedResponse": "YES|NO",
+        "maxTokens": 10
+      },
+      "fix": {
+        "prompt": "Fix section 9 subsections:\n\n1. Rename 'Acceptance Criteria' → 'Key Outcomes'\n2. Rename 'Definition of Done' → 'Technical Goals'\n3. Add '### User Experience Goals' if missing\n\nKeep all content under each subsection.\nONLY modify subsections in section 9.\n\nCONTENT:\n{content}\n\nReturn ONLY the corrected content.",
+        "returnFormat": "text",
+        "maxTokens": 8192
+      },
+      "metadata": {
+        "category": "structure",
+        "addedVersion": "0.1.2"
+      }
+    },
+    {
+      "id": "validate-header-hierarchy",
+      "name": "Fix Header Hierarchy",
+      "enabled": true,
+      "severity": "major",
+      "description": "Fix skipped header levels (e.g., ## followed by ####)",
+      "check": {
+        "prompt": "Check for skipped header levels.\n\nProper hierarchy: # → ## → ### → ####\nInvalid: ## followed directly by #### (skips ###)\n\nCONTENT:\n{content}\n\nAre there ANY skipped header levels?\n\nRespond ONLY 'YES' or 'NO'.",
+        "expectedResponse": "YES|NO",
+        "maxTokens": 10
+      },
+      "fix": {
+        "prompt": "Fix header hierarchy by adjusting levels.\n\nEnsure proper nesting: # → ## → ### → ####\nNo skipped levels.\n\nStrategy:\n- Promote headers if needed (#### → ###)\n- Insert intermediate levels if needed\n- Adjust child headers if parent changes\n\nCONTENT:\n{content}\n\nReturn ONLY the corrected content.",
+        "returnFormat": "text",
+        "maxTokens": 8192
+      },
+      "metadata": {
+        "category": "structure",
+        "addedVersion": "0.1.2"
+      }
+    },
+    {
+      "id": "remove-empty-sections",
+      "name": "Fill Empty Sections",
+      "enabled": true,
+      "severity": "minor",
+      "description": "Add placeholder text to empty sections",
+      "check": {
+        "prompt": "Check if document has empty sections (headers with no content under them).\n\nEmpty section: header followed immediately by another header or end of file.\n\nCONTENT:\n{content}\n\nAre there ANY empty sections?\n\nRespond ONLY 'YES' or 'NO'.",
+        "expectedResponse": "YES|NO",
+        "maxTokens": 10
+      },
+      "fix": {
+        "prompt": "Add placeholder text to ALL empty sections.\n\nFor each empty section, add: 'To be determined'\n\nDo NOT remove sections.\nPreserve all non-empty sections.\n\nCONTENT:\n{content}\n\nReturn ONLY the corrected content.",
+        "returnFormat": "text",
+        "maxTokens": 8192
+      },
+      "metadata": {
+        "category": "content",
+        "addedVersion": "0.1.2"
+      }
+    },
+    {
+      "id": "no-meta-commentary",
+      "name": "Remove Meta-Commentary",
+      "enabled": true,
+      "severity": "major",
+      "description": "Remove document self-references like 'As mentioned above'",
+      "check": {
+        "prompt": "Check for meta-commentary phrases:\n- 'As mentioned above'\n- 'As discussed earlier'\n- 'In the next section'\n- 'See below'\n- 'The following section covers'\n\nCONTENT:\n{content}\n\nDoes this contain meta-commentary?\n\nRespond ONLY 'YES' or 'NO'.",
+        "expectedResponse": "YES|NO",
+        "maxTokens": 10
+      },
+      "fix": {
+        "prompt": "Remove or rephrase ALL meta-commentary.\n\nStrategy:\n- Remove the phrase\n- Rephrase sentence to be direct and self-contained\n- Rewrite if removing makes it unclear\n\nExample:\n'As mentioned above, the system uses React.'\n→ 'The system uses React.'\n\nCONTENT:\n{content}\n\nReturn ONLY the corrected content.",
+        "returnFormat": "text",
+        "maxTokens": 8192
+      },
+      "metadata": {
+        "category": "content",
+        "addedVersion": "0.1.2"
+      }
+    },
+    {
+      "id": "no-emojis",
+      "name": "Remove Emojis",
+      "enabled": true,
+      "severity": "minor",
+      "description": "Remove emoji characters from documentation",
+      "check": {
+        "prompt": "Check for emoji characters: 🚀 ✅ ❌ 📋 🎯 💡 etc.\n\nCONTENT:\n{content}\n\nDoes this contain emojis?\n\nRespond ONLY 'YES' or 'NO'.",
+        "expectedResponse": "YES|NO",
+        "maxTokens": 10
+      },
+      "fix": {
+        "prompt": "Remove ALL emoji characters.\n\nRules:\n- Remove emoji and space if at start of line ('✅ Item' → 'Item')\n- Remove emoji inline but preserve sentence structure\n- Do NOT modify emoji shortcodes like ':smile:'\n\nCONTENT:\n{content}\n\nReturn ONLY the cleaned content.",
+        "returnFormat": "text",
+        "maxTokens": 8192
+      },
+      "metadata": {
+        "category": "formatting",
+        "addedVersion": "0.1.2"
+      }
+    }
+  ]
+}

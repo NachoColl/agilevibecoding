@@ -1,0 +1,134 @@
+{
+  "$schema": "verification-rules-v1",
+  "agent": "validator-documentation",
+  "description": "Post-processing verification for documentation validator outputs",
+  "model": "claude-haiku-4-5",
+  "verifications": [
+    {
+      "id": "valid-json",
+      "name": "Ensure Valid JSON",
+      "enabled": true,
+      "severity": "critical",
+      "description": "Validator output must be valid JSON",
+      "check": {
+        "prompt": "Check if content is valid JSON.\n\nCONTENT:\n{content}\n\nIs this valid JSON?\n\nRespond ONLY 'YES' (if valid) or 'NO' (if invalid).",
+        "expectedResponse": "YES|NO",
+        "maxTokens": 10
+      },
+      "fix": {
+        "prompt": "Fix JSON syntax errors:\n- Missing/extra commas\n- Unquoted keys\n- Unescaped quotes\n- Trailing commas\n- Missing brackets/braces\n\nPreserve all data.\n\nCONTENT:\n{content}\n\nReturn ONLY valid JSON.",
+        "returnFormat": "json",
+        "maxTokens": 4096
+      },
+      "metadata": {
+        "category": "validation",
+        "addedVersion": "0.1.2"
+      }
+    },
+    {
+      "id": "required-fields",
+      "name": "Validate Required Fields",
+      "enabled": true,
+      "severity": "critical",
+      "description": "Must have all required fields",
+      "check": {
+        "prompt": "Check if JSON has ALL required fields:\n- validationStatus\n- overallScore\n- structuralIssues\n- contentIssues\n- applicationFlowGaps\n- strengths\n- improvementPriorities\n- readyForPublication\n\nCONTENT:\n{content}\n\nDoes it have ALL required fields?\n\nRespond ONLY 'YES' or 'NO'.",
+        "expectedResponse": "YES|NO",
+        "maxTokens": 10
+      },
+      "fix": {
+        "prompt": "Add missing required fields with defaults:\n- validationStatus: 'needs-improvement'\n- overallScore: 50\n- structuralIssues: []\n- contentIssues: []\n- applicationFlowGaps: []\n- strengths: ['Document structure present']\n- improvementPriorities: []\n- readyForPublication: false\n\nPreserve existing fields.\n\nCONTENT:\n{content}\n\nReturn ONLY complete JSON.",
+        "returnFormat": "json",
+        "maxTokens": 4096
+      },
+      "metadata": {
+        "category": "validation",
+        "addedVersion": "0.1.2"
+      }
+    },
+    {
+      "id": "score-range",
+      "name": "Validate Score Range",
+      "enabled": true,
+      "severity": "critical",
+      "description": "overallScore must be 0-100",
+      "check": {
+        "prompt": "Check if overallScore is valid (integer 0-100).\n\nCONTENT:\n{content}\n\nIs overallScore INVALID?\n\nRespond ONLY 'YES' or 'NO'.",
+        "expectedResponse": "YES|NO",
+        "maxTokens": 10
+      },
+      "fix": {
+        "prompt": "Fix overallScore:\n- If >100, set to 100\n- If <0, set to 0\n- If not number, set to 50\n- If decimal, round to integer\n\nCONTENT:\n{content}\n\nReturn ONLY corrected JSON.",
+        "returnFormat": "json",
+        "maxTokens": 4096
+      },
+      "metadata": {
+        "category": "validation",
+        "addedVersion": "0.1.2"
+      }
+    },
+    {
+      "id": "valid-severity",
+      "name": "Validate Severity Values",
+      "enabled": true,
+      "severity": "major",
+      "description": "Severity must be critical/major/minor",
+      "check": {
+        "prompt": "Check if all severity fields use ONLY: 'critical', 'major', 'minor'\n\nInvalid: 'high', 'low', 'medium'\n\nCONTENT:\n{content}\n\nAre there invalid severity values?\n\nRespond ONLY 'YES' or 'NO'.",
+        "expectedResponse": "YES|NO",
+        "maxTokens": 10
+      },
+      "fix": {
+        "prompt": "Fix severity values:\n- 'high' → 'critical'\n- 'medium' → 'major'\n- 'low' → 'minor'\n- Other → 'major'\n\nCONTENT:\n{content}\n\nReturn ONLY corrected JSON.",
+        "returnFormat": "json",
+        "maxTokens": 4096
+      },
+      "metadata": {
+        "category": "validation",
+        "addedVersion": "0.1.2"
+      }
+    },
+    {
+      "id": "valid-status",
+      "name": "Validate Status Values",
+      "enabled": true,
+      "severity": "critical",
+      "description": "validationStatus must be needs-improvement/acceptable/excellent",
+      "check": {
+        "prompt": "Check if validationStatus is: 'needs-improvement', 'acceptable', or 'excellent'\n\nCONTENT:\n{content}\n\nIs validationStatus INVALID?\n\nRespond ONLY 'YES' or 'NO'.",
+        "expectedResponse": "YES|NO",
+        "maxTokens": 10
+      },
+      "fix": {
+        "prompt": "Fix validationStatus based on overallScore:\n- 90-100 → 'excellent'\n- 75-89 → 'acceptable'\n- 0-74 → 'needs-improvement'\n\nIf no score, use 'needs-improvement'.\n\nCONTENT:\n{content}\n\nReturn ONLY corrected JSON.",
+        "returnFormat": "json",
+        "maxTokens": 4096
+      },
+      "metadata": {
+        "category": "validation",
+        "addedVersion": "0.1.2"
+      }
+    },
+    {
+      "id": "array-fields",
+      "name": "Validate Array Fields",
+      "enabled": true,
+      "severity": "major",
+      "description": "Issue fields must be arrays",
+      "check": {
+        "prompt": "Check if these are arrays:\n- structuralIssues\n- contentIssues\n- applicationFlowGaps\n- strengths\n- improvementPriorities\n\nCONTENT:\n{content}\n\nAre ALL these proper arrays?\n\nRespond ONLY 'YES' or 'NO'.",
+        "expectedResponse": "YES|NO",
+        "maxTokens": 10
+      },
+      "fix": {
+        "prompt": "Convert to arrays:\n- If missing/null → []\n- If single object → [{...}]\n- If string → [string]\n- If already array → keep\n\nCONTENT:\n{content}\n\nReturn ONLY corrected JSON.",
+        "returnFormat": "json",
+        "maxTokens": 4096
+      },
+      "metadata": {
+        "category": "validation",
+        "addedVersion": "0.1.2"
+      }
+    }
+  ]
+}

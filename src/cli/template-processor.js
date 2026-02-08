@@ -3,6 +3,7 @@ import fs from 'fs';
 import path from 'path';
 import readline from 'readline';
 import { LLMProvider } from './llm-provider.js';
+import { LLMVerifier } from './llm-verifier.js';
 import { TokenTracker } from './token-tracker.js';
 import { fileURLToPath } from 'url';
 
@@ -134,13 +135,12 @@ class TemplateProcessor {
   }
 
   /**
-   * Read guidelines from avc.json ceremony configuration
+   * Read guidelines from avc.json questionnaire configuration
    */
   readGuidelines() {
     try {
       const config = JSON.parse(fs.readFileSync(this.avcConfigPath, 'utf8'));
-      const ceremony = config.settings?.ceremonies?.find(c => c.name === this.ceremonyName);
-      return ceremony?.guidelines || {};
+      return config.settings?.questionnaire?.guidelines || {};
     } catch (error) {
       return {};
     }
@@ -148,28 +148,16 @@ class TemplateProcessor {
 
   /**
    * Get guideline value for a specific variable
-   * Maps variable names (TECHNICAL_CONSIDERATIONS) to guideline keys (technicalConsiderations)
+   * New format uses UPPER_SNAKE_CASE keys directly in settings.questionnaire.guidelines
    * @param {string} variableName - Variable name in UPPER_SNAKE_CASE
    * @returns {string|null} - Guideline value or null if not found
    */
   getGuidelineForVariable(variableName) {
     const guidelines = this.readGuidelines();
 
-    // Map variable names to guideline keys (UPPER_SNAKE_CASE to camelCase)
-    const variableToGuidelineMap = {
-      'MISSION_STATEMENT': 'missionStatement',
-      'TARGET_USERS': 'targetUsers',
-      'INITIAL_SCOPE': 'initialScope',
-      'TECHNICAL_CONSIDERATIONS': 'technicalConsiderations',
-      'SECURITY_AND_COMPLIANCE_REQUIREMENTS': 'securityAndComplianceRequirements'
-    };
-
-    const guidelineKey = variableToGuidelineMap[variableName];
-    if (!guidelineKey) {
-      return null;
-    }
-
-    const guidelineValue = guidelines[guidelineKey];
+    // New format uses UPPER_SNAKE_CASE keys directly
+    // e.g., guidelines.MISSION_STATEMENT, guidelines.TECHNICAL_CONSIDERATIONS
+    const guidelineValue = guidelines[variableName];
     return guidelineValue || null;
   }
 
@@ -267,6 +255,8 @@ class TemplateProcessor {
       'TARGET_USERS': 'Who will use this application? List different user types and their roles.\n   Examples: "Small business owners", "Inventory managers", "Sales staff", "Administrators"',
 
       'INITIAL_SCOPE': 'Describe the initial scope of your application: key features, main workflows, and core functionality.\n   What will users be able to do? What are the essential capabilities?\n   Example: "Users can create tasks, assign them to team members, track progress, set deadlines, and receive notifications."',
+
+      'DEPLOYMENT_TARGET': 'Where will this application be deployed and hosted?\n   Consider: Cloud providers (AWS, Google Cloud, Azure, DigitalOcean, Vercel, Netlify), platform types (serverless, containerized, VM-based, static hosting), local deployment (desktop app, mobile app, browser extension), CMS platforms (WordPress plugin, Shopify app), hybrid approaches (local with cloud sync, PWA), infrastructure constraints (on-premises, air-gapped, specific regions)\n   Example: "AWS cloud using Lambda and S3, with CloudFront CDN for global distribution"',
 
       'TECHNICAL_CONSIDERATIONS': 'Technical stack and requirements for your application (backend AND frontend).\n   Backend examples: "Node.js with Express API", "PostgreSQL database", "Real-time data sync with WebSockets"\n   Frontend examples: "React SPA with TypeScript", "VitePress for documentation", "Next.js with SSR for e-commerce", "Material-UI design system"\n   UI/UX examples: "Mobile-first responsive design", "WCAG 2.1 AA accessibility", "Must work offline", "Multi-language support"',
 
@@ -673,7 +663,19 @@ Please review and enhance this document according to your role.`;
           });
         }
 
-        return enhanced;
+        // Post-process verification
+        this.reportSubstep('Verifying documentation quality...');
+        const verifier = new LLMVerifier(this.llmProvider, 'project-documentation-creator');
+        const verificationResult = await verifier.verify(
+          enhanced,
+          (mainMsg, substep) => this.reportSubstep(substep)
+        );
+
+        if (verificationResult.rulesApplied.length > 0) {
+          this.reportSubstep(`Applied ${verificationResult.rulesApplied.length} fixes`);
+        }
+
+        return verificationResult.content;
       } else {
         // Fallback to legacy hardcoded prompt for backward compatibility
         const legacyPrompt = `You are creating a project definition document for an Agile Vibe Coding (AVC) project.
@@ -888,10 +890,17 @@ Return the enhanced markdown document.`;
       }
     }
 
+    // Report questionnaire completion
+    this.reportProgress('Stage 1/5: Processing questionnaire answers...', 'Processed questionnaire responses');
+
     // 5. Replace variables in template
+    this.reportProgress('Stage 2/5: Preparing project template...', 'Template preparation complete');
     this.reportSubstep('Reading template: project.md');
     const templateWithValues = this.replaceVariables(templateContent, collectedValues);
-    this.reportSubstep('Replacing 5 template variables...');
+    this.reportSubstep('Replaced 6 template variables');
+
+    // Preparation complete
+    this.reportProgress('Stage 3/5: Preparing for documentation generation...', 'Ready to generate documentation');
 
     // 6. Enhance document with LLM
     this.reportProgress('Stage 4/5: Creating project documentation...', 'Created project documentation');
@@ -1021,7 +1030,19 @@ Return the enhanced markdown document.`;
       });
     }
 
-    return projectContext.contextMarkdown;
+    // Post-process verification
+    this.reportSubstep('Verifying context quality...');
+    const verifier = new LLMVerifier(this.llmProvider, 'project-context-generator');
+    const verificationResult = await verifier.verify(
+      projectContext.contextMarkdown,
+      (mainMsg, substep) => this.reportSubstep(substep)
+    );
+
+    if (verificationResult.rulesApplied.length > 0) {
+      this.reportSubstep(`Applied ${verificationResult.rulesApplied.length} context fixes`);
+    }
+
+    return verificationResult.content;
   }
 
   /**
@@ -1486,6 +1507,15 @@ Return your response as JSON following the exact structure specified in your ins
       'documentation validation'
     );
 
+    // Post-process verification of validator output
+    const verifier = new LLMVerifier(provider, 'validator-documentation');
+    const verificationResult = await verifier.verify(JSON.stringify(validation, null, 2));
+
+    if (verificationResult.rulesApplied.length > 0) {
+      // Parse corrected JSON back to object
+      return JSON.parse(verificationResult.content);
+    }
+
     return validation;
   }
 
@@ -1540,6 +1570,15 @@ Return your response as JSON following the exact structure specified in your ins
       () => provider.generateJSON(prompt, validatorAgent),
       'context validation'
     );
+
+    // Post-process verification of validator output
+    const verifier = new LLMVerifier(provider, 'validator-context');
+    const verificationResult = await verifier.verify(JSON.stringify(validation, null, 2));
+
+    if (verificationResult.rulesApplied.length > 0) {
+      // Parse corrected JSON back to object
+      return JSON.parse(verificationResult.content);
+    }
 
     return validation;
   }
@@ -1704,11 +1743,9 @@ Return your response as JSON following the exact structure specified in your ins
     let iteration = 0;
 
     while (iteration < maxIterations) {
-      console.log(`\n🔍 Validation iteration ${iteration + 1}/${maxIterations} for ${type === 'context' ? 'context scope' : type}...\n`);
-
-      // Validate
+      // Report validation iteration progress
       const validationType = type === 'documentation' ? 'Project Brief structure' : 'project context';
-      this.reportSubstep(`Validating ${validationType}...`);
+      this.reportSubstep(`Validation ${iteration + 1}/${maxIterations}: Validating ${validationType}...`);
       const validation = type === 'documentation'
         ? await this.validateDocument(currentContent, questionnaire, contextContent)
         : await this.validateContext(currentContent, 'project', questionnaire);

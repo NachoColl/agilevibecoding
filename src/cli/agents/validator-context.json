@@ -1,0 +1,92 @@
+{
+  "$schema": "verification-rules-v1",
+  "agent": "validator-context",
+  "description": "Post-processing verification for context validator outputs",
+  "model": "claude-haiku-4-5",
+  "verifications": [
+    {
+      "id": "valid-json",
+      "name": "Ensure Valid JSON",
+      "enabled": true,
+      "severity": "critical",
+      "description": "Validator output must be valid JSON",
+      "check": {
+        "prompt": "Check if content is valid JSON.\n\nCONTENT:\n{content}\n\nIs this valid JSON?\n\nRespond ONLY 'YES' or 'NO'.",
+        "expectedResponse": "YES|NO",
+        "maxTokens": 10
+      },
+      "fix": {
+        "prompt": "Fix JSON syntax errors. Preserve all data.\n\nCONTENT:\n{content}\n\nReturn ONLY valid JSON.",
+        "returnFormat": "json",
+        "maxTokens": 4096
+      },
+      "metadata": {
+        "category": "validation",
+        "addedVersion": "0.1.2"
+      }
+    },
+    {
+      "id": "required-validator-fields",
+      "name": "Validate Required Fields",
+      "enabled": true,
+      "severity": "critical",
+      "description": "Must have validationStatus, overallScore, issues",
+      "check": {
+        "prompt": "Check if JSON has:\n- validationStatus\n- overallScore\n- issues (array)\n\nCONTENT:\n{content}\n\nDoes it have ALL required fields?\n\nRespond ONLY 'YES' or 'NO'.",
+        "expectedResponse": "YES|NO",
+        "maxTokens": 10
+      },
+      "fix": {
+        "prompt": "Add missing fields with defaults:\n- validationStatus: 'needs-improvement'\n- overallScore: 50\n- issues: []\n\nCONTENT:\n{content}\n\nReturn ONLY complete JSON.",
+        "returnFormat": "json",
+        "maxTokens": 4096
+      },
+      "metadata": {
+        "category": "validation",
+        "addedVersion": "0.1.2"
+      }
+    },
+    {
+      "id": "score-0-100",
+      "name": "Score Must Be 0-100",
+      "enabled": true,
+      "severity": "critical",
+      "description": "overallScore must be integer 0-100",
+      "check": {
+        "prompt": "Check if overallScore is valid (integer 0-100).\n\nCONTENT:\n{content}\n\nIs score INVALID?\n\nRespond ONLY 'YES' or 'NO'.",
+        "expectedResponse": "YES|NO",
+        "maxTokens": 10
+      },
+      "fix": {
+        "prompt": "Fix overallScore: clamp to 0-100, round if decimal.\n\nCONTENT:\n{content}\n\nReturn ONLY corrected JSON.",
+        "returnFormat": "json",
+        "maxTokens": 4096
+      },
+      "metadata": {
+        "category": "validation",
+        "addedVersion": "0.1.2"
+      }
+    },
+    {
+      "id": "issues-is-array",
+      "name": "Issues Must Be Array",
+      "enabled": true,
+      "severity": "major",
+      "description": "issues field must be an array",
+      "check": {
+        "prompt": "Check if 'issues' field is an array.\n\nCONTENT:\n{content}\n\nIs 'issues' NOT an array?\n\nRespond ONLY 'YES' or 'NO'.",
+        "expectedResponse": "YES|NO",
+        "maxTokens": 10
+      },
+      "fix": {
+        "prompt": "Convert 'issues' to array. If null/missing use []. If single object wrap in array.\n\nCONTENT:\n{content}\n\nReturn ONLY corrected JSON.",
+        "returnFormat": "json",
+        "maxTokens": 4096
+      },
+      "metadata": {
+        "category": "validation",
+        "addedVersion": "0.1.2"
+      }
+    }
+  ]
+}

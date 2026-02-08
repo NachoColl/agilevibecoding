@@ -1,0 +1,218 @@
+{
+  "$schema": "verification-rules-v1",
+  "agent": "project-context-generator",
+  "description": "Post-processing verification for project context generation",
+  "model": "claude-haiku-4-5",
+  "verifications": [
+    {
+      "id": "token-count-too-long",
+      "name": "Shorten If Too Long",
+      "enabled": true,
+      "severity": "major",
+      "description": "Context should not exceed 600 tokens",
+      "check": {
+        "prompt": "Estimate token count (4 characters ≈ 1 token).\n\nTarget: 400-600 tokens\n\nCONTENT:\n{content}\n\nIs this MORE THAN 600 tokens?\n\nRespond ONLY 'YES' or 'NO'.",
+        "expectedResponse": "YES|NO",
+        "maxTokens": 10
+      },
+      "fix": {
+        "prompt": "Content is TOO LONG (>600 tokens). Shorten to ~500 tokens.\n\nStrategy:\n- Remove redundant information\n- Combine similar points\n- Use concise language\n- Keep only essential details\n\nTarget: ~500 tokens (2000 characters)\n\nCONTENT:\n{content}\n\nReturn ONLY the shortened content.",
+        "returnFormat": "text",
+        "maxTokens": 4096
+      },
+      "metadata": {
+        "category": "validation",
+        "addedVersion": "0.1.2"
+      }
+    },
+    {
+      "id": "token-count-too-short",
+      "name": "Expand If Too Short",
+      "enabled": true,
+      "severity": "major",
+      "description": "Context should be at least 400 tokens",
+      "check": {
+        "prompt": "Estimate token count (4 characters ≈ 1 token).\n\nTarget: 400-600 tokens\n\nCONTENT:\n{content}\n\nIs this LESS THAN 400 tokens?\n\nRespond ONLY 'YES' or 'NO'.",
+        "expectedResponse": "YES|NO",
+        "maxTokens": 10
+      },
+      "fix": {
+        "prompt": "Content is TOO SHORT (<400 tokens). Expand to ~500 tokens.\n\nStrategy:\n- Expand key technical points\n- Add relevant architectural details\n- Clarify technical decisions\n- Include important constraints\n\nTarget: ~500 tokens (2000 characters)\n\nCONTENT:\n{content}\n\nReturn ONLY the expanded content.",
+        "returnFormat": "text",
+        "maxTokens": 4096
+      },
+      "metadata": {
+        "category": "validation",
+        "addedVersion": "0.1.2"
+      }
+    },
+    {
+      "id": "no-redundant-info",
+      "name": "Remove Redundant Information",
+      "enabled": true,
+      "severity": "minor",
+      "description": "Remove overly detailed information",
+      "check": {
+        "prompt": "Check if context contains overly detailed or redundant information.\n\nContext should be:\n- Concise scope definition\n- Key boundaries\n- Essential technical decisions\n\nContext should NOT be:\n- Detailed feature descriptions\n- Full user stories\n- Complete specifications\n\nCONTENT:\n{content}\n\nIs this overly detailed or redundant?\n\nRespond ONLY 'YES' or 'NO'.",
+        "expectedResponse": "YES|NO",
+        "maxTokens": 10
+      },
+      "fix": {
+        "prompt": "Remove redundant and overly detailed information.\n\nStrategy:\n- Remove detailed feature descriptions (keep high-level)\n- Remove duplicates\n- Condense verbose explanations\n- Keep: scope, boundaries, key decisions, constraints\n\nCONTENT:\n{content}\n\nReturn ONLY the refined content.",
+        "returnFormat": "text",
+        "maxTokens": 4096
+      },
+      "metadata": {
+        "category": "content",
+        "addedVersion": "0.1.2"
+      }
+    },
+    {
+      "id": "fix-header-formatting",
+      "name": "Fix Header Spacing",
+      "enabled": true,
+      "severity": "major",
+      "description": "Ensure headers have proper spacing (## Header not ##Header)",
+      "check": {
+        "prompt": "Check if headers are properly formatted with space after #.\n\nCorrect: ## Header, ### Title\nWrong: ##Header, ###Title\n\nCONTENT:\n{content}\n\nAre there improperly formatted headers?\n\nRespond ONLY 'YES' or 'NO'.",
+        "expectedResponse": "YES|NO",
+        "maxTokens": 10
+      },
+      "fix": {
+        "prompt": "Fix ALL headers to have space after #.\n\n##Header → ## Header\n###Title → ### Title\n\nPreserve all content.\n\nCONTENT:\n{content}\n\nReturn ONLY the corrected content.",
+        "returnFormat": "text",
+        "maxTokens": 4096
+      },
+      "metadata": {
+        "category": "formatting",
+        "addedVersion": "0.1.2"
+      }
+    },
+    {
+      "id": "fix-unclosed-code-blocks",
+      "name": "Fix Unclosed Code Blocks",
+      "enabled": true,
+      "severity": "major",
+      "description": "Ensure all code blocks have closing ```",
+      "check": {
+        "prompt": "Check if there are unclosed code blocks (opening ``` without closing ```).\n\nCONTENT:\n{content}\n\nAre there unclosed code blocks?\n\nRespond ONLY 'YES' or 'NO'.",
+        "expectedResponse": "YES|NO",
+        "maxTokens": 10
+      },
+      "fix": {
+        "prompt": "Close ALL unclosed code blocks.\n\nAdd closing ``` where missing.\n\nCONTENT:\n{content}\n\nReturn ONLY the corrected content.",
+        "returnFormat": "text",
+        "maxTokens": 4096
+      },
+      "metadata": {
+        "category": "formatting",
+        "addedVersion": "0.1.2"
+      }
+    },
+    {
+      "id": "fix-malformed-lists",
+      "name": "Fix Malformed Lists",
+      "enabled": true,
+      "severity": "major",
+      "description": "Fix list indentation and markers",
+      "check": {
+        "prompt": "Check for malformed lists:\n- Inconsistent indentation\n- Mixed markers (- and *)\n- Incorrect nesting\n\nCONTENT:\n{content}\n\nAre there malformed lists?\n\nRespond ONLY 'YES' or 'NO'.",
+        "expectedResponse": "YES|NO",
+        "maxTokens": 10
+      },
+      "fix": {
+        "prompt": "Fix ALL list formatting issues.\n\n- Use consistent markers (-)\n- Fix indentation (2 spaces per level)\n- Ensure proper nesting\n\nCONTENT:\n{content}\n\nReturn ONLY the corrected content.",
+        "returnFormat": "text",
+        "maxTokens": 4096
+      },
+      "metadata": {
+        "category": "formatting",
+        "addedVersion": "0.1.2"
+      }
+    },
+    {
+      "id": "add-section-spacing",
+      "name": "Add Section Spacing",
+      "enabled": true,
+      "severity": "minor",
+      "description": "Add blank lines between sections",
+      "check": {
+        "prompt": "Check if sections have blank lines between them for readability.\n\nGood:\n## Section 1\nContent\n\n## Section 2\n\nBad:\n## Section 1\nContent\n## Section 2\n\nCONTENT:\n{content}\n\nAre blank lines missing between sections?\n\nRespond ONLY 'YES' or 'NO'.",
+        "expectedResponse": "YES|NO",
+        "maxTokens": 10
+      },
+      "fix": {
+        "prompt": "Add blank lines between ALL sections.\n\nEnsure single blank line before each header.\n\nCONTENT:\n{content}\n\nReturn ONLY the corrected content.",
+        "returnFormat": "text",
+        "maxTokens": 4096
+      },
+      "metadata": {
+        "category": "formatting",
+        "addedVersion": "0.1.2"
+      }
+    },
+    {
+      "id": "ensure-in-scope-defined",
+      "name": "Ensure In-Scope Defined",
+      "enabled": true,
+      "severity": "critical",
+      "description": "Context must define what IS in scope",
+      "check": {
+        "prompt": "Check if context clearly defines what IS IN SCOPE.\n\nLook for section or content that lists included items.\n\nCONTENT:\n{content}\n\nIs IN SCOPE clearly defined?\n\nRespond ONLY 'YES' (if clear) or 'NO' (if missing/unclear).",
+        "expectedResponse": "YES|NO",
+        "maxTokens": 10
+      },
+      "fix": {
+        "prompt": "Add or improve IN SCOPE definition.\n\nAdd section:\n## Scope\n\n### In Scope\n- [Infer from existing content what is included]\n- [Be specific]\n\nPreserve all existing content.\n\nCONTENT:\n{content}\n\nReturn ONLY the improved content.",
+        "returnFormat": "text",
+        "maxTokens": 4096
+      },
+      "metadata": {
+        "category": "content",
+        "addedVersion": "0.1.2"
+      }
+    },
+    {
+      "id": "ensure-out-of-scope-defined",
+      "name": "Ensure Out-of-Scope Defined",
+      "enabled": true,
+      "severity": "critical",
+      "description": "Context must define what is OUT of scope",
+      "check": {
+        "prompt": "Check if context clearly defines what is OUT OF SCOPE (explicitly excluded).\n\nLook for section listing excluded items.\n\nCONTENT:\n{content}\n\nIs OUT OF SCOPE clearly defined?\n\nRespond ONLY 'YES' (if clear) or 'NO' (if missing/unclear).",
+        "expectedResponse": "YES|NO",
+        "maxTokens": 10
+      },
+      "fix": {
+        "prompt": "Add or improve OUT OF SCOPE definition.\n\nAdd or enhance section:\n### Out of Scope\n- [List what is explicitly excluded]\n- [Mention related features NOT included]\n\nPreserve all existing content.\n\nCONTENT:\n{content}\n\nReturn ONLY the improved content.",
+        "returnFormat": "text",
+        "maxTokens": 4096
+      },
+      "metadata": {
+        "category": "content",
+        "addedVersion": "0.1.2"
+      }
+    },
+    {
+      "id": "no-implementation-details",
+      "name": "Remove Implementation Details",
+      "enabled": true,
+      "severity": "minor",
+      "description": "Remove code snippets and detailed implementation",
+      "check": {
+        "prompt": "Check for implementation-level details:\n- Code snippets\n- Detailed algorithms\n- Step-by-step implementation instructions\n- File paths or directory structures\n\nContext should be high-level.\n\nCONTENT:\n{content}\n\nDoes this contain implementation details?\n\nRespond ONLY 'YES' or 'NO'.",
+        "expectedResponse": "YES|NO",
+        "maxTokens": 10
+      },
+      "fix": {
+        "prompt": "Remove or abstract implementation details.\n\nReplace:\n- Code snippets → high-level description\n- Detailed algorithms → approach/pattern name\n- Step-by-step implementation → objective/outcome\n- File paths → component/module names\n\nCONTENT:\n{content}\n\nReturn ONLY the abstracted content.",
+        "returnFormat": "text",
+        "maxTokens": 4096
+      },
+      "metadata": {
+        "category": "content",
+        "addedVersion": "0.1.2"
+      }
+    }
+  ]
+}
