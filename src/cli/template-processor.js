@@ -5,6 +5,7 @@ import readline from 'readline';
 import { LLMProvider } from './llm-provider.js';
 import { LLMVerifier } from './llm-verifier.js';
 import { TokenTracker } from './token-tracker.js';
+import { VerificationTracker } from './verification-tracker.js';
 import { fileURLToPath } from 'url';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -26,7 +27,12 @@ class TemplateProcessor {
     // Load environment variables from project .env
     dotenv.config({ path: path.join(process.cwd(), '.env') });
 
+    console.log('[DEBUG] TemplateProcessor constructor called:', { ceremonyName, nonInteractive });
+
     this.ceremonyName = ceremonyName;
+
+    // Initialize verification tracker
+    this.verificationTracker = new VerificationTracker(ceremonyName);
     this.templatePath = path.join(__dirname, 'templates/project.md');
     this.outputDir = path.join(process.cwd(), '.avc/project');
     this.outputPath = path.join(this.outputDir, 'doc.md');
@@ -70,6 +76,22 @@ class TemplateProcessor {
     // Progress reporting
     this.progressCallback = null;
     this.activityLog = [];
+  }
+
+  /**
+   * Strip markdown code fences from content
+   * Handles: ```json ... ``` or ``` ... ```
+   */
+  stripMarkdownCodeFences(content) {
+    if (typeof content !== 'string') return content;
+
+    // Remove opening fence (```json, ```JSON, or just ```)
+    let stripped = content.replace(/^```(?:json|JSON)?\s*\n?/, '');
+
+    // Remove closing fence (```)
+    stripped = stripped.replace(/\n?\s*```\s*$/, '');
+
+    return stripped.trim();
   }
 
   /**
@@ -680,7 +702,7 @@ Please review and enhance this document according to your role.`;
 
         // Post-process verification
         this.reportSubstep('Verifying documentation quality...');
-        const verifier = new LLMVerifier(this.llmProvider, 'project-documentation-creator');
+        const verifier = new LLMVerifier(this.llmProvider, 'project-documentation-creator', this.verificationTracker);
         const verificationResult = await verifier.verify(
           enhanced,
           (mainMsg, substep) => this.reportSubstep(substep)
@@ -995,6 +1017,25 @@ Return the enhanced markdown document.`;
     }
 
     // 12. Return comprehensive result
+    // Save verification tracking summary
+    if (this.verificationTracker) {
+      try {
+        this.verificationTracker.logCeremonySummary();
+        const { jsonPath, summaryPath } = this.verificationTracker.saveToFile();
+
+        if (jsonPath && summaryPath) {
+          console.log(`\n📊 Verification tracking saved:`);
+          console.log(`   JSON: ${jsonPath}`);
+          console.log(`   Summary: ${summaryPath}`);
+        }
+
+        // Clean up old verification logs (keep last 10)
+        VerificationTracker.cleanupOldLogs(this.ceremonyName);
+      } catch (error) {
+        console.error('Error saving verification tracking:', error.message);
+      }
+    }
+
     return {
       outputPath: this.outputPath,
       contextPath: contextPath,
@@ -1047,7 +1088,7 @@ Return the enhanced markdown document.`;
 
     // Post-process verification
     this.reportSubstep('Verifying context quality...');
-    const verifier = new LLMVerifier(this.llmProvider, 'project-context-generator');
+    const verifier = new LLMVerifier(this.llmProvider, 'project-context-generator', this.verificationTracker);
     const verificationResult = await verifier.verify(
       projectContext.contextMarkdown,
       (mainMsg, substep) => this.reportSubstep(substep)
@@ -1523,12 +1564,36 @@ Return your response as JSON following the exact structure specified in your ins
     );
 
     // Post-process verification of validator output
-    const verifier = new LLMVerifier(provider, 'validator-documentation');
+    const verifier = new LLMVerifier(provider, 'validator-documentation', this.verificationTracker);
+    console.log('[DEBUG] validateDocument - Input to verifier (preview):', JSON.stringify(validation, null, 2).substring(0, 200));
     const verificationResult = await verifier.verify(JSON.stringify(validation, null, 2));
+    console.log('[DEBUG] validateDocument - Verification result:', {
+      rulesApplied: verificationResult.rulesApplied.map(r => r.id),
+      contentLength: verificationResult.content.length,
+      contentPreview: verificationResult.content.substring(0, 300)
+    });
 
     if (verificationResult.rulesApplied.length > 0) {
       // Parse corrected JSON back to object
-      return JSON.parse(verificationResult.content);
+      console.log('[DEBUG] validateDocument - Attempting to parse verification result as JSON');
+
+      // Strip markdown code fences if present
+      const cleanedContent = this.stripMarkdownCodeFences(verificationResult.content);
+      console.log('[DEBUG] validateDocument - After stripping code fences:', {
+        originalLength: verificationResult.content.length,
+        cleanedLength: cleanedContent.length,
+        cleanedPreview: cleanedContent.substring(0, 200)
+      });
+
+      try {
+        const parsed = JSON.parse(cleanedContent);
+        console.log('[DEBUG] validateDocument - Successfully parsed JSON');
+        return parsed;
+      } catch (error) {
+        console.error('[ERROR] validateDocument - JSON parse failed:', error.message);
+        console.error('[ERROR] validateDocument - Raw content that failed to parse:', cleanedContent);
+        throw error;
+      }
     }
 
     return validation;
@@ -1587,12 +1652,36 @@ Return your response as JSON following the exact structure specified in your ins
     );
 
     // Post-process verification of validator output
-    const verifier = new LLMVerifier(provider, 'validator-context');
+    const verifier = new LLMVerifier(provider, 'validator-context', this.verificationTracker);
+    console.log('[DEBUG] validateContext - Input to verifier (preview):', JSON.stringify(validation, null, 2).substring(0, 200));
     const verificationResult = await verifier.verify(JSON.stringify(validation, null, 2));
+    console.log('[DEBUG] validateContext - Verification result:', {
+      rulesApplied: verificationResult.rulesApplied.map(r => r.id),
+      contentLength: verificationResult.content.length,
+      contentPreview: verificationResult.content.substring(0, 300)
+    });
 
     if (verificationResult.rulesApplied.length > 0) {
       // Parse corrected JSON back to object
-      return JSON.parse(verificationResult.content);
+      console.log('[DEBUG] validateContext - Attempting to parse verification result as JSON');
+
+      // Strip markdown code fences if present
+      const cleanedContent = this.stripMarkdownCodeFences(verificationResult.content);
+      console.log('[DEBUG] validateContext - After stripping code fences:', {
+        originalLength: verificationResult.content.length,
+        cleanedLength: cleanedContent.length,
+        cleanedPreview: cleanedContent.substring(0, 200)
+      });
+
+      try {
+        const parsed = JSON.parse(cleanedContent);
+        console.log('[DEBUG] validateContext - Successfully parsed JSON');
+        return parsed;
+      } catch (error) {
+        console.error('[ERROR] validateContext - JSON parse failed:', error.message);
+        console.error('[ERROR] validateContext - Raw content that failed to parse:', cleanedContent);
+        throw error;
+      }
     }
 
     return validation;

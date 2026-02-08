@@ -156,6 +156,12 @@ const questionnaireQuestions = [
     example: 'Users can create and manage tasks, assign them to team members with due dates, track progress through kanban boards, receive notifications for updates, and generate reports on team productivity.'
   },
   {
+    key: 'DEPLOYMENT_TARGET',
+    title: 'Deployment Target & Hosting Platform',
+    guidance: 'Where will this application run? Describe the deployment environment and hosting platform. This helps determine infrastructure requirements and technical constraints.',
+    example: 'AWS cloud using serverless stack (Lambda, API Gateway, S3). Frontend hosted on CloudFront CDN. No local desktop components - fully web-based SaaS application accessible from any browser.'
+  },
+  {
     key: 'TECHNICAL_CONSIDERATIONS',
     title: 'Technical Considerations',
     guidance: 'Technical requirements, constraints, or preferences for your application.',
@@ -189,7 +195,7 @@ const QuestionDisplay = ({ question, index, total, editMode }) => {
 
 // Multi-line input component with line numbers and character count
 // Memoized to prevent unnecessary re-renders when props haven't changed
-const MultiLineInput = React.memo(({ lines, showCharCount = true }) => {
+const MultiLineInput = React.memo(({ lines, showCharCount = true, cursorLine = null, cursorChar = null }) => {
   // Early return for empty lines (no memoization needed)
   if (lines.length === 0) {
     return React.createElement(Box, { flexDirection: 'column', flexShrink: 0 },
@@ -226,11 +232,26 @@ const MultiLineInput = React.memo(({ lines, showCharCount = true }) => {
     // Render each line as separate Text (Box handles line breaks automatically)
     ...visibleLines.map((line, idx) => {
       const actualIdx = hasMoreLines ? idx + hiddenCount : idx;
+      const isCurrentLine = cursorLine !== null && actualIdx === cursorLine;
       const isLastLine = actualIdx === lines.length - 1;
 
+      // If this is the cursor line, split at cursor position and show inverted character
+      if (isCurrentLine && cursorChar !== null) {
+        const beforeCursor = line.slice(0, cursorChar);
+        const atCursor = line[cursorChar] || ' '; // character at cursor, or space if at end
+        const afterCursor = line.slice(cursorChar + 1);
+
+        return React.createElement(Text, { key: actualIdx },
+          beforeCursor,
+          React.createElement(Text, { inverse: true }, atCursor),
+          afterCursor
+        );
+      }
+
+      // Regular line (no cursor) - fallback to old behavior
       return React.createElement(Text, { key: actualIdx },
         line,
-        isLastLine && React.createElement(Text, { inverse: true }, ' ')
+        (isLastLine && cursorLine === null) && React.createElement(Text, { inverse: true }, ' ')
       );
     }),
     showCharCount && React.createElement(Box, { flexShrink: 0 },
@@ -1044,9 +1065,10 @@ const App = () => {
   // Solution: Force re-render after mount to stabilize layout before user input
   useEffect(() => {
     // Delay to ensure React Ink has completed initial layout pass
+    // Also gives time for logo to render and update checker to start
     const timer = setTimeout(() => {
       setIsStableRender(true);
-    }, 50); // 50ms is enough for React Ink to stabilize
+    }, 200); // 200ms ensures React Ink is fully stable and logo has rendered
 
     return () => clearTimeout(timer);
   }, []);
@@ -1056,13 +1078,17 @@ const App = () => {
     const checker = new UpdateChecker();
     const installer = new UpdateInstaller();
 
-    // Perform first update check immediately
-    checker.checkForUpdates().catch(() => {
-      // Silently fail
-    });
+    // Delay update check to avoid interfering with React Ink's initial render
+    // Running it immediately can cause console output that corrupts the layout
+    setTimeout(() => {
+      // Perform first update check
+      checker.checkForUpdates().catch(() => {
+        // Silently fail
+      });
 
-    // Start background checker (checks every hour after first check)
-    checker.startBackgroundChecker();
+      // Start background checker (checks every hour after first check)
+      checker.startBackgroundChecker();
+    }, 1000); // Wait 1 second for React Ink to fully stabilize
 
     // Auto-trigger update installation if available
     setTimeout(() => {
@@ -1794,11 +1820,11 @@ https://agilevibecoding.org
   const loadQuestionnaireConfig = () => {
     try {
       const avcConfigPath = path.join(process.cwd(), '.avc', 'avc.json');
-      if (!fs.existsSync(avcConfigPath)) {
+      if (!existsSync(avcConfigPath)) {
         return { defaults: {}, guidelines: {} };
       }
 
-      const config = JSON.parse(fs.readFileSync(avcConfigPath, 'utf8'));
+      const config = JSON.parse(readFileSync(avcConfigPath, 'utf8'));
       return {
         defaults: config.settings?.questionnaire?.defaults || {},
         guidelines: config.settings?.questionnaire?.guidelines || {}
@@ -2221,6 +2247,9 @@ https://agilevibecoding.org
   // Handle keyboard input in prompt mode
   useInput((inputChar, key) => {
     if (mode !== 'prompt') return;
+
+    // Block input during initialization
+    if (!isStableRender) return;
 
     // Handle Ctrl+R for restart (re-exec current process)
     if (key.ctrl && inputChar === 'r') {
@@ -3300,7 +3329,9 @@ https://agilevibecoding.org
         }),
         React.createElement(MultiLineInput, {
           lines: currentAnswer,
-          showCharCount: true
+          showCharCount: true,
+          cursorLine: cursorLine,
+          cursorChar: cursorChar
         }),
         React.createElement(QuestionnaireProgress, {
           current: currentQuestionIndex,
@@ -3366,6 +3397,17 @@ https://agilevibecoding.org
   // Render prompt when in prompt mode
   const renderPrompt = () => {
     if (mode !== 'prompt' || questionnaireActive || showPreview || removeConfirmActive || killConfirmActive || processViewerActive || cancelConfirmActive || isExecuting) return null;
+
+    // Show loading indicator while app is initializing
+    if (!isStableRender) {
+      return React.createElement(Box, { flexDirection: 'row', flexShrink: 0 },
+        React.createElement(Text, { color: 'cyan' },
+          React.createElement(Spinner, { type: 'dots' }),
+          ' ',
+          'Initializing...'
+        )
+      );
+    }
 
     return React.createElement(Box, { flexDirection: 'column', flexShrink: 0 },
       React.createElement(InputWithCursor, { input: input }),

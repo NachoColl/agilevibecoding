@@ -16,9 +16,10 @@ const __dirname = path.dirname(__filename);
  *   const result = await verifier.verify(content, progressCallback);
  */
 export class LLMVerifier {
-  constructor(llmProvider, agentName) {
+  constructor(llmProvider, agentName, tracker = null) {
     this.llmProvider = llmProvider;
     this.agentName = agentName;
+    this.tracker = tracker;  // Optional verification tracker
     this.rules = this.loadRules();
   }
 
@@ -55,6 +56,10 @@ export class LLMVerifier {
    */
   async checkRule(content, rule) {
     try {
+      if (this.tracker) {
+        this.tracker.startRuleCheck(rule);
+      }
+
       const prompt = rule.check.prompt.replace('{content}', content);
       const maxTokens = rule.check.maxTokens || 10;
 
@@ -62,13 +67,23 @@ export class LLMVerifier {
       const answer = response.trim().toUpperCase();
 
       // Check if response matches expected pattern (YES means violation found)
+      let result = false;
       if (rule.check.expectedResponse === 'YES|NO') {
-        return answer === 'YES';
+        result = answer === 'YES';
       }
 
-      return false;
+      if (this.tracker) {
+        this.tracker.endRuleCheck(answer);
+      }
+
+      console.log(`[DEBUG] checkRule - Rule: ${rule.id}, Result: ${answer}`);
+      return result;
     } catch (error) {
       console.error(`Error checking rule ${rule.id}:`, error.message);
+      if (this.tracker) {
+        this.tracker.endRuleCheck('ERROR');
+        this.tracker.completeRule();
+      }
       return false; // Skip this rule on error
     }
   }
@@ -81,12 +96,26 @@ export class LLMVerifier {
    */
   async fixContent(content, rule) {
     try {
+      if (this.tracker) {
+        this.tracker.startRuleFix(content.length);
+      }
+
       const prompt = rule.fix.prompt.replace('{content}', content);
       const maxTokens = rule.fix.maxTokens || 4096;
 
+      console.log(`[DEBUG] fixContent - Rule: ${rule.id}, Fixing content (length: ${content.length})`);
       const fixed = await this.llmProvider.generate(prompt, maxTokens);
+      console.log(`[DEBUG] fixContent - Rule: ${rule.id}, LLM returned ${fixed.length} chars`);
+      console.log(`[DEBUG] fixContent - Rule: ${rule.id}, Raw output preview:`, fixed.substring(0, 300));
 
-      return fixed.trim();
+      const trimmed = fixed.trim();
+      console.log(`[DEBUG] fixContent - Rule: ${rule.id}, After trim: ${trimmed.length} chars`);
+
+      if (this.tracker) {
+        this.tracker.endRuleFix(trimmed.length);
+      }
+
+      return trimmed;
     } catch (error) {
       console.error(`Error fixing with rule ${rule.id}:`, error.message);
       return content; // Return original content on error
@@ -100,6 +129,14 @@ export class LLMVerifier {
    * @returns {Promise<Object>} { content, rulesApplied }
    */
   async verify(content, progressCallback = null) {
+    if (this.tracker) {
+      this.tracker.startSession(this.agentName, content);
+    }
+
+    console.log(`[DEBUG] verify - Starting verification with ${this.rules.length} rules`);
+    console.log(`[DEBUG] verify - Input content length: ${content.length}`);
+    console.log(`[DEBUG] verify - Input content preview:`, content.substring(0, 300));
+
     let current = content;
     const applied = [];
 
@@ -140,6 +177,19 @@ export class LLMVerifier {
           });
         }
       }
+
+      if (this.tracker) {
+        this.tracker.completeRule();
+      }
+    }
+
+    console.log(`[DEBUG] verify - Completed with ${applied.length} rules applied:`, applied.map(r => r.id));
+    console.log(`[DEBUG] verify - Final content length: ${current.length}`);
+    console.log(`[DEBUG] verify - Final content preview:`, current.substring(0, 300));
+
+    if (this.tracker) {
+      this.tracker.endSession(current, applied);
+      this.tracker.logSessionSummary();
     }
 
     return {
