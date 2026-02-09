@@ -469,28 +469,74 @@ class ProjectInitiator {
 
   /**
    * Create .env file for API keys
+   * If .env exists, check and add any missing API key variables
    */
   createEnvFile() {
     const envPath = path.join(this.projectRoot, '.env');
 
+    // Define required API key variables with metadata
+    const requiredApiKeys = [
+      {
+        key: 'ANTHROPIC_API_KEY',
+        comment: 'Anthropic API Key for AI-powered Sponsor Call ceremony',
+        url: 'https://console.anthropic.com/settings/keys'
+      },
+      {
+        key: 'GEMINI_API_KEY',
+        comment: 'Google Gemini API Key (alternative LLM provider)',
+        url: 'https://aistudio.google.com/app/apikey'
+      },
+      {
+        key: 'OPENAI_API_KEY',
+        comment: 'OpenAI API Key (alternative LLM provider)',
+        url: 'https://platform.openai.com/api-keys'
+      }
+    ];
+
     if (!fs.existsSync(envPath)) {
-      const envContent = `# Anthropic API Key for AI-powered Sponsor Call ceremony
-# Get your key at: https://console.anthropic.com/settings/keys
-ANTHROPIC_API_KEY=
-
-# Google Gemini API Key (alternative LLM provider)
-# Get your key at: https://aistudio.google.com/app/apikey
-GEMINI_API_KEY=
-
-# OpenAI API Key (alternative LLM provider)
-# Get your key at: https://platform.openai.com/api-keys
-OPENAI_API_KEY=
-`;
+      // Create new .env file with all API keys
+      let envContent = '';
+      requiredApiKeys.forEach(({ key, comment, url }, index) => {
+        if (index > 0) envContent += '\n';
+        envContent += `# ${comment}\n`;
+        envContent += `# Get your key at: ${url}\n`;
+        envContent += `${key}=\n`;
+      });
       fs.writeFileSync(envPath, envContent, 'utf8');
       console.log('✓ Created .env file for API keys');
       return true;
     }
-    console.log('✓ .env file already exists');
+
+    // .env exists - check for missing API keys
+    const existingContent = fs.readFileSync(envPath, 'utf8');
+    const missingKeys = [];
+
+    // Check which API keys are missing
+    requiredApiKeys.forEach(({ key }) => {
+      const keyPattern = new RegExp(`^${key}=`, 'm');
+      if (!keyPattern.test(existingContent)) {
+        missingKeys.push(key);
+      }
+    });
+
+    if (missingKeys.length > 0) {
+      // Add missing API keys to .env file
+      let appendContent = '\n';
+      requiredApiKeys.forEach(({ key, comment, url }) => {
+        if (missingKeys.includes(key)) {
+          appendContent += `\n# ${comment}\n`;
+          appendContent += `# Get your key at: ${url}\n`;
+          appendContent += `${key}=\n`;
+        }
+      });
+
+      fs.appendFileSync(envPath, appendContent, 'utf8');
+      console.log(`✓ Added ${missingKeys.length} missing API key variable(s) to .env file:`);
+      missingKeys.forEach(key => console.log(`   • ${key}`));
+      return true;
+    }
+
+    console.log('✓ .env file already exists with all API key variables');
     return false;
   }
 
