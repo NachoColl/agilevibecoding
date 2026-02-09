@@ -743,12 +743,14 @@ If you're new to Agile Vibe Coding, visit the [AVC Documentation](https://agilev
 
     const envVarMap = {
       'claude': 'ANTHROPIC_API_KEY',
-      'gemini': 'GEMINI_API_KEY'
+      'gemini': 'GEMINI_API_KEY',
+      'openai': 'OPENAI_API_KEY'
     };
 
     const urlMap = {
       'claude': 'https://console.anthropic.com/settings/keys',
-      'gemini': 'https://aistudio.google.com/app/apikey'
+      'gemini': 'https://aistudio.google.com/app/apikey',
+      'openai': 'https://platform.openai.com/api-keys'
     };
 
     // Validate main provider
@@ -756,7 +758,7 @@ If you're new to Agile Vibe Coding, visit the [AVC Documentation](https://agilev
     if (!mainEnvVar) {
       return {
         valid: false,
-        message: `Unknown provider "${mainProvider}".\n   Supported providers: claude, gemini`
+        message: `Unknown provider "${mainProvider}".\n   Supported providers: claude, gemini, openai`
       };
     }
 
@@ -794,7 +796,7 @@ If you're new to Agile Vibe Coding, visit the [AVC Documentation](https://agilev
       if (!validationEnvVar) {
         return {
           valid: false,
-          message: `Unknown validation provider "${validationProvider}".\n   Supported providers: claude, gemini`
+          message: `Unknown validation provider "${validationProvider}".\n   Supported providers: claude, gemini, openai`
         };
       }
 
@@ -924,6 +926,7 @@ If you're new to Agile Vibe Coding, visit the [AVC Documentation](https://agilev
     console.log('  1. Add your API key(s) to .env file');
     console.log('     • ANTHROPIC_API_KEY for Claude');
     console.log('     • GEMINI_API_KEY for Gemini');
+    console.log('     • OPENAI_API_KEY for OpenAI');
     console.log('  2. Run /sponsor-call to start\n');
   }
 
@@ -1360,6 +1363,7 @@ If you're new to Agile Vibe Coding, visit the [AVC Documentation](https://agilev
                 console.log('The .env file was NOT deleted and still contains:');
                 console.log('   • ANTHROPIC_API_KEY');
                 console.log('   • GEMINI_API_KEY');
+                console.log('   • OPENAI_API_KEY');
                 console.log('   • (and any other API keys you added)');
                 console.log('If these API keys are not used elsewhere in your project,');
                 console.log('you may want to manually delete the .env file or remove');

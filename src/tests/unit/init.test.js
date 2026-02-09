@@ -175,7 +175,7 @@ describe('ProjectInitiator', () => {
 
     it('returns error for unknown provider', async () => {
       const invalidConfig = createTestProject();
-      invalidConfig.settings.ceremonies[0].provider = 'openai';
+      invalidConfig.settings.ceremonies[0].provider = 'unknown-provider';
 
       vi.spyOn(fs, 'readFileSync').mockReturnValue(JSON.stringify(invalidConfig));
 
@@ -183,7 +183,7 @@ describe('ProjectInitiator', () => {
 
       expect(result.valid).toBe(false);
       expect(result.message).toContain('Unknown provider');
-      expect(result.message).toContain('Supported providers: claude, gemini');
+      expect(result.message).toContain('Supported providers: claude, gemini, openai');
     });
 
     it('returns valid result when API key validation succeeds', async () => {
