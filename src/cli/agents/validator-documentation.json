@@ -134,12 +134,12 @@
       "severity": "major",
       "description": "Issue fields must be arrays",
       "check": {
-        "prompt": "Check if these are arrays:\n- structuralIssues\n- contentIssues\n- applicationFlowGaps\n- strengths\n- improvementPriorities\n\nCONTENT:\n{content}\n\nAre ALL these proper arrays?\n\nRespond ONLY 'YES' or 'NO'.",
+        "prompt": "Check if these fields are ARRAYS (not strings, not objects, not null):\n- structuralIssues\n- contentIssues\n- applicationFlowGaps\n- strengths\n- improvementPriorities\n\nExamples:\n✅ \"structuralIssues\": [] (valid - empty array)\n✅ \"contentIssues\": [{...}] (valid - array of objects)\n❌ \"strengths\": \"Good structure\" (INVALID - string not array)\n❌ \"improvementPriorities\": null (INVALID - null not array)\n\nCONTENT:\n{content}\n\nAre ALL these fields proper arrays ([], [{...}])?\n\nRespond ONLY 'YES' (all are arrays) or 'NO' (one or more not array).",
         "expectedResponse": "YES|NO",
         "maxTokens": 10
       },
       "fix": {
-        "prompt": "Convert to arrays:\n- If missing/null → []\n- If single object → [{...}]\n- If string → [string]\n- If already array → keep\n\nCONTENT:\n{content}\n\nReturn ONLY corrected JSON.",
+        "prompt": "Convert these fields to arrays:\n- structuralIssues\n- contentIssues\n- applicationFlowGaps\n- strengths\n- improvementPriorities\n\nConversion rules:\n- If missing → add empty array []\n- If null → change to []\n- If string → wrap in array [\"string\"]\n- If single object → wrap in array [{...}]\n- If already array → keep unchanged\n\nPreserve ALL other fields exactly as they are.\nPreserve ALL other content.\nReturn ONLY valid JSON (not wrapped in code fences).\n\nCONTENT:\n{content}\n\nReturn ONLY the corrected JSON.",
         "returnFormat": "json",
         "maxTokens": 4096
       },

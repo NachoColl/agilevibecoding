@@ -334,7 +334,16 @@ export class LLMVerifier {
     const violatedRules = checkResults.filter(r => r.violated && !r.error);
     console.log(`[DEBUG] verify - Found ${violatedRules.length} violations:`, violatedRules.map(r => r.rule.id));
 
-    for (const { rule } of violatedRules) {
+    for (const { rule, violated } of violatedRules) {
+      // SAFEGUARD: Double-check that rule was actually violated
+      if (!violated) {
+        console.warn(`[WARN] verify - Skipping fix for ${rule.id} - violated flag is false (defensive check)`);
+        if (this.tracker) {
+          this.tracker.completeRule();
+        }
+        continue;
+      }
+
       // Report progress: fixing
       if (progressCallback) {
         progressCallback(null, `Fixing: ${rule.name}...`);
@@ -342,17 +351,34 @@ export class LLMVerifier {
       }
 
       try {
+        const beforeLength = current.length;
+
         // Apply fix
         const fixed = await this.fixContent(current, rule);
 
         // Only update if fix actually changed content
         if (fixed !== current) {
+          const afterLength = fixed.length;
+          const changePercent = Math.abs((afterLength - beforeLength) / beforeLength * 100);
+          const changeChars = afterLength - beforeLength;
+
+          // SAFEGUARD: Warn on aggressive content changes
+          if (changePercent > 30) {
+            console.warn(`[WARN] verify - Rule ${rule.id} caused ${changePercent.toFixed(1)}% content change (${changeChars > 0 ? '+' : ''}${changeChars} chars)`);
+            console.warn(`[WARN] verify - Before: ${beforeLength} chars, After: ${afterLength} chars`);
+            console.warn(`[WARN] verify - This may indicate an overly aggressive fix. Review rule prompt.`);
+          } else {
+            console.log(`[DEBUG] verify - Rule ${rule.id} changed content by ${changePercent.toFixed(1)}% (${changeChars > 0 ? '+' : ''}${changeChars} chars)`);
+          }
+
           current = fixed;
           applied.push({
             id: rule.id,
             name: rule.name,
             severity: rule.severity
           });
+        } else {
+          console.log(`[DEBUG] verify - Rule ${rule.id} fix did not change content (no-op fix)`);
         }
       } catch (error) {
         console.error(`Error fixing rule ${rule.id}:`, error.message);
@@ -382,7 +408,9 @@ export class LLMVerifier {
 
     const result = {
       content: current,
-      rulesApplied: applied
+      rulesApplied: applied,
+      noViolations: applied.length === 0, // Track if this was a perfect verification
+      timestamp: Date.now()
     };
 
     // Store in cache
@@ -390,7 +418,12 @@ export class LLMVerifier {
       const contentHash = this.tracker.hashContent(content);
       const cacheKey = `${this.agentName}-${contentHash}`;
       this.tracker.verificationCache.set(cacheKey, result);
-      console.log(`[DEBUG] Cached verification result for ${this.agentName} (hash: ${contentHash})`);
+
+      if (applied.length === 0) {
+        console.log(`[DEBUG] Cached PERFECT verification result for ${this.agentName} (hash: ${contentHash}) - no violations found`);
+      } else {
+        console.log(`[DEBUG] Cached verification result for ${this.agentName} (hash: ${contentHash}) - ${applied.length} fixes applied`);
+      }
     }
 
     return result;

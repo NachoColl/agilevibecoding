@@ -200,12 +200,12 @@
       "severity": "minor",
       "description": "Remove code snippets and detailed implementation",
       "check": {
-        "prompt": "Check for implementation-level details:\n- Code snippets\n- Detailed algorithms\n- Step-by-step implementation instructions\n- File paths or directory structures\n\nContext should be high-level.\n\nCONTENT:\n{content}\n\nDoes this contain implementation details?\n\nRespond ONLY 'YES' or 'NO'.",
+        "prompt": "Check for LOW-LEVEL implementation details that should be removed:\n\nVIOLATIONS (respond YES):\n- Code snippets (import statements, function definitions, classes)\n- Detailed algorithm pseudocode\n- Step-by-step implementation instructions (\"First do X, then Y\")\n- Specific file paths (/src/components/Header.jsx)\n\nNOT VIOLATIONS (these are OK):\n- Technology names (React, AWS DynamoDB, JWT, OAuth 2.0)\n- Architecture patterns (REST API, microservices)\n- High-level technical decisions\n- Deployment environments\n- Integration approaches\n\nCONTENT:\n{content}\n\nDoes this contain LOW-LEVEL implementation details (code, algorithms, file paths, step-by-step instructions)?\n\nRespond ONLY 'YES' or 'NO'.",
         "expectedResponse": "YES|NO",
         "maxTokens": 10
       },
       "fix": {
-        "prompt": "Remove or abstract implementation details.\n\nReplace:\n- Code snippets → high-level description\n- Detailed algorithms → approach/pattern name\n- Step-by-step implementation → objective/outcome\n- File paths → component/module names\n\nCONTENT:\n{content}\n\nReturn ONLY the abstracted content.",
+        "prompt": "Remove ONLY low-level implementation details. Be conservative - preserve essential context.\n\nREMOVE:\n- Code snippets (functions, classes, imports)\n- Detailed algorithm pseudocode\n- Step-by-step implementation instructions\n- Specific file paths or directory structures\n\nPRESERVE (these are OK in context):\n- Technology names (React, AWS DynamoDB, OAuth 2.0, etc.)\n- Architecture patterns (microservices, REST API, etc.)\n- High-level technical decisions\n- Deployment environments\n- Integration points\n- Security approaches\n\nIf you're unsure whether to remove something, KEEP IT.\n\nCONTENT:\n{content}\n\nReturn ONLY the refined content with implementation details removed but essential technical context preserved.",
         "returnFormat": "text",
         "maxTokens": 4096
       },
