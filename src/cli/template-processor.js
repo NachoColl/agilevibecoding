@@ -46,10 +46,11 @@ class TemplateProcessor {
     this.verificationFeedback = {};
 
     // Read ceremony-specific configuration
-    const { provider, model, validationConfig } = this.readCeremonyConfig(ceremonyName);
+    const { provider, model, validationConfig, stagesConfig } = this.readCeremonyConfig(ceremonyName);
     this._providerName = provider;
     this._modelName = model;
     this.llmProvider = null;
+    this.stagesConfig = stagesConfig;
 
     // Read validation provider config
     this._validationProvider = null;
@@ -155,23 +156,72 @@ class TemplateProcessor {
         return {
           provider: 'claude',
           model: 'claude-sonnet-4-5-20250929',
-          validationConfig: null
+          validationConfig: null,
+          stagesConfig: null
         };
       }
 
       return {
         provider: ceremony.provider || 'claude',
         model: ceremony.defaultModel || 'claude-sonnet-4-5-20250929',
-        validationConfig: ceremony.validation || null
+        validationConfig: ceremony.validation || null,
+        stagesConfig: ceremony.stages || null
       };
     } catch (error) {
       console.warn(`⚠️  Could not read ceremony config: ${error.message}`);
       return {
         provider: 'claude',
         model: 'claude-sonnet-4-5-20250929',
-        validationConfig: null
+        validationConfig: null,
+        stagesConfig: null
       };
     }
+  }
+
+  /**
+   * Get provider and model for a specific stage
+   * Falls back to ceremony-level config if stage-specific config not found
+   * @param {string} stageName - Stage name ('suggestions', 'documentation', 'context')
+   * @returns {Object} { provider, model }
+   */
+  getProviderForStage(stageName) {
+    // Check if stage-specific config exists
+    if (this.stagesConfig && this.stagesConfig[stageName]) {
+      const stageConfig = this.stagesConfig[stageName];
+      return {
+        provider: stageConfig.provider || this._providerName,
+        model: stageConfig.model || this._modelName
+      };
+    }
+
+    // Fall back to ceremony-level config
+    return {
+      provider: this._providerName,
+      model: this._modelName
+    };
+  }
+
+  /**
+   * Get provider and model for validation of a specific content type
+   * Falls back to ceremony-level validation config if type-specific config not found
+   * @param {string} validationType - Validation type ('documentation', 'context')
+   * @returns {Object} { provider, model }
+   */
+  getValidationProviderForType(validationType) {
+    // Check if type-specific validation config exists
+    if (this.validationConfig && this.validationConfig[validationType]) {
+      const typeConfig = this.validationConfig[validationType];
+      return {
+        provider: typeConfig.provider || this._validationProvider,
+        model: typeConfig.model || this._validationModel
+      };
+    }
+
+    // Fall back to ceremony-level validation config
+    return {
+      provider: this._validationProvider,
+      model: this._validationModel
+    };
   }
 
   /**
@@ -477,6 +527,60 @@ Please carefully follow the output format requirements to avoid these issues.
   }
 
   /**
+   * Get or create LLM provider for a specific stage
+   * @param {string} stageName - Stage name ('suggestions', 'documentation', 'context')
+   * @returns {Promise<LLMProvider>} LLM provider instance
+   */
+  async getProviderForStageInstance(stageName) {
+    const { provider, model } = this.getProviderForStage(stageName);
+
+    // Check if we already have a provider for this stage
+    const cacheKey = `${stageName}:${provider}:${model}`;
+    if (!this._stageProviders) {
+      this._stageProviders = {};
+    }
+
+    if (this._stageProviders[cacheKey]) {
+      return this._stageProviders[cacheKey];
+    }
+
+    // Create new provider
+    const providerInstance = await LLMProvider.create(provider, model);
+    this._stageProviders[cacheKey] = providerInstance;
+
+    console.log(`   Using ${provider} (${model}) for ${stageName}\n`);
+
+    return providerInstance;
+  }
+
+  /**
+   * Get or create validation provider for a specific content type
+   * @param {string} validationType - Validation type ('documentation', 'context')
+   * @returns {Promise<LLMProvider>} LLM provider instance
+   */
+  async getValidationProviderForTypeInstance(validationType) {
+    const { provider, model } = this.getValidationProviderForType(validationType);
+
+    // Check if we already have a provider for this validation type
+    const cacheKey = `validation:${validationType}:${provider}:${model}`;
+    if (!this._validationProviders) {
+      this._validationProviders = {};
+    }
+
+    if (this._validationProviders[cacheKey]) {
+      return this._validationProviders[cacheKey];
+    }
+
+    // Create new provider
+    const providerInstance = await LLMProvider.create(provider, model);
+    this._validationProviders[cacheKey] = providerInstance;
+
+    console.log(`   Using ${provider} (${model}) for ${validationType} validation\n`);
+
+    return providerInstance;
+  }
+
+  /**
    * Retry wrapper for LLM calls with exponential backoff
    * @param {Function} fn - Async function to retry
    * @param {string} operation - Description of operation for logging
@@ -575,11 +679,10 @@ Please carefully follow the output format requirements to avoid these issues.
    * Generate AI suggestions for a variable using domain-specific agent
    */
   async generateSuggestions(variableName, isPlural, context) {
-    if (!this.llmProvider && !(await this.initializeLLMProvider())) {
-      return null;
-    }
-
     try {
+      // Get stage-specific provider for suggestions
+      const provider = await this.getProviderForStageInstance('suggestions');
+
       // Get domain-specific agent for this variable
       const agentInstructions = this.getAgentForVariable(variableName);
 
@@ -589,7 +692,7 @@ Please carefully follow the output format requirements to avoid these issues.
         console.log(`Using specialized agent: ${variableName.toLowerCase().replace(/_/g, '-')}`);
 
         const text = await this.retryWithBackoff(
-          () => this.llmProvider.generate(prompt, isPlural ? 512 : 1024, agentInstructions),
+          () => provider.generate(prompt, isPlural ? 512 : 1024, agentInstructions),
           `${variableName} suggestion`
         );
 
@@ -597,7 +700,7 @@ Please carefully follow the output format requirements to avoid these issues.
       } else {
         // Fallback to generic prompt if no agent available
         const prompt = this.buildPrompt(variableName, isPlural, context);
-        const text = await this.llmProvider.generate(prompt, isPlural ? 512 : 256);
+        const text = await provider.generate(prompt, isPlural ? 512 : 256);
         return this.parseLLMResponse(text, isPlural);
       }
     } catch (error) {
@@ -701,12 +804,10 @@ Please carefully follow the output format requirements to avoid these issues.
    * Generate final document with LLM enhancement
    */
   async generateFinalDocument(templateWithValues) {
-    if (!this.llmProvider && !(await this.initializeLLMProvider())) {
-      // No provider available - save template as-is
-      return templateWithValues;
-    }
-
     try {
+      // Get stage-specific provider for documentation
+      const provider = await this.getProviderForStageInstance('documentation');
+
       // Try to load agent instructions for enhancement stage
       this.reportSubstep('Reading agent: project-documentation-creator.md');
       const agentInstructions = this.getAgentForStage('enhancement');
@@ -724,13 +825,13 @@ Please review and enhance this document according to your role.`;
 
         this.reportSubstep('Generating Project Brief (this may take 20-30 seconds)...');
         const enhanced = await this.retryWithBackoff(
-          () => this.llmProvider.generate(userPrompt, 4096, agentInstructions),
+          () => provider.generate(userPrompt, 4096, agentInstructions),
           'document enhancement'
         );
 
         // Report token usage after generation
-        if (this.llmProvider && typeof this.llmProvider.getTokenUsage === 'function') {
-          const usage = this.llmProvider.getTokenUsage();
+        if (provider && typeof provider.getTokenUsage === 'function') {
+          const usage = provider.getTokenUsage();
           this.reportSubstep('Processing generated content...', {
             tokensUsed: {
               input: usage.inputTokens,
@@ -741,7 +842,7 @@ Please review and enhance this document according to your role.`;
 
         // Post-process verification
         this.reportSubstep('Verifying documentation quality...');
-        const verifier = new LLMVerifier(this.llmProvider, 'project-documentation-creator', this.verificationTracker);
+        const verifier = new LLMVerifier(provider, 'project-documentation-creator', this.verificationTracker);
         const verificationResult = await verifier.verify(
           enhanced,
           (mainMsg, substep) => this.reportSubstep(substep)
@@ -776,7 +877,7 @@ Please review and enhance this document to ensure:
 Return the enhanced markdown document.`;
 
         const enhanced = await this.retryWithBackoff(
-          () => this.llmProvider.generate(legacyPrompt, 4096),
+          () => provider.generate(legacyPrompt, 4096),
           'document enhancement (legacy)'
         );
         return enhanced;
@@ -1039,30 +1140,89 @@ Return the enhanced markdown document.`;
     // 11. Track token usage (only for sponsor-call)
     let tokenUsage = null;
     let cost = null;
-    if (this.ceremonyName === 'sponsor-call' && this.llmProvider && typeof this.llmProvider.getTokenUsage === 'function') {
-      const usage = this.llmProvider.getTokenUsage();
+    if (this.ceremonyName === 'sponsor-call') {
+      // Aggregate token usage from all stage-specific providers
+      let totalInput = 0;
+      let totalOutput = 0;
+      let totalCalls = 0;
+      const stageBreakdown = {};
+
+      // Collect from all stage providers
+      if (this._stageProviders) {
+        for (const [cacheKey, provider] of Object.entries(this._stageProviders)) {
+          if (typeof provider.getTokenUsage === 'function') {
+            const usage = provider.getTokenUsage();
+            totalInput += usage.inputTokens || 0;
+            totalOutput += usage.outputTokens || 0;
+            totalCalls += usage.totalCalls || 0;
+
+            // Extract stage name from cache key (format: "stageName:provider:model")
+            const stageName = cacheKey.split(':')[0];
+            stageBreakdown[stageName] = {
+              input: usage.inputTokens,
+              output: usage.outputTokens,
+              calls: usage.totalCalls
+            };
+          }
+        }
+      }
+
+      // Collect from validation providers
+      if (this._validationProviders) {
+        for (const [cacheKey, provider] of Object.entries(this._validationProviders)) {
+          if (typeof provider.getTokenUsage === 'function') {
+            const usage = provider.getTokenUsage();
+            totalInput += usage.inputTokens || 0;
+            totalOutput += usage.outputTokens || 0;
+            totalCalls += usage.totalCalls || 0;
+
+            // Extract validation type from cache key (format: "validation:type:provider:model")
+            const validationType = cacheKey.split(':')[1];
+            stageBreakdown[`validation:${validationType}`] = {
+              input: usage.inputTokens,
+              output: usage.outputTokens,
+              calls: usage.totalCalls
+            };
+          }
+        }
+      }
+
+      // Fallback to legacy llmProvider if no stage providers used
+      if (totalInput === 0 && totalOutput === 0 && this.llmProvider && typeof this.llmProvider.getTokenUsage === 'function') {
+        const usage = this.llmProvider.getTokenUsage();
+        totalInput = usage.inputTokens;
+        totalOutput = usage.outputTokens;
+        totalCalls = usage.totalCalls;
+      }
+
       tokenUsage = {
-        input: usage.inputTokens,
-        output: usage.outputTokens,
-        total: usage.totalTokens,
-        calls: usage.totalCalls
+        input: totalInput,
+        output: totalOutput,
+        total: totalInput + totalOutput,
+        calls: totalCalls,
+        stageBreakdown: stageBreakdown
       };
 
-      // Calculate cost
+      // Calculate cost (estimated based on primary provider)
       cost = this.tokenTracker.calculateCost(
-        usage.inputTokens,
-        usage.outputTokens,
+        totalInput,
+        totalOutput,
         this._modelName
       );
 
       // Track in token history
       this.tokenTracker.addExecution(this.ceremonyName, {
-        input: usage.inputTokens,
-        output: usage.outputTokens
+        input: totalInput,
+        output: totalOutput
       }, this._modelName);
 
       // Store usage for ceremony history
-      this._lastTokenUsage = usage;
+      this._lastTokenUsage = {
+        inputTokens: totalInput,
+        outputTokens: totalOutput,
+        totalTokens: totalInput + totalOutput,
+        totalCalls: totalCalls
+      };
     }
 
     // 12. Return comprehensive result
@@ -1102,52 +1262,56 @@ Return the enhanced markdown document.`;
    * @returns {string} Context markdown content
    */
   async generateProjectContextContent(collectedValues) {
-    if (!this.llmProvider) {
-      await this.initializeLLMProvider();
-    }
+    try {
+      // Get stage-specific provider for context
+      const provider = await this.getProviderForStageInstance('context');
 
-    if (!this.llmProvider || typeof this.llmProvider.generateJSON !== 'function') {
+      if (!provider || typeof provider.generateJSON !== 'function') {
+        return null;
+      }
+
+      // Read agent instructions
+      this.reportSubstep('Reading agent: project-context-generator.md');
+      const projectContextGeneratorAgent = fs.readFileSync(
+        path.join(this.agentsPath, 'project-context-generator.md'),
+        'utf8'
+      );
+
+      // Generate project context
+      this.reportSubstep('Generating project context (target: ~500 tokens)...');
+      const projectContext = await this.retryWithBackoff(
+        () => this.generateContextWithProvider(provider, 'project', 'project', collectedValues, projectContextGeneratorAgent),
+        'project context'
+      );
+
+      // Report token usage and validation
+      if (provider && typeof provider.getTokenUsage === 'function') {
+        const usage = provider.getTokenUsage();
+        this.reportSubstep('Validating context token count...', {
+          tokensUsed: {
+            input: usage.inputTokens,
+            output: usage.outputTokens
+          }
+        });
+      }
+
+      // Post-process verification
+      this.reportSubstep('Verifying context quality...');
+      const verifier = new LLMVerifier(provider, 'project-context-generator', this.verificationTracker);
+      const verificationResult = await verifier.verify(
+        projectContext.contextMarkdown,
+        (mainMsg, substep) => this.reportSubstep(substep)
+      );
+
+      if (verificationResult.rulesApplied.length > 0) {
+        this.reportSubstep(`Applied ${verificationResult.rulesApplied.length} context fixes`);
+      }
+
+      return verificationResult.content;
+    } catch (error) {
+      console.warn(`⚠️  Could not generate context: ${error.message}`);
       return null;
     }
-
-    // Read agent instructions
-    this.reportSubstep('Reading agent: project-context-generator.md');
-    const projectContextGeneratorAgent = fs.readFileSync(
-      path.join(this.agentsPath, 'project-context-generator.md'),
-      'utf8'
-    );
-
-    // Generate project context
-    this.reportSubstep('Generating project context (target: ~500 tokens)...');
-    const projectContext = await this.retryWithBackoff(
-      () => this.generateContext('project', 'project', collectedValues, projectContextGeneratorAgent),
-      'project context'
-    );
-
-    // Report token usage and validation
-    if (this.llmProvider && typeof this.llmProvider.getTokenUsage === 'function') {
-      const usage = this.llmProvider.getTokenUsage();
-      this.reportSubstep('Validating context token count...', {
-        tokensUsed: {
-          input: usage.inputTokens,
-          output: usage.outputTokens
-        }
-      });
-    }
-
-    // Post-process verification
-    this.reportSubstep('Verifying context quality...');
-    const verifier = new LLMVerifier(this.llmProvider, 'project-context-generator', this.verificationTracker);
-    const verificationResult = await verifier.verify(
-      projectContext.contextMarkdown,
-      (mainMsg, substep) => this.reportSubstep(substep)
-    );
-
-    if (verificationResult.rulesApplied.length > 0) {
-      this.reportSubstep(`Applied ${verificationResult.rulesApplied.length} context fixes`);
-    }
-
-    return verificationResult.content;
   }
 
   /**
@@ -1334,6 +1498,31 @@ Return your response as JSON following the exact structure specified in your ins
   async generateContext(level, id, data, agentInstructions) {
     const prompt = this.buildContextPrompt(level, id, data);
     const result = await this.llmProvider.generateJSON(prompt, agentInstructions);
+
+    // Validate response
+    if (!result.contextMarkdown || !result.tokenCount) {
+      throw new Error(`Invalid context response for ${id}: missing required fields`);
+    }
+
+    if (!result.withinBudget) {
+      console.warn(`⚠️  Warning: ${id} context exceeds token budget (${result.tokenCount} tokens)`);
+    }
+
+    return result;
+  }
+
+  /**
+   * Generate context.md for a specific node with a specific provider
+   * @param {LLMProvider} provider - LLM provider instance to use
+   * @param {string} level - 'project', 'epic', or 'story'
+   * @param {string} id - Node ID (e.g., 'project', 'context-0001', 'context-0001-0001')
+   * @param {Object} data - Context data (collectedValues + epic/story if applicable)
+   * @param {string} agentInstructions - Context generator agent instructions
+   * @returns {Promise<Object>} Context generation result with markdown content
+   */
+  async generateContextWithProvider(provider, level, id, data, agentInstructions) {
+    const prompt = this.buildContextPrompt(level, id, data);
+    const result = await provider.generateJSON(prompt, agentInstructions);
 
     // Validate response
     if (!result.contextMarkdown || !result.tokenCount) {
@@ -1568,12 +1757,22 @@ Return your response as JSON following the exact structure specified in your ins
    * Validate documentation (doc.md) using validator-documentation agent
    */
   async validateDocument(docContent, questionnaire, contextContent = null) {
-    if (!this.llmProvider) {
-      await this.initializeLLMProvider();
+    // Get validation type-specific provider for documentation
+    let provider;
+    try {
+      provider = await this.getValidationProviderForTypeInstance('documentation');
+    } catch (error) {
+      console.log('⚠️  Skipping validation (validation provider not available)\n');
+      return {
+        validationStatus: 'acceptable',
+        overallScore: 75,
+        issues: [],
+        strengths: ['Validation skipped - validation provider not available'],
+        improvementPriorities: [],
+        readyForPublication: true
+      };
     }
 
-    // Use validation provider if available, otherwise skip validation
-    const provider = this.validationLLMProvider;
     if (!provider || typeof provider.generateJSON !== 'function') {
       console.log('⚠️  Skipping validation (validation provider not available)\n');
       return {
@@ -1662,12 +1861,23 @@ Return your response as JSON following the exact structure specified in your ins
    * Validate context (context.md) using validator-context agent
    */
   async validateContext(contextContent, level, questionnaire, parentContext = null) {
-    if (!this.llmProvider) {
-      await this.initializeLLMProvider();
+    // Get validation type-specific provider for context
+    let provider;
+    try {
+      provider = await this.getValidationProviderForTypeInstance('context');
+    } catch (error) {
+      console.log('⚠️  Skipping validation (validation provider not available)\n');
+      return {
+        validationStatus: 'acceptable',
+        overallScore: 75,
+        issues: [],
+        strengths: ['Validation skipped - validation provider not available'],
+        improvementPriorities: [],
+        estimatedTokenBudget: 500,
+        readyForUse: true
+      };
     }
 
-    // Use validation provider if available, otherwise skip validation
-    const provider = this.validationLLMProvider;
     if (!provider || typeof provider.generateJSON !== 'function') {
       console.log('⚠️  Skipping validation (validation provider not available)\n');
       return {
@@ -1760,12 +1970,15 @@ Return your response as JSON following the exact structure specified in your ins
    * Improve documentation based on validation feedback
    */
   async improveDocument(docContent, validationResult, questionnaire) {
-    if (!this.llmProvider) {
-      await this.initializeLLMProvider();
+    // Get validation type-specific provider for documentation
+    let provider;
+    try {
+      provider = await this.getValidationProviderForTypeInstance('documentation');
+    } catch (error) {
+      console.log('⚠️  Skipping improvement (validation provider not available)\n');
+      return docContent;
     }
 
-    // Use validation provider if available, otherwise skip improvement
-    const provider = this.validationLLMProvider;
     if (!provider || typeof provider.generateText !== 'function') {
       console.log('⚠️  Skipping improvement (validation provider not available)\n');
       return docContent;
@@ -1841,12 +2054,15 @@ Return your response as JSON following the exact structure specified in your ins
    * Improve context based on validation feedback
    */
   async improveContext(contextContent, validationResult, level, questionnaire) {
-    if (!this.llmProvider) {
-      await this.initializeLLMProvider();
+    // Get validation type-specific provider for context
+    let provider;
+    try {
+      provider = await this.getValidationProviderForTypeInstance('context');
+    } catch (error) {
+      console.log('⚠️  Skipping improvement (validation provider not available)\n');
+      return contextContent;
     }
 
-    // Use validation provider if available, otherwise skip improvement
-    const provider = this.validationLLMProvider;
     if (!provider || typeof provider.generateText !== 'function') {
       console.log('⚠️  Skipping improvement (validation provider not available)\n');
       return contextContent;

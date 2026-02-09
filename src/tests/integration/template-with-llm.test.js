@@ -120,7 +120,8 @@ describe('TemplateProcessor with LLM Integration', () => {
         generate: vi.fn().mockResolvedValue('AI generated suggestion')
       };
 
-      processor.llmProvider = mockProvider;
+      // Mock the stage-specific provider getter
+      vi.spyOn(processor, 'getProviderForStageInstance').mockResolvedValue(mockProvider);
 
       const result = await processor.generateSuggestions(
         'PROJECT_NAME',
@@ -155,7 +156,8 @@ describe('TemplateProcessor with LLM Integration', () => {
         generate: vi.fn().mockRejectedValue(new Error('API error'))
       };
 
-      processor.llmProvider = mockProvider;
+      // Mock the stage-specific provider getter
+      vi.spyOn(processor, 'getProviderForStageInstance').mockResolvedValue(mockProvider);
 
       const result = await processor.generateSuggestions(
         'PROJECT_NAME',
@@ -173,7 +175,8 @@ describe('TemplateProcessor with LLM Integration', () => {
         generate: vi.fn().mockResolvedValue('suggestion')
       };
 
-      processor.llmProvider = mockProvider;
+      // Mock the stage-specific provider getter
+      vi.spyOn(processor, 'getProviderForStageInstance').mockResolvedValue(mockProvider);
 
       // Singular variable
       await processor.generateSuggestions('PROJECT_NAME', false, {});
@@ -204,7 +207,8 @@ describe('TemplateProcessor with LLM Integration', () => {
         generate: vi.fn().mockResolvedValue('Enhanced document content')
       };
 
-      processor.llmProvider = mockProvider;
+      // Mock the stage-specific provider getter
+      vi.spyOn(processor, 'getProviderForStageInstance').mockResolvedValue(mockProvider);
 
       const template = 'Project: {{PROJECT_NAME}}\nMission: {{MISSION}}';
       const result = await processor.generateFinalDocument(template);
@@ -220,10 +224,10 @@ describe('TemplateProcessor with LLM Integration', () => {
     it('returns template as-is when provider unavailable', async () => {
       const processor = new TemplateProcessor('sponsor-call');
 
-      // Mock initialization failure
-      vi.spyOn(processor, 'initializeLLMProvider').mockResolvedValue(null);
-
-      processor.llmProvider = null;
+      // Mock getProviderForStageInstance to reject asynchronously
+      vi.spyOn(processor, 'getProviderForStageInstance').mockImplementation(async () => {
+        throw new Error('Provider unavailable');
+      });
 
       const template = 'Original template content';
       const result = await processor.generateFinalDocument(template);
@@ -238,7 +242,8 @@ describe('TemplateProcessor with LLM Integration', () => {
         generate: vi.fn().mockRejectedValue(new Error('Enhancement failed'))
       };
 
-      processor.llmProvider = mockProvider;
+      // Mock the stage-specific provider getter
+      vi.spyOn(processor, 'getProviderForStageInstance').mockResolvedValue(mockProvider);
 
       const template = 'Original template';
       const result = await processor.generateFinalDocument(template);
@@ -253,7 +258,8 @@ describe('TemplateProcessor with LLM Integration', () => {
         generate: vi.fn().mockResolvedValue('Enhanced')
       };
 
-      processor.llmProvider = mockProvider;
+      // Mock the stage-specific provider getter
+      vi.spyOn(processor, 'getProviderForStageInstance').mockResolvedValue(mockProvider);
 
       await processor.generateFinalDocument('template');
 

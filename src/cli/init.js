@@ -179,6 +179,20 @@ class ProjectInitiator {
             name: 'sponsor-call',
             provider: 'claude',
             defaultModel: 'claude-sonnet-4-5-20250929',
+            stages: {
+              suggestions: {
+                provider: 'claude',
+                model: 'claude-sonnet-4-5-20250929'
+              },
+              documentation: {
+                provider: 'claude',
+                model: 'claude-sonnet-4-5-20250929'
+              },
+              context: {
+                provider: 'claude',
+                model: 'claude-sonnet-4-5-20250929'
+              }
+            },
             agents: [
               {
                 name: 'project-documentation-creator',
@@ -209,7 +223,15 @@ class ProjectInitiator {
               acceptanceThreshold: 75,
               skipOnCriticalIssues: false,
               provider: 'gemini',
-              model: 'gemini-2.5-pro'
+              model: 'gemini-2.5-pro',
+              documentation: {
+                provider: 'gemini',
+                model: 'gemini-2.5-pro'
+              },
+              context: {
+                provider: 'gemini',
+                model: 'gemini-2.5-pro'
+              }
             }
           },
           {
