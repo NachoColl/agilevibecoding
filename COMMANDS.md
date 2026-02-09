@@ -14,6 +14,8 @@ Sets up your AVC project by creating the `.avc/` directory with the `avc.json` c
 
 **This command does not require API keys.**
 
+After initialization, you'll be prompted to configure which LLM models to use for ceremonies. You can also reconfigure models anytime with the `/models` command.
+
 ### Output
 
 ```
@@ -356,6 +358,114 @@ The Sponsor Call ceremony automatically syncs the generated project definition t
 
 ---
 
+## /models
+
+View and configure which LLM models are used for ceremonies.
+
+**Alias**
+
+`/m`
+
+```sh
+> /models
+```
+
+### What it does
+
+The `/models` command shows your current LLM model configuration for all ceremonies and allows you to interactively change which models are used for main generation, validation, and stage-specific processing.
+
+This is useful when you:
+- Want to use a different LLM provider (e.g., switch from Claude to Gemini)
+- Need to use a faster/cheaper model for certain stages
+- Have obtained new API keys and want to reconfigure
+- Want to optimize costs by using different models for different stages
+
+**This command does not require API keys to view configuration**, but you'll need API keys configured in `.env` to run ceremonies with the selected models.
+
+### Interactive Configuration Flow
+
+1. **View Current Configuration** - See all ceremonies and their configured models
+2. **Prompt** - Choose whether to configure models (y/n)
+3. **Select Ceremony** - Pick which ceremony to configure
+4. **Select Stage** - Choose main generation, validation, or stage-specific
+5. **Select Model** - Pick from all available models (with API key indicators)
+6. **Repeat** - Configure additional stages or exit
+
+### Model Display
+
+Each model shows:
+- **Display Name** - Human-readable model name
+- **Status Indicator** - ✓ (API key available) or ⚠️ (no API key)
+- **Model ID** - Technical identifier used by the provider
+- **Pricing** - Input/output token costs per 1M tokens
+
+**Example:**
+```
+› 1. Claude Sonnet 4.5 (current) ✓ - claude-sonnet-4-5-20250929 - $3.00/$15.00
+  2. Claude Opus 4.5 ✓ - claude-opus-4-5-20250929 - $15.00/$75.00
+  3. Gemini 2.5 Pro ⚠️ - gemini-2.5-pro - $1.25/$5.00
+```
+
+### Configuration Stages
+
+Each ceremony can have different models configured for:
+
+- **Main Generation** - Primary LLM used for content creation
+- **Validation** - LLM used to verify quality and completeness
+- **Stage-Specific** - Custom models for individual ceremony stages (suggestions, documentation, context)
+
+### Output
+
+```
+🔧 Model Configuration
+
+📋 Current Model Configuration:
+Ceremony: sponsor-call - https://agilevibecoding.org/ceremonies/sponsor-call.html
+• Main Generation: claude-sonnet-4-5-20250929 (claude)
+• Validation: gemini-2.5-pro (gemini) ⚠️  No API key
+• suggestions: claude-sonnet-4-5-20250929 (claude)
+• documentation: claude-sonnet-4-5-20250929 (claude)
+• context: claude-sonnet-4-5-20250929 (claude)
+
+Configure models now? (y/n)
+```
+
+### API Key Warnings
+
+Models without API keys show a ⚠️ warning, but **you can still select them**. This allows you to:
+1. Configure your desired models first
+2. Add the API keys to `.env` later
+3. Run ceremonies once keys are available
+
+### Configuration Persistence
+
+All model configuration is stored in `.avc/avc.json` and persists across sessions. You can also manually edit this file if preferred:
+
+```json
+{
+  "settings": {
+    "ceremonies": [
+      {
+        "name": "sponsor-call",
+        "provider": "claude",
+        "defaultModel": "claude-sonnet-4-5-20250929",
+        "validation": {
+          "enabled": true,
+          "provider": "claude",
+          "model": "claude-sonnet-4-5-20250929"
+        }
+      }
+    ]
+  }
+}
+```
+
+### Available During Init
+
+The `/models` configuration flow is also offered automatically after running `/init` for the first time. You can skip it during init and run `/models` anytime later.
+
+---
+
 ## Keyboard shortcuts
 
 | Key | Action |
@@ -373,6 +483,7 @@ The Sponsor Call ceremony automatically syncs the generated project definition t
 | `/i` | `/init` |
 | `/sc` | `/sponsor-call` |
 | `/d` | `/documentation` |
+| `/m` | `/models` |
 | `/p` | `/processes` |
 | `/s` | `/status` |
 | `/h` | `/help` |

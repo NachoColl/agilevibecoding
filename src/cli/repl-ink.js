@@ -278,7 +278,7 @@ const QuestionnaireProgress = ({ current, total, answers, lastSave }) => {
 };
 
 // Answers preview component
-const AnswersPreview = ({ answers, questions, defaultSuggested, guidelineSuggested }) => {
+const AnswersPreview = ({ answers, questions, defaultSuggested }) => {
   return React.createElement(Box, { flexDirection: 'column', marginTop: 1 },
     React.createElement(Text, { bold: true, color: 'cyan' },
       '\n📋 Review Your Answers\n'
@@ -287,13 +287,12 @@ const AnswersPreview = ({ answers, questions, defaultSuggested, guidelineSuggest
       const answer = answers[question.key] || '(Skipped - will use AI suggestion)';
       const lines = answer.split('\n');
       const isDefault = defaultSuggested && defaultSuggested.has(question.key);
-      const isGuideline = guidelineSuggested && guidelineSuggested.has(question.key);
 
-      // Determine color: red for defaults, yellow for guidelines, default for others
-      const textColor = isDefault ? 'red' : (isGuideline ? 'yellow' : undefined);
+      // Color red for defaults
+      const textColor = isDefault ? 'red' : undefined;
       const labelText = isDefault
-        ? '   (default suggestion from settings)\n'
-        : (isGuideline ? '   (guideline from avc.json)\n' : null);
+        ? '   (default from settings)\n'
+        : null;
 
       return React.createElement(Box, { key: idx, flexDirection: 'column', marginBottom: 1 },
         React.createElement(Text, { bold: true },
@@ -536,6 +535,7 @@ const CommandSelector = ({ onSelect, onCancel, filter }) => {
       commands: [
         { label: '/processes  View background processes', value: '/processes', aliases: ['/p'] },
         { label: '/status     Show current project status', value: '/status', aliases: ['/s'] },
+        { label: '/models     Configure LLM models', value: '/models', aliases: ['/m'] },
         { label: '/tokens     Show token usage statistics', value: '/tokens', aliases: ['/tk'] }
       ]
     },
@@ -974,6 +974,95 @@ const BottomRightStatus = React.memo(({ backgroundProcesses }) => {
   );
 });
 
+// Model Configuration Components
+
+/**
+ * Model Configuration Prompt Component
+ * Shows after /init completes, asks user if they want to configure models
+ */
+const ModelConfigPrompt = ({ promptInput }) => {
+  return React.createElement(Box, { flexDirection: 'column', marginY: 1 },
+    React.createElement(Text, { bold: true, color: 'cyan' }, '\nConfigure models now? (y/n) ' + promptInput)
+  );
+};
+
+/**
+ * Ceremony Selector Component
+ */
+const CeremonySelector = ({ ceremonies, selectedIndex, onIndexChange }) => {
+  return React.createElement(Box, { flexDirection: 'column', borderStyle: 'round', borderColor: 'cyan', paddingX: 1 },
+    React.createElement(Text, { bold: true }, 'Select Ceremony to Configure'),
+    React.createElement(Box, { flexDirection: 'column', marginTop: 1 },
+      ...ceremonies.map((ceremony, idx) =>
+        React.createElement(Box, { key: ceremony.name, flexDirection: 'column' },
+          React.createElement(Text, { color: idx === selectedIndex ? 'green' : 'white' },
+            (idx === selectedIndex ? '› ' : '  ') + (idx + 1) + '. ' + ceremony.name
+          ),
+          React.createElement(Text, { dimColor: true },
+            'Main: ' + ceremony.mainModel + ' | Validation: ' + (ceremony.validationModel || 'none')
+          )
+        )
+      )
+    ),
+    React.createElement(Text, { dimColor: true, marginTop: 1 }, '(Press Enter to select, Esc to finish)')
+  );
+};
+
+/**
+ * Stage Selector Component
+ */
+const StageSelector = ({ ceremonyName, stages, selectedIndex, availableProviders }) => {
+  return React.createElement(Box, { flexDirection: 'column', borderStyle: 'round', borderColor: 'cyan', paddingX: 1 },
+    React.createElement(Text, { bold: true }, 'Ceremony: ' + ceremonyName),
+    React.createElement(Text, { dimColor: true, marginTop: 1 }, 'Select Stage to Configure:'),
+    React.createElement(Box, { flexDirection: 'column', marginTop: 1 },
+      ...stages.map((stage, idx) => {
+        const hasApiKey = availableProviders.includes(stage.provider);
+        return React.createElement(Box, { key: stage.id, flexDirection: 'column' },
+          React.createElement(Text, { color: idx === selectedIndex ? 'green' : 'white' },
+            (idx === selectedIndex ? '› ' : '  ') + (idx + 1) + '. ' + stage.name
+          ),
+          React.createElement(Text, { dimColor: true },
+            'Current: ' + stage.model + ' (' + stage.provider + ')' + (!hasApiKey ? ' ⚠️  No API key' : '')
+          )
+        );
+      })
+    ),
+    React.createElement(Text, { dimColor: true, marginTop: 1 }, '(Press Enter to select, Esc to go back)')
+  );
+};
+
+/**
+ * Model Selector Component
+ */
+const ModelSelector = ({ stageName, currentModel, models, selectedIndex }) => {
+  return React.createElement(Box, { flexDirection: 'column', borderStyle: 'round', borderColor: 'cyan', paddingX: 1 },
+    React.createElement(Text, { bold: true }, 'Stage: ' + stageName),
+    React.createElement(Text, { dimColor: true }, 'Current: ' + currentModel),
+    React.createElement(Text, { dimColor: true, marginTop: 1 }, 'Available Models:'),
+    React.createElement(Box, { flexDirection: 'column', marginTop: 1 },
+      ...models.map((model, idx) => {
+        const isCurrent = model.id === currentModel;
+        const apiKeyIndicator = model.hasApiKey ? ' ✓' : ' ⚠️';
+        const prefix = (idx === selectedIndex ? '› ' : '  ') + (idx + 1) + '. ';
+        const name = model.displayName + (isCurrent ? ' (current)' : '') + apiKeyIndicator;
+        const pricing = ' $' + model.pricing.input.toFixed(2) + '/$' + model.pricing.output.toFixed(2);
+
+        return React.createElement(Text, {
+          key: model.id,
+          color: idx === selectedIndex ? 'green' : 'white',
+          dimColor: idx !== selectedIndex
+        },
+          prefix + name + ' - ' + model.id + ' -' + pricing
+        );
+      })
+    ),
+    React.createElement(Text, { dimColor: true, marginTop: 1 }, '(Press Enter to select, Esc to cancel)'),
+    React.createElement(Text, { dimColor: true }, 'Note: Models without API keys can be selected;'),
+    React.createElement(Text, { dimColor: true }, 'add the key to .env before running ceremonies')
+  );
+};
+
 // Global ceremony execution tracking (for signal handler cleanup)
 let activeExecutionId = null;
 let activeCeremony = null;
@@ -1003,9 +1092,6 @@ const App = () => {
   const [isEditingFromPreview, setIsEditingFromPreview] = useState(false);
   const [questionnaireDefaults, setQuestionnaireDefaults] = useState({});
   const [defaultSuggestedAnswers, setDefaultSuggestedAnswers] = useState(new Set());
-  const [questionnaireGuidelines, setQuestionnaireGuidelines] = useState({});
-  const [guidelineSuggestedAnswers, setGuidelineSuggestedAnswers] = useState(new Set());
-  const [userDeletedGuidelines, setUserDeletedGuidelines] = useState(new Set());
 
   // Paste placeholder state
   const [pastedContent, setPastedContent] = useState({}); // { questionKey: fullContent }
@@ -1057,6 +1143,18 @@ const App = () => {
 
   // Track if user has interacted (to hide Banner permanently after first interaction)
   const [hasInteracted, setHasInteracted] = useState(false);
+
+  // Model configuration state
+  const [modelConfigActive, setModelConfigActive] = useState(false);
+  const [modelConfigMode, setModelConfigMode] = useState('prompt'); // 'prompt' | 'ceremony' | 'stage' | 'model'
+  const [modelConfigurator, setModelConfigurator] = useState(null);
+  const [selectedCeremony, setSelectedCeremony] = useState(null);
+  const [selectedStage, setSelectedStage] = useState(null);
+  const [ceremonySelectIndex, setCeremonySelectIndex] = useState(0);
+  const [stageSelectIndex, setStageSelectIndex] = useState(0);
+  const [modelSelectIndex, setModelSelectIndex] = useState(0);
+  const [configurationChanges, setConfigurationChanges] = useState([]);
+  const [modelConfigPromptInput, setModelConfigPromptInput] = useState('');
 
   // Force stable initial render to prevent React Ink layout race condition
   // On first mount, React Ink hasn't fully measured terminal dimensions
@@ -1191,6 +1289,7 @@ const App = () => {
     '/project-expansion', '/pe',
     '/seed',
     '/status', '/s',
+    '/models', '/m',
     '/tokens', '/tk',
     '/remove', '/rm',
     '/documentation', '/d',
@@ -1388,6 +1487,12 @@ const App = () => {
             await runStatus();
             break;
 
+          case '/models':
+          case '/m':
+            setExecutingMessage('Loading model configuration...');
+            await runModels();
+            break;
+
           case '/tokens':
           case '/tk':
             setExecutingMessage('Analyzing token usage...');
@@ -1532,16 +1637,23 @@ https://agilevibecoding.org
       logs.push(args.join(' '));
     };
 
+    let result;
     try {
-      await initiator.init();
+      result = await initiator.init();
     } finally {
       console.log = originalLog;
     }
 
     setOutput(prev => prev +
-      logs.join('\n') + '\n' +
-      '📖 https://agilevibecoding.org/ceremonies/sponsor-call.html\n'
+      logs.join('\n') + '\n'
     );
+
+    // Check if init returned configuration data
+    if (result && result.shouldConfigure) {
+      setModelConfigurator(result.configurator);
+      setModelConfigActive(true);
+      setModelConfigMode('prompt');
+    }
   };
 
   const runProjectExpansion = async () => {
@@ -1672,13 +1784,10 @@ https://agilevibecoding.org
     const executionId = history.startExecution('sponsor-call', 'questionnaire');
     setSponsorCallExecutionId(executionId);
 
-    // Load questionnaire config (defaults + guidelines) from settings
+    // Load questionnaire config (defaults) from settings
     const config = loadQuestionnaireConfig();
     setQuestionnaireDefaults(config.defaults);
-    setQuestionnaireGuidelines(config.guidelines);
     setDefaultSuggestedAnswers(new Set()); // Reset tracking
-    setGuidelineSuggestedAnswers(new Set());
-    setUserDeletedGuidelines(new Set());
 
     setQuestionnaireActive(true);
     setCurrentQuestionIndex(0);
@@ -1821,17 +1930,16 @@ https://agilevibecoding.org
     try {
       const avcConfigPath = path.join(process.cwd(), '.avc', 'avc.json');
       if (!existsSync(avcConfigPath)) {
-        return { defaults: {}, guidelines: {} };
+        return { defaults: {} };
       }
 
       const config = JSON.parse(readFileSync(avcConfigPath, 'utf8'));
       return {
-        defaults: config.settings?.questionnaire?.defaults || {},
-        guidelines: config.settings?.questionnaire?.guidelines || {}
+        defaults: config.settings?.questionnaire?.defaults || {}
       };
     } catch (error) {
       console.log('⚠️  Could not load questionnaire config:', error.message);
-      return { defaults: {}, guidelines: {} };
+      return { defaults: {} };
     }
   };
 
@@ -1839,20 +1947,8 @@ https://agilevibecoding.org
     setDefaultSuggestedAnswers(prev => new Set([...prev, key]));
   };
 
-  const markAnswerAsGuidelineSuggested = (key) => {
-    setGuidelineSuggestedAnswers(prev => new Set([...prev, key]));
-  };
-
-  const markGuidelineAsDeleted = (key) => {
-    setUserDeletedGuidelines(prev => new Set([...prev, key]));
-  };
-
   const getDefaultAnswer = (key) => {
     return questionnaireDefaults[key] || null;
-  };
-
-  const getGuideline = (key) => {
-    return questionnaireGuidelines[key] || null;
   };
 
   const saveQuestionnaireAnswer = (key, value) => {
@@ -1982,6 +2078,33 @@ https://agilevibecoding.org
     }
 
     setOutput(prev => prev + logs.join('\n') + '\n');
+  };
+
+  const runModels = async () => {
+    const initiator = new ProjectInitiator();
+
+    // Capture console.log output
+    const originalLog = console.log;
+    let logs = [];
+    console.log = (...args) => {
+      logs.push(args.join(' '));
+    };
+
+    let result;
+    try {
+      result = await initiator.models();
+    } finally {
+      console.log = originalLog;
+    }
+
+    setOutput(prev => prev + logs.join('\n') + '\n');
+
+    // Check if models() returned configuration data
+    if (result && result.shouldConfigure) {
+      setModelConfigurator(result.configurator);
+      setModelConfigActive(true);
+      setModelConfigMode('prompt');
+    }
   };
 
   const runTokens = async () => {
@@ -2446,31 +2569,19 @@ https://agilevibecoding.org
       if (currentAnswer.length === 0 && currentLineText === '') {
         const questionKey = currentQuestion.key;
 
-        // Priority cascade: defaults > guidelines > AI
+        // Priority cascade: defaults > AI
 
         // 1. Check for default in settings (highest priority)
         const defaultAnswer = getDefaultAnswer(questionKey);
         if (defaultAnswer) {
-          console.log('Using default suggestion from settings...');
+          console.log('Using default from settings...');
           saveQuestionnaireAnswer(questionKey, defaultAnswer);
           markAnswerAsDefaultSuggested(questionKey);
           moveToNextQuestion();
           return;
         }
 
-        // 2. Check for guideline in avc.json (medium priority)
-        const guidelineAnswer = getGuideline(questionKey);
-        const userDeleted = userDeletedGuidelines.has(questionKey);
-
-        if (guidelineAnswer && !userDeleted) {
-          console.log('Using guideline from avc.json...');
-          saveQuestionnaireAnswer(questionKey, guidelineAnswer);
-          markAnswerAsGuidelineSuggested(questionKey);
-          moveToNextQuestion();
-          return;
-        }
-
-        // 3. Fall back to AI suggestion (lowest priority)
+        // 2. Fall back to AI suggestion
         console.log('Skipping - will use AI suggestion...');
         saveQuestionnaireAnswer(questionKey, null);
         moveToNextQuestion();
@@ -2637,21 +2748,6 @@ https://agilevibecoding.org
         } else {
           // Use typed content
           finalAnswer = currentAnswer.join('\n').trim();
-        }
-
-        // Track if user deleted a guideline answer
-        const wasGuidelineSuggested = guidelineSuggestedAnswers.has(questionKey);
-        const answerIsEmpty = !finalAnswer || finalAnswer.length === 0;
-
-        if (wasGuidelineSuggested && answerIsEmpty) {
-          // User explicitly deleted guideline - mark as deleted to prevent re-showing
-          markGuidelineAsDeleted(questionKey);
-          // Remove from guideline-suggested set
-          setGuidelineSuggestedAnswers(prev => {
-            const newSet = new Set(prev);
-            newSet.delete(questionKey);
-            return newSet;
-          });
         }
 
         saveQuestionnaireAnswer(questionKey, finalAnswer || null);
@@ -3213,6 +3309,163 @@ https://agilevibecoding.org
     }
   }, { isActive: killConfirmActive });
 
+  // Model Configuration Prompt Handler
+  useInput((input, key) => {
+    if (!modelConfigActive || modelConfigMode !== 'prompt') return;
+
+    // Handle Enter key
+    if (key.return) {
+      const trimmedInput = modelConfigPromptInput.trim().toLowerCase();
+      if (trimmedInput === 'y') {
+        setModelConfigMode('ceremony');
+        setCeremonySelectIndex(0);
+        setModelConfigPromptInput('');
+        setOutput(prev => prev + 'y\n\n');
+      } else if (trimmedInput === 'n') {
+        setOutput(prev => prev + 'n\n\n✅ You can configure models later by editing .avc/avc.json\n');
+        setModelConfigActive(false);
+        setModelConfigPromptInput('');
+        setMode('prompt');
+      } else {
+        // Invalid input - just reset
+        setModelConfigPromptInput('');
+      }
+      return;
+    }
+
+    // Handle Backspace
+    if (key.backspace || key.delete) {
+      setModelConfigPromptInput(modelConfigPromptInput.slice(0, -1));
+      return;
+    }
+
+    // Handle Escape (cancel)
+    if (key.escape) {
+      setOutput(prev => prev + '\n✅ You can configure models later by editing .avc/avc.json\n');
+      setModelConfigActive(false);
+      setModelConfigPromptInput('');
+      setMode('prompt');
+      return;
+    }
+
+    // Regular character input - only allow single character (y or n)
+    if (input && !key.ctrl && !key.meta && modelConfigPromptInput.length === 0) {
+      setModelConfigPromptInput(input);
+    }
+  }, { isActive: modelConfigActive && modelConfigMode === 'prompt' });
+
+  // Model Configuration Ceremony Selection Handler
+  useInput((input, key) => {
+    if (!modelConfigActive || modelConfigMode !== 'ceremony') return;
+
+    if (key.upArrow) {
+      const ceremonies = modelConfigurator.getCeremonies();
+      setCeremonySelectIndex(Math.max(0, ceremonySelectIndex - 1));
+      return;
+    }
+
+    if (key.downArrow) {
+      const ceremonies = modelConfigurator.getCeremonies();
+      setCeremonySelectIndex(Math.min(ceremonies.length - 1, ceremonySelectIndex + 1));
+      return;
+    }
+
+    if (key.return) {
+      const ceremonies = modelConfigurator.getCeremonies();
+      setSelectedCeremony(ceremonies[ceremonySelectIndex]);
+      setModelConfigMode('stage');
+      setStageSelectIndex(0);
+      return;
+    }
+
+    if (key.escape) {
+      // Save configuration and exit
+      if (configurationChanges.length > 0) {
+        modelConfigurator.saveConfig();
+        setOutput(prev => prev + '\n💾 Configuration saved successfully!\n');
+      }
+      setModelConfigActive(false);
+      setMode('prompt');
+      return;
+    }
+  }, { isActive: modelConfigActive && modelConfigMode === 'ceremony' });
+
+  // Model Configuration Stage Selection Handler
+  useInput((input, key) => {
+    if (!modelConfigActive || modelConfigMode !== 'stage') return;
+
+    if (key.upArrow) {
+      const stages = modelConfigurator.getStagesForCeremony(selectedCeremony.name);
+      setStageSelectIndex(Math.max(0, stageSelectIndex - 1));
+      return;
+    }
+
+    if (key.downArrow) {
+      const stages = modelConfigurator.getStagesForCeremony(selectedCeremony.name);
+      setStageSelectIndex(Math.min(stages.length - 1, stageSelectIndex + 1));
+      return;
+    }
+
+    if (key.return) {
+      const stages = modelConfigurator.getStagesForCeremony(selectedCeremony.name);
+      setSelectedStage(stages[stageSelectIndex]);
+      setModelConfigMode('model');
+      setModelSelectIndex(0);
+      return;
+    }
+
+    if (key.escape) {
+      setModelConfigMode('ceremony');
+      setCeremonySelectIndex(0);
+      return;
+    }
+  }, { isActive: modelConfigActive && modelConfigMode === 'stage' });
+
+  // Model Configuration Model Selection Handler
+  useInput((input, key) => {
+    if (!modelConfigActive || modelConfigMode !== 'model') return;
+
+    if (key.upArrow) {
+      const models = modelConfigurator.getAvailableModels();
+      setModelSelectIndex(Math.max(0, modelSelectIndex - 1));
+      return;
+    }
+
+    if (key.downArrow) {
+      const models = modelConfigurator.getAvailableModels();
+      setModelSelectIndex(Math.min(models.length - 1, modelSelectIndex + 1));
+      return;
+    }
+
+    if (key.return) {
+      const models = modelConfigurator.getAvailableModels();
+      const selectedModel = models[modelSelectIndex];
+
+      // Update configuration
+      modelConfigurator.updateStage(selectedCeremony.name, selectedStage.id, selectedModel.id);
+
+      // Track change
+      setConfigurationChanges(prev => [...prev, {
+        ceremony: selectedCeremony.name,
+        stage: selectedStage.name,
+        oldModel: selectedStage.model,
+        newModel: selectedModel.id
+      }]);
+
+      setOutput(prev => prev + `\n✅ Updated ${selectedStage.name}: ${selectedStage.model} → ${selectedModel.id}\n`);
+
+      // Go back to stage selection
+      setModelConfigMode('stage');
+      setStageSelectIndex(0);
+      return;
+    }
+
+    if (key.escape) {
+      setModelConfigMode('stage');
+      return;
+    }
+  }, { isActive: modelConfigActive && modelConfigMode === 'model' });
+
   // Process viewer handlers
   const handleProcessSelect = (process) => {
     setSelectedProcessId(process.id);
@@ -3309,8 +3562,7 @@ https://agilevibecoding.org
         React.createElement(AnswersPreview, {
           answers: questionnaireAnswers,
           questions: questionnaireQuestions,
-          defaultSuggested: defaultSuggestedAnswers,
-          guidelineSuggested: guidelineSuggestedAnswers
+          defaultSuggested: defaultSuggestedAnswers
         })
       );
     }
@@ -3395,8 +3647,44 @@ https://agilevibecoding.org
   };
 
   // Render prompt when in prompt mode
+  const renderModelConfig = () => {
+    if (!modelConfigActive || !modelConfigurator) return null;
+
+    if (modelConfigMode === 'prompt') {
+      return React.createElement(ModelConfigPrompt, { promptInput: modelConfigPromptInput });
+    }
+
+    if (modelConfigMode === 'ceremony') {
+      return React.createElement(CeremonySelector, {
+        ceremonies: modelConfigurator.getCeremonies(),
+        selectedIndex: ceremonySelectIndex,
+        onIndexChange: setCeremonySelectIndex
+      });
+    }
+
+    if (modelConfigMode === 'stage' && selectedCeremony) {
+      return React.createElement(StageSelector, {
+        ceremonyName: selectedCeremony.name,
+        stages: modelConfigurator.getStagesForCeremony(selectedCeremony.name),
+        selectedIndex: stageSelectIndex,
+        availableProviders: modelConfigurator.availableProviders
+      });
+    }
+
+    if (modelConfigMode === 'model' && selectedStage) {
+      return React.createElement(ModelSelector, {
+        stageName: selectedStage.name,
+        currentModel: selectedStage.model,
+        models: modelConfigurator.getAvailableModels(),
+        selectedIndex: modelSelectIndex
+      });
+    }
+
+    return null;
+  };
+
   const renderPrompt = () => {
-    if (mode !== 'prompt' || questionnaireActive || showPreview || removeConfirmActive || killConfirmActive || processViewerActive || cancelConfirmActive || isExecuting) return null;
+    if (mode !== 'prompt' || questionnaireActive || showPreview || removeConfirmActive || killConfirmActive || processViewerActive || cancelConfirmActive || isExecuting || modelConfigActive) return null;
 
     // Show loading indicator while app is initializing
     if (!isStableRender) {
@@ -3420,8 +3708,9 @@ https://agilevibecoding.org
     renderOutput(),
     renderProcessViewer(),
     renderSelector(),
+    renderModelConfig(),
     renderPrompt(),
-    !questionnaireActive && !showPreview && !removeConfirmActive && !killConfirmActive && !processViewerActive && !cancelConfirmActive && mode !== 'executing' && React.createElement(BottomRightStatus, { backgroundProcesses })
+    !questionnaireActive && !showPreview && !removeConfirmActive && !killConfirmActive && !processViewerActive && !cancelConfirmActive && !modelConfigActive && mode !== 'executing' && React.createElement(BottomRightStatus, { backgroundProcesses })
   );
 };
 

@@ -278,4 +278,323 @@ describe('ProjectInitiator with Provider Integration', () => {
       expect(result.valid).toBe(true);
     });
   });
+
+  describe('Interactive model configuration', () => {
+    it('should offer model configuration after init', async () => {
+      const initiator = new ProjectInitiator(testProjectPath);
+
+      // Mock file system to simulate project structure
+      vi.spyOn(fs, 'existsSync').mockImplementation((filepath) => {
+        // Return true for avc.json after init creates it
+        if (filepath.toString().includes('avc.json')) return true;
+        if (filepath.toString().includes('.env')) return true;
+        return false; // Project not initialized initially
+      });
+      vi.spyOn(fs, 'mkdirSync').mockImplementation(() => {});
+      vi.spyOn(fs, 'writeFileSync').mockImplementation(() => {});
+
+      // Mock readFileSync for config file
+      vi.spyOn(fs, 'readFileSync').mockReturnValue(
+        JSON.stringify({
+          settings: {
+            ceremonies: [{
+              name: 'sponsor-call',
+              provider: 'claude',
+              defaultModel: 'claude-sonnet-4-5-20250929',
+              validation: {
+                enabled: true,
+                provider: 'gemini',
+                model: 'gemini-2.5-pro'
+              }
+            }],
+            models: {
+              'claude-sonnet-4-5-20250929': {
+                provider: 'claude',
+                displayName: 'Claude Sonnet 4.5',
+                pricing: { input: 3.00, output: 15.00 }
+              },
+              'gemini-2.5-pro': {
+                provider: 'gemini',
+                displayName: 'Gemini 2.5 Pro',
+                pricing: { input: 1.25, output: 5.00 }
+              }
+            }
+          }
+        })
+      );
+
+      const result = await initiator.init();
+
+      expect(result).toBeDefined();
+      expect(result.shouldConfigure).toBe(true);
+      expect(result.configurator).toBeDefined();
+    });
+
+    it('should detect available providers from .env', async () => {
+      // Clear environment variables so only .env file is checked
+      delete process.env.ANTHROPIC_API_KEY;
+      delete process.env.GEMINI_API_KEY;
+      delete process.env.OPENAI_API_KEY;
+
+      const initiator = new ProjectInitiator(testProjectPath);
+
+      vi.spyOn(fs, 'existsSync').mockImplementation((filepath) => {
+        if (filepath.toString().includes('avc.json')) return true;
+        if (filepath.toString().includes('.env')) return true;
+        return false;
+      });
+      vi.spyOn(fs, 'mkdirSync').mockImplementation(() => {});
+      vi.spyOn(fs, 'writeFileSync').mockImplementation(() => {});
+
+      // First call for init check, second for config read, third for .env check
+      let callCount = 0;
+      vi.spyOn(fs, 'readFileSync').mockImplementation((filepath) => {
+        callCount++;
+        if (filepath.toString().endsWith('.env')) {
+          return 'ANTHROPIC_API_KEY=test-key\n';
+        }
+        return JSON.stringify({
+          settings: {
+            ceremonies: [{
+              name: 'sponsor-call',
+              provider: 'claude',
+              defaultModel: 'claude-sonnet-4-5-20250929',
+              validation: {
+                provider: 'gemini',
+                model: 'gemini-2.5-pro'
+              }
+            }],
+            models: {
+              'claude-sonnet-4-5-20250929': {
+                provider: 'claude',
+                displayName: 'Claude Sonnet 4.5',
+                pricing: { input: 3.00, output: 15.00 }
+              },
+              'gemini-2.5-pro': {
+                provider: 'gemini',
+                displayName: 'Gemini 2.5 Pro',
+                pricing: { input: 1.25, output: 5.00 }
+              }
+            }
+          }
+        });
+      });
+
+      const result = await initiator.init();
+
+      expect(result.configurator).toBeDefined();
+      const providers = result.configurator.availableProviders;
+      expect(providers).toContain('claude');
+      expect(providers).not.toContain('gemini'); // No gemini key in .env
+    });
+
+    it('should show all models regardless of API key availability', async () => {
+      const initiator = new ProjectInitiator(testProjectPath);
+
+      vi.spyOn(fs, 'existsSync').mockImplementation((filepath) => {
+        if (filepath.toString().includes('avc.json')) return true;
+        if (filepath.toString().includes('.env')) return true;
+        return false;
+      });
+      vi.spyOn(fs, 'mkdirSync').mockImplementation(() => {});
+      vi.spyOn(fs, 'writeFileSync').mockImplementation(() => {});
+      vi.spyOn(fs, 'readFileSync').mockReturnValue(
+        JSON.stringify({
+          settings: {
+            ceremonies: [{
+              name: 'sponsor-call',
+              provider: 'claude',
+              defaultModel: 'claude-sonnet-4-5-20250929'
+            }],
+            models: {
+              'claude-sonnet-4-5-20250929': {
+                provider: 'claude',
+                displayName: 'Claude Sonnet 4.5',
+                pricing: { input: 3.00, output: 15.00 }
+              },
+              'gemini-2.5-pro': {
+                provider: 'gemini',
+                displayName: 'Gemini 2.5 Pro',
+                pricing: { input: 1.25, output: 5.00 }
+              },
+              'gpt-5.2-chat-latest': {
+                provider: 'openai',
+                displayName: 'OpenAI GPT-5.2',
+                pricing: { input: 1.75, output: 14.00 }
+              }
+            }
+          }
+        })
+      );
+
+      const result = await initiator.init();
+      const models = result.configurator.getAvailableModels();
+
+      // All models should be returned
+      expect(models.length).toBe(3);
+      expect(models.map(m => m.id)).toContain('claude-sonnet-4-5-20250929');
+      expect(models.map(m => m.id)).toContain('gemini-2.5-pro');
+      expect(models.map(m => m.id)).toContain('gpt-5.2-chat-latest');
+    });
+
+    it('should update ceremony configuration correctly', async () => {
+      const initiator = new ProjectInitiator(testProjectPath);
+
+      vi.spyOn(fs, 'existsSync').mockImplementation((filepath) => {
+        if (filepath.toString().includes('avc.json')) return true;
+        if (filepath.toString().includes('.env')) return true;
+        return false;
+      });
+      vi.spyOn(fs, 'mkdirSync').mockImplementation(() => {});
+
+      let savedConfig = null;
+      vi.spyOn(fs, 'writeFileSync').mockImplementation((filepath, content) => {
+        if (filepath.toString().endsWith('avc.json')) {
+          savedConfig = content;
+        }
+      });
+
+      vi.spyOn(fs, 'readFileSync').mockReturnValue(
+        JSON.stringify({
+          settings: {
+            ceremonies: [{
+              name: 'sponsor-call',
+              provider: 'claude',
+              defaultModel: 'claude-sonnet-4-5-20250929',
+              validation: {
+                enabled: true,
+                provider: 'gemini',
+                model: 'gemini-2.5-pro'
+              }
+            }],
+            models: {
+              'claude-sonnet-4-5-20250929': {
+                provider: 'claude',
+                displayName: 'Claude Sonnet 4.5',
+                pricing: { input: 3.00, output: 15.00 }
+              }
+            }
+          }
+        })
+      );
+
+      const result = await initiator.init();
+
+      // Change validation to use claude instead of gemini
+      result.configurator.updateStage('sponsor-call', 'validation', 'claude-sonnet-4-5-20250929');
+      result.configurator.saveConfig();
+
+      expect(savedConfig).toBeTruthy();
+      const config = JSON.parse(savedConfig);
+      expect(config.settings.ceremonies[0].validation.provider).toBe('claude');
+      expect(config.settings.ceremonies[0].validation.model).toBe('claude-sonnet-4-5-20250929');
+    });
+
+    it('should warn about missing API keys but allow configuration', async () => {
+      const initiator = new ProjectInitiator(testProjectPath);
+
+      // Only set ANTHROPIC_API_KEY
+      delete process.env.GEMINI_API_KEY;
+      delete process.env.OPENAI_API_KEY;
+
+      vi.spyOn(fs, 'existsSync').mockImplementation((filepath) => {
+        if (filepath.toString().includes('avc.json')) return true;
+        if (filepath.toString().includes('.env')) return true;
+        return false;
+      });
+      vi.spyOn(fs, 'mkdirSync').mockImplementation(() => {});
+      vi.spyOn(fs, 'writeFileSync').mockImplementation(() => {});
+      vi.spyOn(fs, 'readFileSync').mockReturnValue(
+        JSON.stringify({
+          settings: {
+            ceremonies: [{
+              name: 'sponsor-call',
+              provider: 'claude',
+              defaultModel: 'claude-sonnet-4-5-20250929',
+              validation: {
+                provider: 'gemini',
+                model: 'gemini-2.5-pro'
+              }
+            }],
+            models: {
+              'claude-sonnet-4-5-20250929': {
+                provider: 'claude',
+                displayName: 'Claude Sonnet 4.5',
+                pricing: { input: 3.00, output: 15.00 }
+              },
+              'gemini-2.5-pro': {
+                provider: 'gemini',
+                displayName: 'Gemini 2.5 Pro',
+                pricing: { input: 1.25, output: 5.00 }
+              }
+            }
+          }
+        })
+      );
+
+      const result = await initiator.init();
+      const issues = result.configurator.validateConfig();
+
+      // Should detect missing gemini key
+      expect(issues.length).toBeGreaterThan(0);
+      const validationIssue = issues.find(i => i.stage === 'validation');
+      expect(validationIssue).toBeDefined();
+      expect(validationIssue.provider).toBe('gemini');
+
+      // But user should still be able to select gemini model
+      const models = result.configurator.getAvailableModels();
+      const geminiModel = models.find(m => m.provider === 'gemini');
+      expect(geminiModel).toBeDefined();
+      expect(geminiModel.hasApiKey).toBe(false); // Warning indicator
+    });
+
+    it('should handle multiple ceremonies', async () => {
+      const initiator = new ProjectInitiator(testProjectPath);
+
+      vi.spyOn(fs, 'existsSync').mockImplementation((filepath) => {
+        if (filepath.toString().includes('avc.json')) return true;
+        if (filepath.toString().includes('.env')) return true;
+        return false;
+      });
+      vi.spyOn(fs, 'mkdirSync').mockImplementation(() => {});
+      vi.spyOn(fs, 'writeFileSync').mockImplementation(() => {});
+      vi.spyOn(fs, 'readFileSync').mockReturnValue(
+        JSON.stringify({
+          settings: {
+            ceremonies: [
+              {
+                name: 'sponsor-call',
+                provider: 'claude',
+                defaultModel: 'claude-sonnet-4-5-20250929'
+              },
+              {
+                name: 'project-expansion',
+                provider: 'gemini',
+                defaultModel: 'gemini-2.5-pro'
+              }
+            ],
+            models: {
+              'claude-sonnet-4-5-20250929': {
+                provider: 'claude',
+                displayName: 'Claude Sonnet 4.5',
+                pricing: { input: 3.00, output: 15.00 }
+              },
+              'gemini-2.5-pro': {
+                provider: 'gemini',
+                displayName: 'Gemini 2.5 Pro',
+                pricing: { input: 1.25, output: 5.00 }
+              }
+            }
+          }
+        })
+      );
+
+      const result = await initiator.init();
+      const ceremonies = result.configurator.getCeremonies();
+
+      expect(ceremonies.length).toBe(2);
+      expect(ceremonies[0].name).toBe('sponsor-call');
+      expect(ceremonies[1].name).toBe('project-expansion');
+    });
+  });
 });

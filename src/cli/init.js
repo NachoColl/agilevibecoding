@@ -6,6 +6,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import { execSync } from 'child_process';
 import { TemplateProcessor } from './template-processor.js';
+import { ModelConfigurator } from './init-model-config.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -996,6 +997,67 @@ If you're new to Agile Vibe Coding, visit the [AVC Documentation](https://agilev
     console.log('     • GEMINI_API_KEY for Gemini');
     console.log('     • OPENAI_API_KEY for OpenAI');
     console.log('  2. Run /sponsor-call to start\n');
+
+    // Offer model configuration
+    return this.configureModelsInteractively();
+  }
+
+  /**
+   * Configure models command
+   * Shows current model configuration and offers interactive editing
+   */
+  async models() {
+    console.log('\n🔧 Model Configuration\n');
+
+    // Check if project is initialized
+    if (!this.isAvcProject()) {
+      console.log('❌ Project not initialized\n');
+      console.log('Please run /init first to create the project structure.\n');
+      return;
+    }
+
+    // Use the shared configuration method
+    return this.configureModelsInteractively();
+  }
+
+  /**
+   * Interactive model configuration flow
+   * Shared by both /init and /models commands
+   */
+  configureModelsInteractively() {
+    const configurator = new ModelConfigurator(this.projectRoot);
+
+    // Detect available providers (used for model indicators)
+    configurator.availableProviders = configurator.detectAvailableProviders();
+    configurator.readConfig();
+
+    // Show current configuration
+    console.log('📋 Current Model Configuration:');
+    console.log(''); // Add space after title
+    const ceremonies = configurator.getCeremonies();
+    ceremonies.forEach(c => {
+      const ceremonyUrl = `https://agilevibecoding.org/ceremonies/${c.name}.html`;
+      console.log(`Ceremony: ${c.name} - ${ceremonyUrl}`);
+      console.log(`• Main Generation: ${c.mainModel} (${c.mainProvider})`);
+      if (c.validationProvider) {
+        const hasValidationKey = configurator.availableProviders.includes(c.validationProvider);
+        const keyWarning = hasValidationKey ? '' : ' ⚠️  No API key';
+        console.log(`• Validation: ${c.validationModel} (${c.validationProvider})${keyWarning}`);
+      }
+      Object.keys(c.stages).forEach(stageName => {
+        const stage = c.stages[stageName];
+        const hasStageKey = configurator.availableProviders.includes(stage.provider);
+        const keyWarning = hasStageKey ? '' : ' ⚠️  No API key';
+        console.log(`• ${stageName}: ${stage.model} (${stage.provider})${keyWarning}`);
+      });
+      console.log(''); // Add space after each ceremony
+    });
+
+    // Return configurator for REPL to use
+    return {
+      shouldConfigure: true,
+      configurator
+    };
   }
 
   /**
@@ -1546,11 +1608,14 @@ if (import.meta.url === `file://${process.argv[1]}`) {
     case 'status':
       initiator.status();
       break;
+    case 'models':
+      initiator.models();
+      break;
     case 'remove':
       initiator.remove();
       break;
     default:
-      console.log('Unknown command. Available commands: init, sponsor-call, status, remove');
+      console.log('Unknown command. Available commands: init, sponsor-call, status, models, remove');
       process.exit(1);
   }
 }
