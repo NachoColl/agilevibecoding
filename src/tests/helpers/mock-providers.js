@@ -93,3 +93,62 @@ export function mockGoogleGenAI(options = {}) {
     }
   };
 }
+
+/**
+ * Mock OpenAI provider for testing
+ */
+export function mockOpenAIProvider(options = {}) {
+  const {
+    shouldSucceed = true,
+    response = 'ok',
+    error = 'API error',
+    usage = { prompt_tokens: 10, completion_tokens: 20 }
+  } = options;
+
+  return {
+    providerName: 'openai',
+    model: 'gpt-5.2-chat-latest',
+    generate: vi.fn().mockImplementation(() =>
+      shouldSucceed ? Promise.resolve(response) : Promise.reject(new Error(error))
+    ),
+    validateApiKey: vi.fn().mockResolvedValue({
+      valid: shouldSucceed,
+      error: shouldSucceed ? undefined : error
+    }),
+    tokenUsage: {
+      inputTokens: 0,
+      outputTokens: 0,
+      totalCalls: 0
+    },
+    _trackTokens: vi.fn(),
+    _client: null,
+    _createClient: vi.fn(),
+    _callProvider: vi.fn().mockImplementation(() =>
+      shouldSucceed ? Promise.resolve(response) : Promise.reject(new Error(error))
+    )
+  };
+}
+
+/**
+ * Mock OpenAI SDK for integration tests
+ */
+export function mockOpenAISDK(options = {}) {
+  const { shouldSucceed = true, response = 'ok' } = options;
+
+  return class MockOpenAI {
+    constructor() {
+      this.chat = {
+        completions: {
+          create: vi.fn().mockImplementation(() =>
+            shouldSucceed
+              ? Promise.resolve({
+                  choices: [{ message: { content: response } }],
+                  usage: { prompt_tokens: 10, completion_tokens: 20 }
+                })
+              : Promise.reject(new Error('Invalid API key'))
+          )
+        }
+      };
+    }
+  };
+}

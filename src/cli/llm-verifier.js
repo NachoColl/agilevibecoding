@@ -8,8 +8,16 @@ const __dirname = path.dirname(__filename);
 /**
  * LLM-based verification engine
  *
- * NO HARDCODED VALIDATION - All logic is in JSON rule files.
- * Each rule checks ONE thing and fixes ONE thing (atomic).
+ * CONFIGURATION-DRIVEN VALIDATION:
+ * - All validation logic defined in JSON rule files
+ * - Fast-path optimizations configurable per rule (not hardcoded)
+ * - Hardcoded helpers exist (JSON parsing, regex) but triggered by JSON config
+ * - Each rule checks ONE thing and fixes ONE thing (atomic)
+ *
+ * Fast-Path Types Available:
+ * - 'json-parse': Validate JSON syntax programmatically
+ * - 'json-fields': Check required fields programmatically
+ * - 'none': Always use LLM (no fast-path)
  *
  * Usage:
  *   const verifier = new LLMVerifier(llmProvider, 'project-documentation-creator');
@@ -100,6 +108,36 @@ export class LLMVerifier {
   }
 
   /**
+   * Execute fast-path optimization if configured
+   * @param {string} content - Content to check
+   * @param {Object} rule - Verification rule with fastPath config
+   * @returns {Promise<Object>} { canFastPath: boolean, violated: boolean, reason: string }
+   */
+  async executeFastPath(content, rule) {
+    if (!rule.fastPath?.enabled) {
+      return { canFastPath: false };
+    }
+
+    const type = rule.fastPath.type;
+
+    switch (type) {
+      case 'json-parse':
+        // JSON parsing fast-path
+        return this.fastPathValidJson(content);
+
+      case 'json-fields':
+        // Required fields fast-path
+        const fields = rule.fastPath.requiredFields || [];
+        return this.fastPathRequiredFields(content, fields);
+
+      case 'none':
+      default:
+        // No fast-path, use LLM
+        return { canFastPath: false };
+    }
+  }
+
+  /**
    * Load verification rules from JSON file
    * @returns {Array} Enabled verification rules
    */
@@ -136,36 +174,15 @@ export class LLMVerifier {
         this.tracker.startRuleCheck(rule);
       }
 
-      // Try fast-path first
-      if (rule.id === 'valid-json') {
-        const fastPath = this.fastPathValidJson(content);
-        if (fastPath.canFastPath) {
-          console.log(`[DEBUG] Fast-path used for ${rule.id}: ${fastPath.violated ? 'VIOLATED' : 'PASSED'} (${fastPath.reason || 'valid'})`);
+      // Try fast-path if configured in rule
+      if (rule.fastPath?.enabled) {
+        const fastPathResult = await this.executeFastPath(content, rule);
+        if (fastPathResult.canFastPath) {
+          console.log(`[DEBUG] Fast-path used for ${rule.id}: ${fastPathResult.violated ? 'VIOLATED' : 'PASSED'}${fastPathResult.reason ? ` (${fastPathResult.reason})` : ''}${fastPathResult.missingFields ? ` (missing: ${fastPathResult.missingFields.join(', ')})` : ''}`);
           if (this.tracker) {
-            this.tracker.endRuleCheck(fastPath.violated ? 'YES' : 'NO');
+            this.tracker.endRuleCheck(fastPathResult.violated ? 'YES' : 'NO');
           }
-          return fastPath.violated;
-        }
-      }
-
-      if (rule.id === 'required-fields' || rule.id === 'required-validator-fields') {
-        // Determine required fields based on agent type
-        let requiredFields = [];
-        if (this.agentName === 'validator-documentation') {
-          requiredFields = ['validationStatus', 'overallScore', 'structuralIssues', 'contentIssues', 'recommendations'];
-        } else if (this.agentName === 'validator-context') {
-          requiredFields = ['validationStatus', 'overallScore', 'issues'];
-        }
-
-        if (requiredFields.length > 0) {
-          const fastPath = this.fastPathRequiredFields(content, requiredFields);
-          if (fastPath.canFastPath) {
-            console.log(`[DEBUG] Fast-path used for ${rule.id}: ${fastPath.violated ? 'VIOLATED' : 'PASSED'}${fastPath.missingFields ? ` (missing: ${fastPath.missingFields.join(', ')})` : ''}`);
-            if (this.tracker) {
-              this.tracker.endRuleCheck(fastPath.violated ? 'YES' : 'NO');
-            }
-            return fastPath.violated;
-          }
+          return fastPathResult.violated;
         }
       }
 
@@ -211,8 +228,8 @@ export class LLMVerifier {
         this.tracker.startRuleFix(content.length);
       }
 
-      // Fast-path for valid-json: Unwrap programmatically
-      if (rule.id === 'valid-json') {
+      // Fast-path fix if configured
+      if (rule.fastPath?.enabled && rule.fastPath.type === 'json-parse') {
         const { isWrapped, unwrapped } = this.unwrapJsonCodeFence(content);
         if (isWrapped) {
           console.log('[DEBUG] Fast-path: Unwrapping JSON code fence (no LLM call)');

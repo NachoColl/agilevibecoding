@@ -5,18 +5,47 @@
   "model": "claude-sonnet-4-5",
   "verifications": [
     {
-      "id": "remove-status-fields",
-      "name": "Remove Status Fields",
+      "id": "remove-status-and-timeline-references",
+      "name": "Remove Status and Timeline References",
       "enabled": true,
       "severity": "critical",
-      "description": "Remove all task-tracking status information",
+      "description": "Remove all status fields, timeline references, and planning language. Documentation must be timeless.",
+      "fastPath": {
+        "enabled": false,
+        "type": "none"
+      },
       "check": {
-        "prompt": "Check if content contains ANY status fields (Status: Planned, Status: Initial Definition, Status: In Progress, Status: Completed, **Status**:, or similar).\n\nCONTENT:\n{content}\n\nDoes this contain status fields?\n\nRespond ONLY 'YES' or 'NO'.",
+        "prompt": "Check if content contains status fields, timeline references, or planning language.\n\nPROHIBITED PATTERNS:\n\n1. STATUS FIELDS:\n- Status: Planned / Initial Definition / In Progress / Completed\n- **Status**: any value\n- Priority: High / P1 / Must-have\n\n2. TIMELINE REFERENCES:\n- Phase 1 / Phase 2 / Milestone 3\n- Q1 2026 / January / Sprint 5\n- Version 1.0 / v2.0 / MVP\n- Initial release / Post-launch\n\n3. PLANNING LANGUAGE:\n- will be implemented / planned for / scheduled for\n- to be delivered / upcoming / future enhancement\n- roadmap includes / next iteration\n\n4. FUTURE TENSE:\n- will provide / will include / will support\n- is going to / are planned / once implemented\n\n5. TEMPORAL SEQUENCING:\n- initially / eventually / later / first / next\n- after deployment / when complete / upon release\n\nALLOWED (these are OK):\n- provides / includes / supports (present tense)\n- \"planned\" in legitimate context like \"well-planned architecture\"\n- \"phase\" in technical terms like \"two-phase commit\"\n\nCONTENT:\n{content}\n\nDoes content contain ANY prohibited patterns?\n\nRespond ONLY 'YES' or 'NO'.",
         "expectedResponse": "YES|NO",
         "maxTokens": 10
       },
       "fix": {
-        "prompt": "Remove ALL status-related lines from the content.\n\nStatus patterns to remove:\n- 'Status: Planned'\n- 'Status: Initial Definition'\n- 'Status: In Progress'\n- 'Status: Completed'\n- '**Status**:' and its value\n\nRemove the ENTIRE line containing status (including newline).\nPreserve all other content exactly as-is.\n\nCONTENT:\n{content}\n\nReturn ONLY the cleaned content.",
+        "prompt": "Remove status fields, timeline references, and planning language. Convert to timeless present tense.\n\nREMOVAL RULES:\n\n1. REMOVE ENTIRE LINES containing:\n- Status: any value\n- Priority: any value\n- Phase/Milestone/Sprint references\n- Version/Release references (v1.0, MVP, etc.)\n- Timeline dates (Q1 2026, January, etc.)\n\n2. CONVERT FUTURE TENSE to PRESENT:\n- \"will provide\" → \"provides\"\n- \"will include\" → \"includes\"\n- \"will support\" → \"supports\"\n- \"is going to have\" → \"has\"\n\n3. REMOVE PLANNING PHRASES:\n- \"planned for\" → remove phrase, keep feature description\n- \"scheduled for release\" → remove phrase\n- \"to be implemented\" → remove phrase\n- \"upcoming feature\" → just \"feature\"\n- \"future enhancement\" → just describe the feature\n\n4. REMOVE TEMPORAL SEQUENCES:\n- \"Initially, the system...\" → \"The system...\"\n- \"Eventually, we will add...\" → \"The system includes...\"\n- \"First, users authenticate, then...\" → \"Users authenticate and...\"\n- \"After deployment, the feature...\" → \"The feature...\"\n\n5. REMOVE CONDITIONALS:\n- \"Once implemented, X will...\" → \"X provides...\"\n- \"When complete, the system...\" → \"The system...\"\n\nEXAMPLES:\n\nInput:  \"Status: Planned\\n\\nThe system will provide authentication in Phase 2.\"\nOutput: \"The system provides authentication.\"\n\nInput:  \"Once deployed, users will be able to login using OAuth.\"\nOutput: \"Users login using OAuth.\"\n\nInput:  \"Initially, the MVP includes basic features. Eventually, we will add advanced analytics.\"\nOutput: \"The system includes basic features and advanced analytics.\"\n\nPRESERVE:\n- All technical specifications\n- All feature descriptions\n- All architecture details\n- Present tense statements\n- Technical uses of \"phase\" (two-phase commit) or \"version\" (API version)\n\nCONTENT:\n{content}\n\nReturn ONLY the cleaned content with:\n- All status/timeline references removed\n- All future tense converted to present\n- All planning language removed\n- Timeless, factual descriptions only",
+        "returnFormat": "text",
+        "maxTokens": 8192
+      },
+      "metadata": {
+        "category": "content",
+        "addedVersion": "0.1.2"
+      }
+    },
+    {
+      "id": "enforce-present-tense",
+      "name": "Enforce Present Tense Throughout",
+      "enabled": true,
+      "severity": "major",
+      "description": "Ensure all system descriptions use present tense, not future",
+      "fastPath": {
+        "enabled": false,
+        "type": "none"
+      },
+      "check": {
+        "prompt": "Check if content uses future tense to describe system capabilities.\n\nFUTURE TENSE PATTERNS (prohibited):\n- will provide / will include / will support / will handle\n- will be / will have / will use / will enable\n- is going to / are going to / is planned to\n- shall provide / shall include (formal future)\n\nPRESENT TENSE PATTERNS (correct):\n- provides / includes / supports / handles\n- is / has / uses / enables\n\nCONTENT:\n{content}\n\nDoes content use future tense to describe system capabilities?\n\nRespond ONLY 'YES' or 'NO'.",
+        "expectedResponse": "YES|NO",
+        "maxTokens": 10
+      },
+      "fix": {
+        "prompt": "Convert all future tense to present tense.\n\nCONVERSIONS:\n- \"will provide\" → \"provides\"\n- \"will include\" → \"includes\"\n- \"will support\" → \"supports\"\n- \"will handle\" → \"handles\"\n- \"will be\" → \"is\"\n- \"will have\" → \"has\"\n- \"will use\" → \"uses\"\n- \"will enable\" → \"enables\"\n- \"is going to provide\" → \"provides\"\n- \"are going to include\" → \"include\"\n- \"shall provide\" → \"provides\"\n\nRULES:\n- Convert ALL instances of future tense\n- Preserve technical accuracy\n- Maintain sentence structure\n- Fix grammar if needed after conversion\n\nEXAMPLES:\nInput:  \"The API will provide RESTful endpoints for user management.\"\nOutput: \"The API provides RESTful endpoints for user management.\"\n\nInput:  \"Users will be able to authenticate using OAuth 2.0.\"\nOutput: \"Users authenticate using OAuth 2.0.\"\n\nInput:  \"The system is going to handle 10,000 concurrent users.\"\nOutput: \"The system handles 10,000 concurrent users.\"\n\nCONTENT:\n{content}\n\nReturn ONLY the content with all future tense converted to present.",
         "returnFormat": "text",
         "maxTokens": 8192
       },

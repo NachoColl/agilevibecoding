@@ -210,9 +210,6 @@ class ProjectInitiator {
               skipOnCriticalIssues: false,
               provider: 'gemini',
               model: 'gemini-2.5-pro'
-            },
-            guidelines: {
-              technicalConsiderations: 'Use AWS serverless stack with Lambda functions for compute, API Gateway for REST APIs, DynamoDB for database, S3 for storage. Use CloudFormation for infrastructure definition and AWS CodePipeline/CodeBuild for CI/CD deployment.'
             }
           },
           {
@@ -272,15 +269,9 @@ class ProjectInitiator {
             MISSION_STATEMENT: null,
             TARGET_USERS: null,
             INITIAL_SCOPE: null,
+            DEPLOYMENT_TARGET: null,
             TECHNICAL_CONSIDERATIONS: null,
             SECURITY_AND_COMPLIANCE_REQUIREMENTS: null
-          },
-          guidelines: {
-            MISSION_STATEMENT: "What core problem does this application solve? Who benefits?",
-            TARGET_USERS: "Who are the primary users? What are their roles and needs?",
-            INITIAL_SCOPE: "What are the essential features for the first version?",
-            TECHNICAL_CONSIDERATIONS: "Tech stack, architecture, scalability, performance requirements",
-            SECURITY_AND_COMPLIANCE_REQUIREMENTS: "Authentication, authorization, data protection, compliance needs"
           }
         },
         models: {
@@ -338,6 +329,62 @@ class ProjectInitiator {
             pricing: {
               input: 1.25,
               output: 5.00,
+              unit: 'million'
+            }
+          },
+
+          // OpenAI models (prices per 1M tokens in USD)
+          'gpt-5.2-chat-latest': {
+            provider: 'openai',
+            displayName: 'GPT-5.2 Instant',
+            pricing: {
+              input: 1.75,
+              output: 14.00,
+              unit: 'million'
+            }
+          },
+          'gpt-5.2': {
+            provider: 'openai',
+            displayName: 'GPT-5.2 Thinking',
+            pricing: {
+              input: 1.75,
+              output: 14.00,
+              unit: 'million'
+            }
+          },
+          'gpt-5.2-pro': {
+            provider: 'openai',
+            displayName: 'GPT-5.2 Pro',
+            pricing: {
+              input: 1.75,
+              output: 14.00,
+              unit: 'million'
+            }
+          },
+          'o3-mini': {
+            provider: 'openai',
+            displayName: 'o3-mini',
+            pricing: {
+              input: 0.50,
+              output: 2.00,
+              unit: 'million'
+            }
+          },
+          'gpt-5.3-codex': {
+            provider: 'openai',
+            displayName: 'GPT-5.3-Codex',
+            pricing: {
+              input: 2.00,
+              output: 16.00,
+              unit: 'million'
+            }
+          },
+          'gpt-5.2-codex': {
+            provider: 'openai',
+            displayName: 'GPT-5.2-Codex',
+            pricing: {
+              input: 1.75,
+              output: 14.00,
               unit: 'million'
             }
           }
@@ -412,6 +459,10 @@ ANTHROPIC_API_KEY=
 # Google Gemini API Key (alternative LLM provider)
 # Get your key at: https://aistudio.google.com/app/apikey
 GEMINI_API_KEY=
+
+# OpenAI API Key (alternative LLM provider)
+# Get your key at: https://platform.openai.com/api-keys
+OPENAI_API_KEY=
 `;
       fs.writeFileSync(envPath, envContent, 'utf8');
       console.log('✓ Created .env file for API keys');

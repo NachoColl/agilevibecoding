@@ -10,6 +10,10 @@
       "enabled": true,
       "severity": "critical",
       "description": "Validator output must be valid JSON",
+      "fastPath": {
+        "enabled": true,
+        "type": "json-parse"
+      },
       "check": {
         "prompt": "Check if content is valid JSON.\n\nCONTENT:\n{content}\n\nIs this valid JSON?\n\nRespond ONLY 'YES' or 'NO'.",
         "expectedResponse": "YES|NO",
@@ -31,6 +35,15 @@
       "enabled": true,
       "severity": "critical",
       "description": "Must have validationStatus, overallScore, issues",
+      "fastPath": {
+        "enabled": true,
+        "type": "json-fields",
+        "requiredFields": [
+          "validationStatus",
+          "overallScore",
+          "issues"
+        ]
+      },
       "check": {
         "prompt": "Check if JSON has:\n- validationStatus\n- overallScore\n- issues (array)\n\nCONTENT:\n{content}\n\nDoes it have ALL required fields?\n\nRespond ONLY 'YES' or 'NO'.",
         "expectedResponse": "YES|NO",

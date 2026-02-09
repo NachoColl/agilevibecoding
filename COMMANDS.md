@@ -117,6 +117,32 @@ AWS CodePipeline/CodeBuild for CI/CD deployment.
 
 **All other questions default to AI-generated suggestions** when skipped (unless you configure guidelines for them).
 
+### Supported LLM Providers
+
+AVC supports multiple LLM providers. Configure your preferred provider per ceremony:
+
+| Provider | Recommended Models | Best For |
+|----------|-------------------|----------|
+| **Claude** | `claude-sonnet-4-5-20250929` | General documentation, balanced cost/performance |
+| **Gemini** | `gemini-2.5-flash`, `gemini-2.5-pro` | Fast generation, cost-efficient |
+| **OpenAI** | `gpt-5.2-chat-latest`, `gpt-5.3-codex`, `o3-mini` | Code-heavy docs, flexible options |
+
+**Example Configuration**:
+
+```json
+{
+  "settings": {
+    "ceremonies": [{
+      "name": "sponsor-call",
+      "provider": "openai",
+      "defaultModel": "gpt-5.2-chat-latest"
+    }]
+  }
+}
+```
+
+See [INSTALL.md](INSTALL.md#supported-providers) for API key setup instructions.
+
 ### Output Files
 
 **Created**

@@ -20,9 +20,17 @@ describe('LLMProvider Factory', () => {
       expect(provider.model).toBe('gemini-2.5-flash');
     });
 
+    it('creates OpenAI provider for "openai" config', async () => {
+      const provider = await LLMProvider.create('openai', 'gpt-5.2-chat-latest');
+
+      expect(provider).toBeDefined();
+      expect(provider.providerName).toBe('openai');
+      expect(provider.model).toBe('gpt-5.2-chat-latest');
+    });
+
     it('throws error for unknown provider', async () => {
-      await expect(LLMProvider.create('openai', 'gpt-4'))
-        .rejects.toThrow('Unknown LLM provider: "openai"');
+      await expect(LLMProvider.create('unknown-provider', 'model'))
+        .rejects.toThrow('Unknown LLM provider: "unknown-provider"');
     });
 
     it('throws error for undefined provider', async () => {
@@ -40,12 +48,14 @@ describe('LLMProvider Factory', () => {
     beforeEach(() => {
       process.env.ANTHROPIC_API_KEY = 'test-key';
       process.env.GEMINI_API_KEY = 'test-key';
+      process.env.OPENAI_API_KEY = 'test-key';
     });
 
     afterEach(() => {
       vi.restoreAllMocks();
       delete process.env.ANTHROPIC_API_KEY;
       delete process.env.GEMINI_API_KEY;
+      delete process.env.OPENAI_API_KEY;
     });
 
     it('returns valid: true when provider and key are correct', async () => {
@@ -85,6 +95,25 @@ describe('LLMProvider Factory', () => {
 
       expect(result.valid).toBe(false);
       expect(result.error).toContain('Unknown LLM provider');
+    });
+
+    it('validates OpenAI provider successfully', async () => {
+      vi.spyOn(LLMProvider.prototype, 'generate').mockResolvedValue('ok');
+
+      const result = await LLMProvider.validate('openai', 'gpt-5.2-chat-latest');
+
+      expect(result.valid).toBe(true);
+    });
+
+    it('handles OpenAI authentication errors', async () => {
+      const error = new Error('Incorrect API key provided');
+      error.status = 401;
+      vi.spyOn(LLMProvider.prototype, 'generate').mockRejectedValue(error);
+
+      const result = await LLMProvider.validate('openai', 'gpt-5.2-chat-latest');
+
+      expect(result.valid).toBe(false);
+      expect(result.error).toContain('Incorrect API key');
     });
   });
 

@@ -18,7 +18,8 @@ describe('TemplateProcessor with LLM Integration', () => {
     // Setup test environment with API keys
     restoreEnv = mockEnv({
       ANTHROPIC_API_KEY: 'test-key',
-      GEMINI_API_KEY: 'test-key'
+      GEMINI_API_KEY: 'test-key',
+      OPENAI_API_KEY: 'test-key'
     });
   });
 
@@ -333,6 +334,84 @@ describe('TemplateProcessor with LLM Integration', () => {
 
       expect(config.provider).toBe('claude');
       expect(config.model).toBe('claude-sonnet-4-5-20250929');
+    });
+  });
+
+  describe('OpenAI provider configuration', () => {
+    it('initializes OpenAI provider when configured', async () => {
+      // Mock file reading BEFORE creating processor
+      const fs = require('fs');
+      vi.spyOn(fs, 'readFileSync').mockReturnValue(
+        JSON.stringify({
+          settings: {
+            ceremonies: [{
+              name: 'sponsor-call',
+              provider: 'openai',
+              defaultModel: 'gpt-5.2-chat-latest'
+            }]
+          }
+        })
+      );
+
+      const processor = new TemplateProcessor('sponsor-call');
+
+      const createSpy = vi.spyOn(LLMProvider, 'create').mockResolvedValue({
+        providerName: 'openai',
+        model: 'gpt-5.2-chat-latest',
+        generate: vi.fn().mockResolvedValue('Suggested value')
+      });
+
+      await processor.initializeLLMProvider();
+
+      expect(createSpy).toHaveBeenCalledWith('openai', 'gpt-5.2-chat-latest');
+      expect(processor.llmProvider.providerName).toBe('openai');
+    });
+
+    it('reads OpenAI configuration from avc.json', () => {
+      const fs = require('fs');
+      vi.spyOn(fs, 'readFileSync').mockReturnValue(
+        JSON.stringify({
+          settings: {
+            ceremonies: [{
+              name: 'sponsor-call',
+              provider: 'openai',
+              defaultModel: 'gpt-5.2-chat-latest'
+            }]
+          }
+        })
+      );
+
+      const processor = new TemplateProcessor('sponsor-call');
+      const config = processor.readCeremonyConfig('sponsor-call');
+
+      expect(config.provider).toBe('openai');
+      expect(config.model).toBe('gpt-5.2-chat-latest');
+    });
+
+    it('shows helpful error when OPENAI_API_KEY missing', async () => {
+      delete process.env.OPENAI_API_KEY;
+
+      const fs = require('fs');
+      vi.spyOn(fs, 'readFileSync').mockReturnValue(
+        JSON.stringify({
+          settings: {
+            ceremonies: [{
+              name: 'sponsor-call',
+              provider: 'openai',
+              defaultModel: 'gpt-5.2-chat-latest'
+            }]
+          }
+        })
+      );
+
+      const processor = new TemplateProcessor('sponsor-call');
+
+      vi.spyOn(LLMProvider, 'create').mockRejectedValue(
+        new Error('OPENAI_API_KEY not set. Add it to your .env file.')
+      );
+
+      await expect(processor.initializeLLMProvider())
+        .rejects.toThrow('OPENAI_API_KEY not set');
     });
   });
 });

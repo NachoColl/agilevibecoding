@@ -16,8 +16,8 @@ export class LLMProvider {
    */
   _trackTokens(usage) {
     if (usage) {
-      this.tokenUsage.inputTokens += usage.input_tokens || usage.inputTokens || usage.promptTokenCount || 0;
-      this.tokenUsage.outputTokens += usage.output_tokens || usage.outputTokens || usage.candidatesTokenCount || 0;
+      this.tokenUsage.inputTokens += usage.input_tokens || usage.inputTokens || usage.promptTokenCount || usage.prompt_tokens || 0;
+      this.tokenUsage.outputTokens += usage.output_tokens || usage.outputTokens || usage.candidatesTokenCount || usage.completion_tokens || 0;
       this.tokenUsage.totalCalls++;
     }
   }
@@ -32,7 +32,8 @@ export class LLMProvider {
     // Pricing per 1M tokens (as of 2026-02)
     const pricing = {
       'claude': { input: 3.00, output: 15.00 },  // Claude Sonnet 4.5
-      'gemini': { input: 0.15, output: 0.60 }     // Gemini 2.0 Flash
+      'gemini': { input: 0.15, output: 0.60 },   // Gemini 2.0 Flash
+      'openai': { input: 1.75, output: 14.00 }   // GPT-5.2
     };
 
     const rates = pricing[this.providerName] || { input: 0, output: 0 };
@@ -62,8 +63,12 @@ export class LLMProvider {
         const { GeminiProvider } = await import('./llm-gemini.js');
         return new GeminiProvider(model);
       }
+      case 'openai': {
+        const { OpenAIProvider } = await import('./llm-openai.js');
+        return new OpenAIProvider(model);
+      }
       default:
-        throw new Error(`Unknown LLM provider: "${providerName}". Supported: claude, gemini`);
+        throw new Error(`Unknown LLM provider: "${providerName}". Supported: claude, gemini, openai`);
     }
   }
 
