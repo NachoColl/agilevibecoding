@@ -267,10 +267,11 @@ describe('LLMVerifier', () => {
 
     it('should verify and fix violated rules', async () => {
       // Arrange
+      // With parallel checking: both checks happen first, then fixes
       mockProvider.generate
-        .mockResolvedValueOnce('YES') // Rule 1 check: violated
-        .mockResolvedValueOnce('fixed by rule 1') // Rule 1 fix
-        .mockResolvedValueOnce('NO'); // Rule 2 check: not violated
+        .mockResolvedValueOnce('YES') // Rule 1 check: violated (parallel)
+        .mockResolvedValueOnce('NO')  // Rule 2 check: not violated (parallel)
+        .mockResolvedValueOnce('fixed by rule 1'); // Rule 1 fix (sequential)
 
       // Act
       const result = await verifier.verify('original content');
@@ -309,8 +310,8 @@ describe('LLMVerifier', () => {
       await verifier.verify('content', progressCallback);
 
       // Assert
-      expect(progressCallback).toHaveBeenCalledWith(null, 'Checking: Rule 1...');
-      expect(progressCallback).toHaveBeenCalledWith(null, 'Checking: Rule 2...');
+      // With parallel checking, we get a single "Checking N rules..." message
+      expect(progressCallback).toHaveBeenCalledWith(null, 'Checking 2 rules...');
     });
 
     it('should handle empty rules gracefully', async () => {

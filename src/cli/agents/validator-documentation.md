@@ -20,9 +20,26 @@ You will receive:
 
 ## Output Format
 
-Return your validation as JSON with this exact structure:
+⚠️ **CRITICAL OUTPUT REQUIREMENT**: Output ONLY raw JSON. DO NOT use markdown code fences.
 
+**WRONG** (will fail validation and waste time):
 ```json
+{
+  "validationStatus": "needs-improvement"
+}
+```
+
+**RIGHT** (raw JSON only - copy this pattern):
+{
+  "validationStatus": "needs-improvement",
+  "overallScore": 85,
+  ...
+}
+
+---
+
+Return your validation as JSON with this exact structure (NO ```json wrapper):
+
 {
   "validationStatus": "needs-improvement" | "acceptable" | "excellent",
   "overallScore": 85,
@@ -60,7 +77,8 @@ Return your validation as JSON with this exact structure:
   ],
   "readyForPublication": false
 }
-```
+
+**Remember**: Output the JSON object directly. NO markdown code fences (no ```json or ```).
 
 ## Validation Criteria
 
@@ -82,11 +100,15 @@ Check that all 9 sections are present and properly structured:
 - Sections in wrong order
 - Duplicate information across sections
 - Broken markdown formatting (invalid headers, unclosed code blocks)
+- Use of `**Label**: text` patterns instead of proper headers
+- Skipped header levels (e.g., ## → #### without ###)
 
 **Major Issues:**
 - Sections too brief (< 3 sentences for major sections)
 - Inconsistent formatting across sections
 - No subsections where expected (e.g., Core Features should have categories)
+- Bold labels in lists (`- **Framework**: React`)
+- Mixing header styles within the same section
 
 ### 2. Content Completeness (Critical)
 
@@ -121,6 +143,9 @@ Each section must have sufficient detail:
 - ✅ Responsive design strategy stated (mobile-first, desktop-first, adaptive)
 - ✅ Accessibility requirements specified (WCAG level, screen reader, keyboard nav)
 - ✅ User experience patterns mentioned (navigation, forms, loading, errors)
+- ✅ Header hierarchy: ### for subsections, #### for individual fields
+- ✅ No `**Label**: text` patterns in technical specifications
+- ✅ All fields use proper #### headers with paragraph content
 
 **Section 6 - Technical Architecture:**
 - ✅ Backend technology specified with versions

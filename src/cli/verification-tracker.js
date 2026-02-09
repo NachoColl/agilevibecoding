@@ -22,6 +22,8 @@ class VerificationTracker {
     this.sessions = [];
     this.currentSession = null;
     this.currentRuleExecution = null;
+    this.verificationCache = new Map(); // Cache for current ceremony
+    this.ruleProfiles = this.loadRuleProfiles(); // Load historical pass rates
   }
 
   /**
@@ -240,6 +242,84 @@ class VerificationTracker {
   }
 
   /**
+   * Load rule profiles from disk
+   * @returns {object} Rule profiles by agent:rule key
+   */
+  loadRuleProfiles() {
+    try {
+      const profilePath = path.join(process.cwd(), '.avc', 'verification-profiles.json');
+      if (fs.existsSync(profilePath)) {
+        return JSON.parse(fs.readFileSync(profilePath, 'utf8'));
+      }
+    } catch (error) {
+      console.warn('Could not load rule profiles:', error.message);
+    }
+    return {};
+  }
+
+  /**
+   * Save rule profiles to disk
+   * @param {object} profiles - Rule profiles to save
+   */
+  saveRuleProfiles(profiles) {
+    try {
+      const profilePath = path.join(process.cwd(), '.avc', 'verification-profiles.json');
+      fs.writeFileSync(profilePath, JSON.stringify(profiles, null, 2));
+    } catch (error) {
+      console.warn('Could not save rule profiles:', error.message);
+    }
+  }
+
+  /**
+   * Check if rule should be skipped based on historical pass rate
+   * @param {string} agentName - Agent name
+   * @param {string} ruleId - Rule ID
+   * @returns {boolean} - True if rule should be skipped
+   */
+  shouldSkipRule(agentName, ruleId) {
+    const key = `${agentName}:${ruleId}`;
+    const profile = this.ruleProfiles[key];
+
+    if (!profile) {
+      return false;
+    }
+
+    // Skip if: passed >20 times, never violated, pass rate 100%
+    const shouldSkip = profile.passed > 20 && profile.violated === 0 && profile.passRate === 1.0;
+
+    if (shouldSkip) {
+      console.log(`[DEBUG] Skipping rule ${ruleId} for ${agentName} (100% pass rate over ${profile.passed} checks)`);
+    }
+
+    return shouldSkip;
+  }
+
+  /**
+   * Update rule profile after check
+   * @param {string} agentName - Agent name
+   * @param {string} ruleId - Rule ID
+   * @param {boolean} violated - Whether rule was violated
+   */
+  updateRuleProfile(agentName, ruleId, violated) {
+    const key = `${agentName}:${ruleId}`;
+
+    if (!this.ruleProfiles[key]) {
+      this.ruleProfiles[key] = { passed: 0, violated: 0, passRate: 0 };
+    }
+
+    if (violated) {
+      this.ruleProfiles[key].violated++;
+    } else {
+      this.ruleProfiles[key].passed++;
+    }
+
+    const total = this.ruleProfiles[key].passed + this.ruleProfiles[key].violated;
+    this.ruleProfiles[key].passRate = total > 0 ? this.ruleProfiles[key].passed / total : 0;
+
+    console.log(`[DEBUG] Updated profile for ${key}: ${this.ruleProfiles[key].passed} passed, ${this.ruleProfiles[key].violated} violated (${(this.ruleProfiles[key].passRate * 100).toFixed(1)}% pass rate)`);
+  }
+
+  /**
    * Save tracking data to files
    */
   saveToFile() {
@@ -259,6 +339,15 @@ class VerificationTracker {
       // Save human-readable summary
       const summaryText = this.formatSummaryText(summary);
       fs.writeFileSync(summaryPath, summaryText);
+
+      // Save rule profiles
+      this.saveRuleProfiles(this.ruleProfiles);
+
+      // Clear cache after saving
+      if (this.verificationCache) {
+        console.log('[DEBUG] Verification cache cleared');
+        this.verificationCache.clear();
+      }
 
       return { jsonPath, summaryPath };
     } catch (error) {

@@ -21,9 +21,26 @@ You will receive:
 
 ## Output Format
 
-Return your validation as JSON with this exact structure:
+⚠️ **CRITICAL OUTPUT REQUIREMENT**: Output ONLY raw JSON. DO NOT use markdown code fences.
 
+**WRONG** (will fail validation and waste time):
 ```json
+{
+  "validationStatus": "needs-improvement"
+}
+```
+
+**RIGHT** (raw JSON only - copy this pattern):
+{
+  "validationStatus": "needs-improvement",
+  "overallScore": 65,
+  ...
+}
+
+---
+
+Return your validation as JSON with this exact structure (NO ```json wrapper):
+
 {
   "validationStatus": "needs-improvement" | "acceptable" | "excellent",
   "overallScore": 65,
@@ -47,7 +64,8 @@ Return your validation as JSON with this exact structure:
   "estimatedTokenBudget": 550,
   "readyForUse": false
 }
-```
+
+**Remember**: Output the JSON object directly. NO markdown code fences (no ```json or ```).
 
 ## Validation Criteria
 

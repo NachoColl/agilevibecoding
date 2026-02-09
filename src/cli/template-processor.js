@@ -42,6 +42,9 @@ class TemplateProcessor {
     this.progressPath = progressPath;
     this.nonInteractive = nonInteractive;
 
+    // Track verification feedback for agent learning
+    this.verificationFeedback = {};
+
     // Read ceremony-specific configuration
     const { provider, model, validationConfig } = this.readCeremonyConfig(ceremonyName);
     this._providerName = provider;
@@ -172,30 +175,63 @@ class TemplateProcessor {
   }
 
   /**
-   * Read guidelines from avc.json questionnaire configuration
+   * Read defaults from avc.json questionnaire configuration
    */
-  readGuidelines() {
+  readDefaults() {
     try {
       const config = JSON.parse(fs.readFileSync(this.avcConfigPath, 'utf8'));
-      return config.settings?.questionnaire?.guidelines || {};
+      return config.settings?.questionnaire?.defaults || {};
     } catch (error) {
       return {};
     }
   }
 
   /**
-   * Get guideline value for a specific variable
-   * New format uses UPPER_SNAKE_CASE keys directly in settings.questionnaire.guidelines
-   * @param {string} variableName - Variable name in UPPER_SNAKE_CASE
-   * @returns {string|null} - Guideline value or null if not found
+   * Get human-readable feedback for a rule violation
+   * @param {string} ruleId - Rule ID
+   * @returns {string} - Feedback message
    */
-  getGuidelineForVariable(variableName) {
-    const guidelines = this.readGuidelines();
+  getRuleFeedback(ruleId) {
+    const feedbackMap = {
+      'valid-json': 'You wrapped JSON in markdown code fences (```json). Output raw JSON only, no markdown formatting.',
+      'required-fields': 'You missed required JSON fields. Include all mandatory fields as specified in the output format.',
+      'array-fields': 'Field that should be an array was output as a different type. Check array field requirements.',
+      'required-validator-fields': 'Validator output missing required fields. Include validationStatus, overallScore, and issues.',
+      'score-range': 'Score must be between 0-100. Check your overallScore value.',
+      'valid-severity': 'Invalid severity value. Use only: critical, major, or minor.',
+      'valid-status': 'Invalid status value. Use only the allowed status values from the spec.'
+    };
+    return feedbackMap[ruleId] || `Rule "${ruleId}" was violated. Follow the output format exactly.`;
+  }
 
-    // New format uses UPPER_SNAKE_CASE keys directly
-    // e.g., guidelines.MISSION_STATEMENT, guidelines.TECHNICAL_CONSIDERATIONS
-    const guidelineValue = guidelines[variableName];
-    return guidelineValue || null;
+  /**
+   * Enhance prompt with verification feedback from previous runs
+   * @param {string} prompt - Original prompt
+   * @param {string} agentName - Agent name to get feedback for
+   * @returns {string} - Enhanced prompt with feedback
+   */
+  enhancePromptWithFeedback(prompt, agentName) {
+    const feedback = this.verificationFeedback[agentName];
+
+    if (!feedback || feedback.length === 0) {
+      return prompt;
+    }
+
+    const feedbackText = `
+⚠️ **LEARN FROM PREVIOUS MISTAKES**
+
+In your last run, verification found these issues that you MUST avoid:
+
+${feedback.map((rule, idx) => `${idx + 1}. **${rule.ruleName}** (${rule.severity}):
+   ${this.getRuleFeedback(rule.ruleId)}`).join('\n\n')}
+
+Please carefully follow the output format requirements to avoid these issues.
+
+---
+
+`;
+
+    return feedbackText + prompt;
   }
 
   /**
@@ -577,7 +613,7 @@ class TemplateProcessor {
   async promptUser(variable, context) {
     let value;
 
-    // In non-interactive mode, skip readline prompts and use guidelines/AI
+    // In non-interactive mode, skip readline prompts and use defaults/AI
     if (this.nonInteractive) {
       console.log(`\n📝 ${variable.displayName}`);
       if (variable.guidance) {
@@ -594,28 +630,28 @@ class TemplateProcessor {
       }
     }
 
-    // If user skipped (or non-interactive mode), try to use guideline or generate AI suggestions
+    // If user skipped (or non-interactive mode), try to use default or generate AI suggestions
     if (value === null) {
-      // Check if there's a guideline for this variable
-      const guidelines = this.readGuidelines();
-      const guidelineKey = variable.name.toLowerCase().replace(/_/g, '');
+      // Check if there's a default for this variable
+      const defaults = this.readDefaults();
+      const defaultValue = defaults[variable.name];
 
-      if (guidelines[guidelineKey]) {
-        console.log('📋 Using default guideline...');
+      if (defaultValue) {
+        console.log('📋 Using default from settings...');
         value = variable.isPlural
-          ? [guidelines[guidelineKey]]  // Wrap in array for plural variables
-          : guidelines[guidelineKey];
+          ? (Array.isArray(defaultValue) ? defaultValue : [defaultValue])
+          : defaultValue;
 
-        console.log('✅ Guideline applied:');
+        console.log('✅ Default applied:');
         if (Array.isArray(value)) {
           value.forEach((item, idx) => console.log(`${idx + 1}. ${item}`));
         } else {
           console.log(`${value}`);
         }
-        return { variable: variable.name, value, source: 'guideline', skipped: true };
+        return { variable: variable.name, value, source: 'default', skipped: false };
       }
 
-      // No guideline available, try AI suggestions
+      // No default available, try AI suggestions
       console.log('✨ Generating AI suggestion...');
       value = await this.generateSuggestions(variable.name, variable.isPlural, context);
 
@@ -677,11 +713,14 @@ class TemplateProcessor {
 
       if (agentInstructions) {
         // Use agent instructions as system context
-        const userPrompt = `Here is the project information with all variables filled in:
+        let userPrompt = `Here is the project information with all variables filled in:
 
 ${templateWithValues}
 
 Please review and enhance this document according to your role.`;
+
+        // Enhance prompt with verification feedback if available
+        userPrompt = this.enhancePromptWithFeedback(userPrompt, 'project-documentation-creator');
 
         this.reportSubstep('Generating Project Brief (this may take 20-30 seconds)...');
         const enhanced = await this.retryWithBackoff(
@@ -710,6 +749,13 @@ Please review and enhance this document according to your role.`;
 
         if (verificationResult.rulesApplied.length > 0) {
           this.reportSubstep(`Applied ${verificationResult.rulesApplied.length} fixes`);
+
+          // Store feedback for agent learning
+          this.verificationFeedback['project-documentation-creator'] = verificationResult.rulesApplied.map(rule => ({
+            ruleId: rule.id,
+            ruleName: rule.name,
+            severity: rule.severity
+          }));
         }
 
         return verificationResult.content;
@@ -861,19 +907,22 @@ Return the enhanced markdown document.`;
       if (answeredCount === variables.length) {
         console.log(`✅ Using ${answeredCount} pre-filled answers from questionnaire.\n`);
 
-        // Use pre-filled answers, but check guidelines or AI for skipped (null) answers
+        // Use pre-filled answers, but check defaults or AI for skipped (null) answers
         for (const variable of variables) {
           if (collectedValues[variable.name] === null) {
             console.log(`\n📝 ${variable.displayName}`);
 
-            // First, check if there's a guideline for this question
-            const guideline = this.getGuidelineForVariable(variable.name);
+            // First, check if there's a default for this question
+            const defaults = this.readDefaults();
+            const defaultValue = defaults[variable.name];
 
-            if (guideline) {
-              console.log('✓ Using guideline from avc.json');
-              collectedValues[variable.name] = guideline;
+            if (defaultValue) {
+              console.log('✓ Using default from settings');
+              collectedValues[variable.name] = variable.isPlural
+                ? (Array.isArray(defaultValue) ? defaultValue : [defaultValue])
+                : defaultValue;
             } else {
-              // No guideline found, generate AI suggestion
+              // No default found, generate AI suggestion
               console.log('Generating AI suggestion...');
               const aiValue = await this.generateSuggestions(variable.name, variable.isPlural, collectedValues);
               collectedValues[variable.name] = aiValue || '';
@@ -1544,6 +1593,9 @@ Return your response as JSON following the exact structure specified in your ins
     let prompt = `Validate the following project documentation:\n\n`;
     prompt += `**doc.md Content:**\n\`\`\`markdown\n${docContent}\n\`\`\`\n\n`;
 
+    // Enhance prompt with verification feedback if available
+    prompt = this.enhancePromptWithFeedback(prompt, 'validator-documentation');
+
     prompt += `**Original Questionnaire Data:**\n`;
     prompt += `- MISSION_STATEMENT: ${questionnaire.MISSION_STATEMENT || 'N/A'}\n`;
     prompt += `- TARGET_USERS: ${questionnaire.TARGET_USERS || 'N/A'}\n`;
@@ -1574,6 +1626,13 @@ Return your response as JSON following the exact structure specified in your ins
     });
 
     if (verificationResult.rulesApplied.length > 0) {
+      // Store feedback for agent learning
+      this.verificationFeedback['validator-documentation'] = verificationResult.rulesApplied.map(rule => ({
+        ruleId: rule.id,
+        ruleName: rule.name,
+        severity: rule.severity
+      }));
+
       // Parse corrected JSON back to object
       console.log('[DEBUG] validateDocument - Attempting to parse verification result as JSON');
 
@@ -1630,6 +1689,9 @@ Return your response as JSON following the exact structure specified in your ins
     prompt += `**Context Level:** ${level}\n\n`;
     prompt += `**context.md Content:**\n\`\`\`markdown\n${contextContent}\n\`\`\`\n\n`;
 
+    // Enhance prompt with verification feedback if available
+    prompt = this.enhancePromptWithFeedback(prompt, 'validator-context');
+
     if (level === 'project' && questionnaire) {
       prompt += `**Original Questionnaire Data:**\n`;
       prompt += `- MISSION_STATEMENT: ${questionnaire.MISSION_STATEMENT || 'N/A'}\n`;
@@ -1662,6 +1724,13 @@ Return your response as JSON following the exact structure specified in your ins
     });
 
     if (verificationResult.rulesApplied.length > 0) {
+      // Store feedback for agent learning
+      this.verificationFeedback['validator-context'] = verificationResult.rulesApplied.map(rule => ({
+        ruleId: rule.id,
+        ruleName: rule.name,
+        severity: rule.severity
+      }));
+
       // Parse corrected JSON back to object
       console.log('[DEBUG] validateContext - Attempting to parse verification result as JSON');
 

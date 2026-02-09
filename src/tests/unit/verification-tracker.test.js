@@ -202,7 +202,8 @@ describe('VerificationTracker', () => {
       expect(jsonPath).toContain('.json');
       expect(summaryPath).toContain('test-ceremony-verification-summary-');
       expect(summaryPath).toContain('.txt');
-      expect(fs.writeFileSync).toHaveBeenCalledTimes(2);
+      // Now writes 3 files: JSON, summary, and rule profiles
+      expect(fs.writeFileSync).toHaveBeenCalledTimes(3);
     });
   });
 

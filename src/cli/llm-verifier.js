@@ -24,6 +24,82 @@ export class LLMVerifier {
   }
 
   /**
+   * Fast-path: Programmatically unwrap JSON from markdown code fence
+   * @param {string} content - Content that may be wrapped
+   * @returns {object} { isWrapped: boolean, unwrapped: string }
+   */
+  unwrapJsonCodeFence(content) {
+    const trimmed = content.trim();
+
+    // Pattern 1: ```json\n...\n```
+    const pattern1 = /^```json\s*\n([\s\S]*)\n```$/;
+    const match1 = trimmed.match(pattern1);
+    if (match1) {
+      return { isWrapped: true, unwrapped: match1[1].trim() };
+    }
+
+    // Pattern 2: ```\n...\n``` (generic code fence)
+    const pattern2 = /^```\s*\n([\s\S]*)\n```$/;
+    const match2 = trimmed.match(pattern2);
+    if (match2) {
+      // Check if content looks like JSON
+      const unwrapped = match2[1].trim();
+      if (unwrapped.startsWith('{') || unwrapped.startsWith('[')) {
+        return { isWrapped: true, unwrapped };
+      }
+    }
+
+    return { isWrapped: false, unwrapped: content };
+  }
+
+  /**
+   * Fast-path: Check if content is valid JSON
+   * @param {string} content - Content to check
+   * @returns {object} { canFastPath: boolean, violated: boolean, reason: string }
+   */
+  fastPathValidJson(content) {
+    // Check for markdown code fence
+    const { isWrapped, unwrapped } = this.unwrapJsonCodeFence(content);
+
+    if (isWrapped) {
+      return { canFastPath: true, violated: true, reason: 'markdown-fence' };
+    }
+
+    // Try parsing JSON
+    try {
+      JSON.parse(unwrapped);
+      return { canFastPath: true, violated: false };
+    } catch (e) {
+      // Parse error - might be fixable by LLM
+      return { canFastPath: false, violated: true, reason: e.message };
+    }
+  }
+
+  /**
+   * Fast-path: Check if required fields present
+   * @param {string} content - JSON content
+   * @param {array} requiredFields - Field names to check
+   * @returns {object} { canFastPath: boolean, violated: boolean, missingFields: array }
+   */
+  fastPathRequiredFields(content, requiredFields) {
+    try {
+      // First unwrap if needed
+      const { unwrapped } = this.unwrapJsonCodeFence(content);
+      const obj = JSON.parse(unwrapped);
+      const missing = requiredFields.filter(field => !(field in obj));
+
+      if (missing.length === 0) {
+        return { canFastPath: true, violated: false };
+      } else {
+        return { canFastPath: true, violated: true, missingFields: missing };
+      }
+    } catch (e) {
+      // Can't parse - let LLM handle
+      return { canFastPath: false };
+    }
+  }
+
+  /**
    * Load verification rules from JSON file
    * @returns {Array} Enabled verification rules
    */
@@ -60,6 +136,41 @@ export class LLMVerifier {
         this.tracker.startRuleCheck(rule);
       }
 
+      // Try fast-path first
+      if (rule.id === 'valid-json') {
+        const fastPath = this.fastPathValidJson(content);
+        if (fastPath.canFastPath) {
+          console.log(`[DEBUG] Fast-path used for ${rule.id}: ${fastPath.violated ? 'VIOLATED' : 'PASSED'} (${fastPath.reason || 'valid'})`);
+          if (this.tracker) {
+            this.tracker.endRuleCheck(fastPath.violated ? 'YES' : 'NO');
+          }
+          return fastPath.violated;
+        }
+      }
+
+      if (rule.id === 'required-fields' || rule.id === 'required-validator-fields') {
+        // Determine required fields based on agent type
+        let requiredFields = [];
+        if (this.agentName === 'validator-documentation') {
+          requiredFields = ['validationStatus', 'overallScore', 'structuralIssues', 'contentIssues', 'recommendations'];
+        } else if (this.agentName === 'validator-context') {
+          requiredFields = ['validationStatus', 'overallScore', 'issues'];
+        }
+
+        if (requiredFields.length > 0) {
+          const fastPath = this.fastPathRequiredFields(content, requiredFields);
+          if (fastPath.canFastPath) {
+            console.log(`[DEBUG] Fast-path used for ${rule.id}: ${fastPath.violated ? 'VIOLATED' : 'PASSED'}${fastPath.missingFields ? ` (missing: ${fastPath.missingFields.join(', ')})` : ''}`);
+            if (this.tracker) {
+              this.tracker.endRuleCheck(fastPath.violated ? 'YES' : 'NO');
+            }
+            return fastPath.violated;
+          }
+        }
+      }
+
+      // Fallback to LLM check
+      console.log(`[DEBUG] Fast-path not available for ${rule.id}, using LLM`);
       const prompt = rule.check.prompt.replace('{content}', content);
       const maxTokens = rule.check.maxTokens || 10;
 
@@ -100,6 +211,19 @@ export class LLMVerifier {
         this.tracker.startRuleFix(content.length);
       }
 
+      // Fast-path for valid-json: Unwrap programmatically
+      if (rule.id === 'valid-json') {
+        const { isWrapped, unwrapped } = this.unwrapJsonCodeFence(content);
+        if (isWrapped) {
+          console.log('[DEBUG] Fast-path: Unwrapping JSON code fence (no LLM call)');
+          if (this.tracker) {
+            this.tracker.endRuleFix(unwrapped.length);
+          }
+          return unwrapped;
+        }
+      }
+
+      // Fallback to LLM fix
       const prompt = rule.fix.prompt.replace('{content}', content);
       const maxTokens = rule.fix.maxTokens || 4096;
 
@@ -129,6 +253,19 @@ export class LLMVerifier {
    * @returns {Promise<Object>} { content, rulesApplied }
    */
   async verify(content, progressCallback = null) {
+    // Check cache first
+    if (this.tracker && this.tracker.verificationCache) {
+      const contentHash = this.tracker.hashContent(content);
+      const cacheKey = `${this.agentName}-${contentHash}`;
+
+      if (this.tracker.verificationCache.has(cacheKey)) {
+        console.log(`[DEBUG] Cache HIT: Reusing verification for ${this.agentName} (hash: ${contentHash})`);
+        return this.tracker.verificationCache.get(cacheKey);
+      }
+
+      console.log(`[DEBUG] Cache MISS: Running verification for ${this.agentName} (hash: ${contentHash})`);
+    }
+
     if (this.tracker) {
       this.tracker.startSession(this.agentName, content);
     }
@@ -145,25 +282,49 @@ export class LLMVerifier {
       return { content: current, rulesApplied: [] };
     }
 
-    for (const rule of this.rules) {
-      // Report progress: checking
+    // PHASE 1: Check all rules in parallel
+    console.log(`[DEBUG] verify - Phase 1: Checking ${this.rules.length} rules in parallel`);
+    if (progressCallback) {
+      progressCallback(null, `Checking ${this.rules.length} rules...`);
+      await new Promise(resolve => setTimeout(resolve, 20));
+    }
+
+    const checkPromises = this.rules.map(async (rule) => {
+      // Check if rule should be skipped based on profiling
+      if (this.tracker && this.tracker.shouldSkipRule(this.agentName, rule.id)) {
+        return { rule, violated: false, error: null, skipped: true };
+      }
+
+      try {
+        const violated = await this.checkRule(current, rule);
+
+        // Update rule profile
+        if (this.tracker) {
+          this.tracker.updateRuleProfile(this.agentName, rule.id, violated);
+        }
+
+        return { rule, violated, error: null, skipped: false };
+      } catch (error) {
+        console.error(`Error checking rule ${rule.id}:`, error.message);
+        return { rule, violated: false, error: error.message, skipped: false };
+      }
+    });
+
+    const checkResults = await Promise.all(checkPromises);
+
+    // PHASE 2: Fix violations sequentially
+    console.log(`[DEBUG] verify - Phase 2: Fixing violations sequentially`);
+    const violatedRules = checkResults.filter(r => r.violated && !r.error);
+    console.log(`[DEBUG] verify - Found ${violatedRules.length} violations:`, violatedRules.map(r => r.rule.id));
+
+    for (const { rule } of violatedRules) {
+      // Report progress: fixing
       if (progressCallback) {
-        progressCallback(null, `Checking: ${rule.name}...`);
-        // Small delay to allow UI to update
+        progressCallback(null, `Fixing: ${rule.name}...`);
         await new Promise(resolve => setTimeout(resolve, 20));
       }
 
-      // Check if rule is violated
-      const violated = await this.checkRule(current, rule);
-
-      if (violated) {
-        // Report progress: fixing
-        if (progressCallback) {
-          progressCallback(null, `Fixing: ${rule.name}...`);
-          // Small delay to allow UI to update
-          await new Promise(resolve => setTimeout(resolve, 20));
-        }
-
+      try {
         // Apply fix
         const fixed = await this.fixContent(current, rule);
 
@@ -176,8 +337,18 @@ export class LLMVerifier {
             severity: rule.severity
           });
         }
+      } catch (error) {
+        console.error(`Error fixing rule ${rule.id}:`, error.message);
       }
 
+      if (this.tracker) {
+        this.tracker.completeRule();
+      }
+    }
+
+    // Complete tracking for rules that didn't violate
+    const passedRules = checkResults.filter(r => !r.violated || r.error);
+    for (const { rule } of passedRules) {
       if (this.tracker) {
         this.tracker.completeRule();
       }
@@ -192,10 +363,20 @@ export class LLMVerifier {
       this.tracker.logSessionSummary();
     }
 
-    return {
+    const result = {
       content: current,
       rulesApplied: applied
     };
+
+    // Store in cache
+    if (this.tracker && this.tracker.verificationCache) {
+      const contentHash = this.tracker.hashContent(content);
+      const cacheKey = `${this.agentName}-${contentHash}`;
+      this.tracker.verificationCache.set(cacheKey, result);
+      console.log(`[DEBUG] Cached verification result for ${this.agentName} (hash: ${contentHash})`);
+    }
+
+    return result;
   }
 
   /**
