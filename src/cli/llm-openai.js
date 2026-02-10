@@ -2,7 +2,10 @@ import OpenAI from 'openai';
 import { LLMProvider } from './llm-provider.js';
 
 export class OpenAIProvider extends LLMProvider {
-  constructor(model = 'gpt-5.2-chat-latest') { super('openai', model); }
+  constructor(model = 'gpt-5.2-chat-latest', reasoningEffort = 'medium') {
+    super('openai', model);
+    this.reasoningEffort = reasoningEffort;
+  }
 
   _createClient() {
     const apiKey = process.env.OPENAI_API_KEY;
@@ -10,7 +13,19 @@ export class OpenAIProvider extends LLMProvider {
     return new OpenAI({ apiKey });
   }
 
-  async _callProvider(prompt, maxTokens, systemInstructions) {
+  /**
+   * Determine if model uses Responses API instead of Chat Completions API
+   * Models that use Responses API: gpt-5.2-pro, gpt-5.2-codex
+   */
+  _usesResponsesAPI() {
+    const responsesAPIModels = ['gpt-5.2-pro', 'gpt-5.2-codex'];
+    return responsesAPIModels.includes(this.model);
+  }
+
+  /**
+   * Call using Chat Completions API (standard models)
+   */
+  async _callChatCompletions(prompt, maxTokens, systemInstructions) {
     const messages = [];
 
     // OpenAI uses message array - system instructions go first as system role
@@ -30,6 +45,43 @@ export class OpenAIProvider extends LLMProvider {
     return response.choices[0].message.content;
   }
 
+  /**
+   * Call using Responses API (pro/codex models)
+   */
+  async _callResponsesAPI(prompt, systemInstructions) {
+    // Combine system instructions with prompt
+    const fullInput = systemInstructions
+      ? `${systemInstructions}\n\n${prompt}`
+      : prompt;
+
+    const params = {
+      model: this.model,
+      input: fullInput
+    };
+
+    // Add reasoning effort for models that support it
+    if (this.model === 'gpt-5.2-codex' || this.model === 'gpt-5.2-pro') {
+      params.reasoning = { effort: this.reasoningEffort };
+    }
+
+    const response = await this._client.responses.create(params);
+
+    // Track tokens if usage data is available
+    if (response.usage) {
+      this._trackTokens(response.usage);
+    }
+
+    return response.output_text;
+  }
+
+  async _callProvider(prompt, maxTokens, systemInstructions) {
+    if (this._usesResponsesAPI()) {
+      return await this._callResponsesAPI(prompt, systemInstructions);
+    } else {
+      return await this._callChatCompletions(prompt, maxTokens, systemInstructions);
+    }
+  }
+
   async generateJSON(prompt, agentInstructions = null) {
     if (!this._client) {
       this._client = this._createClient();
@@ -37,48 +89,66 @@ export class OpenAIProvider extends LLMProvider {
 
     const fullPrompt = agentInstructions ? `${agentInstructions}\n\n${prompt}` : prompt;
 
-    const messages = [
-      {
-        role: 'system',
-        content: 'You are a helpful assistant that always returns valid JSON. Your response must be a valid JSON object or array, nothing else.'
-      },
-      {
-        role: 'user',
-        content: fullPrompt
+    if (this._usesResponsesAPI()) {
+      // Responses API: Use system instructions to enforce JSON
+      const systemInstructions = 'You are a helpful assistant that always returns valid JSON. Your response must be a valid JSON object or array, nothing else.';
+      const response = await this._callResponsesAPI(fullPrompt, systemInstructions);
+
+      // Parse and return JSON
+      let jsonStr = response.trim();
+      if (jsonStr.startsWith('```')) {
+        jsonStr = jsonStr.replace(/^```(?:json)?\s*\n?/, '');
+        jsonStr = jsonStr.replace(/\n?\s*```\s*$/, '');
+        jsonStr = jsonStr.trim();
       }
-    ];
 
-    // Use native JSON mode for GPT-4+ models
-    const params = {
-      model: this.model,
-      max_tokens: 8000,
-      messages
-    };
+      try {
+        return JSON.parse(jsonStr);
+      } catch (error) {
+        throw new Error(`Failed to parse JSON response: ${error.message}\n\nResponse was:\n${response}`);
+      }
+    } else {
+      // Chat Completions API: Use native JSON mode
+      const messages = [
+        {
+          role: 'system',
+          content: 'You are a helpful assistant that always returns valid JSON. Your response must be a valid JSON object or array, nothing else.'
+        },
+        {
+          role: 'user',
+          content: fullPrompt
+        }
+      ];
 
-    // Enable JSON mode if model supports it (GPT-4+)
-    if (this.model.startsWith('gpt-4') || this.model.startsWith('gpt-5') || this.model.startsWith('o')) {
-      params.response_format = { type: 'json_object' };
-    }
+      const params = {
+        model: this.model,
+        max_tokens: 8000,
+        messages
+      };
 
-    const response = await this._client.chat.completions.create(params);
+      // Enable JSON mode if model supports it (GPT-4+)
+      if (this.model.startsWith('gpt-4') || this.model.startsWith('gpt-5') || this.model.startsWith('o')) {
+        params.response_format = { type: 'json_object' };
+      }
 
-    this._trackTokens(response.usage);
-    const content = response.choices[0].message.content;
+      const response = await this._client.chat.completions.create(params);
 
-    // Strip markdown code fences if present (defense-in-depth)
-    let jsonStr = content.trim();
-    if (jsonStr.startsWith('```')) {
-      // Remove opening fence (```json or ```)
-      jsonStr = jsonStr.replace(/^```(?:json)?\s*\n?/, '');
-      // Remove closing fence
-      jsonStr = jsonStr.replace(/\n?\s*```\s*$/, '');
-      jsonStr = jsonStr.trim();
-    }
+      this._trackTokens(response.usage);
+      const content = response.choices[0].message.content;
 
-    try {
-      return JSON.parse(jsonStr);
-    } catch (error) {
-      throw new Error(`Failed to parse JSON response: ${error.message}\n\nResponse was:\n${content}`);
+      // Strip markdown code fences if present (defense-in-depth)
+      let jsonStr = content.trim();
+      if (jsonStr.startsWith('```')) {
+        jsonStr = jsonStr.replace(/^```(?:json)?\s*\n?/, '');
+        jsonStr = jsonStr.replace(/\n?\s*```\s*$/, '');
+        jsonStr = jsonStr.trim();
+      }
+
+      try {
+        return JSON.parse(jsonStr);
+      } catch (error) {
+        throw new Error(`Failed to parse JSON response: ${error.message}\n\nResponse was:\n${content}`);
+      }
     }
   }
 
@@ -89,20 +159,26 @@ export class OpenAIProvider extends LLMProvider {
 
     const fullPrompt = agentInstructions ? `${agentInstructions}\n\n${prompt}` : prompt;
 
-    const messages = [
-      {
-        role: 'user',
-        content: fullPrompt
-      }
-    ];
+    if (this._usesResponsesAPI()) {
+      // Responses API
+      return await this._callResponsesAPI(fullPrompt, null);
+    } else {
+      // Chat Completions API
+      const messages = [
+        {
+          role: 'user',
+          content: fullPrompt
+        }
+      ];
 
-    const response = await this._client.chat.completions.create({
-      model: this.model,
-      max_tokens: 8000,
-      messages
-    });
+      const response = await this._client.chat.completions.create({
+        model: this.model,
+        max_tokens: 8000,
+        messages
+      });
 
-    this._trackTokens(response.usage);
-    return response.choices[0].message.content;
+      this._trackTokens(response.usage);
+      return response.choices[0].message.content;
+    }
   }
 }

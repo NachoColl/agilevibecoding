@@ -576,4 +576,203 @@ describe('OpenAIProvider', () => {
       expect(result.error).toContain('Network error');
     });
   });
+
+  describe('Responses API support', () => {
+    describe('_usesResponsesAPI()', () => {
+      it('returns true for gpt-5.2-pro', () => {
+        const provider = new OpenAIProvider('gpt-5.2-pro');
+        expect(provider._usesResponsesAPI()).toBe(true);
+      });
+
+      it('returns true for gpt-5.2-codex', () => {
+        const provider = new OpenAIProvider('gpt-5.2-codex');
+        expect(provider._usesResponsesAPI()).toBe(true);
+      });
+
+      it('returns false for gpt-5.2-chat-latest', () => {
+        const provider = new OpenAIProvider('gpt-5.2-chat-latest');
+        expect(provider._usesResponsesAPI()).toBe(false);
+      });
+
+      it('returns false for gpt-5.2', () => {
+        const provider = new OpenAIProvider('gpt-5.2');
+        expect(provider._usesResponsesAPI()).toBe(false);
+      });
+
+      it('returns false for o3-mini', () => {
+        const provider = new OpenAIProvider('o3-mini');
+        expect(provider._usesResponsesAPI()).toBe(false);
+      });
+    });
+
+    describe('_callResponsesAPI()', () => {
+      it('uses responses.create for pro model', async () => {
+        const provider = new OpenAIProvider('gpt-5.2-pro');
+
+        const mockResponsesCreate = vi.fn().mockResolvedValue({
+          output_text: 'Test response',
+          usage: { prompt_tokens: 10, completion_tokens: 20, total_tokens: 30 }
+        });
+
+        const mockClient = {
+          responses: { create: mockResponsesCreate }
+        };
+
+        provider._client = mockClient;
+
+        const result = await provider._callResponsesAPI('Test prompt', 'System instructions');
+
+        expect(mockResponsesCreate).toHaveBeenCalledWith({
+          model: 'gpt-5.2-pro',
+          input: 'System instructions\n\nTest prompt',
+          reasoning: { effort: 'medium' }
+        });
+        expect(result).toBe('Test response');
+      });
+
+      it('includes reasoning effort for codex model', async () => {
+        const provider = new OpenAIProvider('gpt-5.2-codex', 'high');
+
+        const mockResponsesCreate = vi.fn().mockResolvedValue({
+          output_text: 'Codex response',
+          usage: { prompt_tokens: 100, completion_tokens: 200, total_tokens: 300 }
+        });
+
+        const mockClient = {
+          responses: { create: mockResponsesCreate }
+        };
+
+        provider._client = mockClient;
+
+        await provider._callResponsesAPI('Code prompt', null);
+
+        expect(mockResponsesCreate).toHaveBeenCalledWith({
+          model: 'gpt-5.2-codex',
+          input: 'Code prompt',
+          reasoning: { effort: 'high' }
+        });
+      });
+
+      it('tracks tokens from usage data', async () => {
+        const provider = new OpenAIProvider('gpt-5.2-pro');
+
+        const mockResponsesCreate = vi.fn().mockResolvedValue({
+          output_text: 'Response',
+          usage: { prompt_tokens: 50, completion_tokens: 100, total_tokens: 150 }
+        });
+
+        provider._client = { responses: { create: mockResponsesCreate } };
+
+        const trackTokensSpy = vi.spyOn(provider, '_trackTokens');
+
+        await provider._callResponsesAPI('Prompt', null);
+
+        expect(trackTokensSpy).toHaveBeenCalledWith({
+          prompt_tokens: 50,
+          completion_tokens: 100,
+          total_tokens: 150
+        });
+      });
+    });
+
+    describe('generateText() with Responses API', () => {
+      it('routes to Responses API for pro model', async () => {
+        const provider = new OpenAIProvider('gpt-5.2-pro');
+
+        const mockResponsesCreate = vi.fn().mockResolvedValue({
+          output_text: 'Pro response',
+          usage: { prompt_tokens: 10, completion_tokens: 20, total_tokens: 30 }
+        });
+
+        provider._client = { responses: { create: mockResponsesCreate } };
+
+        const result = await provider.generateText('Test prompt');
+
+        expect(mockResponsesCreate).toHaveBeenCalled();
+        expect(result).toBe('Pro response');
+      });
+
+      it('includes agent instructions in Responses API call', async () => {
+        const provider = new OpenAIProvider('gpt-5.2-codex');
+
+        const mockResponsesCreate = vi.fn().mockResolvedValue({
+          output_text: 'Codex response'
+        });
+
+        provider._client = { responses: { create: mockResponsesCreate } };
+
+        await provider.generateText('User prompt', 'Agent instructions');
+
+        expect(mockResponsesCreate).toHaveBeenCalledWith({
+          model: 'gpt-5.2-codex',
+          input: 'Agent instructions\n\nUser prompt',
+          reasoning: { effort: 'medium' }
+        });
+      });
+    });
+
+    describe('generateJSON() with Responses API', () => {
+      it('routes to Responses API for codex model', async () => {
+        const provider = new OpenAIProvider('gpt-5.2-codex');
+
+        const mockResponsesCreate = vi.fn().mockResolvedValue({
+          output_text: '{"result": "success"}',
+          usage: { prompt_tokens: 10, completion_tokens: 20, total_tokens: 30 }
+        });
+
+        provider._client = { responses: { create: mockResponsesCreate } };
+
+        const result = await provider.generateJSON('Test prompt');
+
+        expect(mockResponsesCreate).toHaveBeenCalled();
+        expect(result).toEqual({ result: 'success' });
+      });
+
+      it('includes JSON system instructions', async () => {
+        const provider = new OpenAIProvider('gpt-5.2-pro');
+
+        const mockResponsesCreate = vi.fn().mockResolvedValue({
+          output_text: '{"data": 123}'
+        });
+
+        provider._client = { responses: { create: mockResponsesCreate } };
+
+        await provider.generateJSON('Get data');
+
+        const callArgs = mockResponsesCreate.mock.calls[0][0];
+        expect(callArgs.input).toContain('valid JSON');
+        expect(callArgs.input).toContain('Get data');
+      });
+    });
+
+    describe('reasoning effort parameter', () => {
+      it('accepts reasoning effort in constructor', () => {
+        const provider = new OpenAIProvider('gpt-5.2-codex', 'xhigh');
+        expect(provider.reasoningEffort).toBe('xhigh');
+      });
+
+      it('defaults to medium reasoning effort', () => {
+        const provider = new OpenAIProvider('gpt-5.2-pro');
+        expect(provider.reasoningEffort).toBe('medium');
+      });
+
+      it('passes reasoning effort to Responses API', async () => {
+        const provider = new OpenAIProvider('gpt-5.2-codex', 'low');
+
+        const mockResponsesCreate = vi.fn().mockResolvedValue({
+          output_text: 'Response'
+        });
+
+        provider._client = { responses: { create: mockResponsesCreate } };
+
+        await provider._callResponsesAPI('Test', null);
+
+        expect(mockResponsesCreate).toHaveBeenCalledWith(
+          expect.objectContaining({
+            reasoning: { effort: 'low' }
+          })
+        );
+      });
+    });
+  });
 });

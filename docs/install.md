@@ -106,14 +106,19 @@ To use OpenAI models with AVC:
 
 **Available OpenAI Models**:
 
-| Model | Best For | Relative Cost |
-|-------|----------|---------------|
-| `gpt-5.2-chat-latest` | Default - fast everyday work | Medium |
-| `gpt-5.2` | Harder tasks, spreadsheets, financial modeling | High |
-| `gpt-5.2-pro` | Difficult questions, most trustworthy | Highest |
-| `o3-mini` | Cost-efficient reasoning, validation | Low |
-| `gpt-5.2-codex` | Most capable coding (API access coming) | High |
-| `gpt-5.2-codex` | Advanced coding tasks | High |
+| Model | Best For | API Type | Relative Cost |
+|-------|----------|----------|---------------|
+| `gpt-5.2-chat-latest` | Default - fast everyday work | Chat Completions | Medium |
+| `gpt-5.2` | Harder tasks, spreadsheets, financial modeling | Chat Completions | High |
+| `o3-mini` | Cost-efficient reasoning, validation | Chat Completions | Low |
+| `gpt-5.2-pro` | Difficult questions, most trustworthy | **Responses API** | Highest |
+| `gpt-5.2-codex` | Advanced agentic coding tasks | **Responses API** | High |
+
+**API Types:**
+- **Chat Completions API**: Standard request-response (most models)
+- **Responses API**: Advanced features with reasoning effort control (pro/codex models only)
+
+**Reasoning Effort**: `gpt-5.2-pro` and `gpt-5.2-codex` support reasoning effort levels: `low`, `medium` (default), `high`, `xhigh`
 
 **Note**: OpenAI requires billing setup (minimum $5) even for paid ChatGPT subscribers.
 

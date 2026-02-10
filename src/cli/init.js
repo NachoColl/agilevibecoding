@@ -397,15 +397,6 @@ class ProjectInitiator {
             provider: 'openai',
             displayName: 'GPT-5.2-Codex',
             pricing: {
-              input: 2.00,
-              output: 16.00,
-              unit: 'million'
-            }
-          },
-          'gpt-5.2-codex': {
-            provider: 'openai',
-            displayName: 'GPT-5.2-Codex',
-            pricing: {
               input: 1.75,
               output: 14.00,
               unit: 'million'
