@@ -11,7 +11,6 @@ cd /mnt/x/Git/nacho.coll/agilevibecoding/src
 node cli/index.js
 ```
 
----
 
 ## Test Categories
 
@@ -67,7 +66,6 @@ node cli/index.js
 - [ ] 25. Type "/q" → Exits (alias test)
 - [ ] 26. Press Ctrl+C → Exits gracefully
 
----
 
 ## New Features (Added in Enhanced REPL)
 
@@ -79,7 +77,6 @@ node cli/index.js
 ✨ Command filtering when typing "/xxx"
 ✨ API key validation before ceremonies
 
----
 
 ## Testing Notes
 
@@ -88,7 +85,6 @@ node cli/index.js
 - **Colors**: Test in both light and dark terminal themes
 - **Performance**: Spinner should appear within 100ms for perceived responsiveness
 
----
 
 ## Reporting Issues
 
@@ -100,6 +96,5 @@ If you find issues during manual testing:
 4. Capture screenshot if visual issue
 5. Report at: https://github.com/NachoColl/agilevibecoding/issues
 
----
 
 _Last updated: 2026-01-28 (Enhanced REPL with API validation)_

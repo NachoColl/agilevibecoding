@@ -3,7 +3,6 @@
 **Date:** 2026-01-19
 **Question:** Single features.json vs individual files per feature?
 
----
 
 ## Option 1: Single features.json File (Current Design)
 
@@ -110,7 +109,6 @@ jq '(.phases[].features[] | select(.id=="feature-016")) |= .status="in_progress"
 **Recovery from crashes:** File corruption risk
 **Scalability:** Poor (grows linearly with features)
 
----
 
 ## Option 2: Individual Files Per Feature
 
@@ -304,7 +302,6 @@ jq ".completedFeatures=$completed" avc/tracking/index.json > temp.json \
 **Recovery from crashes:** Isolated to single feature
 **Scalability:** Excellent (constant-time updates)
 
----
 
 ## Option 3: Hybrid Approach
 
@@ -386,7 +383,6 @@ mv completed.json.tmp cache/completed.json
 - Cache can become stale (need rebuild)
 - More files (features + index + cache)
 
----
 
 ## Comparison Matrix
 
@@ -402,7 +398,6 @@ mv completed.json.tmp cache/completed.json
 | **Scalability** | ❌ Poor | ✅ Excellent | ✅ Excellent |
 | **File Count** | ✅ 1 file | ⚠️ 247 files | ❌ 250+ files |
 
----
 
 ## Detailed Scenario Analysis
 
@@ -422,7 +417,6 @@ mv completed.json.tmp cache/completed.json
 
 **Winner:** Tie (both work well)
 
----
 
 ### Scenario 2: Parallel Controllers (Risky but useful)
 
@@ -464,7 +458,6 @@ Result: ✅ A works on feature-016, B works on feature-017 (parallel!)
 
 **Winner:** Individual Files (enables parallelism)
 
----
 
 ### Scenario 3: Feature Completion
 
@@ -492,7 +485,6 @@ Result: ✅ A works on feature-016, B works on feature-017 (parallel!)
 
 **Winner:** Individual Files (less I/O, cleaner commits)
 
----
 
 ### Scenario 4: Query All Pending Features
 
@@ -522,7 +514,6 @@ cat cache/pending.json
 
 **Winner:** Single File OR Hybrid (both fast)
 
----
 
 ### Scenario 5: Crash During Update
 
@@ -551,7 +542,6 @@ cat cache/pending.json
 
 **Winner:** Individual Files (isolated failure)
 
----
 
 ## Implementation Complexity
 
@@ -569,7 +559,6 @@ EOF
 
 **Lines of code:** ~50 lines (simple)
 
----
 
 ### Individual Files Implementation
 
@@ -599,7 +588,6 @@ EOF
 
 **Lines of code:** ~150 lines (moderate complexity)
 
----
 
 ## Recommendation
 
@@ -647,7 +635,6 @@ EOF
 3. Create `avc/tracking/index.json` for summaries
 4. Optional: Add cache files later if query performance becomes issue
 
----
 
 ## Alternative: Start Simple, Migrate Later
 
@@ -678,7 +665,6 @@ EOF
 - Risk of conflicts in Phase 1
 - Git history less clear initially
 
----
 
 ## Final Decision Matrix
 
@@ -694,7 +680,6 @@ EOF
 
 **Winner: Individual Files (Option 2)**
 
----
 
 ## Next Steps
 

@@ -36,7 +36,6 @@ You will receive:
   ...
 }
 
----
 
 Return your validation as JSON with this exact structure (NO ```json wrapper):
 

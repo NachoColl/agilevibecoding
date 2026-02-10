@@ -12,7 +12,6 @@ Validators use LLM-powered analysis to:
 
 These validators run automatically in the **Sponsor Call** ceremony after initial generation of documentation and context files.
 
----
 
 ## How Validation Works
 
@@ -49,7 +48,6 @@ graph LR
 - **Documentation**: Score ≥75, no critical issues, ≤2 major issues
 - **Context**: Score ≥75, no critical issues, ≤1 major issue
 
----
 
 ## Validators
 
@@ -124,7 +122,6 @@ graph LR
 - **60-74 (Needs Improvement)**: 1 major issue or several minor issues
 - **Below 60 (Poor)**: Critical issues or multiple major issues
 
----
 
 ## Validation in Sponsor Call
 
@@ -187,7 +184,6 @@ When you run `/sponsor-call`, validation happens automatically after generation:
    ✅ context passed validation!
 ```
 
----
 
 ## Cost Impact
 
@@ -202,7 +198,6 @@ Each validation adds 1-2 LLM API calls:
 
 **Recommendation:** Keep validation enabled (default) for better quality. Disable only for rapid prototyping.
 
----
 
 ## Configuration
 
@@ -234,7 +229,6 @@ Control validators in `.avc/avc.json`:
 | `acceptanceThreshold` | `75` | Minimum score (0-100) to accept without further improvement |
 | `skipOnCriticalIssues` | `false` | Stop validation immediately if critical issues found (not recommended) |
 
----
 
 ## Quality Impact
 
@@ -256,7 +250,6 @@ Control validators in `.avc/avc.json`:
 - ⚡ Faster Epic/Story decomposition
 - ✅ Better alignment across team
 
----
 
 ## Troubleshooting
 
@@ -289,7 +282,6 @@ Set `validation.enabled: false` in ceremony config:
 
 **Warning:** Skipping validation may result in incomplete documentation that requires manual review.
 
----
 
 ## Best Practices
 
@@ -313,7 +305,6 @@ Set `validation.enabled: false` in ceremony config:
    - Issues flagged are often real problems
    - Improved documentation helps entire team
 
----
 
 ## See Also
 

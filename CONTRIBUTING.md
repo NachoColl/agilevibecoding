@@ -233,7 +233,6 @@ src/
 └── vitest.config.js        # Test configuration
 ```
 
----
 
 ## Testing Guidelines
 
@@ -314,7 +313,6 @@ npm run test:watch
 npm test tests/unit/logger.test.js
 ```
 
----
 
 ## Pull Request Process
 
@@ -408,7 +406,6 @@ Fixes #123
 4. **Approval** - PR approved when ready
 5. **Merge** - Maintainer merges to main
 
----
 
 ## npm Package Development
 
@@ -468,7 +465,6 @@ npm version minor   # 0.1.0 → 0.2.0 (new features)
 npm version major   # 0.1.0 → 1.0.0 (breaking changes)
 ```
 
----
 
 ## Documentation Contributions
 
@@ -516,7 +512,6 @@ npm run docs:dev
 - Use tables for structured data
 - Include examples for complex topics
 
----
 
 ## Code of Conduct
 
@@ -540,7 +535,6 @@ npm run docs:dev
 
 Report Code of Conduct violations to project maintainers. All complaints will be reviewed and investigated promptly.
 
----
 
 ## Getting Help
 
@@ -560,7 +554,6 @@ Report Code of Conduct violations to project maintainers. All complaints will be
 
 This is a community project maintained by volunteers. Please be patient - we'll respond as soon as we can.
 
----
 
 ## Development Tools
 
@@ -580,7 +573,6 @@ This is a community project maintained by volunteers. Please be patient - we'll 
 - Husky for pre-commit hooks
 - TypeScript support (optional)
 
----
 
 ## Project Structure
 
@@ -614,7 +606,6 @@ agilevibecoding/
 └── package.json            # Root package (docs)
 ```
 
----
 
 ## Recognition
 
@@ -624,13 +615,11 @@ Contributors are recognized through:
 - **Release notes** - Mentioned in version releases
 - **README** - Listed in contributors section (future)
 
----
 
 ## License
 
 By contributing to AVC, you agree that your contributions will be licensed under the MIT License (see [LICENSE](LICENSE) file).
 
----
 
 ## Thank You!
 
@@ -638,6 +627,5 @@ Every contribution helps make AVC better for the community. Whether you're fixin
 
 **Questions?** [Open an issue](https://github.com/NachoColl/agilevibecoding/issues/new) tagged with `question` - we're here to help!
 
----
 
 **Last Updated:** 2026-01-29

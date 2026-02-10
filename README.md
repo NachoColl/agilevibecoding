@@ -239,7 +239,6 @@ The first ceremony creating project documentation and architectural context that
 
 **[📖 Read Full Documentation](ceremonies/sponsor-call.md)**
 
----
 
 ### **Project Expansion**
 
@@ -260,7 +259,6 @@ Creates or expands project Epics and Stories with intelligent duplicate detectio
 
 **[📖 Read Full Documentation](ceremonies/project-expansion.md)**
 
----
 
 ### **Seed**
 
@@ -285,7 +283,6 @@ Decomposes a Story into Tasks (2-5) and Subtasks (1-3 per Task) for implementati
 
 **[📖 Read Full Documentation](ceremonies/seed.md)**
 
----
 
 ### **AI Coding** - Implementation
 
@@ -304,7 +301,6 @@ Autonomous implementation of atomic work units by specialized AI agents. Generat
 
 **[📖 Read Full Documentation](ceremonies/ai-coding.md)**
 
----
 
 ### **Context Retrospective** - Learning & Refinement
 
@@ -456,7 +452,6 @@ await googleAI.models.generateContent({
 **Context Accumulation**: Each AI suggestion uses all previously collected answers as context. The system builds understanding progressively - later suggestions are more informed than earlier ones.
 
 
----
 
 ## References
 

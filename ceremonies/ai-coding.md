@@ -10,7 +10,6 @@ The **AI Coding** ceremony is where AI agents implement individual work items (T
 
 **Output:** Implemented code, tests, and documentation with work items in "done" status
 
----
 
 ## How It Works
 
@@ -64,7 +63,6 @@ graph LR
    - Update timestamps
    - Record metrics
 
----
 
 ## AI Agent Specialization
 
@@ -106,7 +104,6 @@ Different agents handle different types of work:
 
 **Technologies:** Jest, Pytest, Selenium, etc.
 
----
 
 ## Ceremony Output
 
@@ -131,7 +128,6 @@ Different agents handle different types of work:
 - **Documentation** - Implementation notes and API docs
 - **Work Items** - Updated status (pending → done)
 
----
 
 ## Human Review Process
 
@@ -166,7 +162,6 @@ Developers review AI-generated code for:
 - **Request Changes** - Send back to AI with feedback
 - **Reject** - Human implements (rare, indicates context issues)
 
----
 
 ## Metrics and Tracking
 
@@ -184,7 +179,6 @@ View metrics:
 > /metrics
 ```
 
----
 
 ## Best Practices
 
@@ -203,7 +197,6 @@ View metrics:
 - Provide specific feedback for iterations
 - Update contexts based on common review feedback
 
----
 
 ## Status
 
@@ -211,7 +204,6 @@ View metrics:
 
 This ceremony is planned for future release. Requires completion of Project Expansion first.
 
----
 
 ## See Also
 

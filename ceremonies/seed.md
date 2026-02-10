@@ -10,7 +10,6 @@ The **Seed** ceremony decomposes a Story into Tasks (2-5) and Subtasks (1-3 per 
 
 **Duration:** 3-8 minutes per Story
 
----
 
 ## Prerequisites
 
@@ -27,7 +26,6 @@ Before running Seed:
    - API key in `.env` file (ANTHROPIC_API_KEY or GEMINI_API_KEY)
    - Provider set in `.avc/avc.json`
 
----
 
 ## How It Works - Workflow
 
@@ -48,7 +46,6 @@ graph LR
     style G fill:#fff4e1
 ```
 
----
 
 ## Processing Steps
 
@@ -195,7 +192,6 @@ Updates parent Story to mark as seeded:
 - Sets `metadata.lastUpdated` timestamp
 - Sets `metadata.seeded = true`
 
----
 
 ## AI Agents Used
 
@@ -218,7 +214,6 @@ The Seed ceremony uses **2 specialized AI agents**:
 - **Output (Subtask level):** Subtask context.md (~800 tokens)
 - **Token Budgets:** Task ~1200, Subtask ~800
 
----
 
 ## Metadata Files (work.json)
 
@@ -265,7 +260,6 @@ The Seed ceremony uses **2 specialized AI agents**:
 }
 ```
 
----
 
 ## Usage
 
@@ -334,7 +328,6 @@ Next steps:
    2. Start implementing Subtasks (smallest work units)
 ```
 
----
 
 ## Task Categories
 
@@ -370,7 +363,6 @@ Tasks are organized into technical categories for clear separation of concerns:
 - CI/CD
 - Monitoring
 
----
 
 ## Error Handling
 
@@ -424,7 +416,6 @@ Tasks are organized into technical categories for clear separation of concerns:
 
 **Behavior:** Automatic retry with exponential backoff (3 attempts)
 
----
 
 ## Next Steps
 
@@ -445,7 +436,6 @@ After Seed completes:
    - Update context.md files with learnings
    - Update doc.md files with actual implementation details
 
----
 
 ## Task/Subtask Decomposition Strategy
 
@@ -512,7 +502,6 @@ A Subtask is atomic if it:
 - Requires **single developer**
 - Has **no dependencies** on other unfinished work
 
----
 
 ## Tips
 

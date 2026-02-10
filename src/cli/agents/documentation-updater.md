@@ -199,6 +199,5 @@ Use clear status markers:
 - Documentation should show CURRENT STATE to stakeholders
 - This is FOR humans, showing what's real vs what's planned
 
----
 
 **Remember**: You're updating living documentation to reflect progress. Stakeholders need to see both what's done AND what's still planned. Never lose the vision by deleting planned features.

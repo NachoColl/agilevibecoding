@@ -16,7 +16,6 @@ Two files that serve as the single source of truth for your project
 
 [`/project-expansion`](project-expansion.md) - Create Epics and Stories
 
----
 
 ## What It Does
 
@@ -33,7 +32,6 @@ The Sponsor Call ceremony:
 - Does NOT create work.json files (use `/project-expansion` for that)
 - Does NOT decompose features into hierarchy (use `/project-expansion` for that)
 
----
 
 ## Interactive Questionnaire
 
@@ -80,7 +78,6 @@ When you skip a question, specialized AI agents generate contextual suggestions:
 - [`suggestion-technical-architect.md`](/agents/suggestion-technical-architect)
 - [`suggestion-security-specialist.md`](/agents/suggestion-security-specialist)
 
----
 
 ## Ceremony Workflow
 
@@ -240,7 +237,6 @@ This context is inherited by all Epic/Story/Task/Subtask contexts created in lat
 
 **No AI involved** - File copy operation
 
----
 
 ## Configuration
 
@@ -343,7 +339,6 @@ Enable AI-powered iterative validation:
 - `acceptanceThreshold` - Minimum score 0-100 (default: 75)
 - `skipOnCriticalIssues` - Stop if critical issues found (default: false)
 
----
 
 ## Ceremony Output
 
@@ -374,7 +369,6 @@ The following are created by the **`/project-expansion`** ceremony:
 - Epic/Story `context.md` files
 - Epic/Story `work.json` metadata files
 
----
 
 ## Running the Ceremony
 
@@ -441,7 +435,6 @@ avc
 Resume from where you left off? (y/n)
 ```
 
----
 
 ## Output Example
 
@@ -465,7 +458,6 @@ Next steps:
    3. Run /project-expansion to create Epics and Stories
 ```
 
----
 
 ## Next Steps
 
@@ -503,7 +495,6 @@ cat .avc/project/context.md
 
 See [Project Expansion ceremony documentation](project-expansion.md)
 
----
 
 ## Troubleshooting
 
@@ -562,7 +553,6 @@ Logs include:
 - File write operations
 - Error stack traces
 
----
 
 ## Technical Implementation
 
@@ -607,7 +597,6 @@ Logs include:
 - **Unit Tests:** `src/tests/unit/questionnaire.test.js`
 - **Integration Tests:** `src/tests/integration/template-with-llm.test.js`
 
----
 
 ## See Also
 

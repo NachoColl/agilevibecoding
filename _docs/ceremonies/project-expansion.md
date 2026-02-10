@@ -10,7 +10,6 @@ The **Project Expansion** ceremony creates or expands the project's Epic and Sto
 
 **Duration:** 5-15 minutes (depending on scope size)
 
----
 
 ## Prerequisites
 
@@ -24,7 +23,6 @@ Before running Project Expansion:
    - API key in `.env` file (ANTHROPIC_API_KEY or GEMINI_API_KEY)
    - Provider set in `.avc/avc.json`
 
----
 
 ## How It Works - Workflow
 
@@ -46,7 +44,6 @@ graph LR
     style H fill:#fff4e1
 ```
 
----
 
 ## Processing Steps
 
@@ -184,7 +181,6 @@ Creates directory structure with 3 files per work item:
 └── work.json      # Story metadata with children: []
 ```
 
----
 
 ## AI Agents Used
 
@@ -207,7 +203,6 @@ The Project Expansion ceremony uses **2 specialized AI agents**:
 - **Output (Story level):** Story context.md (~1500 tokens)
 - **Token Budgets:** Epic ~800, Story ~1500
 
----
 
 ## Metadata Files (work.json)
 
@@ -253,7 +248,6 @@ The Project Expansion ceremony uses **2 specialized AI agents**:
 }
 ```
 
----
 
 ## Usage
 
@@ -346,7 +340,6 @@ Total project structure:
    • 0 Tasks
 ```
 
----
 
 ## Duplicate Detection Algorithm
 
@@ -386,7 +379,6 @@ Total project structure:
 - Incremental project growth
 - Adding features without recreating existing structure
 
----
 
 ## Error Handling
 
@@ -419,7 +411,6 @@ Total project structure:
 
 **Behavior:** Automatic retry with exponential backoff (3 attempts)
 
----
 
 ## Next Steps
 
@@ -440,7 +431,6 @@ After Project Expansion completes:
    - Run `/project-expansion` again
    - Duplicate detection ensures no collisions
 
----
 
 ## Tips
 

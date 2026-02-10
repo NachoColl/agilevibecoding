@@ -563,6 +563,5 @@ Deployed to us-east-1 region with CloudFront CDN for static assets. RDS PostgreS
 - Create documentation FOR humans (sponsors, stakeholders, team members)
 - The documentation describes WHAT the system does, not WHEN it will be built
 
----
 
 **Remember**: This is the foundation document that defines the project vision. It will be used by other agents (Software Architect, Context Generator) to create the implementation hierarchy.

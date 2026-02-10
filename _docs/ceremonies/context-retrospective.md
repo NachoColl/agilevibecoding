@@ -10,7 +10,6 @@ The **Context Retrospective** ceremony updates all context scopes based on learn
 
 **Output:** Updated context.md files reflecting current understanding of the project
 
----
 
 ## How It Works
 
@@ -34,7 +33,6 @@ The ceremony analyzes completed work and updates contexts:
    - Verify context inheritance preserved
    - Check for consistency across levels
 
----
 
 ## What Gets Updated
 
@@ -60,7 +58,6 @@ The ceremony analyzes completed work and updates contexts:
 - Performance characteristics measured
 - Security requirements clarified
 
----
 
 ## Ceremony Stakeholders
 
@@ -80,7 +77,6 @@ The ceremony analyzes completed work and updates contexts:
 | Context Generator | Regenerate updated context files |
 | Validation Agent | Verify context quality and consistency |
 
----
 
 ## When to Run
 
@@ -92,7 +88,6 @@ The ceremony analyzes completed work and updates contexts:
 
 **Frequency:** Sprint boundary or as-needed basis
 
----
 
 ## Ceremony Output
 
@@ -118,7 +113,6 @@ The ceremony analyzes completed work and updates contexts:
 - **Change Log** - Documentation of what changed and why
 - **Validation Report** - Confirmation of context quality
 
----
 
 ## Benefits
 
@@ -137,7 +131,6 @@ The ceremony analyzes completed work and updates contexts:
 - Aligns implementation across features
 - Maintains architectural coherence
 
----
 
 ## Next Steps
 
@@ -147,7 +140,6 @@ After completing Context Retrospective:
 2. **Continue Implementation** - Resume AI Coding with updated contexts
 3. **Plan Next Sprint** - Use refined contexts for Project Expansion
 
----
 
 ## Status
 
@@ -155,7 +147,6 @@ After completing Context Retrospective:
 
 This ceremony is planned for future release. Requires completion of Sponsor Call and Project Expansion first.
 
----
 
 ## See Also
 

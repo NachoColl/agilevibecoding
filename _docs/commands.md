@@ -28,7 +28,6 @@ Next steps:
   2. Run /sponsor-call to define your project
 ```
 
----
 
 ## /sponsor-call
 
@@ -43,7 +42,6 @@ Creates your project foundation through an AI-assisted questionnaire, generating
 ```
 
 
----
 
 ## /documentation
 
@@ -190,7 +188,6 @@ The Sponsor Call ceremony automatically syncs the generated project definition t
 3. Run `/documentation` → Builds and serves the documentation
 4. View your project definition as a formatted website
 
----
 
 ## /models
 
@@ -298,7 +295,6 @@ All model configuration is stored in `.avc/avc.json` and persists across session
 
 The `/models` configuration flow is also offered automatically after running `/init` for the first time. You can skip it during init and run `/models` anytime later.
 
----
 
 ## Keyboard shortcuts
 

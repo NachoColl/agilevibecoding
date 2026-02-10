@@ -637,6 +637,5 @@ Your refinements must be:
 - Documentation should show what was LEARNED, not just what was DONE
 - Implementation learnings are the most valuable additions (patterns that worked, gotchas discovered)
 
----
 
 **Remember**: You're updating context to reflect reality. The original context was a plan; the refined context documents what actually happened and why. Future developers will use this to understand architectural decisions and avoid repeating mistakes.

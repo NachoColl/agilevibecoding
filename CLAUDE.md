@@ -2,7 +2,6 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
----
 
 ## Repository Overview
 
@@ -16,7 +15,6 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - Public documentation at https://agilevibecoding.org
 - CLI commands that users run to initialize and manage their AVC projects
 
----
 
 ## Repository Structure
 
@@ -60,7 +58,6 @@ agilevibecoding/
     └── publish-avc.yml       # Auto-publish to npm on version changes
 ```
 
----
 
 ## Architecture Deep Dive
 
@@ -466,7 +463,6 @@ process.on('unhandledRejection', (reason) => {
 
 **Lesson Learned:** Async cleanup in React components is insufficient for signal handlers. Always use synchronous process-level handlers for critical cleanup.
 
----
 
 ## Debug Logging Guidelines
 
@@ -817,7 +813,6 @@ async function generateProjectContext(collectedValues, progressCallback) {
 
 **Location:** See `template-processor.js` for implementation examples
 
----
 
 ## Development Workflow
 
@@ -993,7 +988,6 @@ avc
 # Test all modes: prompt, selector (/), questionnaire (/sponsor-call), remove (/remove)
 ```
 
----
 
 ## Testing
 
@@ -1021,7 +1015,6 @@ npm test path/to/file.test.js  # Run specific file
 
 **All tests must pass before publishing to npm.**
 
----
 
 ## Publishing
 
@@ -1058,7 +1051,6 @@ git push --follow-tags
 
 Deploys to: https://agilevibecoding.org
 
----
 
 ## Common Development Tasks
 
@@ -1275,7 +1267,6 @@ case 'providername':
 
 5. **Update documentation** with API key setup instructions
 
----
 
 ## Important Notes
 
@@ -1329,7 +1320,6 @@ AVC provides organizational structure for long-term AI-assisted development:
 3. If a temporary file exists in root, move it to `_temp/`
 4. Use descriptive ALL_CAPS names with underscores (e.g., `FEATURE_IMPLEMENTATION_PLAN.md`)
 
----
 
 ## Version
 

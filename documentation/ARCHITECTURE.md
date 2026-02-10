@@ -2,7 +2,6 @@
 
 **A framework for managing long-running AI agent development projects**
 
----
 
 ## Overview
 
@@ -18,7 +17,6 @@ This document defines the agent harness architecture for implementing complex so
 6. **Shared Context** - Features within a phase share comprehensive implementation context
 7. **Specialized Agents** - Domain-specific agents with expertise (server, client, infra, testing, docs)
 
----
 
 ## Architecture Components
 
@@ -90,7 +88,6 @@ This document defines the agent harness architecture for implementing complex so
 └─────────────────────────────────────────────────────────────────┘
 ```
 
----
 
 ## Agent Roles and Responsibilities
 
@@ -118,7 +115,6 @@ This document defines the agent harness architecture for implementing complex so
 
 **Prompt:** See `../prompts/initializer.md`
 
----
 
 ### Controller Agent
 
@@ -185,7 +181,6 @@ This document defines the agent harness architecture for implementing complex so
    └─ Select next feature
 ```
 
----
 
 ### Coding Agents (Specialized)
 
@@ -274,7 +269,6 @@ This document defines the agent harness architecture for implementing complex so
    └─ Note any issues or deviations
 ```
 
----
 
 ## Feature Structure
 
@@ -332,7 +326,6 @@ Features can depend on other features:
 
 Controller agent only selects features where all dependencies are `completed`.
 
----
 
 ## Phase Context Structure
 
@@ -421,7 +414,6 @@ describe('UserService', () => {
 - TypeScript compiles without errors
 ```
 
----
 
 ## Progress Tracking
 
@@ -505,7 +497,6 @@ Machine-readable progress summary:
 }
 ```
 
----
 
 ## Git Workflow
 
@@ -561,7 +552,6 @@ Controller agent uses git history to:
 - Resume after interruptions
 - Detect rework or fixes
 
----
 
 ## Session Continuity Protocol
 
@@ -617,7 +607,6 @@ If a session is interrupted:
 
 4. **Continue from Last Completed**
 
----
 
 ## Parallel Execution
 
@@ -660,7 +649,6 @@ Both sessions update git independently
 Git handles merge (different files modified)
 ```
 
----
 
 ## Testing Strategy
 
@@ -731,7 +719,6 @@ npm run type-check
 
 If baseline tests fail, fix before implementing new features.
 
----
 
 ## Error Handling and Recovery
 
@@ -769,7 +756,6 @@ If baseline tests fail, fix before implementing new features.
    - Discard uncommitted changes
 4. Continue from last completed feature
 
----
 
 ## Best Practices
 
@@ -814,7 +800,6 @@ If baseline tests fail, fix before implementing new features.
 - Coordinate via progress files
 - ONE Controller at a time
 
----
 
 ## Metrics and ROI
 
@@ -866,7 +851,6 @@ If baseline tests fail, fix before implementing new features.
 - Savings: 50-60 hours (implementation)
 - Return: **4:1 ROI**
 
----
 
 ## Conclusion
 
@@ -880,7 +864,6 @@ The Agent Harness Architecture provides a structured, scalable approach to imple
 
 This architecture is proven with real-world projects (200+ features) and based on Anthropic's best practices for long-running agent systems.
 
----
 
 **Version:** 1.0
 **Last Updated:** 2026-01-19
