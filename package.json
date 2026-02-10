@@ -5,11 +5,11 @@
   "type": "module",
   "private": true,
   "scripts": {
-    "docs:sync": "cp README.md docs/index.md && cp COMMANDS.md docs/commands.md && cp INSTALL.md docs/install.md && cp CONTRIBUTING.md docs/contribute.md && mkdir -p docs/ceremonies && cp ceremonies/*.md docs/ceremonies/ && mkdir -p docs/agents && cp src/cli/agents/*.md docs/agents/ && sed -i 's|](README.md#|](/#|g' docs/commands.md && sed -i 's|](COMMANDS.md)|](/commands)|g' docs/install.md docs/contribute.md && sed -i 's|](INSTALL.md)|](/install)|g' docs/commands.md docs/contribute.md && sed -i 's|](CONTRIBUTING.md)|](/contribute)|g' docs/install.md && sed -i 's|](ceremonies/|](/ceremonies/|g' docs/index.md",
+    "docs:sync": "cp README.md _docs/index.md && cp COMMANDS.md _docs/commands.md && cp INSTALL.md _docs/install.md && cp CONTRIBUTING.md _docs/contribute.md && mkdir -p _docs/ceremonies && cp ceremonies/*.md _docs/ceremonies/ && mkdir -p _docs/agents && cp src/cli/agents/*.md _docs/agents/ && sed -i 's|](README.md#|](/#|g' _docs/commands.md && sed -i 's|](COMMANDS.md)|](/commands)|g' _docs/install.md _docs/contribute.md && sed -i 's|](INSTALL.md)|](/install)|g' _docs/commands.md _docs/contribute.md && sed -i 's|](CONTRIBUTING.md)|](/contribute)|g' _docs/install.md && sed -i 's|](ceremonies/|](/ceremonies/|g' _docs/index.md",
     "docs:watch": "while true; do BEFORE=$(stat -c %Y README.md COMMANDS.md INSTALL.md CONTRIBUTING.md ceremonies/*.md src/cli/agents/*.md 2>/dev/null | md5sum); sleep 1; AFTER=$(stat -c %Y README.md COMMANDS.md INSTALL.md CONTRIBUTING.md ceremonies/*.md src/cli/agents/*.md 2>/dev/null | md5sum); if [ \"$BEFORE\" != \"$AFTER\" ]; then npm run docs:sync; fi; done",
-    "docs:dev": "npm run docs:sync && npx concurrently --kill-others 'npm run docs:watch' 'vitepress dev docs'",
-    "docs:build": "npm run docs:sync && vitepress build docs",
-    "docs:preview": "vitepress preview docs"
+    "docs:dev": "npm run docs:sync && npx concurrently --kill-others 'npm run docs:watch' 'vitepress dev _docs'",
+    "docs:build": "npm run docs:sync && vitepress build _docs",
+    "docs:preview": "vitepress preview _docs"
   },
   "keywords": [
     "ai-agents",

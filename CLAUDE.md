@@ -40,7 +40,7 @@ agilevibecoding/
 │   ├── package.json          # npm package configuration
 │   └── vitest.config.js      # Test configuration
 │
-├── docs/                     # VitePress documentation site
+├── _docs/                    # VitePress documentation site
 │   ├── .vitepress/           # VitePress config and theme
 │   │   ├── config.mts        # Site configuration
 │   │   └── theme/            # Custom theme with CSS
@@ -890,7 +890,7 @@ vim INSTALL.md              # Installation guide
 vim CONTRIBUTING.md         # Contributing guide
 
 # Sync and build
-npm run docs:sync           # Copy to docs/ with link transformation
+npm run docs:sync           # Copy to _docs/ with link transformation
 npm run docs:build          # Build static site
 npm run docs:preview        # Preview at http://localhost:4173
 
@@ -899,10 +899,10 @@ npm run docs:dev            # Live reload at http://localhost:5173
 ```
 
 **IMPORTANT - Documentation Sync:**
-- **DO NOT edit files in `docs/` directly** - they are auto-generated
+- **DO NOT edit files in `_docs/` directly** - they are auto-generated
 - Edit root markdown files (README.md, COMMANDS.md, etc.)
-- Run `npm run docs:sync` to copy to docs/ with transformed links
-- Commit both root file and docs/ version
+- Run `npm run docs:sync` to copy to _docs/ with transformed links
+- Commit both root file and _docs/ version
 
 **Link transformation:**
 - `](README.md#anchor)` → `](/#anchor)`
@@ -1302,7 +1302,7 @@ AVC provides organizational structure for long-term AI-assisted development:
 2. **Mode-Based Input** - Each mode needs its own useInput handler
 3. **Project Initialization Guard** - All commands except `/init` must check `isAvcProject()`
 4. **Logger Conditional Creation** - Only create logger if `.avc` exists (or for `/init`)
-5. **Documentation Sync** - Edit root MD files, never `docs/` directly
+5. **Documentation Sync** - Edit root MD files, never `_docs/` directly
 6. **Console Output Formatting** - All console.log messages must be **fully left-aligned** with NO leading tabs or spaces (command-line style)
 7. **Temporary Files Organization** - All temporary/planning/work markdown files MUST be created in `_temp/` folder, NOT in root. Root should only contain: CLAUDE.md, README.md, COMMANDS.md, INSTALL.md, CONTRIBUTING.md, LICENSE
 
@@ -1310,10 +1310,10 @@ AVC provides organizational structure for long-term AI-assisted development:
 
 **Root Directory (documentation only):**
 - `CLAUDE.md` - Project instructions for Claude Code
-- `README.md` - Main project documentation (synced to docs/index.md)
-- `COMMANDS.md` - CLI reference (synced to docs/commands.md)
-- `INSTALL.md` - Installation guide (synced to docs/install.md)
-- `CONTRIBUTING.md` - Contributor guide (synced to docs/contribute.md)
+- `README.md` - Main project documentation (synced to _docs/index.md)
+- `COMMANDS.md` - CLI reference (synced to _docs/commands.md)
+- `INSTALL.md` - Installation guide (synced to _docs/install.md)
+- `CONTRIBUTING.md` - Contributor guide (synced to _docs/contribute.md)
 - `LICENSE` - MIT license
 
 **_temp/ Directory (temporary/planning files):**

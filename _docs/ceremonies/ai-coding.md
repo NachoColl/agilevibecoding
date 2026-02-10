@@ -121,7 +121,7 @@ Different agents handle different types of work:
 └── code/               # Generated code (linked to project repo)
     ├── src/
     ├── tests/
-    └── docs/
+    └── _docs/
 ```
 
 ### Output Summary

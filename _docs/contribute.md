@@ -333,13 +333,13 @@ npm test tests/unit/logger.test.js
 ```bash
 git checkout -b feature/add-openai-provider
 git checkout -b fix/logger-crash-on-rotation
-git checkout -b docs/improve-setup-guide
+git checkout -b _docs/improve-setup-guide
 ```
 
 Conventions:
 - `feature/` - New features
 - `fix/` - Bug fixes
-- `docs/` - Documentation
+- `_docs/` - Documentation
 - `refactor/` - Code refactoring
 - `test/` - Test improvements
 
@@ -476,20 +476,20 @@ npm version major   # 0.1.0 → 1.0.0 (breaking changes)
 
 The documentation site uses **VitePress** with auto-sync from root files.
 
-**DO NOT edit files in `docs/` directly** - they are auto-generated!
+**DO NOT edit files in `_docs/` directly** - they are auto-generated!
 
 **Source Files (edit these):**
-- `README.md` → synced to `docs/index.md`
-- `COMMANDS.md` → synced to `docs/commands.md`
-- `INSTALL.md` → synced to `docs/install.md`
-- `CONTRIBUTING.md` → synced to `docs/contribute.md`
+- `README.md` → synced to `_docs/index.md`
+- `COMMANDS.md` → synced to `_docs/commands.md`
+- `INSTALL.md` → synced to `_docs/install.md`
+- `CONTRIBUTING.md` → synced to `_docs/contribute.md`
 
 **Workflow:**
 ```bash
 # 1. Edit source file
 vim README.md
 
-# 2. Sync to docs/
+# 2. Sync to _docs/
 npm run docs:sync
 
 # 3. Test locally
@@ -592,7 +592,7 @@ agilevibecoding/
 │   └── workflows/          # GitHub Actions CI/CD
 │       ├── deploy-pages.yml
 │       └── publish-avc.yml
-├── docs/                   # VitePress documentation (auto-generated)
+├── _docs/                   # VitePress documentation (auto-generated)
 │   ├── .vitepress/
 │   │   ├── config.mts      # VitePress configuration
 │   │   └── theme/
