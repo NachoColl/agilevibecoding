@@ -980,9 +980,9 @@ const BottomRightStatus = React.memo(({ backgroundProcesses }) => {
  * Model Configuration Prompt Component
  * Shows after /init completes, asks user if they want to configure models
  */
-const ModelConfigPrompt = ({ promptInput }) => {
+const ModelConfigPrompt = () => {
   return React.createElement(Box, { flexDirection: 'column', marginY: 1 },
-    React.createElement(Text, { bold: true, color: 'cyan' }, '\nConfigure models now? (y/n) ' + promptInput)
+    React.createElement(Text, { bold: true, color: 'cyan' }, '\nConfigure models now? (y/n) ')
   );
 };
 
@@ -1014,7 +1014,8 @@ const CeremonySelector = ({ ceremonies, selectedIndex, onIndexChange }) => {
 const StageSelector = ({ ceremonyName, stages, selectedIndex, availableProviders }) => {
   return React.createElement(Box, { flexDirection: 'column', borderStyle: 'round', borderColor: 'cyan', paddingX: 1 },
     React.createElement(Text, { bold: true }, 'Ceremony: ' + ceremonyName),
-    React.createElement(Text, { dimColor: true, marginTop: 1 }, 'Select Stage to Configure:'),
+    React.createElement(Text, {}, ''),
+    React.createElement(Text, { dimColor: true }, 'Select Stage to Configure:'),
     React.createElement(Box, { flexDirection: 'column', marginTop: 1 },
       ...stages.map((stage, idx) => {
         const hasApiKey = availableProviders.includes(stage.provider);
@@ -1039,7 +1040,8 @@ const ModelSelector = ({ stageName, currentModel, models, selectedIndex }) => {
   return React.createElement(Box, { flexDirection: 'column', borderStyle: 'round', borderColor: 'cyan', paddingX: 1 },
     React.createElement(Text, { bold: true }, 'Stage: ' + stageName),
     React.createElement(Text, { dimColor: true }, 'Current: ' + currentModel),
-    React.createElement(Text, { dimColor: true, marginTop: 1 }, 'Available Models:'),
+    React.createElement(Text, {}, ''),
+    React.createElement(Text, { dimColor: true }, 'Available Models:'),
     React.createElement(Box, { flexDirection: 'column', marginTop: 1 },
       ...models.map((model, idx) => {
         const isCurrent = model.id === currentModel;
@@ -3320,9 +3322,9 @@ https://agilevibecoding.org
         setModelConfigMode('ceremony');
         setCeremonySelectIndex(0);
         setModelConfigPromptInput('');
-        setOutput(prev => prev + 'y\n\n');
+        setOutput(prev => prev + '\n');
       } else if (trimmedInput === 'n') {
-        setOutput(prev => prev + 'n\n\n✅ You can configure models later by editing .avc/avc.json\n');
+        setOutput(prev => prev + '\n✅ You can configure models later by editing .avc/avc.json\n');
         setModelConfigActive(false);
         setModelConfigPromptInput('');
         setMode('prompt');
@@ -3651,7 +3653,7 @@ https://agilevibecoding.org
     if (!modelConfigActive || !modelConfigurator) return null;
 
     if (modelConfigMode === 'prompt') {
-      return React.createElement(ModelConfigPrompt, { promptInput: modelConfigPromptInput });
+      return React.createElement(ModelConfigPrompt);
     }
 
     if (modelConfigMode === 'ceremony') {
