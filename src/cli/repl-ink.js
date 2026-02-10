@@ -1413,10 +1413,23 @@ const App = () => {
       const avcPath = path.join(process.cwd(), '.avc');
       const avcExists = existsSync(avcPath);
 
-      // Only create logger for commands that do actual work
+      // Only create logger for commands that do actual work (API calls, file operations, etc.)
+      // Exclude informational commands (/help, /version, /exit, /restart, /processes)
       // For /init, always create logger (it creates .avc)
       // For other commands, only create logger if .avc already exists
-      if (['/init', '/sponsor-call', '/status', '/remove', '/models'].includes(command.toLowerCase())) {
+      const loggedCommands = [
+        '/init',
+        '/sponsor-call',
+        '/project-expansion',
+        '/seed',
+        '/status',
+        '/models',
+        '/tokens',
+        '/remove',
+        '/documentation'
+      ];
+
+      if (loggedCommands.includes(command.toLowerCase())) {
         if (command.toLowerCase() === '/init' || avcExists) {
           logger = new CommandLogger(commandName);
           logger.start();
@@ -1637,11 +1650,13 @@ https://agilevibecoding.org
   const runInit = async () => {
     const initiator = new ProjectInitiator();
 
-    // Capture console.log output
+    // Capture console.log output and forward to CommandLogger
     const originalLog = console.log;
     let logs = [];
     console.log = (...args) => {
-      logs.push(args.join(' '));
+      const message = args.join(' ');
+      logs.push(message);
+      originalLog(...args);  // Forward to CommandLogger if active
     };
 
     let result;
@@ -1676,7 +1691,11 @@ https://agilevibecoding.org
 
     const originalLog = console.log;
     let logs = [];
-    console.log = (...args) => logs.push(args.join(' '));
+    console.log = (...args) => {
+      const message = args.join(' ');
+      logs.push(message);
+      originalLog(...args);  // Forward to CommandLogger if active
+    };
 
     try {
       await initiator.projectExpansion();
@@ -1703,7 +1722,11 @@ https://agilevibecoding.org
 
     const originalLog = console.log;
     let logs = [];
-    console.log = (...args) => logs.push(args.join(' '));
+    console.log = (...args) => {
+      const message = args.join(' ');
+      logs.push(message);
+      originalLog(...args);  // Forward to CommandLogger if active
+    };
 
     try {
       await initiator.seed(storyId);
@@ -1820,15 +1843,19 @@ https://agilevibecoding.org
       filesCreated: []
     });
 
-    // Suppress console.log during execution (will show summary after)
+    // Capture console output during execution and forward to CommandLogger
     const originalLog = console.log;
     const originalError = console.error;
     let capturedLogs = [];
     console.log = (...args) => {
-      capturedLogs.push(args.join(' '));
+      const message = args.join(' ');
+      capturedLogs.push(message);
+      originalLog(...args);  // Forward to CommandLogger if active
     };
     console.error = (...args) => {
-      capturedLogs.push(args.join(' '));
+      const message = args.join(' ');
+      capturedLogs.push(message);
+      originalError(...args);  // Forward to CommandLogger if active
     };
 
     // Progress callback to update spinner message, substep, and execution state
@@ -2071,11 +2098,13 @@ https://agilevibecoding.org
   const runStatus = async () => {
     const initiator = new ProjectInitiator();
 
-    // Capture console.log output
+    // Capture console.log output and forward to CommandLogger
     const originalLog = console.log;
     let logs = [];
     console.log = (...args) => {
-      logs.push(args.join(' '));
+      const message = args.join(' ');
+      logs.push(message);
+      originalLog(...args);  // Forward to CommandLogger if active
     };
 
     try {
@@ -2129,11 +2158,12 @@ https://agilevibecoding.org
       return;
     }
 
-    // Stream console output in real-time
+    // Stream console output in real-time and forward to CommandLogger
     const originalLog = console.log;
     console.log = (...args) => {
       const message = args.join(' ');
       setOutput(prev => prev + message + '\n');
+      originalLog(...args);  // Forward to CommandLogger if active
     };
 
     try {
@@ -2169,11 +2199,13 @@ https://agilevibecoding.org
 
     const initiator = new ProjectInitiator();
 
-    // Capture console.log output
+    // Capture console.log output and forward to CommandLogger
     const originalLog = console.log;
     let logs = [];
     console.log = (...args) => {
-      logs.push(args.join(' '));
+      const message = args.join(' ');
+      logs.push(message);
+      originalLog(...args);  // Forward to CommandLogger if active
     };
 
     try {
