@@ -76,6 +76,28 @@ export class ModelConfigurator {
   }
 
   /**
+   * Get descriptive name for a stage based on its type and ceremony context.
+   * @param {string} stageName - The stage identifier (e.g., 'suggestions', 'documentation')
+   * @param {string} ceremonyName - The ceremony name for context
+   * @returns {string} Descriptive stage name
+   */
+  _getStageDisplayName(stageName, ceremonyName) {
+    // Stage name mappings with descriptive action-oriented titles
+    const stageDescriptions = {
+      suggestions: 'AI-Assisted Questionnaire',
+      documentation: 'Project Documentation Creation',
+      context: 'Project Context Generation',
+      decomposition: 'Work Item Decomposition',
+      'context-generation': 'Context Scope Definition',
+      'documentation-update': 'Documentation Refinement',
+      'context-refinement': 'Context Enhancement',
+      enhancement: 'Content Enhancement'
+    };
+
+    return stageDescriptions[stageName] || `${stageName.charAt(0).toUpperCase()}${stageName.slice(1)}`;
+  }
+
+  /**
    * Get all stages for a specific ceremony.
    * @param {string} ceremonyName - Name of the ceremony
    * @returns {Array} Array of stage objects with id, name, provider, model
@@ -90,10 +112,22 @@ export class ModelConfigurator {
       return [];
     }
 
+    // Determine main stage description based on ceremony type
+    let mainStageName = 'Primary Execution';
+    if (ceremonyName === 'sponsor-call') {
+      mainStageName = 'Project Definition & Planning';
+    } else if (ceremonyName === 'project-expansion') {
+      mainStageName = 'Epic & Story Expansion';
+    } else if (ceremonyName === 'context-retrospective') {
+      mainStageName = 'Context & Documentation Review';
+    } else if (ceremonyName === 'seed') {
+      mainStageName = 'Task & Subtask Planning';
+    }
+
     const stages = [
       {
         id: 'main',
-        name: 'Main Generation',
+        name: mainStageName,
         provider: ceremony.provider,
         model: ceremony.defaultModel
       }
@@ -103,19 +137,19 @@ export class ModelConfigurator {
     if (ceremony.validation) {
       stages.push({
         id: 'validation',
-        name: 'Validation',
+        name: 'Quality Validation & Verification',
         provider: ceremony.validation.provider || ceremony.provider,
         model: ceremony.validation.model || ceremony.defaultModel
       });
     }
 
-    // Add stage-specific overrides
+    // Add stage-specific overrides with descriptive names
     if (ceremony.stages) {
       Object.keys(ceremony.stages).forEach(stageName => {
         const stage = ceremony.stages[stageName];
         stages.push({
           id: `stage-${stageName}`,
-          name: `${stageName.charAt(0).toUpperCase()}${stageName.slice(1)} Stage`,
+          name: this._getStageDisplayName(stageName, ceremonyName),
           provider: stage.provider,
           model: stage.model
         });

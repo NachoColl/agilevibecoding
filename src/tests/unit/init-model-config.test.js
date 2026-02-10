@@ -195,40 +195,40 @@ describe('ModelConfigurator', () => {
       configurator.readConfig();
     });
 
-    it('should return main generation stage', () => {
+    it('should return main generation stage with descriptive name', () => {
       const stages = configurator.getStagesForCeremony('sponsor-call');
       const mainStage = stages.find(s => s.id === 'main');
 
       expect(mainStage).toBeDefined();
-      expect(mainStage.name).toBe('Main Generation');
+      expect(mainStage.name).toBe('Project Definition & Planning');
       expect(mainStage.provider).toBe('claude');
       expect(mainStage.model).toBe('claude-sonnet-4-5-20250929');
     });
 
-    it('should return validation stage', () => {
+    it('should return validation stage with descriptive name', () => {
       const stages = configurator.getStagesForCeremony('sponsor-call');
       const validationStage = stages.find(s => s.id === 'validation');
 
       expect(validationStage).toBeDefined();
-      expect(validationStage.name).toBe('Validation');
+      expect(validationStage.name).toBe('Quality Validation & Verification');
       expect(validationStage.provider).toBe('gemini');
       expect(validationStage.model).toBe('gemini-2.5-pro');
     });
 
-    it('should return stage-specific overrides', () => {
+    it('should return stage-specific overrides with descriptive names', () => {
       const stages = configurator.getStagesForCeremony('sponsor-call');
       const suggestionsStage = stages.find(s => s.id === 'stage-suggestions');
       const documentationStage = stages.find(s => s.id === 'stage-documentation');
       const contextStage = stages.find(s => s.id === 'stage-context');
 
       expect(suggestionsStage).toBeDefined();
-      expect(suggestionsStage.name).toBe('Suggestions Stage');
+      expect(suggestionsStage.name).toBe('AI-Assisted Questionnaire');
 
       expect(documentationStage).toBeDefined();
-      expect(documentationStage.name).toBe('Documentation Stage');
+      expect(documentationStage.name).toBe('Project Documentation Creation');
 
       expect(contextStage).toBeDefined();
-      expect(contextStage.name).toBe('Context Stage');
+      expect(contextStage.name).toBe('Project Context Generation');
     });
 
     it('should return empty array for unknown ceremony', () => {
@@ -236,11 +236,10 @@ describe('ModelConfigurator', () => {
       expect(stages).toEqual([]);
     });
 
-    it('should capitalize stage names correctly', () => {
-      const stages = configurator.getStagesForCeremony('sponsor-call');
-      const suggestionsStage = stages.find(s => s.id === 'stage-suggestions');
-
-      expect(suggestionsStage.name).toBe('Suggestions Stage');
+    it('should provide ceremony-specific main stage names', () => {
+      const sponsorStages = configurator.getStagesForCeremony('sponsor-call');
+      const sponsorMain = sponsorStages.find(s => s.id === 'main');
+      expect(sponsorMain.name).toBe('Project Definition & Planning');
     });
   });
 
