@@ -1,19 +1,30 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import fs from 'fs';
 import path from 'path';
+import os from 'os';
 import { TemplateProcessor } from '../../cli/template-processor.js';
 import { TokenTracker } from '../../cli/token-tracker.js';
 
 describe('Token Tracking Integration', () => {
-  const testAvcPath = path.join(process.cwd(), '.avc');
-  const testTokenHistoryPath = path.join(testAvcPath, 'token-history.json');
-  const testAvcConfigPath = path.join(testAvcPath, 'avc.json');
+  let testDir;
+  let testAvcPath;
+  let testTokenHistoryPath;
+  let testAvcConfigPath;
+  let originalCwd;
 
   beforeEach(() => {
+    // Create isolated test directory in system temp
+    testDir = fs.mkdtempSync(path.join(os.tmpdir(), 'avc-token-test-'));
+    testAvcPath = path.join(testDir, '.avc');
+    testTokenHistoryPath = path.join(testAvcPath, 'token-history.json');
+    testAvcConfigPath = path.join(testAvcPath, 'avc.json');
+
+    // Mock process.cwd() to return test directory
+    originalCwd = process.cwd;
+    process.cwd = () => testDir;
+
     // Create test .avc directory
-    if (!fs.existsSync(testAvcPath)) {
-      fs.mkdirSync(testAvcPath, { recursive: true });
-    }
+    fs.mkdirSync(testAvcPath, { recursive: true });
 
     // Create minimal avc.json config
     const avcConfig = {
@@ -26,20 +37,15 @@ describe('Token Tracking Integration', () => {
       }
     };
     fs.writeFileSync(testAvcConfigPath, JSON.stringify(avcConfig, null, 2));
-
-    // Clean up any existing test token history
-    if (fs.existsSync(testTokenHistoryPath)) {
-      fs.unlinkSync(testTokenHistoryPath);
-    }
   });
 
   afterEach(() => {
-    // Clean up test files (but not the directory, as other tests may use it)
-    if (fs.existsSync(testTokenHistoryPath)) {
-      fs.unlinkSync(testTokenHistoryPath);
-    }
-    if (fs.existsSync(testAvcConfigPath)) {
-      fs.unlinkSync(testAvcConfigPath);
+    // Restore original process.cwd
+    process.cwd = originalCwd;
+
+    // Clean up entire test directory
+    if (fs.existsSync(testDir)) {
+      fs.rmSync(testDir, { recursive: true, force: true });
     }
   });
 
