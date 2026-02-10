@@ -1416,7 +1416,7 @@ const App = () => {
       // Only create logger for commands that do actual work
       // For /init, always create logger (it creates .avc)
       // For other commands, only create logger if .avc already exists
-      if (['/init', '/sponsor-call', '/status', '/remove'].includes(command.toLowerCase())) {
+      if (['/init', '/sponsor-call', '/status', '/remove', '/models'].includes(command.toLowerCase())) {
         if (command.toLowerCase() === '/init' || avcExists) {
           logger = new CommandLogger(commandName);
           logger.start();
@@ -2090,11 +2090,14 @@ https://agilevibecoding.org
   const runModels = async () => {
     const initiator = new ProjectInitiator();
 
-    // Capture console.log output
+    // Capture console.log output directly into REPL output
+    // CommandLogger will handle file logging
     const originalLog = console.log;
     let logs = [];
     console.log = (...args) => {
-      logs.push(args.join(' '));
+      const message = args.join(' ');
+      logs.push(message);
+      originalLog(...args);  // Forward to CommandLogger if active
     };
 
     let result;

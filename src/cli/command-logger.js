@@ -77,17 +77,30 @@ class CommandLogger {
     try {
       const timestamp = new Date().toISOString();
       const message = args.map(arg => {
+        if (arg === undefined) return 'undefined';
+        if (arg === null) return 'null';
         if (typeof arg === 'object') {
-          return JSON.stringify(arg, null, 2);
+          try {
+            // Handle circular references and non-serializable objects
+            return JSON.stringify(arg, (key, value) => {
+              if (typeof value === 'function') return '[Function]';
+              if (typeof value === 'symbol') return value.toString();
+              return value;
+            }, 2);
+          } catch (jsonError) {
+            return `[Object: ${arg.constructor?.name || 'Unknown'}]`;
+          }
         }
         return String(arg);
       }).join(' ');
 
-      const logEntry = `[${timestamp}] [${level}] ${message}\n`;
+      // Preserve formatting but ensure single newline at end
+      const logEntry = `[${timestamp}] [${level}] ${message}${message.endsWith('\n') ? '' : '\n'}`;
 
       fs.appendFileSync(this.logFilePath, logEntry, 'utf8');
     } catch (error) {
-      // Silently fail if we can't write to log
+      // Write error to stderr so it doesn't get captured in loop
+      process.stderr.write(`[CommandLogger] Failed to write log: ${error.message}\n`);
     }
   }
 
