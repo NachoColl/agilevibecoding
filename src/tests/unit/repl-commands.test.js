@@ -64,6 +64,7 @@ describe('REPL Command Consistency', () => {
         '/project-expansion',
         '/seed',
         '/status',
+        '/models',
         '/tokens',
         '/remove',
         '/processes',
@@ -80,6 +81,7 @@ describe('REPL Command Consistency', () => {
         '/sc': '/sponsor-call',
         '/pe': '/project-expansion',
         '/s': '/status',
+        '/m': '/models',
         '/tk': '/tokens',
         '/rm': '/remove',
         '/p': '/processes',
@@ -178,7 +180,7 @@ describe('REPL Command Consistency', () => {
       }
 
       // All aliases should be mentioned in help
-      const expectedAliases = ['/i', '/d', '/sc', '/s', '/rm', '/p', '/h', '/v'];
+      const expectedAliases = ['/i', '/d', '/sc', '/s', '/m', '/rm', '/p', '/h', '/v'];
       for (const alias of expectedAliases) {
         expect(helpText).toContain(alias);
       }
@@ -203,11 +205,11 @@ describe('REPL Command Consistency', () => {
         menuCommands.push(match[1]);
       }
 
-      // Expected: 13 base commands + 12 aliases in tab completion
-      expect(tabCommands.length).toBe(25);
+      // Expected: 14 base commands + 13 aliases in tab completion
+      expect(tabCommands.length).toBe(27);
 
-      // Expected: 13 base commands in menu (no aliases)
-      expect(menuCommands.length).toBe(13);
+      // Expected: 14 base commands in menu (no aliases)
+      expect(menuCommands.length).toBe(14);
     });
 
     it('should not have duplicate commands in any list', () => {
@@ -250,6 +252,7 @@ describe('REPL Command Consistency', () => {
         ['/d', '/documentation'],
         ['/sc', '/sponsor-call'],
         ['/s', '/status'],
+        ['/m', '/models'],
         ['/rm', '/remove'],
         ['/p', '/processes'],
         ['/h', '/help'],

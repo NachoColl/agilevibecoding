@@ -1013,7 +1013,7 @@ const CeremonySelector = ({ ceremonies, selectedIndex, onIndexChange }) => {
  */
 const StageSelector = ({ ceremonyName, stages, selectedIndex, availableProviders }) => {
   return React.createElement(Box, { flexDirection: 'column', borderStyle: 'round', borderColor: 'cyan', paddingX: 1 },
-    React.createElement(Text, { bold: true }, 'Ceremony: ' + ceremonyName),
+    React.createElement(Text, { bold: true }, ceremonyName),
     React.createElement(Text, {}, ''),
     React.createElement(Text, { dimColor: true }, 'Select Stage to Configure:'),
     React.createElement(Box, { flexDirection: 'column', marginTop: 1 },
@@ -1367,6 +1367,7 @@ const App = () => {
       '/quit': '/exit',
       '/i': '/init',
       '/s': '/status',
+      '/m': '/models',
       '/sc': '/sponsor-call',
       '/rm': '/remove',
       '/d': '/documentation',
@@ -1602,6 +1603,7 @@ const App = () => {
 /documentation (/d)      Build and serve project documentation
 /sponsor-call (/sc)      Run Sponsor Call ceremony
 /status (or /s)          Show current project status
+/models (or /m)          Configure LLM models for ceremonies
 /processes (/p)          View and manage background processes
 /remove (or /rm)         Remove AVC project structure
 /help (or /h)            Show this help message
@@ -2489,7 +2491,7 @@ https://agilevibecoding.org
         setMode('selector');
       }
     }
-  }, { isActive: mode === 'prompt' && !questionnaireActive && isStableRender });
+  }, { isActive: mode === 'prompt' && !questionnaireActive && !modelConfigActive && isStableRender });
 
   // Handle keyboard input in selector mode
   useInput((inputChar, key) => {
@@ -3315,44 +3317,29 @@ https://agilevibecoding.org
   useInput((input, key) => {
     if (!modelConfigActive || modelConfigMode !== 'prompt') return;
 
-    // Handle Enter key
-    if (key.return) {
-      const trimmedInput = modelConfigPromptInput.trim().toLowerCase();
-      if (trimmedInput === 'y') {
-        setModelConfigMode('ceremony');
-        setCeremonySelectIndex(0);
-        setModelConfigPromptInput('');
-        setOutput(prev => prev + '\n');
-      } else if (trimmedInput === 'n') {
-        setOutput(prev => prev + '\n✅ You can configure models later by editing .avc/avc.json\n');
-        setModelConfigActive(false);
-        setModelConfigPromptInput('');
-        setMode('prompt');
-      } else {
-        // Invalid input - just reset
-        setModelConfigPromptInput('');
-      }
-      return;
-    }
-
-    // Handle Backspace
-    if (key.backspace || key.delete) {
-      setModelConfigPromptInput(modelConfigPromptInput.slice(0, -1));
-      return;
-    }
-
     // Handle Escape (cancel)
     if (key.escape) {
       setOutput(prev => prev + '\n✅ You can configure models later by editing .avc/avc.json\n');
       setModelConfigActive(false);
-      setModelConfigPromptInput('');
+      setInput(''); // Clear input buffer
       setMode('prompt');
       return;
     }
 
-    // Regular character input - only allow single character (y or n)
-    if (input && !key.ctrl && !key.meta && modelConfigPromptInput.length === 0) {
-      setModelConfigPromptInput(input);
+    // Handle y/n input immediately (no Enter required)
+    if (input && !key.ctrl && !key.meta) {
+      const char = input.toLowerCase();
+      if (char === 'y') {
+        setModelConfigMode('ceremony');
+        setCeremonySelectIndex(0);
+        setOutput(prev => prev + '\n');
+      } else if (char === 'n') {
+        setOutput(prev => prev + '\n✅ You can configure models later by editing .avc/avc.json\n');
+        setModelConfigActive(false);
+        setInput(''); // Clear input buffer
+        setMode('prompt');
+      }
+      // Ignore other characters
     }
   }, { isActive: modelConfigActive && modelConfigMode === 'prompt' });
 
@@ -3387,6 +3374,7 @@ https://agilevibecoding.org
         setOutput(prev => prev + '\n💾 Configuration saved successfully!\n');
       }
       setModelConfigActive(false);
+      setInput(''); // Clear input buffer
       setMode('prompt');
       return;
     }
