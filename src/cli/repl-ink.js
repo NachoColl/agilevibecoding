@@ -1804,7 +1804,7 @@ https://agilevibecoding.org
     setEditMode(false);
     setShowPreview(false);
     setOutput(prev => prev +
-      '\n🎯 Sponsor Call Ceremony - Interactive Questionnaire\n' +
+      '\n🎯 Sponsor Call Ceremony\n' +
       '📖 https://agilevibecoding.org/ceremonies/sponsor-call\n'
     );
   };

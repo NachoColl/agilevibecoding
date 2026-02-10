@@ -93,7 +93,7 @@ export class ModelConfigurator {
     const stages = [
       {
         id: 'main',
-        name: 'Main',
+        name: 'Main Generation',
         provider: ceremony.provider,
         model: ceremony.defaultModel
       }
