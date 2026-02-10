@@ -1304,6 +1304,30 @@ AVC provides organizational structure for long-term AI-assisted development:
 4. **Logger Conditional Creation** - Only create logger if `.avc` exists (or for `/init`)
 5. **Documentation Sync** - Edit root MD files, never `docs/` directly
 6. **Console Output Formatting** - All console.log messages must be **fully left-aligned** with NO leading tabs or spaces (command-line style)
+7. **Temporary Files Organization** - All temporary/planning/work markdown files MUST be created in `_temp/` folder, NOT in root. Root should only contain: CLAUDE.md, README.md, COMMANDS.md, INSTALL.md, CONTRIBUTING.md, LICENSE
+
+### File Organization Rules
+
+**Root Directory (documentation only):**
+- `CLAUDE.md` - Project instructions for Claude Code
+- `README.md` - Main project documentation (synced to docs/index.md)
+- `COMMANDS.md` - CLI reference (synced to docs/commands.md)
+- `INSTALL.md` - Installation guide (synced to docs/install.md)
+- `CONTRIBUTING.md` - Contributor guide (synced to docs/contribute.md)
+- `LICENSE` - MIT license
+
+**_temp/ Directory (temporary/planning files):**
+- All implementation plans, checklists, summaries
+- All analysis documents, reports, strategies
+- All workflow documentation
+- Any markdown files created during development
+- Examples: `IMPLEMENTATION_PLAN.md`, `AGENT_VERIFICATION_REPORT.md`, `WORKFLOW.md`
+
+**IMPORTANT:** When Claude creates temporary markdown files for planning, tracking, or analysis:
+1. Always create them in `_temp/` directory
+2. Never create planning files in root
+3. If a temporary file exists in root, move it to `_temp/`
+4. Use descriptive ALL_CAPS names with underscores (e.g., `FEATURE_IMPLEMENTATION_PLAN.md`)
 
 ---
 
