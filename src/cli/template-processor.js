@@ -12,6 +12,20 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 /**
+ * Debug logging helper - adds timestamp and context
+ * @param {string} message - Log message
+ * @param {Object} data - Optional data to log
+ */
+function debug(message, data = null) {
+  const timestamp = new Date().toISOString();
+  if (data) {
+    console.log(`[DEBUG][${timestamp}] ${message}`, JSON.stringify(data, null, 2));
+  } else {
+    console.log(`[DEBUG][${timestamp}] ${message}`);
+  }
+}
+
+/**
  * TemplateProcessor - Handles interactive template processing with AI suggestions
  *
  * Core workflow:
@@ -988,19 +1002,25 @@ Return the enhanced markdown document.`;
    * Main workflow - process template and generate document
    */
   async processTemplate(initialProgress = null) {
+    debug('Starting processTemplate', { hasInitialProgress: !!initialProgress, ceremony: this.ceremonyName });
     console.log('\n📋 Project Setup Questionnaire\n');
 
     // 1. Read template
+    debug('Reading template file', { templatePath: this.templatePath });
     const templateContent = fs.readFileSync(this.templatePath, 'utf8');
+    debug('Template loaded', { size: templateContent.length });
 
     // 2. Extract variables
+    debug('Extracting variables from template');
     const variables = this.extractVariables(templateContent);
+    debug('Variables extracted', { count: variables.length, names: variables.map(v => v.name) });
 
     // 3. Initialize or restore progress
     let collectedValues = {};
     let answeredCount = 0;
 
     if (initialProgress && initialProgress.collectedValues) {
+      debug('Restoring from initial progress', { answeredCount: Object.keys(initialProgress.collectedValues).length });
       collectedValues = { ...initialProgress.collectedValues };
       answeredCount = Object.keys(collectedValues).length;
 

@@ -468,6 +468,357 @@ process.on('unhandledRejection', (reason) => {
 
 ---
 
+## Debug Logging Guidelines
+
+**Critical Requirement:** All commands that do actual work MUST have comprehensive step-by-step debug logging to enable troubleshooting and monitoring. Logs are automatically saved to `.avc/logs/{command}-{timestamp}.log` via CommandLogger.
+
+### Logging Architecture
+
+**CommandLogger System:**
+- Automatically captures all `console.log`, `console.error`, `console.warn`, `console.info` calls
+- Writes to both console (for UI) and log file (for debugging)
+- Active for commands: `/init`, `/sponsor-call`, `/project-expansion`, `/seed`, `/status`, `/models`, `/tokens`, `/remove`, `/documentation`
+- NOT active for informational commands: `/help`, `/version`, `/exit`, `/restart`, `/processes`
+
+**Debug Helper Function Pattern:**
+```javascript
+/**
+ * Debug logging helper - adds timestamp and context
+ * Use this for detailed execution flow logging
+ */
+function debug(message, data = null) {
+  const timestamp = new Date().toISOString();
+  if (data) {
+    console.log(`[DEBUG][${timestamp}] ${message}`, JSON.stringify(data, null, 2));
+  } else {
+    console.log(`[DEBUG][${timestamp}] ${message}`);
+  }
+}
+```
+
+### What to Log
+
+**1. Function Entry/Exit**
+```javascript
+async function processTemplate(initialProgress = null) {
+  debug('Starting processTemplate', {
+    hasInitialProgress: !!initialProgress,
+    ceremony: this.ceremonyName
+  });
+
+  try {
+    // ... function body ...
+
+    debug('processTemplate completed', { filesCreated: 5, tokensUsed: 1234 });
+  } catch (error) {
+    debug('processTemplate failed', { error: error.message, stack: error.stack });
+    throw error;
+  }
+}
+```
+
+**2. State Changes**
+```javascript
+// Before state change
+debug('Transitioning ceremony stage', { from: 'questionnaire', to: 'generation' });
+this.stage = 'generation';
+
+// After state change
+debug('Stage transition complete', { stage: this.stage, tokensUsed: this.tokenTracker.getTotal() });
+```
+
+**3. API Calls (Before and After)**
+```javascript
+debug('Calling LLM API', {
+  operation: 'generateJSON',
+  provider: this._providerName,
+  model: this._modelName,
+  promptLength: prompt.length,
+  maxTokens: 8000
+});
+
+const response = await this.llmProvider.generateJSON(prompt, agentInstructions);
+
+debug('LLM API response received', {
+  operation: 'generateJSON',
+  responseLength: JSON.stringify(response).length,
+  tokensUsed: this.llmProvider.getTokensUsed()
+});
+```
+
+**4. Decision Points**
+```javascript
+if (initialProgress && initialProgress.collectedValues) {
+  debug('Restoring from saved progress', {
+    answeredCount: Object.keys(initialProgress.collectedValues).length,
+    totalQuestions: variables.length
+  });
+  collectedValues = { ...initialProgress.collectedValues };
+} else {
+  debug('Starting fresh questionnaire', {
+    totalQuestions: variables.length
+  });
+  collectedValues = {};
+}
+```
+
+**5. File Operations**
+```javascript
+debug('Reading template file', { path: this.templatePath });
+const content = fs.readFileSync(this.templatePath, 'utf8');
+debug('Template loaded', { size: content.length, lines: content.split('\n').length });
+
+debug('Writing output file', { path: this.outputPath, size: finalContent.length });
+fs.writeFileSync(this.outputPath, finalContent, 'utf8');
+debug('File written successfully');
+```
+
+**6. Loop Iterations (for critical loops)**
+```javascript
+debug('Starting variable collection loop', { totalVariables: variables.length });
+
+for (const [index, variable] of variables.entries()) {
+  debug(`Processing variable ${index + 1}/${variables.length}`, {
+    name: variable.name,
+    isPlural: variable.isPlural,
+    hasDefault: !!defaults[variable.name]
+  });
+
+  // ... processing ...
+
+  debug(`Variable processed`, {
+    name: variable.name,
+    valueLength: result.value?.length || 0,
+    skipped: result.value === null
+  });
+}
+
+debug('Variable collection complete', { collected: Object.keys(collectedValues).length });
+```
+
+**7. Error Context (always log full context)**
+```javascript
+try {
+  await this.generateDocumentation(context);
+} catch (error) {
+  debug('Documentation generation failed', {
+    error: error.message,
+    stack: error.stack,
+    context: {
+      stage: this.stage,
+      tokensUsed: this.tokenTracker.getTotal(),
+      filesCreated: this.filesCreated.length
+    }
+  });
+  throw error;
+}
+```
+
+**8. Progress Callbacks**
+```javascript
+const progressCallback = (message, substep = null, metadata = {}) => {
+  debug('Progress update', {
+    message,
+    substep,
+    metadata,
+    currentStage: this.stage
+  });
+
+  if (substep !== null) {
+    this.currentSubstep = substep;
+  }
+};
+```
+
+### Log Level Guidelines
+
+**Use `debug()` for:**
+- Execution flow tracking
+- Function entry/exit
+- State transitions
+- API call details
+- Decision branches taken
+- Loop iterations (critical loops only)
+- Variable values at key points
+
+**Use `console.log()` for:**
+- User-facing progress messages
+- Success confirmations
+- File paths created
+- Summary information
+
+**Use `console.error()` for:**
+- Error messages (user-facing)
+- Validation failures
+- API errors (after retries exhausted)
+
+**Use `console.warn()` for:**
+- Non-critical issues
+- Fallback behavior
+- Missing optional configuration
+- Performance warnings
+
+### Anti-Patterns (DO NOT DO)
+
+**❌ Don't log sensitive data:**
+```javascript
+// BAD
+debug('API call', { apiKey: process.env.ANTHROPIC_API_KEY });
+
+// GOOD
+debug('API call', { hasApiKey: !!process.env.ANTHROPIC_API_KEY });
+```
+
+**❌ Don't log in tight loops without conditionals:**
+```javascript
+// BAD - Creates massive log files
+for (let i = 0; i < 10000; i++) {
+  debug('Processing item', { i });
+}
+
+// GOOD - Only log at intervals or thresholds
+for (let i = 0; i < 10000; i++) {
+  if (i % 1000 === 0) {
+    debug('Progress', { processed: i, total: 10000 });
+  }
+}
+```
+
+**❌ Don't use string concatenation with objects:**
+```javascript
+// BAD
+debug('Processing ' + variable.name + ' with ' + variable.isPlural);
+
+// GOOD
+debug('Processing variable', { name: variable.name, isPlural: variable.isPlural });
+```
+
+**❌ Don't skip error context:**
+```javascript
+// BAD
+try {
+  await riskyOperation();
+} catch (error) {
+  debug('Error occurred');
+  throw error;
+}
+
+// GOOD
+try {
+  await riskyOperation();
+} catch (error) {
+  debug('Operation failed', {
+    error: error.message,
+    stack: error.stack,
+    context: { stage: this.stage, state: this.currentState }
+  });
+  throw error;
+}
+```
+
+### Verifying Logs Are Written
+
+**After adding logging:**
+1. Run command: `avc /sponsor-call` (or relevant command)
+2. Check log file: `.avc/logs/{command}-{timestamp}.log`
+3. Verify all debug messages appear with timestamps
+4. Confirm execution flow is clear from logs alone
+
+**Example verification:**
+```bash
+# Run command
+cd /path/to/project
+avc
+/sponsor-call
+
+# Check latest log
+ls -lh .avc/logs/sponsor-call-*.log | tail -1
+
+# View log
+cat .avc/logs/sponsor-call-2026-02-10-15-30-00.log
+```
+
+**Good log file should show:**
+- Clear start/end markers
+- Function entry/exit points
+- Decision branches taken
+- API calls with parameters and responses
+- State transitions
+- File operations
+- Error context if failures occur
+
+### Example: Well-Logged Function
+
+```javascript
+async function generateProjectContext(collectedValues, progressCallback) {
+  debug('Starting generateProjectContext', {
+    variableCount: Object.keys(collectedValues).length,
+    hasProgressCallback: !!progressCallback
+  });
+
+  try {
+    // 1. Build context
+    debug('Building context from collected values');
+    const context = this.buildContext(collectedValues);
+    debug('Context built', { contextLength: JSON.stringify(context).length });
+
+    // 2. Get agent instructions
+    debug('Loading agent instructions', { agent: 'project-context-generator' });
+    const agent = this.getAgentForStage('context');
+    debug('Agent loaded', { hasInstructions: !!agent });
+
+    // 3. Call LLM
+    debug('Calling LLM for context generation', {
+      provider: this._providerName,
+      model: this._modelName,
+      contextSize: JSON.stringify(context).length
+    });
+
+    if (progressCallback) {
+      progressCallback('Generating project context...', 'context-generation');
+    }
+
+    const response = await this.llmProvider.generateText(
+      this.buildContextPrompt(context),
+      agent
+    );
+
+    debug('LLM response received', {
+      responseLength: response.length,
+      tokensUsed: this.llmProvider.getTokensUsed()
+    });
+
+    // 4. Save to file
+    const outputPath = path.join(this.outputDir, 'context.md');
+    debug('Writing context file', { path: outputPath, size: response.length });
+    fs.writeFileSync(outputPath, response, 'utf8');
+    debug('Context file written successfully');
+
+    debug('generateProjectContext completed', {
+      outputPath,
+      tokensUsed: this.llmProvider.getTokensUsed()
+    });
+
+    return response;
+
+  } catch (error) {
+    debug('generateProjectContext failed', {
+      error: error.message,
+      stack: error.stack,
+      context: {
+        stage: this.stage,
+        tokensUsed: this.tokenTracker?.getTotal() || 0
+      }
+    });
+    throw error;
+  }
+}
+```
+
+**Location:** See `template-processor.js` for implementation examples
+
+---
+
 ## Development Workflow
 
 ### Working on CLI Code
