@@ -64,7 +64,10 @@ export class OpenAIProvider extends LLMProvider {
       params.reasoning = { effort: this.reasoningEffort };
     }
 
-    const response = await this._client.responses.create(params);
+    const response = await this._withRetry(
+      () => this._client.responses.create(params),
+      'Responses API call'
+    );
 
     // Track tokens if usage data is available
     if (response.usage) {
@@ -131,7 +134,10 @@ export class OpenAIProvider extends LLMProvider {
         params.response_format = { type: 'json_object' };
       }
 
-      const response = await this._client.chat.completions.create(params);
+      const response = await this._withRetry(
+        () => this._client.chat.completions.create(params),
+        'JSON generation (Chat Completions)'
+      );
 
       this._trackTokens(response.usage);
       const content = response.choices[0].message.content;
@@ -171,11 +177,14 @@ export class OpenAIProvider extends LLMProvider {
         }
       ];
 
-      const response = await this._client.chat.completions.create({
-        model: this.model,
-        max_tokens: 8000,
-        messages
-      });
+      const response = await this._withRetry(
+        () => this._client.chat.completions.create({
+          model: this.model,
+          max_tokens: 8000,
+          messages
+        }),
+        'Text generation (Chat Completions)'
+      );
 
       this._trackTokens(response.usage);
       return response.choices[0].message.content;

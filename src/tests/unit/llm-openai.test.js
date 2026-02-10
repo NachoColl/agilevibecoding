@@ -536,7 +536,9 @@ describe('OpenAIProvider', () => {
     });
 
     it('returns error code for rate limit errors', async () => {
-      const provider = new OpenAIProvider('gpt-5.2-chat-latest');
+      // Use minimal retries for this test to avoid timeout
+      const provider = new OpenAIProvider('gpt-5.2-chat-latest', 'medium');
+      provider.retryConfig = { maxRetries: 1, initialDelay: 100 };
 
       const error = new Error('Rate limit exceeded');
       error.status = 429;
@@ -555,7 +557,7 @@ describe('OpenAIProvider', () => {
 
       expect(result.valid).toBe(false);
       expect(result.code).toBe(429);
-    });
+    }, 15000); // Increase timeout to 15 seconds for retry tests
 
     it('handles network errors', async () => {
       const provider = new OpenAIProvider('gpt-5.2-chat-latest');

@@ -33,15 +33,18 @@ export class ClaudeProvider extends LLMProvider {
 
     const fullPrompt = agentInstructions ? `${agentInstructions}\n\n${prompt}` : prompt;
 
-    const response = await this._client.messages.create({
-      model: this.model,
-      max_tokens: 8000,
-      messages: [{
-        role: 'user',
-        content: fullPrompt
-      }],
-      system: 'You are a helpful assistant that always returns valid JSON. Your response must be a valid JSON object or array, nothing else.'
-    });
+    const response = await this._withRetry(
+      () => this._client.messages.create({
+        model: this.model,
+        max_tokens: 8000,
+        messages: [{
+          role: 'user',
+          content: fullPrompt
+        }],
+        system: 'You are a helpful assistant that always returns valid JSON. Your response must be a valid JSON object or array, nothing else.'
+      }),
+      'JSON generation (Claude)'
+    );
 
     this._trackTokens(response.usage);
     const content = response.content[0].text;
@@ -71,14 +74,17 @@ export class ClaudeProvider extends LLMProvider {
 
     const fullPrompt = agentInstructions ? `${agentInstructions}\n\n${prompt}` : prompt;
 
-    const response = await this._client.messages.create({
-      model: this.model,
-      max_tokens: 8000,
-      messages: [{
-        role: 'user',
-        content: fullPrompt
-      }]
-    });
+    const response = await this._withRetry(
+      () => this._client.messages.create({
+        model: this.model,
+        max_tokens: 8000,
+        messages: [{
+          role: 'user',
+          content: fullPrompt
+        }]
+      }),
+      'Text generation (Claude)'
+    );
 
     this._trackTokens(response.usage);
     return response.content[0].text;

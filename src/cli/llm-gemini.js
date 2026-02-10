@@ -45,7 +45,10 @@ export class GeminiProvider extends LLMProvider {
       }
     };
 
-    const response = await this._client.models.generateContent(params);
+    const response = await this._withRetry(
+      () => this._client.models.generateContent(params),
+      'JSON generation (Gemini)'
+    );
     if (!response.text) {
       throw new Error('Gemini returned no text (possible safety filter block).');
     }
@@ -85,7 +88,10 @@ export class GeminiProvider extends LLMProvider {
       }
     };
 
-    const response = await this._client.models.generateContent(params);
+    const response = await this._withRetry(
+      () => this._client.models.generateContent(params),
+      'Text generation (Gemini)'
+    );
     if (!response.text) {
       throw new Error('Gemini returned no text (possible safety filter block).');
     }
