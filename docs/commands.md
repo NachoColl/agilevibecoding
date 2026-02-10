@@ -127,7 +127,7 @@ AVC supports multiple LLM providers. Configure your preferred provider per cerem
 |----------|-------------------|----------|
 | **Claude** | `claude-sonnet-4-5-20250929` | General documentation, balanced cost/performance |
 | **Gemini** | `gemini-2.5-flash`, `gemini-2.5-pro` | Fast generation, cost-efficient |
-| **OpenAI** | `gpt-5.2-chat-latest`, `gpt-5.3-codex`, `o3-mini` | Code-heavy docs, flexible options |
+| **OpenAI** | `gpt-5.2-chat-latest`, `gpt-5.2-codex`, `o3-mini` | Code-heavy docs, flexible options |
 
 **Example Configuration**:
 

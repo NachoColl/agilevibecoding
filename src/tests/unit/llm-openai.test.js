@@ -19,9 +19,9 @@ describe('OpenAIProvider', () => {
     });
 
     it('stores model name', () => {
-      const provider = new OpenAIProvider('gpt-5.3-codex');
+      const provider = new OpenAIProvider('gpt-5.2-codex');
 
-      expect(provider.model).toBe('gpt-5.3-codex');
+      expect(provider.model).toBe('gpt-5.2-codex');
     });
 
     it('initializes _client to null', () => {

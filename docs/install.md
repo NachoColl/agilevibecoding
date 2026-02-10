@@ -74,7 +74,7 @@ Each ceremony in `.avc/avc.json` can use a different provider (model) - as for e
 |----------|--------|-----------------|-------------|
 | **Claude** (Anthropic) | `claude-sonnet-4-5-20250929`<br>`claude-opus-4-5-20251101` | `ANTHROPIC_API_KEY` | [console.anthropic.com](https://console.anthropic.com/settings/keys) |
 | **Gemini** (Google) | `gemini-2.5-flash`<br>`gemini-2.5-pro` | `GEMINI_API_KEY` | [aistudio.google.com](https://aistudio.google.com/app/apikey) |
-| **OpenAI** | `gpt-5.2-chat-latest`<br>`gpt-5.3-codex`<br>`o3-mini` | `OPENAI_API_KEY` | [platform.openai.com](https://platform.openai.com/api-keys) |
+| **OpenAI** | `gpt-5.2-chat-latest`<br>`gpt-5.2-codex`<br>`o3-mini` | `OPENAI_API_KEY` | [platform.openai.com](https://platform.openai.com/api-keys) |
 
 ### OpenAI Setup (Optional)
 
@@ -112,7 +112,7 @@ To use OpenAI models with AVC:
 | `gpt-5.2` | Harder tasks, spreadsheets, financial modeling | High |
 | `gpt-5.2-pro` | Difficult questions, most trustworthy | Highest |
 | `o3-mini` | Cost-efficient reasoning, validation | Low |
-| `gpt-5.3-codex` | Most capable coding (API access coming) | High |
+| `gpt-5.2-codex` | Most capable coding (API access coming) | High |
 | `gpt-5.2-codex` | Advanced coding tasks | High |
 
 **Note**: OpenAI requires billing setup (minimum $5) even for paid ChatGPT subscribers.
