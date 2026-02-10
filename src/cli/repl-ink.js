@@ -997,13 +997,16 @@ const CeremonySelector = ({ ceremonies, selectedIndex, onIndexChange }) => {
         React.createElement(Box, { key: ceremony.name, flexDirection: 'column' },
           React.createElement(Text, { color: idx === selectedIndex ? 'green' : 'white' },
             (idx === selectedIndex ? '› ' : '  ') + (idx + 1) + '. ' + ceremony.name
-          ),
+          )/* No need to show the ceremony details.
+          ,
           React.createElement(Text, { dimColor: true },
             'Main: ' + ceremony.mainModel + ' | Validation: ' + (ceremony.validationModel || 'none')
           )
+          */
         )
       )
     ),
+    React.createElement(Text, {}, ''),
     React.createElement(Text, { dimColor: true, marginTop: 1 }, '(Press Enter to select, Esc to finish)')
   );
 };
@@ -1059,9 +1062,9 @@ const ModelSelector = ({ stageName, currentModel, models, selectedIndex }) => {
         );
       })
     ),
-    React.createElement(Text, { dimColor: true, marginTop: 1 }, '(Press Enter to select, Esc to cancel)'),
-    React.createElement(Text, { dimColor: true }, 'Note: Models without API keys can be selected;'),
-    React.createElement(Text, { dimColor: true }, 'add the key to .env before running ceremonies')
+    React.createElement(Text, {}, ''),
+    React.createElement(Text, { dimColor: true }, '(Press Enter to select, Esc to cancel)'),
+    React.createElement(Text, { dimColor: true }, 'Models without API keys can be selected; add the key to .env before running ceremonies'),
   );
 };
 

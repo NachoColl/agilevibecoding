@@ -71,7 +71,7 @@ export class UpdateChecker {
       return packageJson.version;
     } catch (error) {
       updateLogger.error('Failed to read current version', error);
-      console.error('Failed to read current version:', error.message);
+      // Don't use console.error - it interferes with React Ink rendering during startup
       return null;
     }
   }

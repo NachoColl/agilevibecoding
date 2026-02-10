@@ -975,7 +975,7 @@ If you're new to Agile Vibe Coding, visit the [AVC Documentation](https://agilev
 
     // Suppress all console output during initialization
     const originalLog = console.log;
-    console.log = () => {};
+    console.log = () => { };
 
     try {
       // Create project structure silently
@@ -1032,23 +1032,22 @@ If you're new to Agile Vibe Coding, visit the [AVC Documentation](https://agilev
     configurator.readConfig();
 
     // Show current configuration
-    console.log('📋 Current Model Configuration:');
-    console.log(''); // Add space after title
     const ceremonies = configurator.getCeremonies();
     ceremonies.forEach(c => {
       const ceremonyUrl = `https://agilevibecoding.org/ceremonies/${c.name}.html`;
-      console.log(`Ceremony: ${c.name} - ${ceremonyUrl}`);
-      console.log(`• Main Generation: ${c.mainModel} (${c.mainProvider})`);
+      console.log(`${c.name} - ${ceremonyUrl}`);
+      console.log(''); // Add space after title
+      console.log(`• main -> ${c.mainModel} (${c.mainProvider})`);
       if (c.validationProvider) {
         const hasValidationKey = configurator.availableProviders.includes(c.validationProvider);
-        const keyWarning = hasValidationKey ? '' : ' ⚠️  No API key';
-        console.log(`• Validation: ${c.validationModel} (${c.validationProvider})${keyWarning}`);
+        const keyWarning = hasValidationKey ? '' : ' ⚠️ No API key';
+        console.log(`• validation -> ${c.validationModel} (${c.validationProvider})${keyWarning}`);
       }
       Object.keys(c.stages).forEach(stageName => {
         const stage = c.stages[stageName];
         const hasStageKey = configurator.availableProviders.includes(stage.provider);
-        const keyWarning = hasStageKey ? '' : ' ⚠️  No API key';
-        console.log(`• ${stageName}: ${stage.model} (${stage.provider})${keyWarning}`);
+        const keyWarning = hasStageKey ? '' : ' ⚠️ No API key';
+        console.log(`• ${stageName} -> ${stage.model} (${stage.provider})${keyWarning}`);
       });
       console.log(''); // Add space after each ceremony
     });

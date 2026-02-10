@@ -19,9 +19,8 @@ export default defineConfig({
 
     sidebar: [
       {
-        text: 'Project',
         items: [
-          { text: 'Overview', link: '/' }
+          { text: 'Project Brief', link: '/' }
         ]
       }
     ],

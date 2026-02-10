@@ -10,26 +10,49 @@ Agile Vibe Coding (AVC) is a structured approach to consistent long-term softwar
 
 Large software projects stress LLM-based coding in ways that differ fundamentally from how human development teams operate. Unlike humans, which retain long-term memory and build overall abstract understanding through iteration, LLMs do not have these capacities. 
 
-- LLMs are probabilistic and sensitive to prompt formulation.
-- LLM's context should not be understood as a memory but as information.
-- When context exceeds a model's effective range, coherence degrades.
-- The linear predictive nature of LLMs enforces sequential reasoning, limiting native parallel deliberation.
+- **LLMs are probabilistic and sensitive to prompt formulation**, leading to variability in outputs for semantically similar inputs.
+
+- **LLM context should not be understood as memory but as transient information**, reprocessed statically at each generation step.
+
+- **When context exceeds a model’s effective range, coherence and constraint adherence degrade** due to attention dilution and approximation.
+
+- **The linear predictive nature of LLMs enforces sequential reasoning**, limiting explicit parallel deliberation and hypothesis comparison.
+
+- **LLMs lack grounded understanding**, operating on learned token correlations rather than sensorimotor or experiential semantics.
+
+- **Knowledge is bounded by training data and cutoff**, making models inherently outdated without external retrieval mechanisms.
+
+- **Reasoning emerges from pattern completion rather than explicit inference**, making logical consistency unreliable under distribution shift.
+
+- **Multi-step reasoning reliability decreases with depth**, as intermediate errors accumulate without internal self-verification.
+
+- **LLMs cannot internally verify truth or correctness**, lacking an intrinsic notion of factuality or epistemic uncertainty.
+
+- **LLMs do not maintain persistent internal state across interactions**, preventing cumulative learning or long-term commitment tracking.
+
+- **Learning and adaptation do not occur during inference**, even when explicit feedback or corrections are provided.
+
+- **Salient information in context is not guaranteed to be attended to**, even when explicitly stated.
+
+- **Counterfactual and causal reasoning are approximate**, relying on surface plausibility rather than explicit causal models.
+
 
 Left unguided, AI coding agents drift. Context decays. Abstractions fracture. Logic duplicates. Regressions surface across independently generated features. 
 
 These are not defects of the models, but natural consequences of bounded context, ephemeral reasoning, and probabilistic generation operating without the persistent internal understanding that humans develop over time.
 
-Can we still build large, complex systems with LLMs despite these constraints? Yes. By shaping context, constraints, and verification through deliberate frameworks and disciplined practice, we guide LLMs toward coherent outcomes. Where models lack persistent understanding, we supply externalized knowledge through a framework: where reasoning is ephemeral, we anchor it in artifacts. 
+Can we still build large, complex systems with LLMs despite these constraints? 
+
+Yes. By shaping context, constraints, and verification through deliberate frameworks and disciplined practice, we guide LLMs toward coherent outcomes. Where models lack persistent understanding, we supply externalized knowledge through a framework: where reasoning is ephemeral, we anchor it in artifacts. 
 
 Let's call it **the Agile Vibe Coding framework**.
 
 ## The Agile Vibe Coding Framework
 
-AVC provides a hierarchy of assets, workflows, agents and best practices for handling the common challenges of sustained software delivery using LLMs.
+AVC gets inspired by the Agile project management best practices adding a set of assets, ceremonies and tools for handling the common challenges of sustained software delivery using LLMs.
 
-### AVC Assets Hierarchy
+### Assets Hierarchy
 
-AVC gets inspired by the Agile project management best practices and uses the same work hierarchy (Epic → Story → Task → Subtask) adding context boundaries.
 
 ```
 project/
@@ -57,11 +80,11 @@ project/
 
 ### Context Scopes (context.md files)
 
-Context in AVC is the minimal set of information required for LLM models to properly implement the work item (in singular) closer to it. 
+A context scope is the minimal set of information required for LLM models to properly implement the work item (in singular) closer to it.
 
 ### Documentation Scopes (doc.md files)
 
-A documentation item is a well structured project documentation related to the work item closer to it.
+A documentation item contains project documentation related to the work item closer to it.
 
 ### Work Item
 

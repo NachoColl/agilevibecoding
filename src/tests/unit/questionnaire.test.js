@@ -37,6 +37,7 @@ describe('Questionnaire Feature', () => {
         MISSION_STATEMENT: 'Test mission',
         TARGET_USERS: 'Test users',
         INITIAL_SCOPE: 'Test scope',
+        DEPLOYMENT_TARGET: 'AWS cloud',
         TECHNICAL_CONSIDERATIONS: 'Test tech',
         SECURITY_AND_COMPLIANCE_REQUIREMENTS: 'Test security'
       };
@@ -60,6 +61,7 @@ describe('Questionnaire Feature', () => {
         MISSION_STATEMENT: 'A comprehensive project management tool',
         TARGET_USERS: 'Software developers and project managers',
         INITIAL_SCOPE: 'Task tracking, time management, reporting',
+        DEPLOYMENT_TARGET: 'AWS cloud with serverless stack',
         TECHNICAL_CONSIDERATIONS: 'React, Node.js, PostgreSQL',
         SECURITY_AND_COMPLIANCE_REQUIREMENTS: 'HTTPS, JWT authentication'
       };
@@ -92,6 +94,7 @@ describe('Questionnaire Feature', () => {
         MISSION_STATEMENT: 'A comprehensive project management tool',
         TARGET_USERS: null, // Skipped
         INITIAL_SCOPE: 'Task tracking, time management',
+        DEPLOYMENT_TARGET: null, // Skipped
         TECHNICAL_CONSIDERATIONS: null, // Skipped
         SECURITY_AND_COMPLIANCE_REQUIREMENTS: 'HTTPS, JWT'
       };
@@ -114,6 +117,7 @@ describe('Questionnaire Feature', () => {
         MISSION_STATEMENT: 'Test mission',
         TARGET_USERS: 'Test users',
         INITIAL_SCOPE: 'Test scope',
+        DEPLOYMENT_TARGET: 'AWS cloud',
         TECHNICAL_CONSIDERATIONS: 'Test tech',
         SECURITY_AND_COMPLIANCE_REQUIREMENTS: 'Test security'
       };
@@ -224,7 +228,7 @@ Users: {{TARGET_USERS}}`;
     it('should save progress correctly', () => {
       const progress = {
         stage: 'questionnaire',
-        totalQuestions: 5,
+        totalQuestions: 6,
         answeredQuestions: 3,
         collectedValues: {
           MISSION_STATEMENT: 'Test mission',
@@ -256,7 +260,7 @@ Users: {{TARGET_USERS}}`;
       // Create progress file
       const progress = {
         stage: 'questionnaire',
-        totalQuestions: 5,
+        totalQuestions: 6,
         answeredQuestions: 2
       };
       initiator.writeProgress(progress, progressPath);
@@ -271,8 +275,8 @@ Users: {{TARGET_USERS}}`;
       // Create progress file
       const progress = {
         stage: 'questionnaire',
-        totalQuestions: 5,
-        answeredQuestions: 5
+        totalQuestions: 6,
+        answeredQuestions: 6
       };
       initiator.writeProgress(progress, progressPath);
 
@@ -293,6 +297,7 @@ Users: {{TARGET_USERS}}`;
         MISSION_STATEMENT: null,
         TARGET_USERS: null,
         INITIAL_SCOPE: null,
+        DEPLOYMENT_TARGET: null,
         TECHNICAL_CONSIDERATIONS: null,
         SECURITY_AND_COMPLIANCE_REQUIREMENTS: null
       };
@@ -314,6 +319,7 @@ Users: {{TARGET_USERS}}`;
         MISSION_STATEMENT: '',
         TARGET_USERS: '',
         INITIAL_SCOPE: 'Something',
+        DEPLOYMENT_TARGET: '',
         TECHNICAL_CONSIDERATIONS: '',
         SECURITY_AND_COMPLIANCE_REQUIREMENTS: ''
       };
@@ -337,6 +343,7 @@ Users: {{TARGET_USERS}}`;
         MISSION_STATEMENT: longAnswer,
         TARGET_USERS: 'Users',
         INITIAL_SCOPE: 'Scope',
+        DEPLOYMENT_TARGET: 'AWS cloud',
         TECHNICAL_CONSIDERATIONS: 'Tech',
         SECURITY_AND_COMPLIANCE_REQUIREMENTS: 'Security'
       };
@@ -372,6 +379,7 @@ Users: {{TARGET_USERS}}`;
         MISSION_STATEMENT: 'Test',
         TARGET_USERS: 'Users',
         INITIAL_SCOPE: 'Scope',
+        DEPLOYMENT_TARGET: 'AWS cloud',
         TECHNICAL_CONSIDERATIONS: 'Tech',
         SECURITY_AND_COMPLIANCE_REQUIREMENTS: 'Security'
       };

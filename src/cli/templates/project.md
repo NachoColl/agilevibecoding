@@ -14,6 +14,10 @@ You will be helping to create a comprehensive Project Brief. This document will 
 
 {{INITIAL_SCOPE}}
 
+### Deployment Target
+
+{{DEPLOYMENT_TARGET}}
+
 ### Technical Considerations
 
 {{TECHNICAL_CONSIDERATIONS}}
