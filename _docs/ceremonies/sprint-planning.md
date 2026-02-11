@@ -2,7 +2,7 @@
 
 ## Overview
 
-The **Sprint Planning** ceremony decomposes your project scope into domain-based Epics and user-facing Stories with intelligent duplicate detection.
+The **Sprint Planning** ceremony decomposes your project scope into domain-based Epics and Stories with intelligent duplicate detection.
 
 **Input**
 
@@ -31,17 +31,17 @@ The **Sprint Planning** ceremony decomposes your project scope into domain-based
 
 ## Ceremony Workflow
 
-The Sprint Planning ceremony reads your Initial Scope and project context, then uses AI agents to decompose it into Epics (3-7 domain groupings) and Stories (2-8 user capabilities per Epic) with automatic duplicate detection.
+The Sprint Planning ceremony reads your Initial Scope and project context, then uses AI agents to decompose it into Epics (3-7 domain groupings) and Stories (2-8 deliverable capabilities per Epic) with automatic duplicate detection.
 
 ```mermaid
 sequenceDiagram
     actor User
     participant REPL as AVC REPL
-    participant Proc as Sprint Planning Processor
+    participant Proc as Processor
     participant ProjFS as Project Files
-    participant HierFS as Existing Hierarchy
-    participant Decomp as Epic/Story Decomposer
-    participant CtxGen as Context Generator
+    participant HierFS as Hierarchy
+    participant Decomp as Decomposer
+    participant CtxGen as Context Gen
     participant OutFS as File System
 
     User->>REPL: /sprint-planning
@@ -51,94 +51,85 @@ sequenceDiagram
     Proc->>ProjFS: Check doc.md exists?
     Proc->>ProjFS: Check context.md exists?
     alt Missing files
-        Proc-->>User: ❌ Run /sponsor-call first
+        Proc-->>User: Run /sponsor-call first
     end
 
     Note over Proc: Stage 2: Read Existing
-    Proc->>HierFS: Scan .avc/project/*/work.json
-    HierFS-->>Proc: Existing Epics/Stories maps + max IDs
+    Proc->>HierFS: Scan work.json files
+    HierFS-->>Proc: Existing Epics/Stories + max IDs
 
     Note over Proc: Stage 3: Collect Scope
     Proc->>ProjFS: Read doc.md
-    ProjFS-->>Proc: Extract ## Initial Scope section
+    ProjFS-->>Proc: Initial Scope section
     Proc->>ProjFS: Read context.md
     ProjFS-->>Proc: Project context
 
     Note over Proc: Stage 4: Decompose
     Proc->>Decomp: Generate Epics/Stories
-    Note right of Decomp: Input:<br/>- Initial Scope<br/>- Project context<br/>- Existing Epic names<br/>- Existing Story names
-    Decomp-->>Proc: Hierarchy JSON (3-7 Epics, 2-8 Stories each)
+    Decomp-->>Proc: Hierarchy JSON
 
     Note over Proc: Stage 5: Renumber IDs
-    Proc->>Proc: Assign context-XXXX IDs<br/>(avoid collisions)
+    Proc->>Proc: Assign context-XXXX IDs
 
     Note over Proc: Stage 6-7: Generate & Write
     loop For each Epic
         Proc->>CtxGen: Generate Epic context
-        CtxGen-->>Proc: Epic context.md (~800 tokens)
-        Proc->>OutFS: Write epic.id/doc.md (stub)
-        Proc->>OutFS: Write epic.id/context.md
-        Proc->>OutFS: Write epic.id/work.json
+        CtxGen-->>Proc: context.md
+        Proc->>OutFS: Write Epic files
+    end
 
-        loop For each Story in Epic
-            Proc->>CtxGen: Generate Story context
-            CtxGen-->>Proc: Story context.md (~1500 tokens)
-            Proc->>OutFS: Write story.id/doc.md (stub)
-            Proc->>OutFS: Write story.id/context.md
-            Proc->>OutFS: Write story.id/work.json
-        end
+    loop For each Story
+        Proc->>CtxGen: Generate Story context
+        CtxGen-->>Proc: context.md
+        Proc->>OutFS: Write Story files
     end
 
     Note over Proc: Stage 8: Track Tokens
     Proc->>Proc: Record token usage
 
-    Proc->>User: ✅ Ceremony complete
-    Proc->>User: Show Epics/Stories created + token usage
+    Proc->>User: Ceremony complete
+    Proc->>User: Show summary + token usage
 ```
 
-### Workflow Details
+### Scope Decomposition
 
-The ceremony executes through 8 stages:
+The ceremony reads the Initial Scope from your project documentation and decomposes it into domain-based Epics and Stories.
 
-**1. Validate Prerequisites**
-- Verifies `.avc/project/project/doc.md` exists (contains Initial Scope)
-- Verifies `.avc/project/project/context.md` exists (for context inheritance)
-- Fails with error if Sponsor Call not completed
+**Prerequisite Validation**
 
-**2. Read Existing Hierarchy**
-- Scans `.avc/project/` for existing `work.json` files
-- Builds maps of existing Epic/Story names (case-insensitive)
-- Tracks maximum ID numbers to avoid collisions
+Before decomposition, the ceremony verifies:
+- Project documentation exists (`.avc/project/project/doc.md`)
+- Project context exists (`.avc/project/project/context.md`)
+- Initial Scope section is present in documentation
 
-**3. Collect Scope**
-- Extracts `## Initial Scope` section from project doc.md
-- Reads project context.md for agent instructions
+**Duplicate Detection**
 
-**4. Decompose with AI**
-- Calls [epic-story-decomposer](/agents/epic-story-decomposer) agent
-- Passes existing Epic/Story names for duplicate detection
-- Generates 3-7 domain-based Epics
-- Generates 2-8 user-facing Stories per Epic
-- Skips duplicates automatically
+The ceremony automatically:
+- Scans existing Epic/Story work items
+- Builds case-insensitive name maps
+- Passes existing names to AI agents to prevent duplicates
+- Renumbers IDs to avoid collisions
 
-**5. Renumber IDs**
-- Assigns `context-XXXX` IDs to new Epics
-- Assigns `context-XXXX-XXXX` IDs to new Stories
-- Ensures no collisions with existing IDs
+---
 
-**6-7. Generate Contexts & Write Files**
-- For each Epic:
-  - Calls [feature-context-generator](/agents/feature-context-generator) agent
-  - Generates Epic context.md (~800 tokens)
-  - Writes doc.md (stub), context.md, work.json
-- For each Story:
-  - Calls feature-context-generator agent with Epic + Project context
-  - Generates Story context.md (~1500 tokens)
-  - Writes doc.md (stub), context.md, work.json
+### Ceremony Agents
 
-**8. Track Tokens**
-- Records token usage to `.avc/tokens.json`
-- Displays summary to user
+#### Decomposition Agent
+
+The Initial Scope is decomposed into a hierarchical structure using AI-powered domain analysis.
+
+| Agent | Purpose |
+|-------|---------|
+| [Epic/Story Decomposer](/agents/epic-story-decomposer) | Analyzes project scope and generates 3–7 domain-based Epics, each containing 2–8 Stories with duplicate detection |
+
+#### Context Generation Agents
+
+Each Epic and Story receives a dedicated context file that inherits from the project context.
+
+| Agent | Purpose |
+|-------|---------|
+| [Feature Context Generator](/agents/feature-context-generator) | Generates Epic context.md files (~800 tokens) with domain-specific patterns and architectural guidance |
+| [Feature Context Generator](/agents/feature-context-generator) | Generates Story context.md files (~1500 tokens) with user journey details and acceptance criteria context |
 
 
 ## Next Steps
