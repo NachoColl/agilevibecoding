@@ -2611,6 +2611,12 @@ https://agilevibecoding.org
       if (currentAnswer.length === 0 && currentLineText === '') {
         const questionKey = currentQuestion.key;
 
+        // Mission Statement is mandatory - cannot be skipped
+        if (currentQuestionIndex === 0) {
+          console.log('⚠️  Mission Statement is mandatory - please provide an answer');
+          return;
+        }
+
         // Priority cascade: defaults > AI
 
         // 1. Check for default in settings (highest priority)

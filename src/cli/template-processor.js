@@ -630,9 +630,9 @@ Please carefully follow the output format requirements to avoid these issues.
    */
   getAgentForVariable(variableName) {
     const agentMap = {
-      'MISSION_STATEMENT': 'suggestion-business-analyst.md',
       'TARGET_USERS': 'suggestion-ux-researcher.md',
       'INITIAL_SCOPE': 'suggestion-product-manager.md',
+      'DEPLOYMENT_TARGET': 'suggestion-deployment-architect.md',
       'TECHNICAL_CONSIDERATIONS': 'suggestion-technical-architect.md',
       'SECURITY_AND_COMPLIANCE_REQUIREMENTS': 'suggestion-security-specialist.md'
     };
