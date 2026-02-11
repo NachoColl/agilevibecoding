@@ -1,8 +1,7 @@
 import { defineConfig } from 'vitepress'
-import { withMermaid } from 'vitepress-plugin-mermaid'
 
 // Agile Vibe Coding Documentation Configuration
-export default withMermaid(defineConfig({
+export default defineConfig({
   title: 'Agile Vibe Coding',
   description: 'AI-agent framework for long-running software development projects',
   base: '/',
@@ -113,9 +112,5 @@ export default withMermaid(defineConfig({
       dark: 'github-dark'
     },
     lineNumbers: true
-  },
-
-  mermaid: {
-    theme: 'dark'
   }
-}))
+})
