@@ -1,8 +1,8 @@
 import { defineConfig } from 'vitepress'
-import { configureDiagramsPlugin } from 'vitepress-plugin-diagrams'
+import { withMermaid } from 'vitepress-plugin-mermaid'
 
 // Agile Vibe Coding Documentation Configuration
-export default defineConfig({
+export default withMermaid(defineConfig({
   title: 'Agile Vibe Coding',
   description: 'AI-agent framework for long-running software development projects',
   base: '/',
@@ -112,13 +112,10 @@ export default defineConfig({
       light: 'github-light',
       dark: 'github-dark'
     },
-    lineNumbers: true,
-    config: (md) => {
-      configureDiagramsPlugin(md, {
-        diagramsDir: '_docs/public/diagrams',
-        publicPath: '/diagrams',
-        krokiServerUrl: 'https://kroki.io'
-      })
-    }
+    lineNumbers: true
+  },
+
+  mermaid: {
+    theme: 'dark'
   }
-})
+}))

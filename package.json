@@ -8,8 +8,7 @@
     "docs:sync": "cp README.md _docs/index.md && cp COMMANDS.md _docs/commands.md && cp INSTALL.md _docs/install.md && cp CONTRIBUTING.md _docs/contribute.md && mkdir -p _docs/ceremonies && cp ceremonies/*.md _docs/ceremonies/ && mkdir -p _docs/agents && cp src/cli/agents/*.md _docs/agents/ && sed -i 's|](README.md#|](/#|g' _docs/commands.md && sed -i 's|](COMMANDS.md)|](/commands)|g' _docs/install.md _docs/contribute.md && sed -i 's|](INSTALL.md)|](/install)|g' _docs/commands.md _docs/contribute.md && sed -i 's|](CONTRIBUTING.md)|](/contribute)|g' _docs/install.md && sed -i 's|](ceremonies/|](/ceremonies/|g' _docs/index.md",
     "docs:watch": "while true; do BEFORE=$(stat -c %Y README.md COMMANDS.md INSTALL.md CONTRIBUTING.md ceremonies/*.md src/cli/agents/*.md 2>/dev/null | md5sum); sleep 1; AFTER=$(stat -c %Y README.md COMMANDS.md INSTALL.md CONTRIBUTING.md ceremonies/*.md src/cli/agents/*.md 2>/dev/null | md5sum); if [ \"$BEFORE\" != \"$AFTER\" ]; then npm run docs:sync; fi; done",
     "docs:dev": "npm run docs:sync && npx concurrently --kill-others 'npm run docs:watch' 'vitepress dev _docs'",
-    "docs:postbuild": "mkdir -p _docs/.vitepress/dist/diagrams && cp -f _docs/public/diagrams/*.svg _docs/.vitepress/dist/diagrams/ 2>/dev/null || true",
-    "docs:build": "npm run docs:sync && vitepress build _docs && npm run docs:postbuild",
+    "docs:build": "npm run docs:sync && vitepress build _docs",
     "docs:preview": "vitepress preview _docs"
   },
   "keywords": [
@@ -26,6 +25,6 @@
     "concurrently": "^9.2.1",
     "mermaid": "^11.12.2",
     "vitepress": "^1.6.4",
-    "vitepress-plugin-diagrams": "^1.1.2"
+    "vitepress-plugin-mermaid": "^2.0.17"
   }
 }
