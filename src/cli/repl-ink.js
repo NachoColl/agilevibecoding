@@ -526,7 +526,7 @@ const CommandSelector = ({ onSelect, onCancel, filter }) => {
       name: 'Ceremonies',
       commands: [
         { label: '/sponsor-call      Create project foundation', value: '/sponsor-call', aliases: ['/sc'] },
-        { label: '/project-expansion  Create Epics and Stories', value: '/project-expansion', aliases: ['/pe'] },
+        { label: '/sprint-planning    Create Epics and Stories', value: '/sprint-planning', aliases: ['/sp'] },
         { label: '/seed <story-id>    Create Tasks and Subtasks', value: '/seed', aliases: [] }
       ]
     },
@@ -1291,7 +1291,7 @@ const App = () => {
   const allCommands = [
     '/init', '/i',
     '/sponsor-call', '/sc',
-    '/project-expansion', '/pe',
+    '/sprint-planning', '/sp',
     '/seed',
     '/status', '/s',
     '/models', '/m',
@@ -1420,7 +1420,7 @@ const App = () => {
       const loggedCommands = [
         '/init',
         '/sponsor-call',
-        '/project-expansion',
+        '/sprint-planning',
         '/seed',
         '/status',
         '/models',
@@ -1478,10 +1478,10 @@ const App = () => {
             await runSponsorCall();
             break;
 
-          case '/project-expansion':
-          case '/pe':
+          case '/sprint-planning':
+          case '/sp':
             setExecutingMessage('Expanding project structure...');
-            await runProjectExpansion();
+            await runSprintPlanning();
             break;
 
           case '/seed':
@@ -1678,7 +1678,7 @@ https://agilevibecoding.org
     }
   };
 
-  const runProjectExpansion = async () => {
+  const runSprintPlanning = async () => {
     const initiator = new ProjectInitiator();
 
     if (!initiator.isAvcProject()) {
@@ -1698,14 +1698,14 @@ https://agilevibecoding.org
     };
 
     try {
-      await initiator.projectExpansion();
+      await initiator.sprintPlanning();
     } finally {
       console.log = originalLog;
     }
 
     setOutput(prev => prev +
       logs.join('\n') + '\n' +
-      '📖 https://agilevibecoding.org/ceremonies/project-expansion\n'
+      '📖 https://agilevibecoding.org/ceremonies/sprint-planning\n'
     );
   };
 
@@ -1949,7 +1949,7 @@ https://agilevibecoding.org
       // Next steps
       summary += '\nNext steps:\n';
       summary += '1. Review project documentation\n';
-      summary += '2. Run /project-expansion to create Epics and Stories\n';
+      summary += '2. Run /sprint-planning to create Epics and Stories\n';
 
       // Single output update with complete summary
       setOutput(prev => prev + summary);

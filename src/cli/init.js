@@ -236,7 +236,7 @@ class ProjectInitiator {
             }
           },
           {
-            name: 'project-expansion',
+            name: 'sprint-planning',
             provider: 'claude',
             defaultModel: 'claude-sonnet-4-5-20250929',
             agents: [
@@ -1219,10 +1219,10 @@ If you're new to Agile Vibe Coding, visit the [AVC Documentation](https://agilev
   }
 
   /**
-   * Run Project Expansion ceremony to create/expand Epics and Stories
+   * Run Sprint Planning ceremony to create/expand Epics and Stories
    */
-  async projectExpansion() {
-    console.log('\n🚀 Starting Project Expansion ceremony...\n');
+  async sprintPlanning() {
+    console.log('\n🚀 Starting Sprint Planning ceremony...\n');
 
     if (!this.isAvcProject()) {
       console.log('❌ Project not initialized\n');
@@ -1230,8 +1230,8 @@ If you're new to Agile Vibe Coding, visit the [AVC Documentation](https://agilev
       return;
     }
 
-    const { ProjectExpansionProcessor } = await import('./project-expansion-processor.js');
-    const processor = new ProjectExpansionProcessor();
+    const { SprintPlanningProcessor } = await import('./sprint-planning-processor.js');
+    const processor = new SprintPlanningProcessor();
     await processor.execute();
   }
 

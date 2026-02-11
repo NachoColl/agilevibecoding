@@ -96,7 +96,7 @@ class SeedProcessor {
     // Check Story directory exists
     if (!fs.existsSync(this.storyPath)) {
       throw new Error(
-        `Story ${this.storyId} not found.\nPlease run /project-expansion first to create Stories.`
+        `Story ${this.storyId} not found.\nPlease run /sprint-planning first to create Stories.`
       );
     }
 

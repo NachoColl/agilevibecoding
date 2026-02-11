@@ -8,11 +8,11 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 /**
- * ProjectExpansionProcessor - Creates/expands Epics and Stories with duplicate detection
+ * SprintPlanningProcessor - Creates/expands Epics and Stories with duplicate detection
  */
-class ProjectExpansionProcessor {
+class SprintPlanningProcessor {
   constructor() {
-    this.ceremonyName = 'project-expansion';
+    this.ceremonyName = 'sprint-planning';
     this.avcPath = path.join(process.cwd(), '.avc');
     this.projectPath = path.join(this.avcPath, 'project');
     this.projectDocPath = path.join(this.projectPath, 'project/doc.md');
@@ -460,7 +460,7 @@ Return your response as JSON following the exact structure specified in your ins
   // Main execution method
   async execute() {
     try {
-      console.log('\n📊 Project Expansion Ceremony\n');
+      console.log('\n📊 Sprint Planning Ceremony\n');
 
       // Stage 1: Validate
       this.validatePrerequisites();
@@ -530,4 +530,4 @@ Return your response as JSON following the exact structure specified in your ins
   }
 }
 
-export { ProjectExpansionProcessor };
+export { SprintPlanningProcessor };

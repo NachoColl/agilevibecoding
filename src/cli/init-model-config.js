@@ -116,7 +116,7 @@ export class ModelConfigurator {
     let mainStageName = 'Primary Execution';
     if (ceremonyName === 'sponsor-call') {
       mainStageName = 'Project Definition & Planning';
-    } else if (ceremonyName === 'project-expansion') {
+    } else if (ceremonyName === 'sprint-planning') {
       mainStageName = 'Epic & Story Expansion';
     } else if (ceremonyName === 'context-retrospective') {
       mainStageName = 'Context & Documentation Review';

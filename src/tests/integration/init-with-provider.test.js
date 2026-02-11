@@ -568,7 +568,7 @@ describe('ProjectInitiator with Provider Integration', () => {
                 defaultModel: 'claude-sonnet-4-5-20250929'
               },
               {
-                name: 'project-expansion',
+                name: 'sprint-planning',
                 provider: 'gemini',
                 defaultModel: 'gemini-2.5-pro'
               }
@@ -594,7 +594,7 @@ describe('ProjectInitiator with Provider Integration', () => {
 
       expect(ceremonies.length).toBe(2);
       expect(ceremonies[0].name).toBe('sponsor-call');
-      expect(ceremonies[1].name).toBe('project-expansion');
+      expect(ceremonies[1].name).toBe('sprint-planning');
     });
   });
 });
