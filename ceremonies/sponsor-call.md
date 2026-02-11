@@ -4,6 +4,10 @@
 
 The **Sponsor Call** ceremony is the foundational ceremony in the Agile Vibe Coding framework. It creates your project's brief and root context scope.
 
+**Input**
+
+Project team defined mission, scope and technical requirements.
+
 **Output**
 
 ```
@@ -91,43 +95,64 @@ sequenceDiagram
     REPL->>User: Show files created + token usage
 ```
 
-### User Requirements
+### Project Scope Gathering
 
-The ceremony starts by running /sponsor-call command, asking the user to define the project mission statement, the initial scope and any extra technical requirement or security concerns.
+The ceremony begins by asking the project team to define:
 
-> **Only the mission statement is mandatory**, and AI agents will fill the gap for any skipped questions.
+- The **mission statement**
+- The **initial scope**
+- Any additional **technical requirements** or **security constraints**
+
+
+> **Only the Mission Statement is mandatory.**  
+> If any other question is skipped, AI agents will generate structured suggestions that can be reviewed and edited later.
+
+#### Scope Questionnaire
 
 | # | Question | Purpose |
 |---|----------|---------|
-| 1 | **Mission Statement** | Core purpose and value proposition |
-| 2 | Target Users | User types and their roles |
-| 3 | Initial Scope | Key features, main workflows, essential capabilities |
-| 4 | Deployment Target | Target deployment environment and infrastructure |
-| 5 | Technical Considerations | Technology stack, constraints, or preferences |
-| 6 | Security & Compliance Requirements | Regulatory, privacy, or security constraints |
+| 1 | **Mission Statement** | Defines the core purpose and value proposition of the project |
+| 2 | Target Users | Identifies user types and their roles |
+| 3 | Initial Scope | Outlines key features, primary workflows, and essential capabilities |
+| 4 | Deployment Target | Specifies the intended deployment environment and infrastructure |
+| 5 | Technical Considerations | Captures technology stack preferences, constraints, or requirements |
+| 6 | Security & Compliance Requirements | Defines regulatory, privacy, and security obligations |
 
-#### User Requirements Agents
+---
 
-When user skips a question, we use agents to fill the gaps, which later can be edited.
+### Ceremony Agents
+
+#### Project Scope Agents
+
+If a question is skipped, specialized agents generate structured proposals that can later be refined by the team.
 
 | Agent | Purpose |
 |-------|---------|
-| [UX Researcher](/agents/suggestion-ux-researcher) | Generate target user suggestions when skipped |
-| [Product Manager](/agents/suggestion-product-manager) | Generate initial scope suggestions when skipped |
-| [Deployment Architect](/agents/suggestion-deployment-architect) | Generate deployment target suggestions when skipped |
-| [Technical Architect](/agents/suggestion-technical-architect) | Generate technical considerations when skipped |
-| [Security Specialist](/agents/suggestion-security-specialist) | Generate security & compliance suggestions when skipped |
+| [UX Researcher](/agents/suggestion-ux-researcher) | Generates target user suggestions |
+| [Product Manager](/agents/suggestion-product-manager) | Proposes an initial feature scope |
+| [Deployment Architect](/agents/suggestion-deployment-architect) | Suggests deployment environments and infrastructure |
+| [Technical Architect](/agents/suggestion-technical-architect) | Recommends technology stack and architectural constraints |
+| [Security Specialist](/agents/suggestion-security-specialist) | Proposes security and compliance requirements |
 
-The collected answers are then used to generate professional project documentation and architectural context through specialized AI agents. 
+---
 
-| Stage | Agent | Purpose |
-|-------|-------|---------|
-| Documentation | [Documentation Creator](/agents/project-documentation-creator) | Transform questionnaire answers into 8-section project document |
-| Documentation | [Documentation Validator](/agents/validator-documentation) | Score and validate documentation quality (0-100 scale) |
-| Context | [Context Generator](/agents/project-context-generator) | Generate architectural context from questionnaire answers |
-| Context | [Context Validator](/agents/validator-context) | Score and validate context quality (0-100 scale) |
+### Documentation & Context Generation
 
-If validation is enabled, validator agents score the outputs and trigger iterative improvements until quality thresholds are met. Finally, the ceremony writes the generated files and syncs documentation to VitePress for immediate viewing. The entire process is orchestrated with progress tracking, auto-save functionality, and optional quality validation loops.
+The collected answers are transformed into formal project artifacts using specialized AI agents.
+
+#### Documentation Agents
+
+| Agent | Purpose |
+|-------|---------|
+| [Documentation Creator](/agents/project-documentation-creator) | Converts questionnaire responses into a structured 8-section project document |
+| [Documentation Validator](/agents/validator-documentation) | Scores and validates documentation quality (0–100 scale) |
+
+#### Context Agents
+
+| Agent | Purpose |
+|-------|---------|
+| [Context Generator](/agents/project-context-generator) | Generates architectural context from questionnaire inputs |
+| [Context Validator](/agents/validator-context) | Scores and validates context quality (0–100 scale) |
 
 
 ## Next Steps

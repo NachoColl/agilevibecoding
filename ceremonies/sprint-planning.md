@@ -134,8 +134,6 @@ Each Epic and Story receives a dedicated context file that inherits from the pro
 
 ## Next Steps
 
-After completing Sprint Planning:
-
 ### Review Generated Hierarchy
 
 **Epic Structure**
