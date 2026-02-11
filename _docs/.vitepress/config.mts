@@ -30,7 +30,7 @@ export default defineConfig({
         text: 'Ceremonies',
         items: [
           { text: 'Sponsor Call', link: '/ceremonies/sponsor-call' },
-          { text: 'Project Expansion', link: '/ceremonies/project-expansion' },
+          { text: 'Sprint Planning', link: '/ceremonies/sprint-planning' },
           { text: 'Seed', link: '/ceremonies/seed' },
           { text: 'AI Coding', link: '/ceremonies/ai-coding' },
           { text: 'Context Retrospective', link: '/ceremonies/context-retrospective' },

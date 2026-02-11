@@ -58,7 +58,7 @@ Checks Story ID format and existence:
 
 **Error Handling:**
 - Invalid format → Error: "Invalid Story ID format"
-- Not found → Error: "Story not found. Please run /project-expansion first"
+- Not found → Error: "Story not found. Please run /sprint-planning first"
 
 ### Step 2: Check Story Has No Tasks
 
@@ -382,10 +382,10 @@ Tasks are organized into technical categories for clear separation of concerns:
 **Error:**
 ```
 ❌ Story context-0001-0001 not found
-   Please run /project-expansion first to create Stories.
+   Please run /sprint-planning first to create Stories.
 ```
 
-**Solution:** Run `/project-expansion` to create Stories first
+**Solution:** Run `/sprint-planning` to create Stories first
 
 ### Invalid Story ID Format
 

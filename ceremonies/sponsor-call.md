@@ -14,7 +14,7 @@ The **Sponsor Call** ceremony is the foundational ceremony in the Agile Vibe Cod
 
 **Next Ceremony**
 
-[`/project-expansion`](project-expansion.md) - Create Epics and Stories
+[`/sprint-planning`](sprint-planning.md) - Create Epics and Stories
 
 
 ## Ceremony Workflow
@@ -152,12 +152,12 @@ cat .avc/project/context.md
 
 ### Proceed to Next Ceremony
 
-**Project Expansion** - Create Epics and Stories:
+**Sprint Planning** - Create Epics and Stories:
 ```bash
-> /project-expansion
+> /sprint-planning
 ```
 
-See [Project Expansion ceremony documentation](project-expansion.md)
+See [Sprint Planning ceremony documentation](sprint-planning.md)
 
 ## Troubleshooting
 

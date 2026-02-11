@@ -1,8 +1,8 @@
-# Project Expansion Ceremony
+# Sprint Planning Ceremony
 
 ## Overview
 
-The **Project Expansion** ceremony creates or expands the project's Epic and Story hierarchy with intelligent duplicate detection. It decomposes project scope into domain-based Epics (3-7) and user-facing Stories (2-8 per Epic) with proper context inheritance.
+The **Sprint Planning** ceremony creates or expands the project's Epic and Story hierarchy with intelligent duplicate detection. It decomposes project scope into domain-based Epics (3-7) and user-facing Stories (2-8 per Epic) with proper context inheritance.
 
 **Purpose:** Create domain-based Epics and user-facing Stories with duplicate detection to support incremental project growth.
 
@@ -13,7 +13,7 @@ The **Project Expansion** ceremony creates or expands the project's Epic and Sto
 
 ## Prerequisites
 
-Before running Project Expansion:
+Before running Sprint Planning:
 
 1. **Sponsor Call completed:**
    - `.avc/project/project/doc.md` exists (for INITIAL_SCOPE)
@@ -184,7 +184,7 @@ Creates directory structure with 3 files per work item:
 
 ## AI Agents Used
 
-The Project Expansion ceremony uses **2 specialized AI agents**:
+The Sprint Planning ceremony uses **2 specialized AI agents**:
 
 ### 1. Epic/Story Decomposer
 - **File:** `agents/epic-story-decomposer.md`
@@ -221,7 +221,7 @@ The Project Expansion ceremony uses **2 specialized AI agents**:
   "children": ["context-0001-0001", "context-0001-0002"],
   "metadata": {
     "created": "2025-01-15T10:30:00.000Z",
-    "ceremony": "project-expansion",
+    "ceremony": "sprint-planning",
     "tokenBudget": 800
   }
 }
@@ -242,7 +242,7 @@ The Project Expansion ceremony uses **2 specialized AI agents**:
   "children": [],  // Empty until /seed creates tasks
   "metadata": {
     "created": "2025-01-15T10:30:00.000Z",
-    "ceremony": "project-expansion",
+    "ceremony": "sprint-planning",
     "tokenBudget": 1500
   }
 }
@@ -255,14 +255,14 @@ The Project Expansion ceremony uses **2 specialized AI agents**:
 
 ```bash
 avc
-> /project-expansion
+> /sprint-planning
 ```
 
 Uses INITIAL_SCOPE from project doc.md to create initial Epics/Stories.
 
 **Example Output:**
 ```
-📊 Project Expansion Ceremony
+📊 Sprint Planning Ceremony
 
 📋 Analyzing existing project structure...
 
@@ -311,7 +311,7 @@ Next steps:
 ### Subsequent Expansions (Add More Features)
 
 ```bash
-> /project-expansion
+> /sprint-planning
 ```
 
 **Behavior:**
@@ -370,7 +370,7 @@ Total project structure:
 
 ### Why Duplicate Detection?
 
-**Problem:** Without duplicate detection, re-running `/project-expansion` would create:
+**Problem:** Without duplicate detection, re-running `/sprint-planning` would create:
 - "User Management" (context-0001) - original
 - "User Management" (context-0005) - duplicate!
 
@@ -414,7 +414,7 @@ Total project structure:
 
 ## Next Steps
 
-After Project Expansion completes:
+After Sprint Planning completes:
 
 1. **Review Epic/Story Structure:**
    - Check `.avc/project/context-*/` directories
@@ -428,7 +428,7 @@ After Project Expansion completes:
 
 3. **Expand Again (Optional):**
    - Modify `.avc/project/project/doc.md` to add new features
-   - Run `/project-expansion` again
+   - Run `/sprint-planning` again
    - Duplicate detection ensures no collisions
 
 

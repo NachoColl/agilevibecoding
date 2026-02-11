@@ -123,29 +123,30 @@ Work items defines what needs to get done and the list of tests for its work val
 }
 ```
 
-A Work item progress through ready to completed status (ready -> pending -> implementing -> implemented ->)
-
-
-This status is work item initial status.
-
-ready -> pending -> implementing -> 
-
-| **ready** | Work item fully defined with acceptance criteria, ready for decomposition | **Backlog Refinement ceremony** (future) | After manual refinement with detailed acceptance criteria |
-| **pending** | Work item decomposed into children OR is a leaf node ready for implementation | **Sprint Planning ceremony** (AI agents) | When decomposing Stories → Tasks → Subtasks |
-| **implementing** | Work item currently being coded by AI agents | **AI Coding agents** (server, client, infra, testing) | During active implementation |
-| **testing** | Code implemented, running validation tests | **Testing agents** | After implementation completes, test suites executing |
-| **implemented** | Code and tests completed, awaiting final validation | **Testing agents** | After all tests pass successfully |
-| **completed** | All work done, validated, tests passed, parent dependencies met | **Validation process** | After all validations and parent checks pass |
 
 ### Work Items Flow
 
-Work items follow a **bottom-up implementation strategy** through the tree hierarchy. **Leaf nodes** (deepest subtasks) are implemented and validated first, then their parent nodes can begin.
+Work items are implemented bottom-up in the tree.
+Start with the smallest, most concrete tasks (leaf nodes). Once those are done and validated, move up to their parents.
+
+If it has children, it waits.
 
 **Implementation Rules**
 
-1. **Depth-first execution** - Start with the deepest atomic work items (leaf nodes) in each branch
-2. **Upward propagation** - A parent node cannot start until all its child nodes are `completed` and tests pass
-3. **Parallel execution** - Only **sibling nodes** (work items at the same level under different parents) can be implemented in parallel
+1. **Start at the bottom**
+   - Begin with the deepest atomic tasks (leaf nodes).
+   - Tasks should be small, self-contained, and testable.
+
+2. **Parents wait for children**
+   - A parent work item cannot start until:
+     - All child items are marked `completed`
+     - All related tests are passing
+   - No partial roll-ups.
+
+3. **Parallel work — with limits**
+   - Parallel implementation is allowed only for **sibling nodes**.
+   - Do not parallelize across dependency chains.
+   - If two items depend on each other (directly or indirectly), they must be executed sequentially.
 
 
 **Example execution order**
@@ -165,7 +166,18 @@ context-0001/                          # Epic
 
 ### Context Inheritance
 
-Each level in the hierarchy has a `context.md` file that **inherits from its parent and adds specifics**. When implementing a work unit, agents read ALL context files from project down to current level.
+Each level in the hierarchy includes its own `context.md` file.
+
+Context is **hierarchically inherited**:
+- Each level inherits the full context of its parent.
+- It extends that context with more specific, local details relevant to its scope.
+
+When implementing a work unit, agents must read **all `context.md` files along the path** — from the project root down to the current level.
+
+This ensures:
+- Awareness of global constraints
+- Alignment with higher-level design decisions
+- Access to all level-specific requirements
 
 An example:
 
@@ -190,19 +202,21 @@ project/
 **When an agent implements task `context-0001-0001-0001`, it reads ALL five context.md files (project + epic + story + task) as the complete context.**
 
 
-### Tests (Upward Validation)
+#### Validation Order
 
-While context flows DOWN (project → subtask), **tests flow UP** (subtask → project) and each level validates a different granularity, which naturally should flow into the following test hierarchy:
+Testing follows the same bottom-up execution model as implementation:
 
-```
-Subtask Tests  → Unit Tests        (atomic work)
-Task Tests     → Integration Tests (subtasks working together)
-Story Tests    → E2E Tests         (user capability end-to-end)
-Epic Tests     → System Tests      (domain-wide functionality)
-```
+1. **Subtask (Unit) tests must pass first.**
+2. Once all subtask tests pass, run **Task (Integration) tests**.
+3. Only when all task tests pass, run **Story (E2E) tests**.
+4. Only when all stories pass, run **Epic (System) tests**.
 
-Deepest level tests must pass first. Only when all subtask tests pass do you run task tests. Only when all task tests pass do you run story tests,etc.. 
+No higher-level tests should run if lower-level tests are failing.
 
+This ensures:
+- Failures are caught at the smallest possible scope
+- Debugging remains localized and efficient
+- System-level validation reflects fully verified lower layers
 
 ## AVC Ceremonies
 
@@ -228,7 +242,7 @@ The **Sponsor Call** ceremony is the foundational ceremony in the Agile Vibe Cod
 
 ### **Sprint Planning**
 
-Creates or expands project Epics and Stories with intelligent duplicate detection. Decomposes project scope into domain-based Epics (3-7) and user-facing Stories (2-8 per Epic) with proper context inheritance.
+Creates or expands project Epics and Stories with intelligent duplicate detection. Decomposes project scope into domain-based Epics and Stories with proper context inheritance.
 
 **Key Features**
 

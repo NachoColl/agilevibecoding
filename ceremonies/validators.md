@@ -309,5 +309,5 @@ Set `validation.enabled: false` in ceremony config:
 ## See Also
 
 - [Sponsor Call Ceremony](/ceremonies/sponsor-call) - Full ceremony documentation
-- [Project Expansion](/ceremonies/project-expansion) - Next ceremony after Sponsor Call
+- [Sprint Planning](/ceremonies/sprint-planning) - Next ceremony after Sponsor Call
 - [AI Coding](/ceremonies/ai-coding) - Implementation ceremony using contexts

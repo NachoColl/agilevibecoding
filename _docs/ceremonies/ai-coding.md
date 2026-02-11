@@ -208,5 +208,5 @@ This ceremony is planned for future release. Requires completion of Project Expa
 ## See Also
 
 - [Sponsor Call Ceremony](sponsor-call.md) - Creates project structure
-- [Project Expansion](project-expansion.md) - Generates work items
+- [Sprint Planning](sprint-planning.md) - Generates work items
 - [Context Retrospective](context-retrospective.md) - Updates contexts based on learnings

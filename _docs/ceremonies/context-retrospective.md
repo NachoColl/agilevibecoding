@@ -151,5 +151,5 @@ This ceremony is planned for future release. Requires completion of Sponsor Call
 ## See Also
 
 - [Sponsor Call Ceremony](sponsor-call.md) - Creates initial contexts
-- [Project Expansion](project-expansion.md) - Adds task-level contexts
+- [Sprint Planning](sprint-planning.md) - Adds task-level contexts
 - [AI Coding Ceremony](ai-coding.md) - Generates implementation learnings
