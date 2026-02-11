@@ -1,4 +1,5 @@
 import { defineConfig } from 'vitepress'
+import { mermaidPlugin } from './theme/mermaid-plugin'
 
 // Agile Vibe Coding Documentation Configuration
 export default defineConfig({
@@ -107,6 +108,9 @@ export default defineConfig({
   },
 
   markdown: {
+    config: (md) => {
+      md.use(mermaidPlugin)
+    },
     theme: {
       light: 'github-light',
       dark: 'github-dark'
