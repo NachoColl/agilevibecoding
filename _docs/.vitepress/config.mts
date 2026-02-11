@@ -115,7 +115,7 @@ export default defineConfig({
     lineNumbers: true,
     config: (md) => {
       configureDiagramsPlugin(md, {
-        diagramsDir: 'docs/public/diagrams',
+        diagramsDir: '_docs/public/diagrams',
         publicPath: '/diagrams',
         krokiServerUrl: 'https://kroki.io'
       })
