@@ -147,6 +147,43 @@ class VerificationTracker {
   }
 
   /**
+   * Record a simple validation check (for multi-agent validation)
+   * Lighter-weight alternative to full startSession/endSession flow
+   */
+  recordCheck(agentName, checkType, passed) {
+    const checkRecord = {
+      agentName,
+      checkType,
+      passed,
+      timestamp: new Date().toISOString()
+    };
+
+    // Add to sessions as a lightweight record
+    this.sessions.push({
+      sessionId: `check-${this.sessions.length + 1}`,
+      agentName,
+      checkType,
+      passed,
+      startTime: checkRecord.timestamp,
+      endTime: checkRecord.timestamp,
+      durationMs: 0,
+      ruleStats: {
+        totalRulesChecked: 1,
+        rulesPassed: passed ? 1 : 0,
+        rulesViolated: passed ? 0 : 1,
+        rulesFixed: 0,
+        rulesSkipped: 0
+      },
+      apiCalls: {
+        checkCalls: 1,
+        fixCalls: 0,
+        totalCalls: 1
+      },
+      violations: []
+    });
+  }
+
+  /**
    * Get complete ceremony summary
    */
   getCeremonySummary() {

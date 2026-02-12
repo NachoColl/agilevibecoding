@@ -16,7 +16,13 @@ class SeedProcessor {
     this.ceremonyName = 'seed';
     this.avcPath = path.join(process.cwd(), '.avc');
     this.projectPath = path.join(this.avcPath, 'project');
-    this.storyPath = path.join(this.projectPath, storyId);
+
+    // Extract epic ID from story ID (context-0001-0001 → context-0001)
+    const epicId = this.extractEpicId(storyId);
+
+    // Build nested path: .avc/project/context-0001/context-0001-0001
+    this.storyPath = path.join(this.projectPath, epicId, storyId);
+
     this.avcConfigPath = path.join(this.avcPath, 'avc.json');
     this.agentsPath = path.join(__dirname, 'agents');
 
@@ -29,6 +35,23 @@ class SeedProcessor {
     // Initialize token tracker
     this.tokenTracker = new TokenTracker(this.avcPath);
     this.tokenTracker.init();
+  }
+
+  /**
+   * Extract Epic ID from Story ID
+   * @param {string} storyId - Story ID (e.g., context-0001-0001)
+   * @returns {string} Epic ID (e.g., context-0001)
+   */
+  extractEpicId(storyId) {
+    // Story format: context-XXXX-YYYY
+    // Epic format:  context-XXXX
+    const match = storyId.match(/^(context-\d+)-\d+$/);
+
+    if (!match) {
+      throw new Error(`Invalid story ID format: ${storyId}. Expected: context-XXXX-YYYY`);
+    }
+
+    return match[1];
   }
 
   readCeremonyConfig() {
@@ -136,7 +159,7 @@ class SeedProcessor {
     const storyContext = fs.readFileSync(storyContextPath, 'utf8');
 
     // Extract Epic ID from Story ID (context-0001-0001 → context-0001)
-    const epicId = this.storyId.split('-').slice(0, 2).join('-');
+    const epicId = this.extractEpicId(this.storyId);
     const epicPath = path.join(this.projectPath, epicId);
 
     // Read Epic context.md

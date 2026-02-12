@@ -1676,7 +1676,7 @@ Return your response as JSON following the exact structure specified in your ins
 
       // Write Story files
       for (const story of epic.stories || []) {
-        const storyDir = path.join(projectPath, story.id);
+        const storyDir = path.join(epicDir, story.id);
         if (!fs.existsSync(storyDir)) {
           fs.mkdirSync(storyDir, { recursive: true });
         }
