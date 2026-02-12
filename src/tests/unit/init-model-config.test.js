@@ -222,13 +222,13 @@ describe('ModelConfigurator', () => {
       const contextStage = stages.find(s => s.id === 'stage-context');
 
       expect(suggestionsStage).toBeDefined();
-      expect(suggestionsStage.name).toBe('AI-Assisted Questionnaire');
+      expect(suggestionsStage.name).toBe('Questionnaire Suggestions - AI analyzes project name and suggests answers');
 
       expect(documentationStage).toBeDefined();
-      expect(documentationStage.name).toBe('Project Documentation Creation');
+      expect(documentationStage.name).toBe('Documentation Generation - AI creates initial project documentation');
 
       expect(contextStage).toBeDefined();
-      expect(contextStage.name).toBe('Project Context Generation');
+      expect(contextStage.name).toBe('Context File Creation - AI generates initial project context.md');
     });
 
     it('should return empty array for unknown ceremony', () => {

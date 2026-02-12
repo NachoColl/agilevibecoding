@@ -117,8 +117,37 @@ export class ModelConfigurator {
    * @returns {string} Descriptive stage name
    */
   _getStageDisplayName(stageName, ceremonyName) {
-    // Stage name mappings with descriptive action-oriented titles
-    const stageDescriptions = {
+    // Context-aware stage descriptions that explain what each stage does
+    const ceremonyStageDescriptions = {
+      'sponsor-call': {
+        'suggestions': 'Questionnaire Suggestions - AI analyzes project name and suggests answers',
+        'documentation': 'Documentation Generation - AI creates initial project documentation',
+        'context': 'Context File Creation - AI generates initial project context.md'
+      },
+      'sprint-planning': {
+        'decomposition': 'Epic & Story Decomposition - AI breaks down project scope into epics and stories',
+        'validation': 'Multi-Agent Validation - Domain experts validate each epic and story',
+        'context-generation': 'Context File Generation - AI creates context.md for each epic and story'
+      },
+      'seed': {
+        'decomposition': 'Task Decomposition - AI breaks down stories into tasks and subtasks',
+        'validation': 'Task Validation - AI validates task hierarchy and completeness',
+        'context-generation': 'Task Context Generation - AI creates context.md for each task'
+      },
+      'context-retrospective': {
+        'documentation-update': 'Documentation Enhancement - AI refines and improves project documentation',
+        'context-refinement': 'Context Enhancement - AI enriches context.md files with learned insights'
+      }
+    };
+
+    // Try ceremony-specific description first, then fallback to generic
+    const ceremonyDescriptions = ceremonyStageDescriptions[ceremonyName];
+    if (ceremonyDescriptions && ceremonyDescriptions[stageName]) {
+      return ceremonyDescriptions[stageName];
+    }
+
+    // Generic fallback descriptions
+    const genericDescriptions = {
       suggestions: 'AI-Assisted Questionnaire',
       documentation: 'Project Documentation Creation',
       context: 'Project Context Generation',
@@ -129,7 +158,7 @@ export class ModelConfigurator {
       enhancement: 'Content Enhancement'
     };
 
-    return stageDescriptions[stageName] || `${stageName.charAt(0).toUpperCase()}${stageName.slice(1)}`;
+    return genericDescriptions[stageName] || `${stageName.charAt(0).toUpperCase()}${stageName.slice(1)}`;
   }
 
   /**
@@ -450,10 +479,18 @@ export class ModelConfigurator {
       throw new Error(`Ceremony '${ceremonyName}' not found in configuration`);
     }
 
+    // Get ceremony-specific main label
+    const mainLabels = {
+      'sponsor-call': 'Default Fallback Model - Used when specific stages are not configured',
+      'sprint-planning': 'Default Fallback Model - Used when specific stages are not configured',
+      'seed': 'Default Fallback Model - Used when specific stages are not configured',
+      'context-retrospective': 'Default Fallback Model - Used when specific stages are not configured'
+    };
+
     const overview = {
       ceremony: ceremonyName,
       main: {
-        label: 'Main Ceremony Default',
+        label: mainLabels[ceremonyName] || 'Default Fallback Model',
         provider: ceremony.provider || 'claude',
         model: ceremony.defaultModel || 'claude-sonnet-4-5-20250929',
         calls: 0,
@@ -519,7 +556,7 @@ export class ModelConfigurator {
 
     const overview = {
       id: 'validation',
-      label: 'Validation (Multi-Agent)',
+      label: 'Multi-Agent Validation - Domain experts validate each epic and story',
       provider: validationProvider,
       model: validationModel,
       calls: 145,
@@ -531,9 +568,24 @@ export class ModelConfigurator {
     };
 
     const types = [
-      { id: 'universal', name: 'Universal', calls: 30, validators: ['solution-architect', 'developer', 'security', 'qa', 'test-architect'] },
-      { id: 'domain', name: 'Domain', calls: 90, validators: ['devops', 'database', 'api', 'frontend', 'backend', 'cloud', 'mobile', 'ui', 'ux', 'data'] },
-      { id: 'feature', name: 'Feature', calls: 25, validators: ['testing', 'security', 'file-upload', 'notifications', 'reporting'] }
+      {
+        id: 'universal',
+        name: 'Universal Validators - Always applied (architecture, security, quality)',
+        calls: 30,
+        validators: ['solution-architect', 'developer', 'security', 'qa', 'test-architect']
+      },
+      {
+        id: 'domain',
+        name: 'Domain Validators - Applied based on project tech stack',
+        calls: 90,
+        validators: ['devops', 'database', 'api', 'frontend', 'backend', 'cloud', 'mobile', 'ui', 'ux', 'data']
+      },
+      {
+        id: 'feature',
+        name: 'Feature Validators - Applied based on acceptance criteria keywords',
+        calls: 25,
+        validators: ['testing', 'security', 'file-upload', 'notifications', 'reporting']
+      }
     ];
 
     let totalValidationCost = 0;
