@@ -46,8 +46,8 @@ class SprintPlanningProcessor {
     if (data === null) {
       console.log(`${prefix} ${message}`);
     } else {
-      console.log(`${prefix} ${message}`);
-      console.log(JSON.stringify(data, null, 2));
+      // Combine message and data in single log call with [DEBUG] prefix
+      console.log(`${prefix} ${message}\n${JSON.stringify(data, null, 2)}`);
     }
   }
 
@@ -113,8 +113,8 @@ class SprintPlanningProcessor {
       this.llmProvider = await LLMProvider.create(this._providerName, this._modelName);
       return this.llmProvider;
     } catch (error) {
-      console.log(`⚠️  Could not initialize ${this._providerName} provider`);
-      console.log(`${error.message}`);
+      this.debug(`Could not initialize ${this._providerName} provider`);
+      this.debug(`Error: ${error.message}`);
       return null;
     }
   }
@@ -134,8 +134,8 @@ class SprintPlanningProcessor {
         }
 
         const delay = Math.pow(2, attempt) * 1000;
-        console.log(`⚠️  Retry ${attempt}/${maxRetries} in ${delay/1000}s: ${operation}`);
-        console.log(`Error: ${error.message}`);
+        this.debug(`Retry ${attempt}/${maxRetries} in ${delay/1000}s: ${operation}`);
+        this.debug(`Error: ${error.message}`);
         await new Promise(resolve => setTimeout(resolve, delay));
       }
     }
