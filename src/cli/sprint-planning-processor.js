@@ -963,7 +963,6 @@ ${projectContext}
       const docPath = path.join(epicDir, 'doc.md');
       fs.writeFileSync(docPath, docContent, 'utf8');
       this.debug(`Writing ${docPath} (${docContent.length} bytes)`);
-      console.log(`   ✅ ${epic.id}/doc.md`);
 
       // Generate and write Epic context.md
       const epicContext = await this.retryWithBackoff(
@@ -973,7 +972,6 @@ ${projectContext}
       const contextPath = path.join(epicDir, 'context.md');
       fs.writeFileSync(contextPath, epicContext.contextMarkdown, 'utf8');
       this.debug(`Writing ${contextPath} (${epicContext.contextMarkdown.length} bytes)`);
-      console.log(`   ✅ ${epic.id}/context.md`);
 
       // Write Epic work.json (preserve existing metadata like selectedValidators)
       const epicWorkJson = {
@@ -997,7 +995,6 @@ ${projectContext}
       const workJsonContent = JSON.stringify(epicWorkJson, null, 2);
       fs.writeFileSync(workJsonPath, workJsonContent, 'utf8');
       this.debug(`Writing ${workJsonPath} (${workJsonContent.length} bytes)`);
-      console.log(`   ✅ ${epic.id}/work.json`);
 
       epicCount++;
 
@@ -1015,7 +1012,6 @@ ${projectContext}
         const storyDocPath = path.join(storyDir, 'doc.md');
         fs.writeFileSync(storyDocPath, storyDocContent, 'utf8');
         this.debug(`Writing ${storyDocPath} (${storyDocContent.length} bytes)`);
-        console.log(`      ✅ ${story.id}/doc.md`);
 
         // Generate and write Story context.md
         const storyContext = await this.retryWithBackoff(
@@ -1025,7 +1021,6 @@ ${projectContext}
         const storyContextPath = path.join(storyDir, 'context.md');
         fs.writeFileSync(storyContextPath, storyContext.contextMarkdown, 'utf8');
         this.debug(`Writing ${storyContextPath} (${storyContext.contextMarkdown.length} bytes)`);
-        console.log(`      ✅ ${story.id}/context.md`);
 
         // Write Story work.json (preserve existing metadata like selectedValidators)
         const storyWorkJson = {
@@ -1049,12 +1044,21 @@ ${projectContext}
         const storyWorkJsonContent = JSON.stringify(storyWorkJson, null, 2);
         fs.writeFileSync(storyWorkJsonPath, storyWorkJsonContent, 'utf8');
         this.debug(`Writing ${storyWorkJsonPath} (${storyWorkJsonContent.length} bytes)`);
-        console.log(`      ✅ ${story.id}/work.json`);
 
         storyCount++;
       }
+    }
 
-      console.log(''); // Empty line between epics
+    // Display clean summary of created epics and stories
+    if (hierarchy.epics.length > 0) {
+      console.log('\n📦 Created Epics and Stories:\n');
+      for (const epic of hierarchy.epics) {
+        console.log(`${epic.name}`);
+        for (const story of epic.stories || []) {
+          console.log(`   • ${story.name}`);
+        }
+        console.log(''); // Empty line between epics
+      }
     }
 
     return { epicCount, storyCount };
