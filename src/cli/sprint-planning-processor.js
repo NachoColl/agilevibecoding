@@ -475,6 +475,13 @@ Return your response as JSON following the exact structure specified in your ins
       totalPromptSize: prompt.length
     });
 
+    // Log full decomposition prompt for duplicate detection analysis
+    this.debug('\n' + '='.repeat(80));
+    this.debug('FULL DECOMPOSITION PROMPT:');
+    this.debug('='.repeat(80));
+    this.debug(prompt);
+    this.debug('='.repeat(80) + '\n');
+
     // LLM call with full request/response logging
     const hierarchy = await this.debugApiCall(
       'Epic/Story Decomposition',
@@ -506,6 +513,13 @@ Return your response as JSON following the exact structure specified in your ins
           totalStories: result.epics?.reduce((sum, e) => sum + (e.stories?.length || 0), 0) || 0,
           validation: result.validation
         });
+
+        // Log full LLM response for duplicate detection analysis
+        this.debug('\n' + '='.repeat(80));
+        this.debug('FULL LLM RESPONSE:');
+        this.debug('='.repeat(80));
+        this.debug(JSON.stringify(result, null, 2));
+        this.debug('='.repeat(80) + '\n');
 
         return result;
       }
@@ -699,6 +713,113 @@ ${(story.acceptance || []).map((ac, i) => `${i + 1}. ${ac}`).join('\n')}
 **Project Context:**
 ${projectContext}
 `;
+  }
+
+  /**
+   * Analyze duplicate detection decisions
+   * Logs which epics/stories should have been skipped by LLM vs which are truly new
+   */
+  analyzeDuplicates(hierarchy, existingEpics, existingStories) {
+    this.debug('\n' + '='.repeat(80));
+    this.debug('DUPLICATE DETECTION ANALYSIS');
+    this.debug('='.repeat(80));
+
+    const skippedEpics = [];
+    const createdEpics = [];
+
+    // Analyze epics
+    for (const epic of hierarchy.epics || []) {
+      const normalized = epic.name.toLowerCase();
+      const isDuplicate = existingEpics.has(normalized);
+
+      this.debug(`\nEpic: "${epic.name}"`);
+      this.debug(`  Normalized: "${normalized}"`);
+      this.debug(`  Exists in previous runs: ${isDuplicate}`);
+
+      if (isDuplicate) {
+        const existingId = existingEpics.get(normalized);
+        this.debug(`  ⚠️  Match found: ${existingId}`);
+        this.debug(`  Action: SHOULD HAVE BEEN SKIPPED BY LLM`);
+        this.debug(`  Reason: LLM generated duplicate that already exists`);
+        skippedEpics.push({ name: epic.name, existingId });
+      } else {
+        // Check for potential semantic duplicates (similar names)
+        const similarEpics = [];
+        for (const [existingName, existingId] of existingEpics.entries()) {
+          // Simple similarity: check if one name contains the other
+          if (normalized.includes(existingName) || existingName.includes(normalized)) {
+            similarEpics.push({ name: existingName, id: existingId });
+          }
+        }
+
+        if (similarEpics.length > 0) {
+          this.debug(`  ⚠️  Possible semantic duplicates found:`);
+          for (const similar of similarEpics) {
+            this.debug(`     - "${similar.name}" (${similar.id})`);
+          }
+          this.debug(`  Action: CREATE NEW (but user should review for duplicates)`);
+        } else {
+          this.debug(`  ✓  Match found: NONE`);
+          this.debug(`  Action: CREATE NEW`);
+          this.debug(`  Reason: Genuinely new epic not in existing list`);
+        }
+        createdEpics.push(epic.name);
+      }
+    }
+
+    // Analyze stories
+    const skippedStories = [];
+    const createdStories = [];
+
+    for (const epic of hierarchy.epics || []) {
+      for (const story of epic.stories || []) {
+        const normalized = story.name.toLowerCase();
+        const isDuplicate = existingStories.has(normalized);
+
+        this.debug(`\nStory: "${story.name}" (under epic "${epic.name}")`);
+        this.debug(`  Normalized: "${normalized}"`);
+        this.debug(`  Exists in previous runs: ${isDuplicate}`);
+
+        if (isDuplicate) {
+          const existingId = existingStories.get(normalized);
+          this.debug(`  ⚠️  Match found: ${existingId}`);
+          this.debug(`  Action: SHOULD HAVE BEEN SKIPPED BY LLM`);
+          skippedStories.push({ name: story.name, existingId });
+        } else {
+          this.debug(`  ✓  Match found: NONE`);
+          this.debug(`  Action: CREATE NEW`);
+          createdStories.push(story.name);
+        }
+      }
+    }
+
+    // Summary
+    this.debug('\n' + '='.repeat(80));
+    this.debug('DUPLICATE ANALYSIS SUMMARY');
+    this.debug('='.repeat(80));
+    this.debug('Epics:', {
+      shouldBeSkipped: skippedEpics.length,
+      willCreate: createdEpics.length,
+      skippedNames: skippedEpics.map(s => s.name),
+      createdNames: createdEpics
+    });
+    this.debug('Stories:', {
+      shouldBeSkipped: skippedStories.length,
+      willCreate: createdStories.length,
+      skippedNames: skippedStories.map(s => s.name),
+      createdNames: createdStories
+    });
+
+    if (skippedEpics.length > 0 || skippedStories.length > 0) {
+      this.debug('\n⚠️  WARNING: LLM generated duplicates that should have been skipped!');
+      this.debug('This indicates LLM non-determinism or insufficient duplicate detection.');
+    } else {
+      this.debug('\n✓  Result: LLM correctly identified all items as duplicates or genuinely new');
+    }
+
+    this.debug('='.repeat(80) + '\n');
+
+    return { skippedEpics, createdEpics, skippedStories, createdStories };
   }
 
   // STAGE 6: Renumber IDs to avoid collisions
@@ -995,6 +1116,14 @@ ${projectContext}
   // Main execution method
   async execute() {
     try {
+      // Log ceremony execution metadata
+      const runId = Date.now();
+      this.debug('='.repeat(80));
+      this.debug('CEREMONY EXECUTION START');
+      this.debug('='.repeat(80));
+      this.debug('Run ID:', runId);
+      this.debug('Timestamp:', new Date().toISOString());
+
       console.log('\n📊 Sprint Planning Ceremony\n');
 
       // Stage 1: Validate
@@ -1003,6 +1132,13 @@ ${projectContext}
       // Stage 2: Read existing hierarchy
       console.log('📋 Analyzing existing project structure...\n');
       const { existingEpics, existingStories, maxEpicNum, maxStoryNums } = this.readExistingHierarchy();
+
+      // Log pre-existing hierarchy counts
+      this.debug('Pre-existing hierarchy:', {
+        epics: existingEpics.size,
+        stories: existingStories.size,
+        maxEpicNum: maxEpicNum.value
+      });
 
       if (existingEpics.size > 0) {
         console.log(`Found ${existingEpics.size} existing Epics, ${existingStories.size} existing Stories\n`);
@@ -1023,6 +1159,9 @@ ${projectContext}
 
       // Stage 5: Multi-Agent Validation
       hierarchy = await this.validateHierarchy(hierarchy, projectContext);
+
+      // Analyze duplicate detection (before renumbering)
+      this.analyzeDuplicates(hierarchy, existingEpics, existingStories);
 
       // Stage 6: Renumber IDs
       hierarchy = this.renumberHierarchy(hierarchy, maxEpicNum, maxStoryNums);
@@ -1075,6 +1214,23 @@ ${projectContext}
       console.log('Next steps:');
       console.log('   1. Review Epic/Story structure in .avc/project/');
       console.log('   2. Run /seed <story-id> to decompose a Story into Tasks/Subtasks\n');
+
+      // Log ceremony execution end
+      const runDuration = Date.now() - runId;
+      this.debug('\n' + '='.repeat(80));
+      this.debug('CEREMONY EXECUTION END');
+      this.debug('='.repeat(80));
+      this.debug('Run ID:', runId);
+      this.debug('Duration:', `${Math.round(runDuration / 1000)} seconds`);
+      this.debug('Post-execution hierarchy:', {
+        epics: totalEpics,
+        stories: totalStories
+      });
+      this.debug('Changes:', {
+        newEpics: epicCount,
+        newStories: storyCount
+      });
+      this.debug('='.repeat(80) + '\n');
 
     } catch (error) {
       this.debug('\n========== ERROR OCCURRED ==========');
