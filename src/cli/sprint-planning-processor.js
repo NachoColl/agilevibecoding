@@ -15,8 +15,8 @@ class SprintPlanningProcessor {
     this.ceremonyName = 'sprint-planning';
     this.avcPath = path.join(process.cwd(), '.avc');
     this.projectPath = path.join(this.avcPath, 'project');
-    this.projectDocPath = path.join(this.projectPath, 'project/doc.md');
-    this.projectContextPath = path.join(this.projectPath, 'project/context.md');
+    this.projectDocPath = path.join(this.projectPath, 'doc.md');
+    this.projectContextPath = path.join(this.projectPath, 'context.md');
     this.avcConfigPath = path.join(this.avcPath, 'avc.json');
     this.agentsPath = path.join(__dirname, 'agents');
 
@@ -247,18 +247,85 @@ class SprintPlanningProcessor {
     const docContent = fs.readFileSync(this.projectDocPath, 'utf8');
     this.debug(`Doc content loaded (${docContent.length} chars)`);
 
-    this.debug('Extracting Initial Scope section...');
-    const match = docContent.match(/## Initial Scope\s+([\s\S]+?)(?=\n##|$)/);
+    // Try to extract scope from known section headers
+    const scopeFromSection = this.tryExtractScopeFromSections(docContent);
 
-    if (!match) {
-      this.debug('✗ Initial Scope section not found in doc.md');
-      throw new Error('Could not find Initial Scope section in project documentation');
+    if (scopeFromSection) {
+      this.debug(`✓ Scope extracted from section (${scopeFromSection.length} chars)`);
+      this.debug(`Scope preview: "${scopeFromSection.substring(0, 100)}..."`);
+      return scopeFromSection;
     }
 
-    const scope = match[1].trim();
-    this.debug(`Scope extracted (${scope.length} chars): "${scope.substring(0, 100)}..."`);
+    // Fallback: Use entire doc.md
+    this.debug('⚠️  No standard scope section found');
+    this.debug('Using entire doc.md content as scope source');
 
-    return scope;
+    console.warn('\n⚠️  No standard scope section found in doc.md');
+    console.warn('   Using entire documentation for feature extraction.');
+    console.warn('   For better results and lower token usage, consider adding one of:');
+    console.warn('   - "## Initial Scope"');
+    console.warn('   - "## Scope"');
+    console.warn('   - "## Features"\n');
+
+    this.debug(`Using full doc content (${docContent.length} chars)`);
+    return docContent;
+  }
+
+  /**
+   * Try to extract scope from known section headers
+   * Returns null if no section found
+   */
+  tryExtractScopeFromSections(docContent) {
+    // Section headers to try (in priority order)
+    const sectionHeaders = [
+      'Initial Scope',           // Official AVC convention
+      'Scope',                   // Common variation
+      'Project Scope',           // Formal variation
+      'Features',                // Common alternative
+      'Core Features',           // Detailed variation
+      'Requirements',            // Specification style
+      'Functional Requirements', // Formal specification
+      'User Stories',            // Agile style
+      'Feature List',            // Simple list style
+      'Objectives',              // Goal-oriented style
+      'Goals',                   // Simple goal style
+      'Deliverables',            // Project management style
+      'Product Features',        // Product-focused
+      'System Requirements'      // Technical specification
+    ];
+
+    this.debug(`Attempting to extract scope from known sections...`);
+    this.debug(`Trying ${sectionHeaders.length} section name variations`);
+
+    // Try each section header
+    for (const header of sectionHeaders) {
+      // Build regex (case-insensitive)
+      const regex = new RegExp(
+        `##\\s+${this.escapeRegex(header)}\\s+([\\s\\S]+?)(?=\\n##|$)`,
+        'i'
+      );
+
+      const match = docContent.match(regex);
+
+      if (match && match[1].trim().length > 0) {
+        const scope = match[1].trim();
+        this.debug(`✓ Found scope in section: "## ${header}"`);
+        this.debug(`Extracted ${scope.length} chars`);
+        return scope;
+      }
+
+      this.debug(`✗ Section "## ${header}" not found or empty`);
+    }
+
+    this.debug('✗ No known scope section found');
+    return null;
+  }
+
+  /**
+   * Escape special regex characters in section names
+   */
+  escapeRegex(str) {
+    return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   }
 
   // STAGE 4: Decompose into Epics + Stories

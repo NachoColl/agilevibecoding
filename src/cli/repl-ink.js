@@ -11,6 +11,7 @@ import { DocumentationBuilder } from './build-docs.js';
 import { UpdateChecker } from './update-checker.js';
 import { UpdateInstaller } from './update-installer.js';
 import { CommandLogger } from './command-logger.js';
+import ConsoleOutputManager from './console-output-manager.js';
 import { BackgroundProcessManager } from './process-manager.js';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -1431,7 +1432,7 @@ const App = () => {
 
       if (loggedCommands.includes(command.toLowerCase())) {
         if (command.toLowerCase() === '/init' || avcExists) {
-          logger = new CommandLogger(commandName);
+          logger = new CommandLogger(commandName, process.cwd(), true); // inkMode = true
           logger.start();
         }
       }
@@ -1650,25 +1651,16 @@ https://agilevibecoding.org
   const runInit = async () => {
     const initiator = new ProjectInitiator();
 
-    // Capture console.log output and forward to CommandLogger
-    const originalLog = console.log;
-    let logs = [];
-    console.log = (...args) => {
-      const message = args.join(' ');
-      logs.push(message);
-      originalLog(...args);  // Forward to CommandLogger if active
-    };
+    // Use ConsoleOutputManager for unified console handling
+    const outputManager = new ConsoleOutputManager(setOutput);
+    outputManager.start();
 
     let result;
     try {
       result = await initiator.init();
     } finally {
-      console.log = originalLog;
+      outputManager.stop();
     }
-
-    setOutput(prev => prev +
-      logs.join('\n') + '\n'
-    );
 
     // Check if init returned configuration data
     if (result && result.shouldConfigure) {
@@ -1690,26 +1682,21 @@ https://agilevibecoding.org
     }
 
     // Start command logger (writes to .avc/logs/sprint-planning-{timestamp}.log)
-    const logger = new CommandLogger('sprint-planning', process.cwd());
+    const logger = new CommandLogger('sprint-planning', process.cwd(), true); // inkMode = true
     logger.start();
 
-    const originalLog = console.log;
-    let logs = [];
-    console.log = (...args) => {
-      const message = args.join(' ');
-      logs.push(message);
-      originalLog(...args);  // Forward to CommandLogger if active
-    };
+    // Use ConsoleOutputManager for unified console handling (filters [DEBUG] automatically)
+    const outputManager = new ConsoleOutputManager(setOutput);
+    outputManager.start();
 
     try {
       await initiator.sprintPlanning();
     } finally {
-      console.log = originalLog;
+      outputManager.stop();
       logger.stop();
     }
 
     setOutput(prev => prev +
-      logs.join('\n') + '\n' +
       `📝 Debug log saved: ${logger.getLogPath()}\n` +
       '📖 https://agilevibecoding.org/ceremonies/sprint-planning\n'
     );
@@ -1726,22 +1713,17 @@ https://agilevibecoding.org
       return;
     }
 
-    const originalLog = console.log;
-    let logs = [];
-    console.log = (...args) => {
-      const message = args.join(' ');
-      logs.push(message);
-      originalLog(...args);  // Forward to CommandLogger if active
-    };
+    // Use ConsoleOutputManager for unified console handling
+    const outputManager = new ConsoleOutputManager(setOutput);
+    outputManager.start();
 
     try {
       await initiator.seed(storyId);
     } finally {
-      console.log = originalLog;
+      outputManager.stop();
     }
 
     setOutput(prev => prev +
-      logs.join('\n') + '\n' +
       '📖 https://agilevibecoding.org/ceremonies/seed\n'
     );
   };
@@ -1849,20 +1831,9 @@ https://agilevibecoding.org
       filesCreated: []
     });
 
-    // Capture console output during execution and forward to CommandLogger
-    const originalLog = console.log;
-    const originalError = console.error;
-    let capturedLogs = [];
-    console.log = (...args) => {
-      const message = args.join(' ');
-      capturedLogs.push(message);
-      originalLog(...args);  // Forward to CommandLogger if active
-    };
-    console.error = (...args) => {
-      const message = args.join(' ');
-      capturedLogs.push(message);
-      originalError(...args);  // Forward to CommandLogger if active
-    };
+    // Use ConsoleOutputManager for unified console handling
+    const outputManager = new ConsoleOutputManager(setOutput);
+    outputManager.start();
 
     // Progress callback to update spinner message, substep, and execution state
     const progressCallback = (message, substep = null, metadata = {}) => {
@@ -1961,8 +1932,7 @@ https://agilevibecoding.org
       setOutput(prev => prev + summary);
 
     } finally {
-      console.log = originalLog;
-      console.error = originalError;
+      outputManager.stop();
     }
   };
 
@@ -2104,45 +2074,30 @@ https://agilevibecoding.org
   const runStatus = async () => {
     const initiator = new ProjectInitiator();
 
-    // Capture console.log output and forward to CommandLogger
-    const originalLog = console.log;
-    let logs = [];
-    console.log = (...args) => {
-      const message = args.join(' ');
-      logs.push(message);
-      originalLog(...args);  // Forward to CommandLogger if active
-    };
+    // Use ConsoleOutputManager for unified console handling
+    const outputManager = new ConsoleOutputManager(setOutput);
+    outputManager.start();
 
     try {
       initiator.status();
     } finally {
-      console.log = originalLog;
+      outputManager.stop();
     }
-
-    setOutput(prev => prev + logs.join('\n') + '\n');
   };
 
   const runModels = async () => {
     const initiator = new ProjectInitiator();
 
-    // Capture console.log output directly into REPL output
-    // CommandLogger will handle file logging
-    const originalLog = console.log;
-    let logs = [];
-    console.log = (...args) => {
-      const message = args.join(' ');
-      logs.push(message);
-      originalLog(...args);  // Forward to CommandLogger if active
-    };
+    // Use ConsoleOutputManager for unified console handling
+    const outputManager = new ConsoleOutputManager(setOutput);
+    outputManager.start();
 
     let result;
     try {
       result = await initiator.models();
     } finally {
-      console.log = originalLog;
+      outputManager.stop();
     }
-
-    setOutput(prev => prev + logs.join('\n') + '\n');
 
     // Check if models() returned configuration data
     if (result && result.shouldConfigure) {
@@ -2164,18 +2119,14 @@ https://agilevibecoding.org
       return;
     }
 
-    // Stream console output in real-time and forward to CommandLogger
-    const originalLog = console.log;
-    console.log = (...args) => {
-      const message = args.join(' ');
-      setOutput(prev => prev + message + '\n');
-      originalLog(...args);  // Forward to CommandLogger if active
-    };
+    // Use ConsoleOutputManager for unified console handling
+    const outputManager = new ConsoleOutputManager(setOutput);
+    outputManager.start();
 
     try {
       await initiator.showTokenStats();
     } finally {
-      console.log = originalLog;
+      outputManager.stop();
     }
   };
 
@@ -2205,14 +2156,8 @@ https://agilevibecoding.org
 
     const initiator = new ProjectInitiator();
 
-    // Capture console.log output and forward to CommandLogger
-    const originalLog = console.log;
+    // Build output directly (no console interception needed)
     let logs = [];
-    console.log = (...args) => {
-      const message = args.join(' ');
-      logs.push(message);
-      originalLog(...args);  // Forward to CommandLogger if active
-    };
 
     try {
       // Perform the deletion
@@ -2263,8 +2208,6 @@ https://agilevibecoding.org
       logs.push(`❌ Error during deletion: ${error.message}\n`);
       logs.push('The .avc folder may be partially deleted.');
       logs.push('You may need to manually remove it.\n');
-    } finally {
-      console.log = originalLog;
     }
 
     setOutput(prev => prev + logs.join('\n'));

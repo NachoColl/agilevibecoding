@@ -12,10 +12,11 @@ import fs from 'fs';
 import path from 'path';
 
 class CommandLogger {
-  constructor(commandName, projectRoot = process.cwd()) {
+  constructor(commandName, projectRoot = process.cwd(), inkMode = false) {
     this.commandName = commandName;
     this.projectRoot = projectRoot;
     this.logsDir = path.join(projectRoot, '.avc', 'logs');
+    this.inkMode = inkMode; // Don't forward to console if in Ink mode
 
     // Create timestamp for this command execution
     const now = new Date();
@@ -111,25 +112,37 @@ class CommandLogger {
     // Intercept console.log
     console.log = (...args) => {
       this.writeLog('INFO', ...args);
-      this.originalLog(...args); // Still output to console
+      // Only forward to console if NOT in Ink mode
+      if (!this.inkMode) {
+        this.originalLog(...args);
+      }
     };
 
     // Intercept console.error
     console.error = (...args) => {
       this.writeLog('ERROR', ...args);
-      this.originalError(...args);
+      // Only forward to console if NOT in Ink mode
+      if (!this.inkMode) {
+        this.originalError(...args);
+      }
     };
 
     // Intercept console.warn
     console.warn = (...args) => {
       this.writeLog('WARN', ...args);
-      this.originalWarn(...args);
+      // Only forward to console if NOT in Ink mode
+      if (!this.inkMode) {
+        this.originalWarn(...args);
+      }
     };
 
     // Intercept console.info
     console.info = (...args) => {
       this.writeLog('INFO', ...args);
-      this.originalInfo(...args);
+      // Only forward to console if NOT in Ink mode
+      if (!this.inkMode) {
+        this.originalInfo(...args);
+      }
     };
   }
 

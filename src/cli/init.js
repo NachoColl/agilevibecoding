@@ -1022,23 +1022,33 @@ If you're new to Agile Vibe Coding, visit the [AVC Documentation](https://agilev
     configurator.availableProviders = configurator.detectAvailableProviders();
     configurator.readConfig();
 
+    // ANSI color codes for terminal output
+    const colors = {
+      cyan: '\x1b[36m',      // Ceremony names
+      yellow: '\x1b[33m',    // Stage names
+      green: '\x1b[32m',     // Models
+      blue: '\x1b[34m',      // URLs
+      reset: '\x1b[0m',      // Reset color
+      bold: '\x1b[1m'        // Bold text
+    };
+
     // Show current configuration
     const ceremonies = configurator.getCeremonies();
     ceremonies.forEach(c => {
       const ceremonyUrl = `https://agilevibecoding.org/ceremonies/${c.name}.html`;
-      console.log(`${c.name} - ${ceremonyUrl}`);
+      console.log(`${colors.bold}${colors.cyan}${c.name}${colors.reset} - ${colors.blue}${ceremonyUrl}${colors.reset}`);
       console.log(''); // Add space after title
-      console.log(`• main -> ${c.mainModel} (${c.mainProvider})`);
+      console.log(`• ${colors.yellow}main${colors.reset} -> ${colors.green}${c.mainModel}${colors.reset} (${c.mainProvider})`);
       if (c.validationProvider) {
         const hasValidationKey = configurator.availableProviders.includes(c.validationProvider);
         const keyWarning = hasValidationKey ? '' : ' ⚠️ No API key';
-        console.log(`• validation -> ${c.validationModel} (${c.validationProvider})${keyWarning}`);
+        console.log(`• ${colors.yellow}validation${colors.reset} -> ${colors.green}${c.validationModel}${colors.reset} (${c.validationProvider})${keyWarning}`);
       }
       Object.keys(c.stages).forEach(stageName => {
         const stage = c.stages[stageName];
         const hasStageKey = configurator.availableProviders.includes(stage.provider);
         const keyWarning = hasStageKey ? '' : ' ⚠️ No API key';
-        console.log(`• ${stageName} -> ${stage.model} (${stage.provider})${keyWarning}`);
+        console.log(`• ${colors.yellow}${stageName}${colors.reset} -> ${colors.green}${stage.model}${colors.reset} (${stage.provider})${keyWarning}`);
       });
       console.log(''); // Add space after each ceremony
     });
