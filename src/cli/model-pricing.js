@@ -128,6 +128,10 @@ export function getEstimatedTokens(ceremonyName, stageId) {
       'decomposition': 1,
       'validation': 20,
       'context-generation': 10
+    },
+    'context-retrospective': {
+      'documentation-update': 10,
+      'context-refinement': 15
     }
   };
 

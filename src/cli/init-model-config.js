@@ -180,24 +180,32 @@ export class ModelConfigurator {
       });
     }
 
-    // Add stage-specific overrides with descriptive names
-    if (ceremony.stages) {
-      Object.keys(ceremony.stages).forEach(stageName => {
-        const stage = ceremony.stages[stageName];
+    // Define available stages per ceremony (same as getCeremonies)
+    const ceremonyStages = {
+      'sponsor-call': ['suggestions', 'documentation', 'context'],
+      'sprint-planning': ['decomposition', 'context-generation', 'validation'],
+      'seed': ['decomposition', 'validation', 'context-generation'],
+      'context-retrospective': ['documentation-update', 'context-refinement']
+    };
 
-        // Check if this is the validation stage for sprint-planning
-        const hasValidationTypes = (ceremonyName === 'sprint-planning' && stageName === 'validation');
+    const availableStages = ceremonyStages[ceremonyName] || [];
 
-        stages.push({
-          id: `stage-${stageName}`,
-          name: this._getStageDisplayName(stageName, ceremonyName),
-          provider: stage.provider,
-          model: stage.model,
-          hasValidationTypes,
-          stageName  // Store original stage name for validation type lookup
-        });
+    // Add all available stages with effective provider/model
+    availableStages.forEach(stageName => {
+      const stageConfig = ceremony.stages?.[stageName];
+
+      // Check if this is the validation stage for sprint-planning
+      const hasValidationTypes = (ceremonyName === 'sprint-planning' && stageName === 'validation');
+
+      stages.push({
+        id: `stage-${stageName}`,
+        name: this._getStageDisplayName(stageName, ceremonyName),
+        provider: stageConfig?.provider || ceremony.provider,
+        model: stageConfig?.model || ceremony.defaultModel,
+        hasValidationTypes,
+        stageName  // Store original stage name for validation type lookup
       });
-    }
+    });
 
     return stages;
   }
@@ -463,14 +471,22 @@ export class ModelConfigurator {
     // Add stages
     const stages = this.getStagesForCeremony(ceremonyName);
     stages.forEach(stage => {
-      if (stage.id === 'validation' && ceremonyName === 'sprint-planning') {
+      // Skip 'main' stage as it's already in overview.main
+      if (stage.id === 'main') {
+        return;
+      }
+
+      if (stage.id.startsWith('stage-') && stage.stageName === 'validation' && ceremonyName === 'sprint-planning') {
         // Handle validation stage specially for sprint-planning
         overview.stages.push(this._getValidationStageOverview(ceremony, stage));
       } else {
         const stageProvider = stage.provider || ceremony.provider;
         const stageModel = stage.model || ceremony.defaultModel;
-        const tokens = getEstimatedTokens(ceremonyName, stage.id);
-        const calls = this._getCallCount(ceremonyName, stage.id);
+
+        // Use stageName (without 'stage-' prefix) for lookups, fallback to id
+        const lookupName = stage.stageName || stage.id.replace('stage-', '');
+        const tokens = getEstimatedTokens(ceremonyName, lookupName);
+        const calls = this._getCallCount(ceremonyName, lookupName);
         const cost = calculateCost(stageModel, tokens);
 
         overview.stages.push({
@@ -570,6 +586,10 @@ export class ModelConfigurator {
         'decomposition': 1,
         'validation': 20,
         'context-generation': 10
+      },
+      'context-retrospective': {
+        'documentation-update': 10,
+        'context-refinement': 15
       }
     };
 
