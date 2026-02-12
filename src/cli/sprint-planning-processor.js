@@ -1115,6 +1115,14 @@ ${projectContext}
 
   // Main execution method
   async execute() {
+    // Initialize ceremony history
+    const { CeremonyHistory } = await import('./ceremony-history.js');
+    const history = new CeremonyHistory(this.avcPath);
+    history.init();
+
+    // Start execution tracking
+    const executionId = history.startExecution('sprint-planning', 'decomposition');
+
     try {
       // Log ceremony execution metadata
       const runId = Date.now();
@@ -1123,6 +1131,7 @@ ${projectContext}
       this.debug('='.repeat(80));
       this.debug('Run ID:', runId);
       this.debug('Timestamp:', new Date().toISOString());
+      this.debug('Execution ID:', executionId);
 
       console.log('\n📊 Sprint Planning Ceremony\n');
 
@@ -1232,6 +1241,36 @@ ${projectContext}
       });
       this.debug('='.repeat(80) + '\n');
 
+      // Complete ceremony history tracking
+      const filesGenerated = [];
+      for (const epic of hierarchy.epics) {
+        filesGenerated.push(path.join(this.projectPath, epic.id, 'work.json'));
+        filesGenerated.push(path.join(this.projectPath, epic.id, 'context.md'));
+        filesGenerated.push(path.join(this.projectPath, epic.id, 'doc.md'));
+        for (const story of epic.stories || []) {
+          filesGenerated.push(path.join(this.projectPath, epic.id, story.id, 'work.json'));
+          filesGenerated.push(path.join(this.projectPath, epic.id, story.id, 'context.md'));
+        }
+      }
+
+      history.completeExecution('sprint-planning', executionId, 'success', {
+        filesGenerated,
+        tokenUsage: this.llmProvider ? {
+          input: this.llmProvider.getTokenUsage().inputTokens,
+          output: this.llmProvider.getTokenUsage().outputTokens,
+          total: this.llmProvider.getTokenUsage().totalTokens
+        } : null,
+        model: this._modelName,
+        provider: this._providerName,
+        stage: 'completed',
+        metrics: {
+          epicsCreated: epicCount,
+          storiesCreated: storyCount,
+          totalEpics: totalEpics,
+          totalStories: totalStories
+        }
+      });
+
     } catch (error) {
       this.debug('\n========== ERROR OCCURRED ==========');
       this.debug('Error details', {
@@ -1252,6 +1291,13 @@ ${projectContext}
       });
 
       console.error(`\n❌ Project expansion failed: ${error.message}\n`);
+
+      // Mark execution as aborted on error
+      history.completeExecution('sprint-planning', executionId, 'abrupt-termination', {
+        stage: 'error',
+        error: error.message
+      });
+
       throw error;
     }
   }
