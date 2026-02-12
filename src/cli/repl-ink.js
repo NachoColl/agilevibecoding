@@ -1061,43 +1061,73 @@ const ConfigurationOverview = ({ overview, selectedIndex }) => {
     }
   });
 
-  return React.createElement(Box, { flexDirection: 'column', borderStyle: 'round', borderColor: 'cyan', paddingX: 1 },
+  // Calculate total cost
+  let totalCost = 0;
+  overview.stages.forEach(stage => {
+    if (stage.validationTypes) {
+      // Sum validation type costs
+      stage.validationTypes.forEach(vt => {
+        totalCost += vt.cost || 0;
+      });
+    } else {
+      totalCost += stage.cost || 0;
+    }
+  });
+
+  // Build children array properly
+  const children = [
     React.createElement(Text, { bold: true }, `🔧 Model Configuration - ${overview.ceremony}`),
-    React.createElement(Text, {}, ''),
+    React.createElement(Text, {}, '')
+  ];
 
-    ...items.map((item, idx) => {
-      const isSelected = idx === selectedIndex;
-      const indent = '  '.repeat(item.level);
-      const prefix = isSelected ? '› ' : '  ';
+  // Add item elements
+  items.forEach((item, idx) => {
+    const isSelected = idx === selectedIndex;
+    const indent = '  '.repeat(item.level || 0);
+    const prefix = isSelected ? '› ' : '  ';
 
-      return React.createElement(Box, { key: idx, flexDirection: 'column' },
-        React.createElement(Text, {
-          color: isSelected ? 'green' : 'white',
-          bold: isSelected
-        }, `${indent}${prefix}${item.label}`),
+    const itemChildren = [
+      React.createElement(Text, {
+        color: isSelected ? 'green' : 'white',
+        bold: isSelected
+      }, `${indent}${prefix}${item.label || 'Unknown'}`),
 
+      React.createElement(Text, { dimColor: true },
+        `${indent}  Provider: ${item.provider || 'N/A'} | Model: ${item.model || 'N/A'}`
+      )
+    ];
+
+    if (item.calls > 0) {
+      itemChildren.push(
         React.createElement(Text, { dimColor: true },
-          `${indent}  Provider: ${item.provider} | Model: ${item.model}`
-        ),
-
-        item.calls > 0 && React.createElement(Text, { dimColor: true },
-          `${indent}  Calls: ~${item.calls} | Cost: ${item.formattedCost}`
-        ),
-
-        item.validators && React.createElement(Text, { dimColor: true, italic: true },
-          `${indent}  Validators: ${item.validators.slice(0, 3).join(', ')}${item.validators.length > 3 ? '...' : ''}`
-        ),
-
-        React.createElement(Text, {}, '')
+          `${indent}  Calls: ~${item.calls} | Cost: ${item.formattedCost || 'N/A'}`
+        )
       );
-    }),
+    }
 
+    if (item.validators && item.validators.length > 0) {
+      itemChildren.push(
+        React.createElement(Text, { dimColor: true, italic: true },
+          `${indent}  Validators: ${item.validators.slice(0, 3).join(', ')}${item.validators.length > 3 ? '...' : ''}`
+        )
+      );
+    }
+
+    itemChildren.push(React.createElement(Text, {}, ''));
+
+    children.push(React.createElement(Box, { key: `item-${idx}`, flexDirection: 'column' }, ...itemChildren));
+  });
+
+  // Add total cost
+  children.push(
     React.createElement(Text, { bold: true, color: 'green' },
-      `💰 Total Estimated Cost: ${overview.totalCalls > 0 ? `~${overview.stages.reduce((sum, s) => sum + (s.cost || 0), 0).toFixed(2)} per ceremony` : 'Varies'}`
+      `💰 Total Estimated Cost: $${totalCost.toFixed(2)} per ceremony`
     ),
     React.createElement(Text, {}, ''),
     React.createElement(Text, { dimColor: true }, 'Navigation: ↑/↓ Select | Enter Change | Esc Back')
   );
+
+  return React.createElement(Box, { flexDirection: 'column', borderStyle: 'round', borderColor: 'cyan', paddingX: 1 }, ...children);
 };
 
 /**

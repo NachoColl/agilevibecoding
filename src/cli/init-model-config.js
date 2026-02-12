@@ -66,14 +66,48 @@ export class ModelConfigurator {
       this.readConfig();
     }
 
-    return this.config.settings.ceremonies.map(ceremony => ({
-      name: ceremony.name,
-      mainProvider: ceremony.provider,
-      mainModel: ceremony.defaultModel,
-      validationProvider: ceremony.validation?.provider,
-      validationModel: ceremony.validation?.model,
-      stages: ceremony.stages || {}
-    }));
+    return this.config.settings.ceremonies.map(ceremony => {
+      // Build stages object with all available stages for this ceremony
+      const stages = {};
+
+      // Define available stages per ceremony (excluding 'main' and 'validation' which are handled separately)
+      const ceremonyStages = {
+        'sponsor-call': ['suggestions', 'documentation', 'context'],
+        'sprint-planning': ['decomposition', 'context-generation', 'validation'],
+        'seed': ['decomposition', 'validation', 'context-generation'],
+        'context-retrospective': ['documentation-update', 'context-refinement']
+      };
+
+      const availableStages = ceremonyStages[ceremony.name] || [];
+
+      // Build stages object with effective provider/model for each stage
+      availableStages.forEach(stageName => {
+        const stageConfig = ceremony.stages?.[stageName];
+
+        if (stageConfig) {
+          // Stage is explicitly configured
+          stages[stageName] = {
+            provider: stageConfig.provider,
+            model: stageConfig.model
+          };
+        } else {
+          // Stage not configured, use ceremony default
+          stages[stageName] = {
+            provider: ceremony.provider,
+            model: ceremony.defaultModel
+          };
+        }
+      });
+
+      return {
+        name: ceremony.name,
+        mainProvider: ceremony.provider,
+        mainModel: ceremony.defaultModel,
+        validationProvider: ceremony.validation?.provider,
+        validationModel: ceremony.validation?.model,
+        stages
+      };
+    });
   }
 
   /**
