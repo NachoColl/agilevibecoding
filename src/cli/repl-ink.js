@@ -1159,7 +1159,7 @@ const ValidationTypeSelector = ({ ceremonyName, stageName, validationTypes, sele
  * Model Selector Component
  */
 const ModelSelector = ({ stageName, currentModel, models, selectedIndex }) => {
-  return React.createElement(Box, { flexDirection: 'column', borderStyle: 'cyan', paddingX: 1 },
+  return React.createElement(Box, { flexDirection: 'column', borderStyle: 'round', borderColor: 'cyan', paddingX: 1 },
     React.createElement(Text, { bold: true }, 'Stage: ' + stageName),
     React.createElement(Text, { dimColor: true }, 'Current: ' + currentModel),
     React.createElement(Text, {}, ''),
