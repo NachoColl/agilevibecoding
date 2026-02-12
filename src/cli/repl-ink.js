@@ -1038,10 +1038,35 @@ const StageSelector = ({ ceremonyName, stages, selectedIndex, availableProviders
 };
 
 /**
+ * Validation Type Selector Component
+ */
+const ValidationTypeSelector = ({ ceremonyName, stageName, validationTypes, selectedIndex }) => {
+  return React.createElement(Box, { flexDirection: 'column', borderStyle: 'round', borderColor: 'cyan', paddingX: 1 },
+    React.createElement(Text, { bold: true }, `${ceremonyName} > ${stageName}`),
+    React.createElement(Text, {}, ''),
+    React.createElement(Text, { dimColor: true }, 'Select Validation Type:'),
+    React.createElement(Box, { flexDirection: 'column', marginTop: 1 },
+      ...validationTypes.map((type, idx) =>
+        React.createElement(Box, { key: type.id, flexDirection: 'column' },
+          React.createElement(Text, { color: idx === selectedIndex ? 'green' : 'white' },
+            (idx === selectedIndex ? '› ' : '  ') + (idx + 1) + '. ' + type.name
+          ),
+          React.createElement(Text, { dimColor: true },
+            type.description
+          )
+        )
+      )
+    ),
+    React.createElement(Text, {}, ''),
+    React.createElement(Text, { dimColor: true, marginTop: 1 }, '(Press Enter to select, Esc to go back)')
+  );
+};
+
+/**
  * Model Selector Component
  */
 const ModelSelector = ({ stageName, currentModel, models, selectedIndex }) => {
-  return React.createElement(Box, { flexDirection: 'column', borderStyle: 'round', borderColor: 'cyan', paddingX: 1 },
+  return React.createElement(Box, { flexDirection: 'column', borderStyle: 'cyan', paddingX: 1 },
     React.createElement(Text, { bold: true }, 'Stage: ' + stageName),
     React.createElement(Text, { dimColor: true }, 'Current: ' + currentModel),
     React.createElement(Text, {}, ''),
@@ -1152,12 +1177,14 @@ const App = () => {
 
   // Model configuration state
   const [modelConfigActive, setModelConfigActive] = useState(false);
-  const [modelConfigMode, setModelConfigMode] = useState('prompt'); // 'prompt' | 'ceremony' | 'stage' | 'model'
+  const [modelConfigMode, setModelConfigMode] = useState('prompt'); // 'prompt' | 'ceremony' | 'stage' | 'validation-type' | 'model'
   const [modelConfigurator, setModelConfigurator] = useState(null);
   const [selectedCeremony, setSelectedCeremony] = useState(null);
   const [selectedStage, setSelectedStage] = useState(null);
+  const [selectedValidationType, setSelectedValidationType] = useState(null);
   const [ceremonySelectIndex, setCeremonySelectIndex] = useState(0);
   const [stageSelectIndex, setStageSelectIndex] = useState(0);
+  const [validationTypeSelectIndex, setValidationTypeSelectIndex] = useState(0);
   const [modelSelectIndex, setModelSelectIndex] = useState(0);
   const [configurationChanges, setConfigurationChanges] = useState([]);
   const [modelConfigPromptInput, setModelConfigPromptInput] = useState('');
@@ -3391,9 +3418,17 @@ https://agilevibecoding.org
 
     if (key.return) {
       const stages = modelConfigurator.getStagesForCeremony(selectedCeremony.name);
-      setSelectedStage(stages[stageSelectIndex]);
-      setModelConfigMode('model');
-      setModelSelectIndex(0);
+      const selectedStageObj = stages[stageSelectIndex];
+      setSelectedStage(selectedStageObj);
+
+      // Check if this stage has validation types (sprint-planning validation stage)
+      if (selectedStageObj.hasValidationTypes) {
+        setModelConfigMode('validation-type');
+        setValidationTypeSelectIndex(0);
+      } else {
+        setModelConfigMode('model');
+        setModelSelectIndex(0);
+      }
       return;
     }
 
@@ -3403,6 +3438,37 @@ https://agilevibecoding.org
       return;
     }
   }, { isActive: modelConfigActive && modelConfigMode === 'stage' });
+
+  // Model Configuration Validation Type Selection Handler (for sprint-planning validation stage)
+  useInput((input, key) => {
+    if (!modelConfigActive || modelConfigMode !== 'validation-type') return;
+
+    if (key.upArrow) {
+      const validationTypes = modelConfigurator.getValidationTypes();
+      setValidationTypeSelectIndex(Math.max(0, validationTypeSelectIndex - 1));
+      return;
+    }
+
+    if (key.downArrow) {
+      const validationTypes = modelConfigurator.getValidationTypes();
+      setValidationTypeSelectIndex(Math.min(validationTypes.length - 1, validationTypeSelectIndex + 1));
+      return;
+    }
+
+    if (key.return) {
+      const validationTypes = modelConfigurator.getValidationTypes();
+      setSelectedValidationType(validationTypes[validationTypeSelectIndex]);
+      setModelConfigMode('model');
+      setModelSelectIndex(0);
+      return;
+    }
+
+    if (key.escape) {
+      setModelConfigMode('stage');
+      setStageSelectIndex(0);
+      return;
+    }
+  }, { isActive: modelConfigActive && modelConfigMode === 'validation-type' });
 
   // Model Configuration Model Selection Handler
   useInput((input, key) => {
@@ -3424,27 +3490,43 @@ https://agilevibecoding.org
       const models = modelConfigurator.getAvailableModels();
       const selectedModel = models[modelSelectIndex];
 
-      // Update configuration
-      modelConfigurator.updateStage(selectedCeremony.name, selectedStage.id, selectedModel.id);
+      // Update configuration (with validation type if applicable)
+      const validationType = selectedValidationType ? selectedValidationType.id : null;
+      modelConfigurator.updateStage(selectedCeremony.name, selectedStage.id, selectedModel.id, validationType);
 
       // Track change
+      const stageName = selectedValidationType
+        ? `${selectedStage.name} (${selectedValidationType.name})`
+        : selectedStage.name;
+
       setConfigurationChanges(prev => [...prev, {
         ceremony: selectedCeremony.name,
-        stage: selectedStage.name,
+        stage: stageName,
         oldModel: selectedStage.model,
         newModel: selectedModel.id
       }]);
 
-      setOutput(prev => prev + `\n✅ Updated ${selectedStage.name}: ${selectedStage.model} → ${selectedModel.id}\n`);
+      setOutput(prev => prev + `\n✅ Updated ${stageName}: ${selectedStage.model} → ${selectedModel.id}\n`);
 
-      // Go back to stage selection
-      setModelConfigMode('stage');
-      setStageSelectIndex(0);
+      // Clear validation type and go back to appropriate selection
+      setSelectedValidationType(null);
+      if (selectedStage.hasValidationTypes) {
+        setModelConfigMode('validation-type');
+        setValidationTypeSelectIndex(0);
+      } else {
+        setModelConfigMode('stage');
+        setStageSelectIndex(0);
+      }
       return;
     }
 
     if (key.escape) {
-      setModelConfigMode('stage');
+      if (selectedValidationType) {
+        setModelConfigMode('validation-type');
+        setSelectedValidationType(null);
+      } else {
+        setModelConfigMode('stage');
+      }
       return;
     }
   }, { isActive: modelConfigActive && modelConfigMode === 'model' });
@@ -3654,9 +3736,22 @@ https://agilevibecoding.org
       });
     }
 
-    if (modelConfigMode === 'model' && selectedStage) {
-      return React.createElement(ModelSelector, {
+    if (modelConfigMode === 'validation-type' && selectedCeremony && selectedStage) {
+      return React.createElement(ValidationTypeSelector, {
+        ceremonyName: selectedCeremony.name,
         stageName: selectedStage.name,
+        validationTypes: modelConfigurator.getValidationTypes(),
+        selectedIndex: validationTypeSelectIndex
+      });
+    }
+
+    if (modelConfigMode === 'model' && selectedStage) {
+      const stageName = selectedValidationType
+        ? `${selectedStage.name} > ${selectedValidationType.name}`
+        : selectedStage.name;
+
+      return React.createElement(ModelSelector, {
+        stageName: stageName,
         currentModel: selectedStage.model,
         models: modelConfigurator.getAvailableModels(),
         selectedIndex: modelSelectIndex

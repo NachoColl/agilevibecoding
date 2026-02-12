@@ -2,6 +2,8 @@ import fs from 'fs';
 import path from 'path';
 import { LLMProvider } from './llm-provider.js';
 import { TokenTracker } from './token-tracker.js';
+import { EpicStoryValidator } from './epic-story-validator.js';
+import { VerificationTracker } from './verification-tracker.js';
 import { fileURLToPath } from 'url';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -21,14 +23,21 @@ class SprintPlanningProcessor {
     this.agentsPath = path.join(__dirname, 'agents');
 
     // Read ceremony config
-    const { provider, model } = this.readCeremonyConfig();
+    const { provider, model, stagesConfig } = this.readCeremonyConfig();
     this._providerName = provider;
     this._modelName = model;
     this.llmProvider = null;
+    this.stagesConfig = stagesConfig;
+
+    // Stage provider cache
+    this._stageProviders = {};
 
     // Initialize token tracker
     this.tokenTracker = new TokenTracker(this.avcPath);
     this.tokenTracker.init();
+
+    // Initialize verification tracker
+    this.verificationTracker = new VerificationTracker(this.avcPath);
 
     // Debug mode - always enabled for comprehensive logging
     this.debugMode = true;
@@ -95,17 +104,73 @@ class SprintPlanningProcessor {
 
       if (!ceremony) {
         console.warn(`⚠️  Ceremony '${this.ceremonyName}' not found in config, using defaults`);
-        return { provider: 'claude', model: 'claude-sonnet-4-5-20250929' };
+        return {
+          provider: 'claude',
+          model: 'claude-sonnet-4-5-20250929',
+          stagesConfig: null
+        };
       }
 
       return {
         provider: ceremony.provider || 'claude',
-        model: ceremony.defaultModel || 'claude-sonnet-4-5-20250929'
+        model: ceremony.defaultModel || 'claude-sonnet-4-5-20250929',
+        stagesConfig: ceremony.stages || null
       };
     } catch (error) {
       console.warn(`⚠️  Could not read ceremony config: ${error.message}`);
-      return { provider: 'claude', model: 'claude-sonnet-4-5-20250929' };
+      return {
+        provider: 'claude',
+        model: 'claude-sonnet-4-5-20250929',
+        stagesConfig: null
+      };
     }
+  }
+
+  /**
+   * Get provider and model for a specific stage
+   * Falls back to ceremony-level config if stage-specific config not found
+   * @param {string} stageName - Stage name ('decomposition', 'validation', 'context-generation')
+   * @returns {Object} { provider, model }
+   */
+  getProviderForStage(stageName) {
+    // Check if stage-specific config exists
+    if (this.stagesConfig && this.stagesConfig[stageName]) {
+      const stageConfig = this.stagesConfig[stageName];
+      return {
+        provider: stageConfig.provider || this._providerName,
+        model: stageConfig.model || this._modelName
+      };
+    }
+
+    // Fall back to ceremony-level config
+    return {
+      provider: this._providerName,
+      model: this._modelName
+    };
+  }
+
+  /**
+   * Get or create LLM provider for a specific stage
+   * @param {string} stageName - Stage name ('decomposition', 'validation', 'context-generation')
+   * @returns {Promise<LLMProvider>} LLM provider instance
+   */
+  async getProviderForStageInstance(stageName) {
+    const { provider, model } = this.getProviderForStage(stageName);
+
+    // Check if we already have a provider for this stage
+    const cacheKey = `${stageName}:${provider}:${model}`;
+
+    if (this._stageProviders[cacheKey]) {
+      this.debug(`Using cached provider for ${stageName}: ${provider} (${model})`);
+      return this._stageProviders[cacheKey];
+    }
+
+    // Create new provider
+    this.debug(`Creating new provider for ${stageName}: ${provider} (${model})`);
+    const providerInstance = await LLMProvider.create(provider, model);
+    this._stageProviders[cacheKey] = providerInstance;
+
+    return providerInstance;
   }
 
   async initializeLLMProvider() {
@@ -183,15 +248,16 @@ class SprintPlanningProcessor {
 
     this.debug(`Scanning directory: ${this.projectPath}`);
     const dirs = fs.readdirSync(this.projectPath);
-    this.debug(`Found ${dirs.length} directories to scan`);
+    this.debug(`Found ${dirs.length} top-level directories to scan`);
 
+    // Scan top-level directories (epics)
     for (const dir of dirs) {
-      const workJsonPath = path.join(this.projectPath, dir, 'work.json');
+      const epicWorkJsonPath = path.join(this.projectPath, dir, 'work.json');
 
-      if (!fs.existsSync(workJsonPath)) continue;
+      if (!fs.existsSync(epicWorkJsonPath)) continue;
 
       try {
-        const work = JSON.parse(fs.readFileSync(workJsonPath, 'utf8'));
+        const work = JSON.parse(fs.readFileSync(epicWorkJsonPath, 'utf8'));
 
         if (work.type === 'epic') {
           this.debug(`Found existing Epic: ${work.id} "${work.name}"`);
@@ -203,27 +269,50 @@ class SprintPlanningProcessor {
             const num = parseInt(match[1], 10);
             if (num > maxEpicNum.value) maxEpicNum.value = num;
           }
-        } else if (work.type === 'story') {
-          this.debug(`Found existing Story: ${work.id} "${work.name}"`);
-          existingStories.set(work.name.toLowerCase(), work.id);
 
-          // Track max story number per epic (context-0001-0003 → epic 0001, story 3)
-          const match = work.id.match(/^context-(\d+)-(\d+)$/);
-          if (match) {
-            const epicId = `context-${match[1]}`;
-            const storyNum = parseInt(match[2], 10);
+          // Scan for nested stories under this epic
+          const epicDir = path.join(this.projectPath, dir);
+          const epicSubdirs = fs.readdirSync(epicDir).filter(subdir => {
+            const subdirPath = path.join(epicDir, subdir);
+            return fs.statSync(subdirPath).isDirectory();
+          });
 
-            if (!maxStoryNums.has(epicId)) {
-              maxStoryNums.set(epicId, 0);
-            }
-            if (storyNum > maxStoryNums.get(epicId)) {
-              maxStoryNums.set(epicId, storyNum);
+          this.debug(`Scanning ${epicSubdirs.length} subdirectories under epic ${work.id}`);
+
+          for (const storyDir of epicSubdirs) {
+            const storyWorkJsonPath = path.join(epicDir, storyDir, 'work.json');
+
+            if (!fs.existsSync(storyWorkJsonPath)) continue;
+
+            try {
+              const storyWork = JSON.parse(fs.readFileSync(storyWorkJsonPath, 'utf8'));
+
+              if (storyWork.type === 'story') {
+                this.debug(`Found existing Story: ${storyWork.id} "${storyWork.name}"`);
+                existingStories.set(storyWork.name.toLowerCase(), storyWork.id);
+
+                // Track max story number per epic (context-0001-0003 → epic 0001, story 3)
+                const storyMatch = storyWork.id.match(/^context-(\d+)-(\d+)$/);
+                if (storyMatch) {
+                  const epicId = `context-${storyMatch[1]}`;
+                  const storyNum = parseInt(storyMatch[2], 10);
+
+                  if (!maxStoryNums.has(epicId)) {
+                    maxStoryNums.set(epicId, 0);
+                  }
+                  if (storyNum > maxStoryNums.get(epicId)) {
+                    maxStoryNums.set(epicId, storyNum);
+                  }
+                }
+              }
+            } catch (error) {
+              this.debug(`Could not parse ${storyWorkJsonPath}: ${error.message}`);
             }
           }
         }
       } catch (error) {
-        this.debug(`Could not parse ${workJsonPath}: ${error.message}`);
-        console.warn(`⚠️  Could not parse ${workJsonPath}: ${error.message}`);
+        this.debug(`Could not parse ${epicWorkJsonPath}: ${error.message}`);
+        console.warn(`⚠️  Could not parse ${epicWorkJsonPath}: ${error.message}`);
       }
     }
 
@@ -334,15 +423,11 @@ class SprintPlanningProcessor {
 
     console.log('\n🔄 Stage 1/3: Decomposing scope into Epics and Stories...\n');
 
-    if (!this.llmProvider) {
-      this.debug('Initializing LLM provider...');
-      await this.initializeLLMProvider();
-    }
+    // Get stage-specific provider for decomposition
+    const provider = await this.getProviderForStageInstance('decomposition');
+    const { provider: providerName, model: modelName } = this.getProviderForStage('decomposition');
 
-    if (!this.llmProvider) {
-      this.debug('✗ LLM provider initialization failed');
-      throw new Error('LLM provider required for decomposition');
-    }
+    this.debug('Using provider for decomposition', { provider: providerName, model: modelName });
 
     // Read agent instructions
     const agentPath = path.join(this.agentsPath, 'epic-story-decomposer.md');
@@ -395,7 +480,7 @@ Return your response as JSON following the exact structure specified in your ins
       'Epic/Story Decomposition',
       async () => {
         this.debug('Request payload', {
-          model: this._modelName,
+          model: modelName,
           maxTokens: 8000,
           agentInstructions: `${epicStoryDecomposerAgent.substring(0, 100)}...`,
           promptPreview: `${prompt.substring(0, 200)}...`
@@ -404,12 +489,12 @@ Return your response as JSON following the exact structure specified in your ins
         this.debug('Sending request to LLM API...');
 
         const result = await this.retryWithBackoff(
-          () => this.llmProvider.generateJSON(prompt, epicStoryDecomposerAgent),
+          () => provider.generateJSON(prompt, epicStoryDecomposerAgent),
           'Epic/Story decomposition'
         );
 
         // Log token usage
-        const usage = this.llmProvider.getTokenUsage();
+        const usage = provider.getTokenUsage();
         this.debug('Response tokens', {
           input: usage.inputTokens,
           output: usage.outputTokens,
@@ -445,9 +530,180 @@ Return your response as JSON following the exact structure specified in your ins
     return hierarchy;
   }
 
-  // STAGE 5: Renumber IDs to avoid collisions
+  // STAGE 5: Multi-Agent Validation
+  async validateHierarchy(hierarchy, projectContext) {
+    this.debugStage(5, 'Multi-Agent Validation');
+    console.log('🔍 Validating Epics and Stories with domain experts...\n');
+
+    // Initialize default LLM provider if not already done (for fallback)
+    if (!this.llmProvider) {
+      await this.initializeLLMProvider();
+    }
+
+    // Check if smart selection is enabled
+    const useSmartSelection = this.stagesConfig?.validation?.useSmartSelection || false;
+
+    if (useSmartSelection) {
+      this.debug('Smart validator selection enabled');
+      console.log('   🧠 Smart validator selection enabled\n');
+    }
+
+    const validator = new EpicStoryValidator(
+      this.llmProvider,
+      this.verificationTracker,
+      this.stagesConfig,
+      useSmartSelection
+    );
+
+    // Validate each epic
+    for (const epic of hierarchy.epics) {
+      this.debug(`\nValidating Epic: ${epic.id} "${epic.name}"`);
+
+      // Generate epic context for validation
+      const epicContext = await this.generateEpicContext(epic, projectContext);
+
+      // Validate epic with multiple domain validators
+      const epicValidation = await validator.validateEpic(epic, epicContext);
+
+      // Display validation summary
+      this.displayValidationSummary('Epic', epic.name, epicValidation);
+
+      // Handle validation result
+      if (epicValidation.overallStatus === 'needs-improvement') {
+        this.debug(`Epic "${epic.name}" needs improvement - showing issues`);
+        this.displayValidationIssues(epicValidation);
+
+        // For now, continue with warnings (user can review files later)
+        // TODO: Implement auto-fix or ask user for confirmation
+        console.log(`   ⚠️  Epic will be created with validation warnings\n`);
+      }
+
+      // Validate each story under this epic
+      for (const story of epic.stories || []) {
+        this.debug(`\nValidating Story: ${story.id} "${story.name}"`);
+
+        // Generate story context for validation
+        const storyContext = await this.generateStoryContext(story, epic, projectContext);
+
+        // Validate story with multiple domain validators
+        const storyValidation = await validator.validateStory(story, storyContext, epic);
+
+        // Display validation summary
+        this.displayValidationSummary('Story', story.name, storyValidation);
+
+        // Handle validation result
+        if (storyValidation.overallStatus === 'needs-improvement') {
+          this.debug(`Story "${story.name}" needs improvement - showing issues`);
+          this.displayValidationIssues(storyValidation);
+
+          // For now, continue with warnings (user can review files later)
+          console.log(`   ⚠️  Story will be created with validation warnings\n`);
+        }
+      }
+    }
+
+    console.log('✅ Validation complete\n');
+    return hierarchy;
+  }
+
+  /**
+   * Display validation summary
+   */
+  displayValidationSummary(type, name, validation) {
+    const statusEmoji = {
+      'excellent': '✅',
+      'acceptable': '⚠️ ',
+      'needs-improvement': '❌'
+    };
+
+    const emoji = statusEmoji[validation.overallStatus] || '?';
+    console.log(`${emoji} ${type}: ${name}`);
+    console.log(`   Overall Score: ${validation.averageScore}/100`);
+    console.log(`   Validators: ${validation.validatorCount} agents`);
+    console.log(`   Issues: ${validation.criticalIssues.length} critical, ${validation.majorIssues.length} major, ${validation.minorIssues.length} minor`);
+
+    // Show strengths if excellent or acceptable
+    if (validation.overallStatus !== 'needs-improvement' && validation.strengths.length > 0) {
+      console.log(`   Strengths: ${validation.strengths.slice(0, 2).join(', ')}`);
+    }
+
+    console.log('');
+  }
+
+  /**
+   * Display validation issues
+   */
+  displayValidationIssues(validation) {
+    // Show critical issues
+    if (validation.criticalIssues.length > 0) {
+      console.log(`   Critical Issues:`);
+      validation.criticalIssues.slice(0, 3).forEach(issue => {
+        console.log(`     • [${issue.domain}] ${issue.description}`);
+        if (issue.suggestion) {
+          console.log(`       Fix: ${issue.suggestion}`);
+        }
+      });
+      if (validation.criticalIssues.length > 3) {
+        console.log(`     ... and ${validation.criticalIssues.length - 3} more critical issues`);
+      }
+      console.log('');
+    }
+
+    // Show improvement priorities
+    if (validation.improvementPriorities.length > 0) {
+      console.log(`   Improvement Priorities:`);
+      validation.improvementPriorities.slice(0, 3).forEach((priority, i) => {
+        console.log(`     ${i + 1}. ${priority.priority} (${priority.mentionedBy} validators)`);
+      });
+      console.log('');
+    }
+  }
+
+  /**
+   * Generate epic context for validation (simplified version of context generation)
+   */
+  async generateEpicContext(epic, projectContext) {
+    // For now, return a basic context
+    // In production, this would call the same context generator used in writeHierarchyFiles
+    return `# Epic Context: ${epic.name}
+
+**Description:** ${epic.description}
+
+**Domain:** ${epic.domain}
+
+**Features:**
+${(epic.features || []).map(f => `- ${f}`).join('\n')}
+
+**Project Context:**
+${projectContext}
+`;
+  }
+
+  /**
+   * Generate story context for validation (simplified version of context generation)
+   */
+  async generateStoryContext(story, epic, projectContext) {
+    // For now, return a basic context
+    // In production, this would call the same context generator used in writeHierarchyFiles
+    return `# Story Context: ${story.name}
+
+**User Type:** ${story.userType}
+
+**Description:** ${story.description}
+
+**Acceptance Criteria:**
+${(story.acceptance || []).map((ac, i) => `${i + 1}. ${ac}`).join('\n')}
+
+**Parent Epic:** ${epic.name} (${epic.domain})
+
+**Project Context:**
+${projectContext}
+`;
+  }
+
+  // STAGE 6: Renumber IDs to avoid collisions
   renumberHierarchy(hierarchy, maxEpicNum, maxStoryNums) {
-    this.debugStage(5, 'Renumber IDs');
+    this.debugStage(6, 'Renumber IDs');
     this.debug('Renumbering hierarchy to avoid ID collisions...');
 
     let nextEpicNum = maxEpicNum.value + 1;
@@ -481,7 +737,7 @@ Return your response as JSON following the exact structure specified in your ins
     return hierarchy;
   }
 
-  // STAGE 6-7: Generate contexts
+  // STAGE 7-8: Generate contexts
   async generateContext(level, id, data, agentInstructions) {
     this.debug(`Generating context for ${level}: ${id} "${data[level]?.name || 'unknown'}"`);
 
@@ -494,12 +750,15 @@ Return your response as JSON following the exact structure specified in your ins
       totalPromptSize: prompt.length
     });
 
+    // Get stage-specific provider for context generation
+    const provider = await this.getProviderForStageInstance('context-generation');
+
     const result = await this.debugApiCall(
       `${level.charAt(0).toUpperCase() + level.slice(1)} Context Generation (${id})`,
       async () => {
-        const response = await this.llmProvider.generateJSON(prompt, agentInstructions);
+        const response = await provider.generateJSON(prompt, agentInstructions);
 
-        const usage = this.llmProvider.getTokenUsage();
+        const usage = provider.getTokenUsage();
         this.debug('Generated context', {
           tokens: response.tokenCount,
           withinBudget: response.withinBudget,
@@ -553,9 +812,9 @@ Return your response as JSON following the exact structure specified in your ins
     return prompt;
   }
 
-  // STAGE 6-7: Write hierarchy files
+  // STAGE 7-8: Write hierarchy files
   async writeHierarchyFiles(hierarchy, projectContext) {
-    this.debugStage(6, 'Generate Contexts & Write Files');
+    this.debugStage(7, 'Generate Contexts & Write Files');
 
     console.log('\n💾 Stage 2/3: Generating context files...\n');
 
@@ -595,7 +854,7 @@ Return your response as JSON following the exact structure specified in your ins
       this.debug(`Writing ${contextPath} (${epicContext.contextMarkdown.length} bytes)`);
       console.log(`   ✅ ${epic.id}/context.md`);
 
-      // Write Epic work.json
+      // Write Epic work.json (preserve existing metadata like selectedValidators)
       const epicWorkJson = {
         id: epic.id,
         name: epic.name,
@@ -607,6 +866,7 @@ Return your response as JSON following the exact structure specified in your ins
         dependencies: epic.dependencies || [],
         children: (epic.stories || []).map(s => s.id),
         metadata: {
+          ...(epic.metadata || {}),  // Preserve existing metadata (e.g., selectedValidators)
           created: new Date().toISOString(),
           ceremony: this.ceremonyName,
           tokenBudget: epicContext.tokenCount
@@ -620,9 +880,9 @@ Return your response as JSON following the exact structure specified in your ins
 
       epicCount++;
 
-      // Write Story files
+      // Write Story files (nested under epic)
       for (const story of epic.stories || []) {
-        const storyDir = path.join(this.projectPath, story.id);
+        const storyDir = path.join(epicDir, story.id);
 
         this.debug(`Creating Story directory: ${storyDir}`);
         if (!fs.existsSync(storyDir)) {
@@ -646,7 +906,7 @@ Return your response as JSON following the exact structure specified in your ins
         this.debug(`Writing ${storyContextPath} (${storyContext.contextMarkdown.length} bytes)`);
         console.log(`      ✅ ${story.id}/context.md`);
 
-        // Write Story work.json
+        // Write Story work.json (preserve existing metadata like selectedValidators)
         const storyWorkJson = {
           id: story.id,
           name: story.name,
@@ -658,6 +918,7 @@ Return your response as JSON following the exact structure specified in your ins
           dependencies: story.dependencies || [],
           children: [],  // Empty until /seed creates tasks
           metadata: {
+            ...(story.metadata || {}),  // Preserve existing metadata (e.g., selectedValidators)
             created: new Date().toISOString(),
             ceremony: this.ceremonyName,
             tokenBudget: storyContext.tokenCount
@@ -678,7 +939,7 @@ Return your response as JSON following the exact structure specified in your ins
     return { epicCount, storyCount };
   }
 
-  // Count total hierarchy
+  // Count total hierarchy (nested structure)
   countTotalHierarchy() {
     let totalEpics = 0;
     let totalStories = 0;
@@ -689,16 +950,40 @@ Return your response as JSON following the exact structure specified in your ins
 
     const dirs = fs.readdirSync(this.projectPath);
 
+    // Scan top-level directories (epics)
     for (const dir of dirs) {
-      const workJsonPath = path.join(this.projectPath, dir, 'work.json');
+      const epicWorkJsonPath = path.join(this.projectPath, dir, 'work.json');
 
-      if (!fs.existsSync(workJsonPath)) continue;
+      if (!fs.existsSync(epicWorkJsonPath)) continue;
 
       try {
-        const work = JSON.parse(fs.readFileSync(workJsonPath, 'utf8'));
+        const work = JSON.parse(fs.readFileSync(epicWorkJsonPath, 'utf8'));
 
-        if (work.type === 'epic') totalEpics++;
-        if (work.type === 'story') totalStories++;
+        if (work.type === 'epic') {
+          totalEpics++;
+
+          // Count nested stories under this epic
+          const epicDir = path.join(this.projectPath, dir);
+          const epicSubdirs = fs.readdirSync(epicDir).filter(subdir => {
+            const subdirPath = path.join(epicDir, subdir);
+            return fs.statSync(subdirPath).isDirectory();
+          });
+
+          for (const storyDir of epicSubdirs) {
+            const storyWorkJsonPath = path.join(epicDir, storyDir, 'work.json');
+
+            if (!fs.existsSync(storyWorkJsonPath)) continue;
+
+            try {
+              const storyWork = JSON.parse(fs.readFileSync(storyWorkJsonPath, 'utf8'));
+              if (storyWork.type === 'story') {
+                totalStories++;
+              }
+            } catch (error) {
+              // Ignore parse errors
+            }
+          }
+        }
       } catch (error) {
         // Ignore parse errors
       }
@@ -736,14 +1021,17 @@ Return your response as JSON following the exact structure specified in your ins
       // Stage 4: Decompose
       let hierarchy = await this.decomposeIntoEpicsStories(scope, existingEpics, existingStories, projectContext);
 
-      // Stage 5: Renumber IDs
+      // Stage 5: Multi-Agent Validation
+      hierarchy = await this.validateHierarchy(hierarchy, projectContext);
+
+      // Stage 6: Renumber IDs
       hierarchy = this.renumberHierarchy(hierarchy, maxEpicNum, maxStoryNums);
 
-      // Stage 6-7: Generate contexts and write files
+      // Stage 7-8: Generate contexts and write files
       const { epicCount, storyCount } = await this.writeHierarchyFiles(hierarchy, projectContext);
 
-      // Stage 8: Summary & Cleanup
-      this.debugStage(8, 'Summary & Cleanup');
+      // Stage 9: Summary & Cleanup
+      this.debugStage(9, 'Summary & Cleanup');
 
       const { totalEpics, totalStories } = this.countTotalHierarchy();
 

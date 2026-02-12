@@ -1,0 +1,74 @@
+{
+  "agentName": "validator-epic-developer",
+  "version": "1.0.0",
+  "description": "Verification rules for developer (general best practices) epic validator",
+  "requiredFields": [
+    "validationStatus",
+    "overallScore",
+    "issues",
+    "strengths",
+    "improvementPriorities",
+    "readyForStories",
+    "domainSpecificNotes"
+  ],
+  "fieldValidation": {
+    "validationStatus": {
+      "type": "string",
+      "allowedValues": ["needs-improvement", "acceptable", "excellent"],
+      "errorMessage": "validationStatus must be one of: needs-improvement, acceptable, excellent"
+    },
+    "overallScore": {
+      "type": "number",
+      "min": 0,
+      "max": 100,
+      "errorMessage": "overallScore must be between 0 and 100"
+    },
+    "issues": {
+      "type": "array",
+      "minLength": 0,
+      "itemValidation": {
+        "requiredFields": ["severity", "category", "description", "suggestion"],
+        "severity": {
+          "type": "string",
+          "allowedValues": ["critical", "major", "minor"]
+        },
+        "category": {
+          "type": "string",
+          "allowedValues": ["clarity", "feasibility", "quality", "workflow", "best-practices"]
+        }
+      }
+    },
+    "strengths": {
+      "type": "array",
+      "minLength": 0
+    },
+    "improvementPriorities": {
+      "type": "array",
+      "minLength": 0,
+      "maxLength": 5
+    },
+    "readyForStories": {
+      "type": "boolean"
+    },
+    "domainSpecificNotes": {
+      "type": "string"
+    }
+  },
+  "consistencyRules": [
+    {
+      "rule": "score_status_alignment",
+      "description": "Score should align with validation status",
+      "check": "if validationStatus is 'excellent', score should be >= 90; if 'acceptable', 70-89; if 'needs-improvement', < 70"
+    },
+    {
+      "rule": "ready_for_stories_alignment",
+      "description": "readyForStories should be false if validationStatus is 'needs-improvement'",
+      "check": "if validationStatus is 'needs-improvement', readyForStories must be false"
+    },
+    {
+      "rule": "critical_issues_block",
+      "description": "Critical issues should result in needs-improvement status",
+      "check": "if any issue has severity 'critical', validationStatus should be 'needs-improvement'"
+    }
+  ]
+}

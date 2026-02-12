@@ -100,7 +100,7 @@ export class ModelConfigurator {
   /**
    * Get all stages for a specific ceremony.
    * @param {string} ceremonyName - Name of the ceremony
-   * @returns {Array} Array of stage objects with id, name, provider, model
+   * @returns {Array} Array of stage objects with id, name, provider, model, hasValidationTypes
    */
   getStagesForCeremony(ceremonyName) {
     if (!this.config) {
@@ -129,7 +129,8 @@ export class ModelConfigurator {
         id: 'main',
         name: mainStageName,
         provider: ceremony.provider,
-        model: ceremony.defaultModel
+        model: ceremony.defaultModel,
+        hasValidationTypes: false
       }
     ];
 
@@ -139,7 +140,8 @@ export class ModelConfigurator {
         id: 'validation',
         name: 'Quality Validation & Verification',
         provider: ceremony.validation.provider || ceremony.provider,
-        model: ceremony.validation.model || ceremony.defaultModel
+        model: ceremony.validation.model || ceremony.defaultModel,
+        hasValidationTypes: false
       });
     }
 
@@ -147,16 +149,84 @@ export class ModelConfigurator {
     if (ceremony.stages) {
       Object.keys(ceremony.stages).forEach(stageName => {
         const stage = ceremony.stages[stageName];
+
+        // Check if this is the validation stage for sprint-planning
+        const hasValidationTypes = (ceremonyName === 'sprint-planning' && stageName === 'validation');
+
         stages.push({
           id: `stage-${stageName}`,
           name: this._getStageDisplayName(stageName, ceremonyName),
           provider: stage.provider,
-          model: stage.model
+          model: stage.model,
+          hasValidationTypes,
+          stageName  // Store original stage name for validation type lookup
         });
       });
     }
 
     return stages;
+  }
+
+  /**
+   * Get validation types for sprint-planning validation stage
+   * @returns {Array} Array of validation type objects
+   */
+  getValidationTypes() {
+    return [
+      {
+        id: 'universal',
+        name: 'Universal Validators',
+        description: 'Always-applied (solution-architect, security, developer, qa, test-architect)'
+      },
+      {
+        id: 'domain',
+        name: 'Domain Validators',
+        description: 'Domain-specific (devops, database, frontend, api, backend, cloud, mobile, ui, ux, data)'
+      },
+      {
+        id: 'feature',
+        name: 'Feature Validators',
+        description: 'Inferred from acceptance criteria keywords'
+      },
+      {
+        id: 'default',
+        name: 'Default (All Validators)',
+        description: 'Fallback configuration for all validation types'
+      }
+    ];
+  }
+
+  /**
+   * Get current model configuration for a validation type
+   * @param {string} ceremonyName - Ceremony name (should be 'sprint-planning')
+   * @param {string} validationType - Validation type ID ('universal', 'domain', 'feature', 'default')
+   * @returns {Object|null} { provider, model } or null if not configured
+   */
+  getValidationTypeConfig(ceremonyName, validationType) {
+    if (!this.config) {
+      this.readConfig();
+    }
+
+    const ceremony = this.config.settings.ceremonies.find(c => c.name === ceremonyName);
+    if (!ceremony || !ceremony.stages || !ceremony.stages.validation) {
+      return null;
+    }
+
+    const validationStage = ceremony.stages.validation;
+    const validationTypeConfig = validationStage.validationTypes?.[validationType];
+
+    if (validationTypeConfig) {
+      return {
+        provider: validationTypeConfig.provider,
+        model: validationTypeConfig.model
+      };
+    }
+
+    // Return default validation stage config if validation type not configured
+    return {
+      provider: validationStage.provider || ceremony.provider,
+      model: validationStage.model || ceremony.defaultModel
+    };
   }
 
   /**
@@ -205,8 +275,9 @@ export class ModelConfigurator {
    * @param {string} ceremonyName - Name of the ceremony
    * @param {string} stageId - ID of the stage (main, validation, stage-*)
    * @param {string} newModel - New model ID to use
+   * @param {string|null} validationType - Optional validation type for sprint-planning validation stage
    */
-  updateStage(ceremonyName, stageId, newModel) {
+  updateStage(ceremonyName, stageId, newModel, validationType = null) {
     if (!this.config) {
       this.readConfig();
     }
@@ -239,8 +310,20 @@ export class ModelConfigurator {
       if (!ceremony.stages[stageName]) {
         ceremony.stages[stageName] = {};
       }
-      ceremony.stages[stageName].provider = modelInfo.provider;
-      ceremony.stages[stageName].model = newModel;
+
+      // Handle validation type sub-configuration for sprint-planning validation stage
+      if (validationType && stageName === 'validation' && ceremonyName === 'sprint-planning') {
+        if (!ceremony.stages[stageName].validationTypes) {
+          ceremony.stages[stageName].validationTypes = {};
+        }
+        ceremony.stages[stageName].validationTypes[validationType] = {
+          provider: modelInfo.provider,
+          model: newModel
+        };
+      } else {
+        ceremony.stages[stageName].provider = modelInfo.provider;
+        ceremony.stages[stageName].model = newModel;
+      }
     }
   }
 
