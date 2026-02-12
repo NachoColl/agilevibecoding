@@ -25,4 +25,7 @@ npm-debug.log*
 .vscode/
 .idea/
 
+# AVC project structure (generated during development)
+.avc/
+
 _temp/
