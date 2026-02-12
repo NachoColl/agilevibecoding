@@ -1056,7 +1056,8 @@ If you're new to Agile Vibe Coding, visit the [AVC Documentation](https://agilev
     // Return configurator for REPL to use
     return {
       shouldConfigure: true,
-      configurator
+      configurator,
+      ceremonies: ceremonies.map(c => c.name) // List of ceremony names for selection
     };
   }
 

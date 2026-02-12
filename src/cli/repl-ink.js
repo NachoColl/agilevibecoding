@@ -1038,6 +1038,69 @@ const StageSelector = ({ ceremonyName, stages, selectedIndex, availableProviders
 };
 
 /**
+ * Configuration Overview Component - Shows all config points with costs
+ */
+const ConfigurationOverview = ({ overview, selectedIndex }) => {
+  if (!overview) return null;
+
+  // Build flat list of all configuration items for navigation
+  const items = [];
+
+  // Add main
+  items.push({ ...overview.main, type: 'main' });
+
+  // Add stages
+  overview.stages.forEach(stage => {
+    items.push({ ...stage, type: 'stage' });
+
+    // Add validation types if present
+    if (stage.validationTypes) {
+      stage.validationTypes.forEach(vtype => {
+        items.push({ ...vtype, type: 'validation-type', parentStage: stage.id });
+      });
+    }
+  });
+
+  return React.createElement(Box, { flexDirection: 'column', borderStyle: 'round', borderColor: 'cyan', paddingX: 1 },
+    React.createElement(Text, { bold: true }, `🔧 Model Configuration - ${overview.ceremony}`),
+    React.createElement(Text, {}, ''),
+
+    ...items.map((item, idx) => {
+      const isSelected = idx === selectedIndex;
+      const indent = '  '.repeat(item.level);
+      const prefix = isSelected ? '› ' : '  ';
+
+      return React.createElement(Box, { key: idx, flexDirection: 'column' },
+        React.createElement(Text, {
+          color: isSelected ? 'green' : 'white',
+          bold: isSelected
+        }, `${indent}${prefix}${item.label}`),
+
+        React.createElement(Text, { dimColor: true },
+          `${indent}  Provider: ${item.provider} | Model: ${item.model}`
+        ),
+
+        item.calls > 0 && React.createElement(Text, { dimColor: true },
+          `${indent}  Calls: ~${item.calls} | Cost: ${item.formattedCost}`
+        ),
+
+        item.validators && React.createElement(Text, { dimColor: true, italic: true },
+          `${indent}  Validators: ${item.validators.slice(0, 3).join(', ')}${item.validators.length > 3 ? '...' : ''}`
+        ),
+
+        React.createElement(Text, {}, '')
+      );
+    }),
+
+    React.createElement(Text, { bold: true, color: 'green' },
+      `💰 Total Estimated Cost: ${overview.totalCalls > 0 ? `~${overview.stages.reduce((sum, s) => sum + (s.cost || 0), 0).toFixed(2)} per ceremony` : 'Varies'}`
+    ),
+    React.createElement(Text, {}, ''),
+    React.createElement(Text, { dimColor: true }, 'Navigation: ↑/↓ Select | Enter Change | Esc Back')
+  );
+};
+
+/**
  * Validation Type Selector Component
  */
 const ValidationTypeSelector = ({ ceremonyName, stageName, validationTypes, selectedIndex }) => {
@@ -1177,12 +1240,14 @@ const App = () => {
 
   // Model configuration state
   const [modelConfigActive, setModelConfigActive] = useState(false);
-  const [modelConfigMode, setModelConfigMode] = useState('prompt'); // 'prompt' | 'ceremony' | 'stage' | 'validation-type' | 'model'
+  const [modelConfigMode, setModelConfigMode] = useState('prompt'); // 'prompt' | 'ceremony' | 'overview' | 'stage' | 'validation-type' | 'model'
   const [modelConfigurator, setModelConfigurator] = useState(null);
   const [selectedCeremony, setSelectedCeremony] = useState(null);
   const [selectedStage, setSelectedStage] = useState(null);
   const [selectedValidationType, setSelectedValidationType] = useState(null);
   const [ceremonySelectIndex, setCeremonySelectIndex] = useState(0);
+  const [configOverview, setConfigOverview] = useState(null);
+  const [overviewSelectIndex, setOverviewSelectIndex] = useState(0);
   const [stageSelectIndex, setStageSelectIndex] = useState(0);
   const [validationTypeSelectIndex, setValidationTypeSelectIndex] = useState(0);
   const [modelSelectIndex, setModelSelectIndex] = useState(0);
@@ -3381,9 +3446,20 @@ https://agilevibecoding.org
 
     if (key.return) {
       const ceremonies = modelConfigurator.getCeremonies();
-      setSelectedCeremony(ceremonies[ceremonySelectIndex]);
-      setModelConfigMode('stage');
-      setStageSelectIndex(0);
+      const ceremony = ceremonies[ceremonySelectIndex];
+      setSelectedCeremony(ceremony);
+
+      // Load configuration overview
+      try {
+        const overview = modelConfigurator.getConfigurationOverview(ceremony.name);
+        setConfigOverview(overview);
+        setModelConfigMode('overview');
+        setOverviewSelectIndex(0);
+      } catch (error) {
+        // Fallback to old stage mode if overview fails
+        setModelConfigMode('stage');
+        setStageSelectIndex(0);
+      }
       return;
     }
 
@@ -3399,6 +3475,65 @@ https://agilevibecoding.org
       return;
     }
   }, { isActive: modelConfigActive && modelConfigMode === 'ceremony' });
+
+  // Model Configuration Overview Navigation Handler
+  useInput((input, key) => {
+    if (!modelConfigActive || modelConfigMode !== 'overview') return;
+
+    if (!configOverview) return;
+
+    // Build flat list of items (same as in component)
+    const items = [];
+    items.push({ ...configOverview.main, type: 'main' });
+    configOverview.stages.forEach(stage => {
+      items.push({ ...stage, type: 'stage' });
+      if (stage.validationTypes) {
+        stage.validationTypes.forEach(vtype => {
+          items.push({ ...vtype, type: 'validation-type', parentStage: stage.id });
+        });
+      }
+    });
+
+    if (key.upArrow) {
+      setOverviewSelectIndex(Math.max(0, overviewSelectIndex - 1));
+      return;
+    }
+
+    if (key.downArrow) {
+      setOverviewSelectIndex(Math.min(items.length - 1, overviewSelectIndex + 1));
+      return;
+    }
+
+    if (key.return) {
+      // Change model for selected item
+      const selectedItem = items[overviewSelectIndex];
+
+      // Set up for model selection
+      setSelectedStage({
+        id: selectedItem.id || 'main',
+        name: selectedItem.label,
+        provider: selectedItem.provider,
+        model: selectedItem.model
+      });
+
+      if (selectedItem.type === 'validation-type') {
+        setSelectedValidationType({ id: selectedItem.id, name: selectedItem.label });
+      } else {
+        setSelectedValidationType(null);
+      }
+
+      setModelConfigMode('model');
+      setModelSelectIndex(0);
+      return;
+    }
+
+    if (key.escape) {
+      // Go back to ceremony selection
+      setModelConfigMode('ceremony');
+      setConfigOverview(null);
+      return;
+    }
+  }, { isActive: modelConfigActive && modelConfigMode === 'overview' });
 
   // Model Configuration Stage Selection Handler
   useInput((input, key) => {
@@ -3510,7 +3645,19 @@ https://agilevibecoding.org
 
       // Clear validation type and go back to appropriate selection
       setSelectedValidationType(null);
-      if (selectedStage.hasValidationTypes) {
+
+      // If we have an overview, refresh it and go back to overview mode
+      if (configOverview) {
+        try {
+          const updatedOverview = modelConfigurator.getConfigurationOverview(selectedCeremony.name);
+          setConfigOverview(updatedOverview);
+          setModelConfigMode('overview');
+        } catch (error) {
+          // Fallback to stage mode
+          setModelConfigMode('stage');
+          setStageSelectIndex(0);
+        }
+      } else if (selectedStage.hasValidationTypes) {
         setModelConfigMode('validation-type');
         setValidationTypeSelectIndex(0);
       } else {
@@ -3724,6 +3871,13 @@ https://agilevibecoding.org
         ceremonies: modelConfigurator.getCeremonies(),
         selectedIndex: ceremonySelectIndex,
         onIndexChange: setCeremonySelectIndex
+      });
+    }
+
+    if (modelConfigMode === 'overview' && configOverview) {
+      return React.createElement(ConfigurationOverview, {
+        overview: configOverview,
+        selectedIndex: overviewSelectIndex
       });
     }
 

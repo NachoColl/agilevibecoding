@@ -1,6 +1,7 @@
 import fs from 'fs';
 import path from 'path';
 import dotenv from 'dotenv';
+import { getModelPricing, calculateCost, formatCost, getEstimatedTokens } from './model-pricing.js';
 
 /**
  * Handles interactive model configuration during project initialization.
@@ -390,5 +391,183 @@ export class ModelConfigurator {
     });
 
     return issues;
+  }
+
+  /**
+   * Get complete configuration overview with cost estimates for a ceremony
+   * @param {string} ceremonyName - Name of ceremony (e.g., 'sprint-planning')
+   * @returns {Object} Configuration overview with costs
+   */
+  getConfigurationOverview(ceremonyName) {
+    if (!this.config) {
+      this.readConfig();
+    }
+
+    const ceremony = this.config.settings.ceremonies.find(c => c.name === ceremonyName);
+    if (!ceremony) {
+      throw new Error(`Ceremony '${ceremonyName}' not found in configuration`);
+    }
+
+    const overview = {
+      ceremony: ceremonyName,
+      main: {
+        label: 'Main Ceremony Default',
+        provider: ceremony.provider || 'claude',
+        model: ceremony.defaultModel || 'claude-sonnet-4-5-20250929',
+        calls: 0,
+        cost: 0,
+        formattedCost: 'Free',
+        isDefault: true,
+        level: 0
+      },
+      stages: [],
+      validationTypes: null,
+      totalCost: 0,
+      totalCalls: 0
+    };
+
+    // Add stages
+    const stages = this.getStagesForCeremony(ceremonyName);
+    stages.forEach(stage => {
+      if (stage.id === 'validation' && ceremonyName === 'sprint-planning') {
+        // Handle validation stage specially for sprint-planning
+        overview.stages.push(this._getValidationStageOverview(ceremony, stage));
+      } else {
+        const stageProvider = stage.provider || ceremony.provider;
+        const stageModel = stage.model || ceremony.defaultModel;
+        const tokens = getEstimatedTokens(ceremonyName, stage.id);
+        const calls = this._getCallCount(ceremonyName, stage.id);
+        const cost = calculateCost(stageModel, tokens);
+
+        overview.stages.push({
+          id: stage.id,
+          label: stage.name,
+          provider: stageProvider,
+          model: stageModel,
+          calls,
+          cost,
+          formattedCost: formatCost(cost),
+          usingDefault: !stage.provider,
+          level: 1
+        });
+
+        overview.totalCost += cost;
+        overview.totalCalls += calls;
+      }
+    });
+
+    return overview;
+  }
+
+  /**
+   * Get validation stage overview with validation types (sprint-planning only)
+   */
+  _getValidationStageOverview(ceremony, validationStage) {
+    const validationConfig = ceremony.stages?.validation || {};
+    const validationProvider = validationConfig.provider || ceremony.provider;
+    const validationModel = validationConfig.model || ceremony.defaultModel;
+
+    const overview = {
+      id: 'validation',
+      label: 'Validation (Multi-Agent)',
+      provider: validationProvider,
+      model: validationModel,
+      calls: 145,
+      cost: 0, // Calculated from types
+      formattedCost: '', // Set after calculating types
+      usingDefault: !validationConfig.provider,
+      level: 1,
+      validationTypes: []
+    };
+
+    const types = [
+      { id: 'universal', name: 'Universal', calls: 30, validators: ['solution-architect', 'developer', 'security', 'qa', 'test-architect'] },
+      { id: 'domain', name: 'Domain', calls: 90, validators: ['devops', 'database', 'api', 'frontend', 'backend', 'cloud', 'mobile', 'ui', 'ux', 'data'] },
+      { id: 'feature', name: 'Feature', calls: 25, validators: ['testing', 'security', 'file-upload', 'notifications', 'reporting'] }
+    ];
+
+    let totalValidationCost = 0;
+
+    types.forEach(type => {
+      const typeConfig = validationConfig.validationTypes?.[type.id];
+      const typeProvider = typeConfig?.provider || validationProvider;
+      const typeModel = typeConfig?.model || validationModel;
+      const tokens = getEstimatedTokens('sprint-planning', `validation-${type.id}`);
+      const cost = calculateCost(typeModel, tokens);
+
+      overview.validationTypes.push({
+        id: type.id,
+        label: `${type.name} Validators`,
+        provider: typeProvider,
+        model: typeModel,
+        calls: type.calls,
+        cost,
+        formattedCost: formatCost(cost),
+        validators: type.validators,
+        usingDefault: !typeConfig,
+        level: 2
+      });
+
+      totalValidationCost += cost;
+    });
+
+    overview.cost = totalValidationCost;
+    overview.formattedCost = formatCost(totalValidationCost);
+
+    return overview;
+  }
+
+  /**
+   * Get call count for a stage
+   */
+  _getCallCount(ceremonyName, stageId) {
+    const callCounts = {
+      'sprint-planning': {
+        'decomposition': 1,
+        'context-generation': 25,
+        'validation': 145
+      },
+      'sponsor-call': {
+        'suggestions': 1,
+        'documentation': 1,
+        'context': 1
+      },
+      'seed': {
+        'decomposition': 1,
+        'validation': 20,
+        'context-generation': 10
+      }
+    };
+
+    return callCounts[ceremonyName]?.[stageId] || 0;
+  }
+
+  /**
+   * Reset a configuration path to use main default
+   * @param {string} ceremonyName - Ceremony name
+   * @param {string} path - Configuration path (e.g., 'stages.decomposition')
+   */
+  resetToDefault(ceremonyName, configPath) {
+    if (!this.config) {
+      this.readConfig();
+    }
+
+    const ceremony = this.config.settings.ceremonies.find(c => c.name === ceremonyName);
+    if (!ceremony) {
+      throw new Error(`Ceremony '${ceremonyName}' not found`);
+    }
+
+    // Delete the configuration at the path to fall back to default
+    const pathParts = configPath.split('.');
+    let current = ceremony;
+
+    for (let i = 0; i < pathParts.length - 1; i++) {
+      current = current[pathParts[i]];
+      if (!current) return; // Path doesn't exist, nothing to reset
+    }
+
+    delete current[pathParts[pathParts.length - 1]];
+
+    this.saveConfig(this.config);
   }
 }
