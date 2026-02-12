@@ -29,6 +29,63 @@ class SprintPlanningProcessor {
     // Initialize token tracker
     this.tokenTracker = new TokenTracker(this.avcPath);
     this.tokenTracker.init();
+
+    // Debug mode - always enabled for comprehensive logging
+    this.debugMode = true;
+  }
+
+  /**
+   * Structured debug logger - writes ONLY to file via CommandLogger
+   */
+  debug(message, data = null) {
+    if (!this.debugMode) return;
+
+    const timestamp = new Date().toISOString();
+    const prefix = `[${timestamp}] [DEBUG]`;
+
+    if (data === null) {
+      console.log(`${prefix} ${message}`);
+    } else {
+      console.log(`${prefix} ${message}`);
+      console.log(JSON.stringify(data, null, 2));
+    }
+  }
+
+  /**
+   * Stage boundary marker
+   */
+  debugStage(stageNumber, stageName) {
+    const separator = '='.repeat(50);
+    this.debug(`\n${separator}`);
+    this.debug(`STAGE ${stageNumber}: ${stageName.toUpperCase()}`);
+    this.debug(separator);
+  }
+
+  /**
+   * API call logging with timing
+   */
+  async debugApiCall(operation, fn) {
+    this.debug(`\n${'='.repeat(50)}`);
+    this.debug(`LLM API CALL: ${operation}`);
+    this.debug('='.repeat(50));
+    this.debug(`Provider: ${this._providerName}`);
+    this.debug(`Model: ${this._modelName}`);
+
+    const startTime = Date.now();
+    try {
+      const result = await fn();
+      const duration = Date.now() - startTime;
+
+      this.debug(`Response received (${duration}ms)`);
+      return result;
+    } catch (error) {
+      const duration = Date.now() - startTime;
+      this.debug(`API call failed after ${duration}ms`, {
+        error: error.message,
+        stack: error.stack
+      });
+      throw error;
+    }
   }
 
   readCeremonyConfig() {
@@ -86,31 +143,47 @@ class SprintPlanningProcessor {
 
   // STAGE 1: Validate prerequisites
   validatePrerequisites() {
+    this.debugStage(1, 'Validate Prerequisites');
+    this.debug('Checking prerequisites...');
+
     if (!fs.existsSync(this.projectContextPath)) {
+      this.debug(`✗ Project context missing: ${this.projectContextPath}`);
       throw new Error(
         'Project context not found. Please run /sponsor-call first to create the project foundation.'
       );
     }
+    const contextSize = fs.statSync(this.projectContextPath).size;
+    this.debug(`✓ Project context exists: ${this.projectContextPath} (${contextSize} bytes)`);
 
     if (!fs.existsSync(this.projectDocPath)) {
+      this.debug(`✗ Project doc missing: ${this.projectDocPath}`);
       throw new Error(
         'Project documentation not found. Please run /sponsor-call first.'
       );
     }
+    const docSize = fs.statSync(this.projectDocPath).size;
+    this.debug(`✓ Project doc exists: ${this.projectDocPath} (${docSize} bytes)`);
+
+    this.debug('Prerequisites validated successfully');
   }
 
   // STAGE 2: Read existing hierarchy
   readExistingHierarchy() {
+    this.debugStage(2, 'Read Existing Hierarchy');
+
     const existingEpics = new Map();  // name -> id
     const existingStories = new Map(); // name -> id
     const maxEpicNum = { value: 0 };
     const maxStoryNums = new Map();  // epicId -> maxNum
 
     if (!fs.existsSync(this.projectPath)) {
+      this.debug('Project path does not exist yet (first run)');
       return { existingEpics, existingStories, maxEpicNum, maxStoryNums };
     }
 
+    this.debug(`Scanning directory: ${this.projectPath}`);
     const dirs = fs.readdirSync(this.projectPath);
+    this.debug(`Found ${dirs.length} directories to scan`);
 
     for (const dir of dirs) {
       const workJsonPath = path.join(this.projectPath, dir, 'work.json');
@@ -121,6 +194,7 @@ class SprintPlanningProcessor {
         const work = JSON.parse(fs.readFileSync(workJsonPath, 'utf8'));
 
         if (work.type === 'epic') {
+          this.debug(`Found existing Epic: ${work.id} "${work.name}"`);
           existingEpics.set(work.name.toLowerCase(), work.id);
 
           // Track max epic number (context-0001 → 1)
@@ -130,6 +204,7 @@ class SprintPlanningProcessor {
             if (num > maxEpicNum.value) maxEpicNum.value = num;
           }
         } else if (work.type === 'story') {
+          this.debug(`Found existing Story: ${work.id} "${work.name}"`);
           existingStories.set(work.name.toLowerCase(), work.id);
 
           // Track max story number per epic (context-0001-0003 → epic 0001, story 3)
@@ -147,47 +222,69 @@ class SprintPlanningProcessor {
           }
         }
       } catch (error) {
+        this.debug(`Could not parse ${workJsonPath}: ${error.message}`);
         console.warn(`⚠️  Could not parse ${workJsonPath}: ${error.message}`);
       }
     }
+
+    this.debug('Existing hierarchy summary', {
+      epics: existingEpics.size,
+      stories: existingStories.size,
+      maxEpicNum: maxEpicNum.value,
+      maxStoryNums: Object.fromEntries(maxStoryNums),
+      epicNames: Array.from(existingEpics.keys()),
+      storyNames: Array.from(existingStories.keys()).slice(0, 10)  // First 10 for brevity
+    });
 
     return { existingEpics, existingStories, maxEpicNum, maxStoryNums };
   }
 
   // STAGE 3: Collect new scope (optional expansion)
   async collectNewScope() {
-    // For now, read INITIAL_SCOPE from doc.md
-    // TODO: Add interactive prompt for additional features
-    const docContent = fs.readFileSync(this.projectDocPath, 'utf8');
+    this.debugStage(3, 'Collect New Scope');
 
-    // Extract INITIAL_SCOPE section (between ## Initial Scope and next ##)
+    this.debug(`Reading project doc: ${this.projectDocPath}`);
+    const docContent = fs.readFileSync(this.projectDocPath, 'utf8');
+    this.debug(`Doc content loaded (${docContent.length} chars)`);
+
+    this.debug('Extracting Initial Scope section...');
     const match = docContent.match(/## Initial Scope\s+([\s\S]+?)(?=\n##|$)/);
+
     if (!match) {
+      this.debug('✗ Initial Scope section not found in doc.md');
       throw new Error('Could not find Initial Scope section in project documentation');
     }
 
-    return match[1].trim();
+    const scope = match[1].trim();
+    this.debug(`Scope extracted (${scope.length} chars): "${scope.substring(0, 100)}..."`);
+
+    return scope;
   }
 
   // STAGE 4: Decompose into Epics + Stories
   async decomposeIntoEpicsStories(scope, existingEpics, existingStories, projectContext) {
+    this.debugStage(4, 'Decompose into Epics + Stories');
+
     console.log('\n🔄 Stage 1/3: Decomposing scope into Epics and Stories...\n');
 
     if (!this.llmProvider) {
+      this.debug('Initializing LLM provider...');
       await this.initializeLLMProvider();
     }
 
     if (!this.llmProvider) {
+      this.debug('✗ LLM provider initialization failed');
       throw new Error('LLM provider required for decomposition');
     }
 
     // Read agent instructions
-    const epicStoryDecomposerAgent = fs.readFileSync(
-      path.join(this.agentsPath, 'epic-story-decomposer.md'),
-      'utf8'
-    );
+    const agentPath = path.join(this.agentsPath, 'epic-story-decomposer.md');
+    this.debug(`Loading agent: ${agentPath}`);
+    const epicStoryDecomposerAgent = fs.readFileSync(agentPath, 'utf8');
+    this.debug(`Agent loaded (${epicStoryDecomposerAgent.length} bytes)`);
 
     // Build prompt with duplicate detection
+    this.debug('Constructing decomposition prompt...');
     const existingEpicNames = Array.from(existingEpics.keys());
     const existingStoryNames = Array.from(existingStories.keys());
 
@@ -218,14 +315,63 @@ IMPORTANT: Only generate NEW Epics and Stories. Skip any that match the existing
 
 Return your response as JSON following the exact structure specified in your instructions.`;
 
-    const hierarchy = await this.retryWithBackoff(
-      () => this.llmProvider.generateJSON(prompt, epicStoryDecomposerAgent),
-      'Epic/Story decomposition'
+    this.debug('Prompt includes', {
+      scopeLength: scope.length,
+      contextLength: projectContext.length,
+      existingEpics: existingEpicNames.length,
+      existingStories: existingStoryNames.length,
+      totalPromptSize: prompt.length
+    });
+
+    // LLM call with full request/response logging
+    const hierarchy = await this.debugApiCall(
+      'Epic/Story Decomposition',
+      async () => {
+        this.debug('Request payload', {
+          model: this._modelName,
+          maxTokens: 8000,
+          agentInstructions: `${epicStoryDecomposerAgent.substring(0, 100)}...`,
+          promptPreview: `${prompt.substring(0, 200)}...`
+        });
+
+        this.debug('Sending request to LLM API...');
+
+        const result = await this.retryWithBackoff(
+          () => this.llmProvider.generateJSON(prompt, epicStoryDecomposerAgent),
+          'Epic/Story decomposition'
+        );
+
+        // Log token usage
+        const usage = this.llmProvider.getTokenUsage();
+        this.debug('Response tokens', {
+          input: usage.inputTokens,
+          output: usage.outputTokens,
+          total: usage.totalTokens
+        });
+
+        this.debug(`Response content (${usage.outputTokens} tokens)`, {
+          epicCount: result.epics?.length || 0,
+          totalStories: result.epics?.reduce((sum, e) => sum + (e.stories?.length || 0), 0) || 0,
+          validation: result.validation
+        });
+
+        return result;
+      }
     );
 
     if (!hierarchy.epics || !Array.isArray(hierarchy.epics)) {
+      this.debug('✗ Invalid decomposition response: missing epics array');
       throw new Error('Invalid decomposition response: missing epics array');
     }
+
+    this.debug('Parsed hierarchy', {
+      epics: hierarchy.epics.map(e => ({
+        id: e.id,
+        name: e.name,
+        storyCount: e.stories?.length || 0
+      })),
+      validation: hierarchy.validation
+    });
 
     console.log(`✅ Generated ${hierarchy.epics.length} new Epics with ${hierarchy.validation?.storyCount || 0} new Stories\n`);
 
@@ -234,37 +380,76 @@ Return your response as JSON following the exact structure specified in your ins
 
   // STAGE 5: Renumber IDs to avoid collisions
   renumberHierarchy(hierarchy, maxEpicNum, maxStoryNums) {
+    this.debugStage(5, 'Renumber IDs');
+    this.debug('Renumbering hierarchy to avoid ID collisions...');
+
     let nextEpicNum = maxEpicNum.value + 1;
+    this.debug(`Next epic number: ${nextEpicNum} (after existing ${maxEpicNum.value})`);
 
     for (const epic of hierarchy.epics) {
       const oldEpicId = epic.id;
       const newEpicId = `context-${String(nextEpicNum).padStart(4, '0')}`;
       epic.id = newEpicId;
 
+      this.debug(`ID mapping - Epic "${epic.name}": ${oldEpicId} -> ${newEpicId}`);
+
       let nextStoryNum = (maxStoryNums.get(newEpicId) || 0) + 1;
 
       for (const story of epic.stories || []) {
+        const oldStoryId = story.id;
         const newStoryId = `${newEpicId}-${String(nextStoryNum).padStart(4, '0')}`;
         story.id = newStoryId;
+
+        this.debug(`ID mapping - Story "${story.name}": ${oldStoryId} -> ${newStoryId}`);
         nextStoryNum++;
       }
 
       nextEpicNum++;
     }
 
+    this.debug('Renumbered hierarchy', {
+      epics: hierarchy.epics.map(e => ({ id: e.id, name: e.name, storyCount: e.stories?.length || 0 }))
+    });
+
     return hierarchy;
   }
 
   // STAGE 6-7: Generate contexts
   async generateContext(level, id, data, agentInstructions) {
+    this.debug(`Generating context for ${level}: ${id} "${data[level]?.name || 'unknown'}"`);
+
     const prompt = this.buildContextPrompt(level, id, data);
-    const result = await this.llmProvider.generateJSON(prompt, agentInstructions);
+
+    this.debug('Context generation prompt', {
+      agentSize: agentInstructions.length,
+      projectContextSize: data.projectContext?.length || 0,
+      dataKeys: Object.keys(data),
+      totalPromptSize: prompt.length
+    });
+
+    const result = await this.debugApiCall(
+      `${level.charAt(0).toUpperCase() + level.slice(1)} Context Generation (${id})`,
+      async () => {
+        const response = await this.llmProvider.generateJSON(prompt, agentInstructions);
+
+        const usage = this.llmProvider.getTokenUsage();
+        this.debug('Generated context', {
+          tokens: response.tokenCount,
+          withinBudget: response.withinBudget,
+          contextLength: response.contextMarkdown.length
+        });
+
+        return response;
+      }
+    );
 
     if (!result.contextMarkdown || !result.tokenCount) {
+      this.debug(`✗ Invalid context response for ${id}: missing required fields`);
       throw new Error(`Invalid context response for ${id}: missing required fields`);
     }
 
     if (!result.withinBudget) {
+      this.debug(`⚠️  Warning: ${id} context exceeds token budget (${result.tokenCount} tokens)`);
       console.warn(`⚠️  Warning: ${id} context exceeds token budget (${result.tokenCount} tokens)`);
     }
 
@@ -301,15 +486,19 @@ Return your response as JSON following the exact structure specified in your ins
     return prompt;
   }
 
-  // STAGE 8: Write hierarchy files
+  // STAGE 6-7: Write hierarchy files
   async writeHierarchyFiles(hierarchy, projectContext) {
-    console.log('\n💾 Stage 3/3: Writing hierarchy files...\n');
+    this.debugStage(6, 'Generate Contexts & Write Files');
+
+    console.log('\n💾 Stage 2/3: Generating context files...\n');
 
     // Read agent
-    const featureContextGeneratorAgent = fs.readFileSync(
-      path.join(this.agentsPath, 'feature-context-generator.md'),
-      'utf8'
-    );
+    const agentPath = path.join(this.agentsPath, 'feature-context-generator.md');
+    this.debug(`Loading agent: ${agentPath}`);
+    const featureContextGeneratorAgent = fs.readFileSync(agentPath, 'utf8');
+    this.debug(`Agent loaded (${featureContextGeneratorAgent.length} bytes)`);
+
+    console.log('\n💾 Stage 3/3: Writing hierarchy files...\n');
 
     let epicCount = 0;
     let storyCount = 0;
@@ -317,16 +506,16 @@ Return your response as JSON following the exact structure specified in your ins
     for (const epic of hierarchy.epics) {
       const epicDir = path.join(this.projectPath, epic.id);
 
+      this.debug(`Creating Epic directory: ${epicDir}`);
       if (!fs.existsSync(epicDir)) {
         fs.mkdirSync(epicDir, { recursive: true });
       }
 
       // Write Epic doc.md (stub)
-      fs.writeFileSync(
-        path.join(epicDir, 'doc.md'),
-        `# ${epic.name}\n\n*Documentation will be added during implementation and retrospective ceremonies.*\n`,
-        'utf8'
-      );
+      const docContent = `# ${epic.name}\n\n*Documentation will be added during implementation and retrospective ceremonies.*\n`;
+      const docPath = path.join(epicDir, 'doc.md');
+      fs.writeFileSync(docPath, docContent, 'utf8');
+      this.debug(`Writing ${docPath} (${docContent.length} bytes)`);
       console.log(`   ✅ ${epic.id}/doc.md`);
 
       // Generate and write Epic context.md
@@ -334,11 +523,9 @@ Return your response as JSON following the exact structure specified in your ins
         () => this.generateContext('epic', epic.id, { projectContext, epic }, featureContextGeneratorAgent),
         `Epic ${epic.id} context`
       );
-      fs.writeFileSync(
-        path.join(epicDir, 'context.md'),
-        epicContext.contextMarkdown,
-        'utf8'
-      );
+      const contextPath = path.join(epicDir, 'context.md');
+      fs.writeFileSync(contextPath, epicContext.contextMarkdown, 'utf8');
+      this.debug(`Writing ${contextPath} (${epicContext.contextMarkdown.length} bytes)`);
       console.log(`   ✅ ${epic.id}/context.md`);
 
       // Write Epic work.json
@@ -358,11 +545,10 @@ Return your response as JSON following the exact structure specified in your ins
           tokenBudget: epicContext.tokenCount
         }
       };
-      fs.writeFileSync(
-        path.join(epicDir, 'work.json'),
-        JSON.stringify(epicWorkJson, null, 2),
-        'utf8'
-      );
+      const workJsonPath = path.join(epicDir, 'work.json');
+      const workJsonContent = JSON.stringify(epicWorkJson, null, 2);
+      fs.writeFileSync(workJsonPath, workJsonContent, 'utf8');
+      this.debug(`Writing ${workJsonPath} (${workJsonContent.length} bytes)`);
       console.log(`   ✅ ${epic.id}/work.json`);
 
       epicCount++;
@@ -371,16 +557,16 @@ Return your response as JSON following the exact structure specified in your ins
       for (const story of epic.stories || []) {
         const storyDir = path.join(this.projectPath, story.id);
 
+        this.debug(`Creating Story directory: ${storyDir}`);
         if (!fs.existsSync(storyDir)) {
           fs.mkdirSync(storyDir, { recursive: true });
         }
 
         // Write Story doc.md (stub)
-        fs.writeFileSync(
-          path.join(storyDir, 'doc.md'),
-          `# ${story.name}\n\n*Documentation will be added during implementation and retrospective ceremonies.*\n`,
-          'utf8'
-        );
+        const storyDocContent = `# ${story.name}\n\n*Documentation will be added during implementation and retrospective ceremonies.*\n`;
+        const storyDocPath = path.join(storyDir, 'doc.md');
+        fs.writeFileSync(storyDocPath, storyDocContent, 'utf8');
+        this.debug(`Writing ${storyDocPath} (${storyDocContent.length} bytes)`);
         console.log(`      ✅ ${story.id}/doc.md`);
 
         // Generate and write Story context.md
@@ -388,11 +574,9 @@ Return your response as JSON following the exact structure specified in your ins
           () => this.generateContext('story', story.id, { projectContext, epic, story }, featureContextGeneratorAgent),
           `Story ${story.id} context`
         );
-        fs.writeFileSync(
-          path.join(storyDir, 'context.md'),
-          storyContext.contextMarkdown,
-          'utf8'
-        );
+        const storyContextPath = path.join(storyDir, 'context.md');
+        fs.writeFileSync(storyContextPath, storyContext.contextMarkdown, 'utf8');
+        this.debug(`Writing ${storyContextPath} (${storyContext.contextMarkdown.length} bytes)`);
         console.log(`      ✅ ${story.id}/context.md`);
 
         // Write Story work.json
@@ -412,11 +596,10 @@ Return your response as JSON following the exact structure specified in your ins
             tokenBudget: storyContext.tokenCount
           }
         };
-        fs.writeFileSync(
-          path.join(storyDir, 'work.json'),
-          JSON.stringify(storyWorkJson, null, 2),
-          'utf8'
-        );
+        const storyWorkJsonPath = path.join(storyDir, 'work.json');
+        const storyWorkJsonContent = JSON.stringify(storyWorkJson, null, 2);
+        fs.writeFileSync(storyWorkJsonPath, storyWorkJsonContent, 'utf8');
+        this.debug(`Writing ${storyWorkJsonPath} (${storyWorkJsonContent.length} bytes)`);
         console.log(`      ✅ ${story.id}/work.json`);
 
         storyCount++;
@@ -479,7 +662,9 @@ Return your response as JSON following the exact structure specified in your ins
       const scope = await this.collectNewScope();
 
       // Read project context
+      this.debug(`Reading project context: ${this.projectContextPath}`);
       const projectContext = fs.readFileSync(this.projectContextPath, 'utf8');
+      this.debug(`Context loaded (${projectContext.length} chars)`);
 
       // Stage 4: Decompose
       let hierarchy = await this.decomposeIntoEpicsStories(scope, existingEpics, existingStories, projectContext);
@@ -487,12 +672,16 @@ Return your response as JSON following the exact structure specified in your ins
       // Stage 5: Renumber IDs
       hierarchy = this.renumberHierarchy(hierarchy, maxEpicNum, maxStoryNums);
 
-      // Stage 6-8: Generate contexts and write files
-      console.log('\n📝 Stage 2/3: Generating context files...\n');
+      // Stage 6-7: Generate contexts and write files
       const { epicCount, storyCount } = await this.writeHierarchyFiles(hierarchy, projectContext);
 
-      // Display summary
+      // Stage 8: Summary & Cleanup
+      this.debugStage(8, 'Summary & Cleanup');
+
       const { totalEpics, totalStories } = this.countTotalHierarchy();
+
+      this.debug('Total hierarchy counts', { epics: totalEpics, stories: totalStories });
+      this.debug('Created this run', { epics: epicCount, stories: storyCount });
 
       console.log(`\n✅ Project hierarchy expanded!\n`);
       console.log(`Created:`);
@@ -506,6 +695,14 @@ Return your response as JSON following the exact structure specified in your ins
       // Display token usage
       if (this.llmProvider) {
         const usage = this.llmProvider.getTokenUsage();
+
+        this.debug('Total API calls', usage.totalCalls);
+        this.debug('Total tokens', {
+          input: usage.inputTokens,
+          output: usage.outputTokens,
+          total: usage.totalTokens
+        });
+
         console.log('📊 Token Usage:');
         console.log(`   Input: ${usage.inputTokens.toLocaleString()} tokens`);
         console.log(`   Output: ${usage.outputTokens.toLocaleString()} tokens`);
@@ -516,6 +713,7 @@ Return your response as JSON following the exact structure specified in your ins
           input: usage.inputTokens,
           output: usage.outputTokens
         });
+        this.debug('Token tracking saved to .avc/token-history.json');
         console.log('✅ Token history updated\n');
       }
 
@@ -524,6 +722,24 @@ Return your response as JSON following the exact structure specified in your ins
       console.log('   2. Run /seed <story-id> to decompose a Story into Tasks/Subtasks\n');
 
     } catch (error) {
+      this.debug('\n========== ERROR OCCURRED ==========');
+      this.debug('Error details', {
+        message: error.message,
+        stack: error.stack,
+        name: error.name
+      });
+
+      // Dump application state at failure
+      this.debug('Application state at failure', {
+        ceremonyName: this.ceremonyName,
+        provider: this._providerName,
+        model: this._modelName,
+        projectPath: this.projectPath,
+        currentWorkingDir: process.cwd(),
+        nodeVersion: process.version,
+        platform: process.platform
+      });
+
       console.error(`\n❌ Project expansion failed: ${error.message}\n`);
       throw error;
     }

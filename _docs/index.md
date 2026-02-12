@@ -242,22 +242,9 @@ The **Sponsor Call** ceremony is the foundational ceremony in the Agile Vibe Cod
 
 ### **Sprint Planning**
 
-Creates or expands project Epics and Stories with intelligent duplicate detection. Decomposes project scope into domain-based Epics and Stories with proper context inheritance.
+Decomposes project scope into domain-based Epics and Stories with proper context.
 
-**Key Features**
-
-- Duplicate detection - skips existing Epics/Stories
-- ID renumbering to avoid collisions
-- Generates Epic and Story context.md files
-- Incremental expansion support
-- Context inheritance from project level
-
-**Output**
-
-- Epic directories: `context-XXXX/` with doc.md, context.md, work.json
-- Story directories: `context-XXXX-XXXX/` with doc.md, context.md, work.json
-
-**[📖 Read Full Documentation](/ceremonies/sprint-planning.md)**
+**[📖 Read /spring-planning Documentation](/ceremonies/sprint-planning.md)**
 
 
 ### **Seed**

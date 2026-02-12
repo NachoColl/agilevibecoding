@@ -28,14 +28,6 @@ Large software projects stress LLM-based coding in ways that differ fundamentall
 
 - **LLMs cannot internally verify truth or correctness**, lacking an intrinsic notion of factuality or epistemic uncertainty.
 
-- **LLMs do not maintain persistent internal state across interactions**, preventing cumulative learning or long-term commitment tracking.
-
-- **Learning and adaptation do not occur during inference**, even when explicit feedback or corrections are provided.
-
-- **Salient information in context is not guaranteed to be attended to**, even when explicitly stated.
-
-- **Counterfactual and causal reasoning are approximate**, relying on surface plausibility rather than explicit causal models.
-
 
 Left unguided, AI coding agents drift. Context decays. Abstractions fracture. Logic duplicates. Regressions surface across independently generated features. 
 
@@ -53,7 +45,7 @@ AVC gets inspired by the [Agile Manifesto](https://agilemanifesto.org/) and the 
 
 ### Assets Hierarchy
 
-The **Assets Hirarchy** defines a hirarchical folder structure to organize work items, context scopes and documentation to be used by the different tools and cremonies the **Agile Vibe Coding** framework defines.
+The Assets Hierarchy establishes a structured folder architecture to organize work items, contextual scopes, and documentation supporting the tools and ceremonies defined within the Agile Vibe Coding framework.
 
 ```
 project/
@@ -124,7 +116,7 @@ Work items defines what needs to get done and the list of tests for its work val
 ```
 
 
-### Work Items Flow
+#### Work Items Flow
 
 Work items are implemented bottom-up in the tree.
 Start with the smallest, most concrete tasks (leaf nodes). Once those are done and validated, move up to their parents.

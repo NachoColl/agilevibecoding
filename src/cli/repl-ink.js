@@ -1689,6 +1689,10 @@ https://agilevibecoding.org
       return;
     }
 
+    // Start command logger (writes to .avc/logs/sprint-planning-{timestamp}.log)
+    const logger = new CommandLogger('sprint-planning', process.cwd());
+    logger.start();
+
     const originalLog = console.log;
     let logs = [];
     console.log = (...args) => {
@@ -1701,10 +1705,12 @@ https://agilevibecoding.org
       await initiator.sprintPlanning();
     } finally {
       console.log = originalLog;
+      logger.stop();
     }
 
     setOutput(prev => prev +
       logs.join('\n') + '\n' +
+      `📝 Debug log saved: ${logger.getLogPath()}\n` +
       '📖 https://agilevibecoding.org/ceremonies/sprint-planning\n'
     );
   };

@@ -51,74 +51,7 @@ OPENAI_API_KEY=sk-proj-your-openai-key-here
 
 ### Configuring Providers Per Ceremony
 
-Each ceremony in `.avc/avc.json` can use a different provider (model) - as for example:
+Each Agile Vibe Coding ceremony defines the models to use for each task.
 
-```json
-{
-  "settings": {
-    "ceremonies": [
-      {
-        "name": "sponsor-call",
-        "provider": "claude",
-        "defaultModel": "claude-sonnet-4-5-20250929"
-      }
-    ]
-  }
-}
-```
-
-## Supported Providers
-
-
-| Provider | Models | API Key Variable | Get API Key |
-|----------|--------|-----------------|-------------|
-| **Claude** (Anthropic) | `claude-sonnet-4-5-20250929`<br>`claude-opus-4-5-20251101` | `ANTHROPIC_API_KEY` | [console.anthropic.com](https://console.anthropic.com/settings/keys) |
-| **Gemini** (Google) | `gemini-2.5-flash`<br>`gemini-2.5-pro` | `GEMINI_API_KEY` | [aistudio.google.com](https://aistudio.google.com/app/apikey) |
-| **OpenAI** | `gpt-5.2-chat-latest`<br>`gpt-5.2-codex`<br>`o3-mini` | `OPENAI_API_KEY` | [platform.openai.com](https://platform.openai.com/api-keys) |
-
-### OpenAI Setup (Optional)
-
-To use OpenAI models with AVC:
-
-1. **Create API Key**:
-   - Sign up at [platform.openai.com](https://platform.openai.com)
-   - Navigate to "View API keys" in sidebar
-   - Click "+ Create new secret key"
-   - Copy the key (shown once only)
-
-2. **Add to .env**:
-   ```env
-   OPENAI_API_KEY=sk-proj-your-openai-key-here
-   ```
-
-3. **Configure in avc.json**:
-   ```json
-   {
-     "settings": {
-       "ceremonies": [{
-         "name": "sponsor-call",
-         "provider": "openai",
-         "defaultModel": "gpt-5.2-chat-latest"
-       }]
-     }
-   }
-   ```
-
-**Available OpenAI Models**:
-
-| Model | Best For | API Type | Relative Cost |
-|-------|----------|----------|---------------|
-| `gpt-5.2-chat-latest` | Default - fast everyday work | Chat Completions | Medium |
-| `gpt-5.2` | Harder tasks, spreadsheets, financial modeling | Chat Completions | High |
-| `o3-mini` | Cost-efficient reasoning, validation | Chat Completions | Low |
-| `gpt-5.2-pro` | Difficult questions, most trustworthy | **Responses API** | Highest |
-| `gpt-5.2-codex` | Advanced agentic coding tasks | **Responses API** | High |
-
-**API Types:**
-- **Chat Completions API**: Standard request-response (most models)
-- **Responses API**: Advanced features with reasoning effort control (pro/codex models only)
-
-**Reasoning Effort**: `gpt-5.2-pro` and `gpt-5.2-codex` support reasoning effort levels: `low`, `medium` (default), `high`, `xhigh`
-
-**Note**: OpenAI requires billing setup (minimum $5) even for paid ChatGPT subscribers.
+Run `/models` command to modify the default models setup to your own needs.
 

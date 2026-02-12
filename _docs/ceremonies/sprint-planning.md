@@ -2,7 +2,7 @@
 
 ## Overview
 
-The **Sprint Planning** ceremony decomposes your project scope into domain-based Epics and Stories with intelligent duplicate detection.
+The **Sprint Planning** ceremony decomposes your project scope into domain-based Epics and Stories.
 
 **Input**
 
@@ -31,7 +31,7 @@ The **Sprint Planning** ceremony decomposes your project scope into domain-based
 
 ## Ceremony Workflow
 
-The Sprint Planning ceremony reads your Initial Scope and project context, then uses AI agents to decompose it into Epics (3-7 domain groupings) and Stories (2-8 deliverable capabilities per Epic) with automatic duplicate detection.
+The Sprint Planning ceremony reads your Initial Scope and project context, then uses AI agents to decompose it into Epics and Stories.
 
 ```mermaid
 sequenceDiagram
@@ -100,7 +100,6 @@ The ceremony reads the Initial Scope from your project documentation and decompo
 Before decomposition, the ceremony verifies:
 - Project documentation exists (`.avc/project/project/doc.md`)
 - Project context exists (`.avc/project/project/context.md`)
-- Initial Scope section is present in documentation
 
 **Duplicate Detection**
 
@@ -110,11 +109,8 @@ The ceremony automatically:
 - Passes existing names to AI agents to prevent duplicates
 - Renumbers IDs to avoid collisions
 
----
 
 ### Ceremony Agents
-
-#### Decomposition Agent
 
 The Initial Scope is decomposed into a hierarchical structure using AI-powered domain analysis.
 
@@ -122,7 +118,6 @@ The Initial Scope is decomposed into a hierarchical structure using AI-powered d
 |-------|---------|
 | [Epic/Story Decomposer](/agents/epic-story-decomposer) | Analyzes project scope and generates 3–7 domain-based Epics, each containing 2–8 Stories with duplicate detection |
 
-#### Context Generation Agents
 
 Each Epic and Story receives a dedicated context file that inherits from the project context.
 
@@ -133,8 +128,6 @@ Each Epic and Story receives a dedicated context file that inherits from the pro
 
 
 ## Next Steps
-
-After completing Sprint Planning:
 
 ### Review Generated Hierarchy
 
