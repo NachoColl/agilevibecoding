@@ -435,23 +435,24 @@ Best Output: Claude Sonnet 4.5
 - Pricing: 🟡 Medium
 - Superior analytical capability
 - Better actionable suggestions
+- Optimal for documentation validation
 
-Current Default: Gemini 2.5 Pro
+Current Default: Claude Sonnet 4.5 ✓
+- Same as best output recommendation
 - Pricing: 🟡 Medium
-- Good validation quality for rule-based checking
-- Cost-effective choice
+- Excellent validation quality
 ```
 
 </details>
 
 **Best Output:** 🏆 Claude Sonnet 4.5
 - **Pricing:** 🟡 Medium
-- **Quality:** +20% better issue detection vs Gemini Pro
-- **Use when:** Critical projects requiring maximum validation quality
+- **Quality:** Optimal - Superior issue detection and actionable suggestions
+- **Use when:** All projects (now the default!)
 
-**Current Default:** ⚖️ Gemini 2.5 Pro
+**Current Default:** ⚖️ Claude Sonnet 4.5 ✓
 - **Pricing:** 🟡 Medium
-- **Rationale:** Good validation quality at comparable pricing; adequate for rule-based checking
+- **Rationale:** Same pricing tier as previous default (Gemini Pro) with +20% better validation quality; upgraded to Best Output
 
 ---
 
@@ -1292,7 +1293,7 @@ Current Default: Claude Sonnet 4.5 ✓
 | **sponsor-call** | suggestions | Sonnet 4.5 | 🟡 Med | Sonnet 4.5 ✓ | 🟡 Med | Optimal |
 | | documentation | Sonnet 4.5 | 🟡 Med | Sonnet 4.5 ✓ | 🟡 Med | Optimal |
 | | context | Sonnet 4.5 | 🟡 Med | Sonnet 4.5 ✓ | 🟡 Med | Optimal |
-| | validation | Sonnet 4.5 | 🟡 Med | Gemini Pro | 🟡 Med | +20% |
+| | validation | Sonnet 4.5 | 🟡 Med | Sonnet 4.5 ✓ | 🟡 Med | Optimal |
 | **sprint-planning** | decomposition | Opus 4.6 | 🔴 High | Sonnet 4.5 | 🟡 Med | +15% |
 | | validation (universal) | Sonnet 4.5 | 🟡 Med | Sonnet 4.5 ✓ | 🟡 Med | Optimal |
 | | validation (domain) | Sonnet 4.5 | 🟡 Med | Flash | 🟢 Low | +35% |

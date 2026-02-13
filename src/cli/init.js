@@ -223,15 +223,15 @@ class ProjectInitiator {
               maxIterations: 2,
               acceptanceThreshold: 75,
               skipOnCriticalIssues: false,
-              provider: 'gemini',
-              model: 'gemini-2.5-pro',
+              provider: 'claude',
+              model: 'claude-sonnet-4-5-20250929',
               documentation: {
-                provider: 'gemini',
-                model: 'gemini-2.5-pro'
+                provider: 'claude',
+                model: 'claude-sonnet-4-5-20250929'
               },
               context: {
-                provider: 'gemini',
-                model: 'gemini-2.5-pro'
+                provider: 'claude',
+                model: 'claude-sonnet-4-5-20250929'
               }
             }
           },
