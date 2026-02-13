@@ -521,29 +521,28 @@ RECOMMENDATION:
 
 Best Output: Claude Opus 4.6
 - Pricing: 🔴 High
-- Superior hierarchical reasoning (+15% vs Sonnet)
+- Superior hierarchical reasoning
 - Better dependency identification
 - More consistent acceptance criteria
-- Use when: Complex projects, enterprise architectures
+- Optimal for decomposition
 
-Current Default: Claude Sonnet 4.5 ✓
-- Pricing: 🟡 Medium
-- Excellent hierarchical reasoning (90% of Opus quality)
-- Very good for most projects
-- Optimal quality-per-pricing ratio
+Current Default: Claude Opus 4.6 ✓
+- Same as best output recommendation
+- Pricing: 🔴 High
+- Maximum quality decomposition
 ```
 
 </details>
 
 **Best Output:** 🏆 Claude Opus 4.6
 - **Pricing:** 🔴 High
-- **Quality:** +15% vs Sonnet - Superior hierarchical reasoning
-- **Use when:** Complex projects, enterprise architectures, microservices, maximum quality required
+- **Quality:** Optimal - Superior hierarchical reasoning
+- **Use when:** All projects (now the default!)
 
-**Current Default:** ⚖️ Claude Sonnet 4.5 ✓
-- **Pricing:** 🟡 Medium
-- **Quality:** Excellent (90% of Opus)
-- **Rationale:** Optimal quality-per-pricing for most projects; upgrade to Opus for complex architectures
+**Current Default:** ⚖️ Claude Opus 4.6 ✓
+- **Pricing:** 🔴 High
+- **Quality:** Optimal - Same as Best Output
+- **Rationale:** Decomposition is critical; invested in maximum quality for all projects
 
 ---
 
@@ -933,11 +932,10 @@ Best Output: Claude Opus 4.6
 - More complete task coverage
 - Use when: Complex stories, integration-heavy work
 
-Current Default: Claude Sonnet 4.5 ✓
-- Pricing: 🟡 Medium
-- Excellent task breakdown (90% of Opus quality)
-- Very good for most stories
-- Optimal for most stories (recommended default)
+Current Default: Claude Opus 4.6 ✓
+- Pricing: 🔴 High
+- Optimal - Same as Best Output
+- Rationale: Task decomposition is critical; invested in maximum quality
 ```
 
 </details>
@@ -947,10 +945,10 @@ Current Default: Claude Sonnet 4.5 ✓
 - **Quality:** +10% vs Sonnet - Better granularity and completeness
 - **Use when:** Complex stories, integration-heavy features, multi-domain work
 
-**Current Default:** ⚖️ Claude Sonnet 4.5 ✓
-- **Pricing:** 🟡 Medium
-- **Quality:** Excellent (90% of Opus)
-- **Rationale:** Very good task breakdowns for typical stories at medium pricing
+**Current Default:** ⚖️ Claude Opus 4.6 ✓
+- **Pricing:** 🔴 High
+- **Quality:** Optimal - Same as Best Output
+- **Rationale:** Task decomposition is critical; invested in maximum quality for all projects
 
 ---
 
@@ -1262,12 +1260,10 @@ Best Output: Claude Opus 4.6
 - Significantly better future AI agent context
 - Use when: Maximum AI agent improvement desired
 
-Current Default: Claude Sonnet 4.5 ✓
-- Pricing: 🟡 Medium
-- Very good code analysis (80% of Opus)
-- Good insight extraction
-- Good balance of quality and pricing
-- Use when: Quality important but pricing-conscious
+Current Default: Claude Opus 4.6 ✓
+- Pricing: 🔴 High
+- Optimal - Same as Best Output
+- Rationale: Context refinement directly improves all future AI work; invested in maximum quality
 ```
 
 </details>
@@ -1277,10 +1273,10 @@ Current Default: Claude Sonnet 4.5 ✓
 - **Quality:** +20% vs Sonnet - Superior code analysis and pattern recognition
 - **Use when:** Maximum AI agent improvement desired, long-term projects with many future ceremonies
 
-**Current Default:** ⚖️ Claude Sonnet 4.5 ✓
-- **Pricing:** 🟡 Medium
-- **Quality:** Very good (80% of Opus)
-- **Rationale:** Good balance for most projects; upgrade to Opus if AI performance absolutely critical
+**Current Default:** ⚖️ Claude Opus 4.6 ✓
+- **Pricing:** 🔴 High
+- **Quality:** Optimal - Same as Best Output
+- **Rationale:** Context refinement directly improves all future AI work; invested in maximum quality
 
 ---
 
@@ -1294,25 +1290,25 @@ Current Default: Claude Sonnet 4.5 ✓
 | | documentation | Sonnet 4.5 | 🟡 Med | Sonnet 4.5 ✓ | 🟡 Med | Optimal |
 | | context | Sonnet 4.5 | 🟡 Med | Sonnet 4.5 ✓ | 🟡 Med | Optimal |
 | | validation | Sonnet 4.5 | 🟡 Med | Sonnet 4.5 ✓ | 🟡 Med | Optimal |
-| **sprint-planning** | decomposition | Opus 4.6 | 🔴 High | Sonnet 4.5 | 🟡 Med | +15% |
+| **sprint-planning** | decomposition | Opus 4.6 | 🔴 High | Opus 4.6 ✓ | 🔴 High | Optimal |
 | | validation (universal) | Sonnet 4.5 | 🟡 Med | Sonnet 4.5 ✓ | 🟡 Med | Optimal |
 | | validation (domain) | Sonnet 4.5 | 🟡 Med | Flash | 🟢 Low | +35% |
 | | validation (feature) | Sonnet 4.5 | 🟡 Med | Flash | 🟢 Low | +30% |
 | | context-generation | Sonnet 4.5 | 🟡 Med | Sonnet 4.5 ✓ | 🟡 Med | Optimal |
-| **seed** | decomposition | Opus 4.6 | 🔴 High | Sonnet 4.5 | 🟡 Med | +10% |
+| **seed** | decomposition | Opus 4.6 | 🔴 High | Opus 4.6 ✓ | 🔴 High | Optimal |
 | | validation | Sonnet 4.5 | 🟡 Med | Sonnet 4.5 ✓ | 🟡 Med | Optimal |
 | | context-generation | Sonnet 4.5 | 🟡 Med | Sonnet 4.5 ✓ | 🟡 Med | Optimal |
 | **context-retrospective** | documentation-update | Sonnet 4.5 | 🟡 Med | Sonnet 4.5 ✓ | 🟡 Med | Optimal |
-| | context-refinement | Opus 4.6 | 🔴 High | Sonnet 4.5 | 🟡 Med | +20% |
+| | context-refinement | Opus 4.6 | 🔴 High | Opus 4.6 ✓ | 🔴 High | Optimal |
 
 ### Overall Pricing by Ceremony
 
 | Ceremony | Current Defaults | Best Output | Pricing Change |
 |----------|-----------------|-------------|----------------|
-| sponsor-call | Low-Medium | Medium | Minimal |
-| sprint-planning | Low-Medium | Medium-High | Significant |
-| seed | Medium | Medium-High | Moderate |
-| context-retrospective | Medium | Medium-High | Moderate |
+| sponsor-call | Medium | Medium | None (Optimal) |
+| sprint-planning | Medium-High | Medium-High | None (Optimal) |
+| seed | Medium-High | Medium-High | None (Optimal) |
+| context-retrospective | Medium-High | Medium-High | None (Optimal) |
 
 ---
 
@@ -1345,20 +1341,20 @@ Current Default: Claude Sonnet 4.5 ✓
 **For:** Most projects - quality where it matters most
 
 **Configuration:**
-- Decomposition: **Sonnet 4.5** (🟡 Medium)
+- Decomposition: **Opus 4.6** (🔴 High)
 - Universal validation: **Sonnet 4.5** (🟡 Medium)
 - Domain validation: **Flash** (🟢 Low)
 - Feature validation: **Flash** (🟢 Low)
 - All context generation: **Sonnet 4.5** (🟡 Medium)
-- Context refinement: **Sonnet 4.5** (🟡 Medium)
+- Context refinement: **Opus 4.6** (🔴 High)
 
-**Pricing:** Low-Medium overall
+**Pricing:** Medium-High overall
 
 **Use when:**
 - Most projects (recommended)
-- Quality important but pricing-conscious
-- Strategic quality investments
-- Acceptable validation trade-offs
+- Quality-first approach for critical stages
+- Invested in maximum decomposition and context quality
+- Acceptable validation trade-offs for budget efficiency
 
 ---
 

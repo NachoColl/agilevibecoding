@@ -239,6 +239,12 @@ class ProjectInitiator {
             name: 'sprint-planning',
             provider: 'claude',
             defaultModel: 'claude-sonnet-4-5-20250929',
+            stages: {
+              decomposition: {
+                provider: 'claude',
+                model: 'claude-opus-4-6'
+              }
+            },
             agents: [
               {
                 name: 'epic-story-decomposer',
@@ -256,6 +262,12 @@ class ProjectInitiator {
             name: 'context-retrospective',
             provider: 'claude',
             defaultModel: 'claude-sonnet-4-5-20250929',
+            stages: {
+              'context-refinement': {
+                provider: 'claude',
+                model: 'claude-opus-4-6'
+              }
+            },
             agents: [
               {
                 name: 'documentation-updater',
@@ -273,6 +285,12 @@ class ProjectInitiator {
             name: 'seed',
             provider: 'claude',
             defaultModel: 'claude-sonnet-4-5-20250929',
+            stages: {
+              decomposition: {
+                provider: 'claude',
+                model: 'claude-opus-4-6'
+              }
+            },
             agents: [
               {
                 name: 'task-subtask-decomposer',
