@@ -1,6 +1,6 @@
 {
   "name": "@agile-vibe-coding/avc",
-  "version": "0.1.4",
+  "version": "0.1.5",
   "description": "Agile Vibe Coding (AVC) - Framework for managing AI agent-based software development projects",
   "type": "module",
   "main": "cli/index.js",
@@ -22,6 +22,8 @@
     "test:watch": "vitest watch",
     "test:coverage": "vitest run --coverage",
     "test:ui": "vitest --ui",
+    "models:evaluate": "node cli/model-selector.js",
+    "models:tables": "node cli/generate-summary-table.js",
     "prepublishOnly": "echo \"Running pre-publish checks...\" && npm test"
   },
   "keywords": [

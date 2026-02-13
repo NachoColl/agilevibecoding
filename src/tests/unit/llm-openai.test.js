@@ -95,7 +95,7 @@ describe('OpenAIProvider', () => {
 
       expect(mockClient.chat.completions.create).toHaveBeenCalledWith({
         model: 'gpt-5.2-chat-latest',
-        max_tokens: 512,
+        max_completion_tokens: 512,  // GPT-5 uses max_completion_tokens
         messages: [{ role: 'user', content: 'Test prompt' }]
       });
 
@@ -122,7 +122,7 @@ describe('OpenAIProvider', () => {
 
       expect(mockClient.chat.completions.create).toHaveBeenCalledWith({
         model: 'gpt-5.2-chat-latest',
-        max_tokens: 512,
+        max_completion_tokens: 512,  // GPT-5 uses max_completion_tokens
         messages: [
           { role: 'system', content: 'System instructions here' },
           { role: 'user', content: 'Test prompt' }

@@ -35,11 +35,19 @@ export class OpenAIProvider extends LLMProvider {
 
     messages.push({ role: 'user', content: prompt });
 
-    const response = await this._client.chat.completions.create({
+    const params = {
       model: this.model,
-      max_tokens: maxTokens,
       messages
-    });
+    };
+
+    // GPT-5+ models use max_completion_tokens, older models use max_tokens
+    if (this.model.startsWith('gpt-5') || this.model.startsWith('o1') || this.model.startsWith('o3')) {
+      params.max_completion_tokens = maxTokens;
+    } else {
+      params.max_tokens = maxTokens;
+    }
+
+    const response = await this._client.chat.completions.create(params);
 
     this._trackTokens(response.usage);
     return response.choices[0].message.content;
@@ -125,9 +133,15 @@ export class OpenAIProvider extends LLMProvider {
 
       const params = {
         model: this.model,
-        max_tokens: 8000,
         messages
       };
+
+      // GPT-5+ models use max_completion_tokens, older models use max_tokens
+      if (this.model.startsWith('gpt-5') || this.model.startsWith('o1') || this.model.startsWith('o3')) {
+        params.max_completion_tokens = 8000;
+      } else {
+        params.max_tokens = 8000;
+      }
 
       // Enable JSON mode if model supports it (GPT-4+)
       if (this.model.startsWith('gpt-4') || this.model.startsWith('gpt-5') || this.model.startsWith('o')) {
@@ -177,12 +191,20 @@ export class OpenAIProvider extends LLMProvider {
         }
       ];
 
+      const params = {
+        model: this.model,
+        messages
+      };
+
+      // GPT-5+ models use max_completion_tokens, older models use max_tokens
+      if (this.model.startsWith('gpt-5') || this.model.startsWith('o1') || this.model.startsWith('o3')) {
+        params.max_completion_tokens = 8000;
+      } else {
+        params.max_tokens = 8000;
+      }
+
       const response = await this._withRetry(
-        () => this._client.chat.completions.create({
-          model: this.model,
-          max_tokens: 8000,
-          messages
-        }),
+        () => this._client.chat.completions.create(params),
         'Text generation (Chat Completions)'
       );
 

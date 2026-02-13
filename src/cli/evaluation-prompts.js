@@ -1,126 +1,18 @@
-# AVC Default LLMs
+/**
+ * Evaluation prompts for LLM model selection across all AVC ceremonies and stages
+ * Extracted from AVC_DEFAULT_LLMS.md
+ *
+ * Each prompt is used to query LLM providers about which of their models
+ * is best suited for the specific stage's requirements.
+ */
 
-This document explains the default LLM model selections for each ceremony and stage in AVC, including the complete evaluation methodology used to select each model.
-
----
-
-## Overview
-
-AVC uses Large Language Models (LLMs) extensively throughout its ceremonies to generate, validate, and enhance project artifacts. Each stage in each ceremony has been carefully evaluated to select the optimal default model based on **output quality first**, with pricing as a secondary consideration.
-
-This page provides complete transparency into:
-- **Why** each model was selected for each stage
-- **What** quality trade-offs exist between models
-- **How** to customize models based on your project needs
-- **When** to upgrade to higher-tier models
-
-All 14 model selection evaluations are included as copy-paste-ready prompts so you can reproduce or customize the analysis.
-
----
-
-## Pricing Indicators
-
-Throughout this document, we use relative pricing indicators instead of specific dollar amounts:
-
-| Indicator | Description | Example Models |
-|-----------|-------------|----------------|
-| 🟢 **Low** | Budget-friendly, often free tier available | Gemini 2.0 Flash |
-| 🟡 **Medium** | Balanced pricing for quality | Claude Sonnet 4.5, Gemini 2.5 Pro |
-| 🔴 **High** | Premium pricing for maximum quality | Claude Opus 4.6 |
-
-**Note:** These indicators reflect relative relationships between models, not absolute costs. Actual pricing varies by provider, usage volume, and changes over time.
-
----
-
-## Model Selection Philosophy
-
-### Priority Hierarchy
-
-AVC's model selection prioritizes **quality over pricing**:
-
-1. **Output Quality** - Best possible results for the task
-2. **Task Performance** - Model capabilities match task complexity
-3. **Reliability** - Consistent, dependable results
-4. **Speed** - Response time when quality requirements are met
-5. **Pricing** - Considered only after quality needs are satisfied
-
-### Why Quality First?
-
-Poor AI outputs cascade through your entire project:
-- Bad decomposition → incomplete features, rework
-- Weak validation → bugs reach production
-- Generic context → developer confusion, wasted time
-
-Investing in quality AI outputs saves significant time and cost downstream.
-
----
-
-## Selection Methodology
-
-Each stage evaluation follows this systematic framework:
-
-```
-TASK: Select optimal LLM model for [STAGE] in [CEREMONY]
-PRIORITY: Best possible output quality
-
-EVALUATION CRITERIA (Priority Order):
-
-1. Output Quality Requirements (PRIMARY)
-   - Critical/Foundational → High tier required
-   - User-Facing → High tier required
-   - Internal/Validation → Mid tier acceptable
-   - Pattern Checking → Any capable model
-
-2. Task Complexity & Reasoning
-   - Complex (9-10) → Premium tier models with advanced reasoning
-   - Advanced (7-8) → High-quality models with strong reasoning
-   - Moderate (5-6) → Mid to high-tier models
-   - Simple (1-4) → Entry-level models adequate
-
-3. Context Understanding
-   - Deep synthesis → Premium models with exceptional comprehension
-   - Multi-document → High-quality models with strong synthesis
-   - Single document → Mid to high-tier models
-   - Pattern matching → Any model tier
-
-4. Consistency & Reliability
-   - Critical path → Most reliable model
-   - Batch operations → Consistent model
-   - Validation → Adequately reliable
-
-5. Speed Requirements (Secondary)
-   - Real-time → Consider faster if quality adequate
-   - Background → Quality prioritized over speed
-
-6. Pricing (TERTIARY)
-   - Only after quality requirements met
-   - Consider lower-priced ONLY if quality impact minimal
-
-RECOMMENDATION:
-Best Output: [model] (Pricing: 🟢🟡🔴)
-Current Default: [model] (Pricing: 🟢🟡🔴)
-Budget Alternative: [model] (Pricing: 🟢🟡🔴)
-```
-
----
-
-## Ceremonies & Stages
-
-### sponsor-call
-
-**Description:** Initial ceremony that captures project vision through questionnaire, generates PROJECT.md documentation, and creates project-level context.md file.
-
----
-
-#### suggestions - Questionnaire Suggestions
-
-**What it does:** AI analyzes project name and suggests intelligent, contextually appropriate answers for questionnaire fields.
-
-<details>
-<summary>📋 View Selection Evaluation</summary>
-
-```
-TASK: Select optimal LLM model for questionnaire suggestions in sponsor-call ceremony
+export const EVALUATION_PROMPTS = [
+  {
+    id: 'sponsor-call-suggestions',
+    ceremony: 'sponsor-call',
+    stage: 'suggestions',
+    stageName: 'Questionnaire Suggestions',
+    prompt: `TASK: Select optimal LLM model for questionnaire suggestions in sponsor-call ceremony
 PRIORITY: Best possible output quality
 
 CONTEXT:
@@ -186,30 +78,21 @@ Selection Guidance:
 - Must support real-time interaction speed (<8 seconds)
 - Pricing is not a constraint (quality worth any tier for user-facing interaction)
 
-Consider all available models from any provider (Claude, Gemini, OpenAI, etc.)
-```
+Consider all available models from any provider (Claude, Gemini, OpenAI, etc.)`,
+    metadata: {
+      callFrequency: 1,
+      impact: 'HIGH',
+      taskComplexity: 6,
+      currentDefault: 'Claude Sonnet 4.5'
+    }
+  },
 
-</details>
-
-**Best Output:** 🏆 Claude Sonnet 4.5
-- **Pricing:** 🟡 Medium
-- **Quality:** Optimal for domain inference from minimal context
-- **Use when:** All projects (recommended default)
-
-**Current Default:** ⚖️ Claude Sonnet 4.5 ✓
-- **Rationale:** Best balance of quality, speed, and pricing for real-time user interaction
-
----
-
-#### documentation - Documentation Generation
-
-**What it does:** AI creates comprehensive PROJECT.md from questionnaire answers, establishing the foundational document for the entire project.
-
-<details>
-<summary>📋 View Selection Evaluation</summary>
-
-```
-TASK: Select optimal LLM model for documentation generation in sponsor-call ceremony
+  {
+    id: 'sponsor-call-documentation',
+    ceremony: 'sponsor-call',
+    stage: 'documentation',
+    stageName: 'Documentation Generation',
+    prompt: `TASK: Select optimal LLM model for documentation generation in sponsor-call ceremony
 PRIORITY: Best possible output quality
 
 CONTEXT:
@@ -279,30 +162,21 @@ Selection Guidance:
 - Speed is not a constraint (can take 10-30 seconds)
 - Pricing not a limitation (worth premium for project foundation)
 
-Consider all available models from any provider (Claude, Gemini, OpenAI, etc.)
-```
+Consider all available models from any provider (Claude, Gemini, OpenAI, etc.)`,
+    metadata: {
+      callFrequency: 1,
+      impact: 'CRITICAL',
+      taskComplexity: 8,
+      currentDefault: 'Claude Sonnet 4.5'
+    }
+  },
 
-</details>
-
-**Best Output:** 🏆 Claude Sonnet 4.5
-- **Pricing:** 🟡 Medium
-- **Quality:** Optimal - Excellent technical writing and synthesis
-- **Use when:** All projects (this is your project foundation!)
-
-**Current Default:** ⚖️ Claude Sonnet 4.5 ✓
-- **Rationale:** Foundational document requires highest quality technical writing; Sonnet 4.5 optimal
-
----
-
-#### context - Context File Creation
-
-**What it does:** AI generates project-level context.md file that will be read by all future AI agents throughout the project lifecycle.
-
-<details>
-<summary>📋 View Selection Evaluation</summary>
-
-```
-TASK: Select optimal LLM model for context file creation in sponsor-call ceremony
+  {
+    id: 'sponsor-call-context',
+    ceremony: 'sponsor-call',
+    stage: 'context',
+    stageName: 'Context File Creation',
+    prompt: `TASK: Select optimal LLM model for context file creation in sponsor-call ceremony
 PRIORITY: Best possible output quality
 
 CONTEXT:
@@ -372,30 +246,21 @@ Selection Guidance:
 - Speed not a constraint (background processing)
 - Pricing justified by high leverage (used in every future ceremony)
 
-Consider all available models from any provider (Claude, Gemini, OpenAI, etc.)
-```
+Consider all available models from any provider (Claude, Gemini, OpenAI, etc.)`,
+    metadata: {
+      callFrequency: 1,
+      impact: 'VERY HIGH',
+      taskComplexity: 7,
+      currentDefault: 'Claude Sonnet 4.5'
+    }
+  },
 
-</details>
-
-**Best Output:** 🏆 Claude Sonnet 4.5
-- **Pricing:** 🟡 Medium
-- **Quality:** Optimal - Best at AI-consumable context generation
-- **Use when:** All projects (affects all future AI agents!)
-
-**Current Default:** ⚖️ Claude Sonnet 4.5 ✓
-- **Rationale:** High-leverage stage that improves all future AI performance; worth quality investment
-
----
-
-#### validation - Documentation Validation
-
-**What it does:** AI validators check PROJECT.md and context.md quality, identifying issues and suggesting improvements.
-
-<details>
-<summary>📋 View Selection Evaluation</summary>
-
-```
-TASK: Select optimal LLM model for documentation validation in sponsor-call ceremony
+  {
+    id: 'sponsor-call-validation',
+    ceremony: 'sponsor-call',
+    stage: 'validation',
+    stageName: 'Documentation Validation',
+    prompt: `TASK: Select optimal LLM model for documentation validation in sponsor-call ceremony
 PRIORITY: Best possible output quality
 
 CONTEXT:
@@ -451,37 +316,21 @@ Selection Guidance:
 - Speed not a constraint (background processing)
 - Consider pricing tier relative to quality improvement
 
-Consider all available models from any provider (Claude, Gemini, OpenAI, etc.)
-```
+Consider all available models from any provider (Claude, Gemini, OpenAI, etc.)`,
+    metadata: {
+      callFrequency: 2,
+      impact: 'HIGH',
+      taskComplexity: 6,
+      currentDefault: 'Claude Sonnet 4.5'
+    }
+  },
 
-</details>
-
-**Best Output:** 🏆 Claude Sonnet 4.5
-- **Pricing:** 🟡 Medium
-- **Quality:** Optimal - Superior issue detection and actionable suggestions
-- **Use when:** All projects (now the default!)
-
-**Current Default:** ⚖️ Claude Sonnet 4.5 ✓
-- **Pricing:** 🟡 Medium
-- **Rationale:** Same pricing tier as previous default (Gemini Pro) with +20% better validation quality; upgraded to Best Output
-
----
-
-### sprint-planning
-
-**Description:** Decomposes project scope into actionable epics and stories, validates them with domain experts, and generates detailed context files.
-
----
-
-#### decomposition - Epic & Story Decomposition
-
-**What it does:** AI analyzes project scope and breaks it down into hierarchical epics and stories with actionable acceptance criteria.
-
-<details>
-<summary>📋 View Selection Evaluation</summary>
-
-```
-TASK: Select optimal LLM model for epic and story decomposition in sprint-planning ceremony
+  {
+    id: 'sprint-planning-decomposition',
+    ceremony: 'sprint-planning',
+    stage: 'decomposition',
+    stageName: 'Epic & Story Decomposition',
+    prompt: `TASK: Select optimal LLM model for epic and story decomposition in sprint-planning ceremony
 PRIORITY: Best possible output quality
 
 CONTEXT:
@@ -544,32 +393,21 @@ Selection Guidance:
 - Speed not a constraint (one-time background operation)
 - Pricing justified by critical impact on entire project
 
-Consider all available models from any provider (Claude, Gemini, OpenAI, etc.)
-```
+Consider all available models from any provider (Claude, Gemini, OpenAI, etc.)`,
+    metadata: {
+      callFrequency: 1,
+      impact: 'CRITICAL',
+      taskComplexity: 9,
+      currentDefault: 'Claude Opus 4.6'
+    }
+  },
 
-</details>
-
-**Best Output:** 🏆 Claude Opus 4.6
-- **Pricing:** 🔴 High
-- **Quality:** Optimal - Superior hierarchical reasoning
-- **Use when:** All projects (now the default!)
-
-**Current Default:** ⚖️ Claude Opus 4.6 ✓
-- **Pricing:** 🔴 High
-- **Quality:** Optimal - Same as Best Output
-- **Rationale:** Decomposition is critical; invested in maximum quality for all projects
-
----
-
-#### validation-universal - Universal Validators
-
-**What it does:** Critical validators always applied to every epic and story: solution-architect, developer, security, qa, test-architect.
-
-<details>
-<summary>📋 View Selection Evaluation</summary>
-
-```
-TASK: Select optimal LLM model for universal validators in sprint-planning ceremony
+  {
+    id: 'sprint-planning-validation-universal',
+    ceremony: 'sprint-planning',
+    stage: 'validation-universal',
+    stageName: 'Universal Validators',
+    prompt: `TASK: Select optimal LLM model for universal validators in sprint-planning ceremony
 PRIORITY: Best possible output quality
 
 CONTEXT:
@@ -631,30 +469,21 @@ Selection Guidance:
 - Reliability is critical (false negatives in security/architecture are high-risk)
 - Do not compromise on quality for these critical validators
 
-Consider all available models from any provider (Claude, Gemini, OpenAI, etc.)
-```
+Consider all available models from any provider (Claude, Gemini, OpenAI, etc.)`,
+    metadata: {
+      callFrequency: 30,
+      impact: 'CRITICAL',
+      taskComplexity: 9,
+      currentDefault: 'Claude Sonnet 4.5'
+    }
+  },
 
-</details>
-
-**Best Output:** 🏆 Claude Sonnet 4.5
-- **Pricing:** 🟡 Medium
-- **Quality:** Optimal - Exceptional architectural and security analysis
-- **Use when:** All projects (never compromise on critical validators!)
-
-**Current Default:** ⚖️ Claude Sonnet 4.5 ✓
-- **Rationale:** Critical validators require best quality; Sonnet optimal for architectural/security analysis
-
----
-
-#### validation-domain - Domain Validators
-
-**What it does:** Domain-specific validators applied based on project tech stack: devops, database, api, frontend, backend, cloud, mobile, ui, ux, data.
-
-<details>
-<summary>📋 View Selection Evaluation</summary>
-
-```
-TASK: Select optimal LLM model for domain validators in sprint-planning ceremony
+  {
+    id: 'sprint-planning-validation-domain',
+    ceremony: 'sprint-planning',
+    stage: 'validation-domain',
+    stageName: 'Domain Validators',
+    prompt: `TASK: Select optimal LLM model for domain validators in sprint-planning ceremony
 PRIORITY: Best possible output quality
 
 CONTEXT:
@@ -708,32 +537,21 @@ Selection Guidance:
 - Balance domain expertise depth vs pricing efficiency
 - Acceptable to use lower tier if basic domain pattern checking sufficient
 
-Consider all available models from any provider (Claude, Gemini, OpenAI, etc.)
-```
+Consider all available models from any provider (Claude, Gemini, OpenAI, etc.)`,
+    metadata: {
+      callFrequency: 90,
+      impact: 'HIGH',
+      taskComplexity: 7,
+      currentDefault: 'Claude Sonnet 4.5'
+    }
+  },
 
-</details>
-
-**Best Output:** 🏆 Claude Sonnet 4.5
-- **Pricing:** 🟡 Medium
-- **Quality:** +35% better domain-specific issue detection vs Flash
-- **Use when:** Quality priority, willing to invest in better validation
-
-**Current Default:** ⚖️ Claude 3.5 Sonnet ✓
-- **Pricing:** 🟡 Medium
-- **Rationale:** Multi-provider evaluation shows consensus for Sonnet tier; 35% better domain-specific issue detection justifies investment
-- **Previous:** Gemini 2.0 Flash (budget option, -35% detection quality)
-
----
-
-#### validation-feature - Feature Validators
-
-**What it does:** Feature-specific validators applied based on acceptance criteria keywords: testing, security, file-upload, notifications, reporting, etc.
-
-<details>
-<summary>📋 View Selection Evaluation</summary>
-
-```
-TASK: Select optimal LLM model for feature validators in sprint-planning ceremony
+  {
+    id: 'sprint-planning-validation-feature',
+    ceremony: 'sprint-planning',
+    stage: 'validation-feature',
+    stageName: 'Feature Validators',
+    prompt: `TASK: Select optimal LLM model for feature validators in sprint-planning ceremony
 PRIORITY: Best possible output quality
 
 CONTEXT:
@@ -787,32 +605,21 @@ Selection Guidance:
 - Balance edge case detection quality vs pricing efficiency
 - Acceptable to use lower tier if basic explicit requirement checking sufficient
 
-Consider all available models from any provider (Claude, Gemini, OpenAI, etc.)
-```
+Consider all available models from any provider (Claude, Gemini, OpenAI, etc.)`,
+    metadata: {
+      callFrequency: 25,
+      impact: 'MEDIUM',
+      taskComplexity: 5,
+      currentDefault: 'Claude Sonnet 4.5'
+    }
+  },
 
-</details>
-
-**Best Output:** 🏆 Claude Sonnet 4.5
-- **Pricing:** 🟡 Medium
-- **Quality:** +30% better completeness and edge case detection vs Flash
-- **Use when:** Thorough feature validation desired, comprehensive requirements coverage
-
-**Current Default:** ⚖️ Claude 3.5 Sonnet ✓
-- **Pricing:** 🟡 Medium
-- **Rationale:** All 3 providers recommend upgrade from Flash tier; 30% better edge case and completeness detection
-- **Previous:** Gemini 2.0 Flash (budget option, -30% detection quality)
-
----
-
-#### context-generation - Context File Generation
-
-**What it does:** AI creates context.md file for each epic and story to guide developers and future AI agents.
-
-<details>
-<summary>📋 View Selection Evaluation</summary>
-
-```
-TASK: Select optimal LLM model for context file generation in sprint-planning ceremony
+  {
+    id: 'sprint-planning-context-generation',
+    ceremony: 'sprint-planning',
+    stage: 'context-generation',
+    stageName: 'Context File Generation',
+    prompt: `TASK: Select optimal LLM model for context file generation in sprint-planning ceremony
 PRIORITY: Best possible output quality
 
 CONTEXT:
@@ -874,36 +681,21 @@ Selection Guidance:
 - Quality directly impacts developer productivity and AI agent effectiveness
 - Do not compromise on context quality (high leverage on downstream work)
 
-Consider all available models from any provider (Claude, Gemini, OpenAI, etc.)
-```
+Consider all available models from any provider (Claude, Gemini, OpenAI, etc.)`,
+    metadata: {
+      callFrequency: 25,
+      impact: 'VERY HIGH',
+      taskComplexity: 7,
+      currentDefault: 'Claude Sonnet 4.5'
+    }
+  },
 
-</details>
-
-**Best Output:** 🏆 Claude Sonnet 4.5
-- **Pricing:** 🟡 Medium
-- **Quality:** Optimal - Best at actionable developer context
-- **Use when:** All projects (developers read these daily!)
-
-**Current Default:** ⚖️ Claude Sonnet 4.5 ✓
-- **Rationale:** Developer-facing, high-impact stage; investment pays off in implementation efficiency
-
----
-
-### seed
-
-**Description:** Breaks down stories into atomic tasks and subtasks, validates the task hierarchy, and generates task-level context files.
-
----
-
-#### decomposition - Task Decomposition
-
-**What it does:** AI breaks down a story into atomic, implementable tasks and subtasks with clear work units.
-
-<details>
-<summary>📋 View Selection Evaluation</summary>
-
-```
-TASK: Select optimal LLM model for task decomposition in seed ceremony
+  {
+    id: 'seed-decomposition',
+    ceremony: 'seed',
+    stage: 'decomposition',
+    stageName: 'Task Decomposition',
+    prompt: `TASK: Select optimal LLM model for task decomposition in seed ceremony
 PRIORITY: Best possible output quality
 
 CONTEXT:
@@ -965,32 +757,21 @@ Selection Guidance:
 - Reliability paramount (inconsistent granularity causes confusion)
 - Single call makes pricing tier less significant than quality
 
-Consider all available models from any provider (Claude, Gemini, OpenAI, etc.)
-```
+Consider all available models from any provider (Claude, Gemini, OpenAI, etc.)`,
+    metadata: {
+      callFrequency: 1,
+      impact: 'CRITICAL',
+      taskComplexity: 8,
+      currentDefault: 'Claude Opus 4.6'
+    }
+  },
 
-</details>
-
-**Best Output:** 🏆 Claude Opus 4.6
-- **Pricing:** 🔴 High
-- **Quality:** +10% vs Sonnet - Better granularity and completeness
-- **Use when:** Complex stories, integration-heavy features, multi-domain work
-
-**Current Default:** ⚖️ Claude Opus 4.6 ✓
-- **Pricing:** 🔴 High
-- **Quality:** Optimal - Same as Best Output
-- **Rationale:** Task decomposition is critical; invested in maximum quality for all projects
-
----
-
-#### validation - Task Validation
-
-**What it does:** AI validates that task hierarchy is complete, well-structured, appropriately granular, and implementable.
-
-<details>
-<summary>📋 View Selection Evaluation</summary>
-
-```
-TASK: Select optimal LLM model for task validation in seed ceremony
+  {
+    id: 'seed-validation',
+    ceremony: 'seed',
+    stage: 'validation',
+    stageName: 'Task Validation',
+    prompt: `TASK: Select optimal LLM model for task validation in seed ceremony
 PRIORITY: Best possible output quality
 
 CONTEXT:
@@ -1051,30 +832,21 @@ Selection Guidance:
 - Cannot miss critical completeness problems (false negatives are costly)
 - Do not compromise on quality (prevents downstream implementation issues)
 
-Consider all available models from any provider (Claude, Gemini, OpenAI, etc.)
-```
+Consider all available models from any provider (Claude, Gemini, OpenAI, etc.)`,
+    metadata: {
+      callFrequency: 20,
+      impact: 'VERY HIGH',
+      taskComplexity: 7,
+      currentDefault: 'Claude Sonnet 4.5'
+    }
+  },
 
-</details>
-
-**Best Output:** 🏆 Claude Sonnet 4.5
-- **Pricing:** 🟡 Medium
-- **Quality:** Optimal - +40-50% better gap detection vs Flash
-- **Use when:** All projects (prevents implementation gaps and rework!)
-
-**Current Default:** ⚖️ Claude Sonnet 4.5 ✓
-- **Rationale:** Task validation requires sophisticated "what's missing" reasoning; Sonnet essential
-
----
-
-#### context-generation - Task Context Generation
-
-**What it does:** AI creates context.md file for each task with implementation-focused guidance for developers.
-
-<details>
-<summary>📋 View Selection Evaluation</summary>
-
-```
-TASK: Select optimal LLM model for task context generation in seed ceremony
+  {
+    id: 'seed-context-generation',
+    ceremony: 'seed',
+    stage: 'context-generation',
+    stageName: 'Task Context Generation',
+    prompt: `TASK: Select optimal LLM model for task context generation in seed ceremony
 PRIORITY: Best possible output quality
 
 CONTEXT:
@@ -1135,36 +907,21 @@ Selection Guidance:
 - Technical details must be accurate (errors cause developer confusion)
 - Do not compromise on quality (directly impacts implementation efficiency)
 
-Consider all available models from any provider (Claude, Gemini, OpenAI, etc.)
-```
+Consider all available models from any provider (Claude, Gemini, OpenAI, etc.)`,
+    metadata: {
+      callFrequency: 10,
+      impact: 'VERY HIGH',
+      taskComplexity: 7,
+      currentDefault: 'Claude Sonnet 4.5'
+    }
+  },
 
-</details>
-
-**Best Output:** 🏆 Claude Sonnet 4.5
-- **Pricing:** 🟡 Medium
-- **Quality:** Optimal - Best technical accuracy and actionability
-- **Use when:** All projects (last stop before coding!)
-
-**Current Default:** ⚖️ Claude Sonnet 4.5 ✓
-- **Rationale:** Developers use this immediately before coding; technical accuracy essential
-
----
-
-### context-retrospective
-
-**Description:** Refines and enhances project documentation and context files based on implementation learnings from git history.
-
----
-
-#### documentation-update - Documentation Enhancement
-
-**What it does:** AI refines PROJECT.md based on learnings from actual implementation (git history, completed work).
-
-<details>
-<summary>📋 View Selection Evaluation</summary>
-
-```
-TASK: Select optimal LLM model for documentation enhancement in context-retrospective ceremony
+  {
+    id: 'context-retrospective-documentation-update',
+    ceremony: 'context-retrospective',
+    stage: 'documentation-update',
+    stageName: 'Documentation Enhancement',
+    prompt: `TASK: Select optimal LLM model for documentation enhancement in context-retrospective ceremony
 PRIORITY: Best possible output quality
 
 CONTEXT:
@@ -1224,30 +981,21 @@ Selection Guidance:
 - Technical accuracy critical (documentation is project source of truth)
 - Consider balance of quality vs pricing for moderate-volume task
 
-Consider all available models from any provider (Claude, Gemini, OpenAI, etc.)
-```
+Consider all available models from any provider (Claude, Gemini, OpenAI, etc.)`,
+    metadata: {
+      callFrequency: 10,
+      impact: 'HIGH',
+      taskComplexity: 7,
+      currentDefault: 'Claude Sonnet 4.5'
+    }
+  },
 
-</details>
-
-**Best Output:** 🏆 Claude Sonnet 4.5
-- **Pricing:** 🟡 Medium
-- **Quality:** Optimal - Excellent technical writing and synthesis
-- **Use when:** All projects (maintains documentation accuracy)
-
-**Current Default:** ⚖️ Claude Sonnet 4.5 ✓
-- **Rationale:** Technical writing and synthesis of learnings require Sonnet's capabilities
-
----
-
-#### context-refinement - Context Enhancement
-
-**What it does:** AI enriches context.md files with practical implementation insights learned from actual development work.
-
-<details>
-<summary>📋 View Selection Evaluation</summary>
-
-```
-TASK: Select optimal LLM model for context refinement in context-retrospective ceremony
+  {
+    id: 'context-retrospective-context-refinement',
+    ceremony: 'context-retrospective',
+    stage: 'context-refinement',
+    stageName: 'Context Enhancement',
+    prompt: `TASK: Select optimal LLM model for context refinement in context-retrospective ceremony
 PRIORITY: Best possible output quality
 
 CONTEXT:
@@ -1310,293 +1058,52 @@ Selection Guidance:
 - Very high leverage justifies premium tier (enhanced context used in all future work)
 - Quality directly impacts all future AI agent effectiveness
 
-Consider all available models from any provider (Claude, Gemini, OpenAI, etc.)
-```
-
-</details>
-
-**Best Output:** 🏆 Claude Opus 4.6
-- **Pricing:** 🔴 High
-- **Quality:** +20% vs Sonnet - Superior code analysis and pattern recognition
-- **Use when:** Maximum AI agent improvement desired, long-term projects with many future ceremonies
-
-**Current Default:** ⚖️ Claude Opus 4.6 ✓
-- **Pricing:** 🔴 High
-- **Quality:** Optimal - Same as Best Output
-- **Rationale:** Context refinement directly improves all future AI work; invested in maximum quality
-
----
-
-## Model Summary Tables
-
-### Recommendations by Stage
-
-| Ceremony | Stage | Best Output | Pricing | Current Default | Pricing | Quality Gain |
-|----------|-------|-------------|---------|-----------------|---------|--------------|
-| **sponsor-call** | suggestions | Sonnet 4.5 | 🟡 Med | Sonnet 4.5 ✓ | 🟡 Med | Optimal |
-| | documentation | Sonnet 4.5 | 🟡 Med | Sonnet 4.5 ✓ | 🟡 Med | Optimal |
-| | context | Sonnet 4.5 | 🟡 Med | Sonnet 4.5 ✓ | 🟡 Med | Optimal |
-| | validation | Sonnet 4.5 | 🟡 Med | Sonnet 4.5 ✓ | 🟡 Med | Optimal |
-| **sprint-planning** | decomposition | Opus 4.6 | 🔴 High | Opus 4.6 ✓ | 🔴 High | Optimal |
-| | validation (universal) | Sonnet 4.5 | 🟡 Med | Sonnet 4.5 ✓ | 🟡 Med | Optimal |
-| | validation (domain) | Sonnet 4.5 | 🟡 Med | Sonnet 4.5 ✓ | 🟡 Med | Optimal |
-| | validation (feature) | Sonnet 4.5 | 🟡 Med | Sonnet 4.5 ✓ | 🟡 Med | Optimal |
-| | context-generation | Sonnet 4.5 | 🟡 Med | Sonnet 4.5 ✓ | 🟡 Med | Optimal |
-| **seed** | decomposition | Opus 4.6 | 🔴 High | Opus 4.6 ✓ | 🔴 High | Optimal |
-| | validation | Sonnet 4.5 | 🟡 Med | Sonnet 4.5 ✓ | 🟡 Med | Optimal |
-| | context-generation | Sonnet 4.5 | 🟡 Med | Sonnet 4.5 ✓ | 🟡 Med | Optimal |
-| **context-retrospective** | documentation-update | Sonnet 4.5 | 🟡 Med | Sonnet 4.5 ✓ | 🟡 Med | Optimal |
-| | context-refinement | Opus 4.6 | 🔴 High | Opus 4.6 ✓ | 🔴 High | Optimal |
-
-### Overall Pricing by Ceremony
-
-| Ceremony | Current Defaults | Best Output | Pricing Change |
-|----------|-----------------|-------------|----------------|
-| sponsor-call | Medium | Medium | None (Optimal) |
-| sprint-planning | Medium-High | Medium-High | None (Optimal) |
-| seed | Medium-High | Medium-High | None (Optimal) |
-| context-retrospective | Medium-High | Medium-High | None (Optimal) |
-
----
-
-## Configuration Profiles
-
-### Profile 1: Maximum Quality 🏆
-
-**For:** Quality-first projects, enterprise applications, critical systems
-
-**Configuration:**
-- All decomposition: **Opus 4.6** (🔴 High)
-- All universal validation: **Sonnet 4.5** (🟡 Medium)
-- All domain/feature validation: **Sonnet 4.5** (🟡 Medium)
-- All context generation: **Sonnet 4.5** (🟡 Medium)
-- Context refinement: **Opus 4.6** (🔴 High)
-
-**Pricing:** Medium-High overall
-
-**Use when:**
-- Maximum quality requirements
-- Complex enterprise architectures
-- Critical production applications
-- Long-term projects with many ceremonies
-- AI agent performance is paramount
-
----
-
-### Profile 2: Balanced ⚖️ (Current Defaults)
-
-**For:** Most projects - quality where it matters most
-
-**Configuration:**
-- Decomposition: **Opus 4.6** (🔴 High)
-- Universal validation: **Sonnet 4.5** (🟡 Medium)
-- Domain validation: **Flash** (🟢 Low)
-- Feature validation: **Flash** (🟢 Low)
-- All context generation: **Sonnet 4.5** (🟡 Medium)
-- Context refinement: **Opus 4.6** (🔴 High)
-
-**Pricing:** Medium-High overall
-
-**Use when:**
-- Most projects (recommended)
-- Quality-first approach for critical stages
-- Invested in maximum decomposition and context quality
-- Acceptable validation trade-offs for budget efficiency
-
----
-
-### Profile 3: Budget 💰
-
-**For:** Cost-sensitive projects, prototypes, early-stage development
-
-**Configuration:**
-- Decomposition: **Sonnet 4.5** (🟡 Medium) - *Don't compromise!*
-- All validation: **Flash** (🟢 Low)
-- Context generation: **Flash** (🟢 Low) - *Significant quality loss*
-- Documentation: **Flash** (🟢 Low) - *Significant quality loss*
-
-**Pricing:** Low overall
-
-**Use when:**
-- Budget-constrained projects
-- Early prototypes or MVPs
-- Willing to accept validation depth trade-offs
-- Technical debt risk acceptable
-
-**⚠️ Warnings:**
-- Never use Flash for decomposition (high failure risk)
-- Flash for context generation significantly reduces developer productivity
-- Flash for documentation creates weak project foundation
-
----
-
-## Quality vs Pricing Matrix
-
-### Quality Loss by Stage Type
-
-| Stage Type | Best Output | Pricing | Budget Option | Pricing | Quality Loss | Impact |
-|------------|-------------|---------|---------------|---------|--------------|--------|
-| **Decomposition** | Opus 4.6 | 🔴 High | Sonnet 4.5 | 🟡 Med | Low (10-15%) | Acceptable |
-| **Architecture Validation** | Sonnet 4.5 | 🟡 Med | Flash | 🟢 Low | High (40%) | ⚠️ Risky |
-| **Domain Validation** | Sonnet 4.5 | 🟡 Med | Flash | 🟢 Low | Medium (30%) | ⚠️ Trade-off |
-| **Context Generation** | Sonnet 4.5 | 🟡 Med | Flash | 🟢 Low | Very High (60%) | ❌ Not recommended |
-| **Documentation** | Sonnet 4.5 | 🟡 Med | Flash | 🟢 Low | High (45%) | ❌ Not recommended |
-
-### Key Insights
-
-✅ **Safe Downgrades:**
-- Opus → Sonnet for decomposition: Only 10-15% quality loss, significant pricing savings
-
-⚠️ **Risky Downgrades:**
-- Sonnet → Flash for domain/feature validation: 30-35% quality loss, but sometimes acceptable for budget constraints
-- Sonnet → Flash for architecture/security validation: 40% quality loss - not recommended
-
-❌ **Never Downgrade:**
-- Context generation: 60% quality loss - severely impacts developer productivity and AI agent performance
-- Documentation: 45% quality loss - weak project foundation affects everything
-
-💡 **Best Value:**
-- **Claude Sonnet 4.5** provides optimal quality-per-pricing across most stages
-- Use Opus only for critical decomposition/refinement stages where 10-20% improvement matters
-- Avoid Flash for generation/documentation stages - quality loss too severe
-
----
-
-## Upgrade Guide: When to Use Opus
-
-### Scenarios for Claude Opus 4.6
-
-**Decomposition Stages:**
-- ✅ Complex enterprise architectures with multiple systems
-- ✅ Microservices ecosystems requiring sophisticated dependency management
-- ✅ Large-scale projects (50+ epics/stories)
-- ✅ Projects with complex business logic and workflows
-- ✅ When maximum work breakdown quality is essential
-
-**Context Refinement:**
-- ✅ Long-term projects with many future ceremonies (high ROI on better context)
-- ✅ AI agent performance is absolutely critical
-- ✅ Complex codebases requiring sophisticated pattern recognition
-- ✅ When implementation insights are mission-critical
-
-### Quality Gains
-
-| Stage | Opus vs Sonnet | Impact |
-|-------|----------------|--------|
-| Decomposition | +15% better reasoning | More accurate story scoping, better dependencies |
-| Context Refinement | +20% better insights | Significantly improved future AI agent performance |
-| Complex Reasoning | +25% better synthesis | Superior handling of multi-domain complexity |
-
-### Pricing Consideration
-
-**Pricing:** 🔴 High (worth it for critical stages)
-
-**When the investment pays off:**
-- Single decomposition call with 15% better quality → prevents costly rework on multiple stories
-- Context refinement improvements → compound benefits across all future ceremonies
-- Complex projects → quality improvement justifies pricing for critical decisions
-
----
-
-## How to Customize
-
-You can customize model selection for your project using the `/models` command.
-
-### Step-by-Step Guide
-
-1. **Run the command:**
-   ```
-   /models
-   ```
-
-2. **Select ceremony:**
-   - sponsor-call
-   - sprint-planning
-   - seed
-   - context-retrospective
-
-3. **Navigate to stage:**
-   - Use arrow keys to navigate
-   - View current model and estimated cost
-   - See stage description and call frequency
-
-4. **For validation stages, select type:**
-   - Universal validators (critical: architecture, security)
-   - Domain validators (tech stack specific)
-   - Feature validators (keyword-based)
-
-5. **Choose provider and model:**
-   - claude → claude-opus-4-6, claude-sonnet-4-5-20250929
-   - gemini → gemini-2.0-flash-exp, gemini-2.5-pro
-   - Based on quality needs and pricing constraints
-
-6. **Save configuration:**
-   - Settings saved to `.avc/avc.json`
-   - Applied to future ceremony executions
-
-### Example Customization Workflows
-
-**Upgrade critical stages to Opus:**
-```
-/models → sprint-planning → decomposition → claude → claude-opus-4-6
-/models → context-retrospective → context-refinement → claude → claude-opus-4-6
-```
-
-**Upgrade validations to Sonnet for better quality:**
-```
-/models → sprint-planning → validation → domain → claude → claude-sonnet-4-5-20250929
-/models → sprint-planning → validation → feature → claude → claude-sonnet-4-5-20250929
-```
-
-**Budget mode (downgrade validation only):**
-```
-/models → sprint-planning → validation → domain → gemini → gemini-2.0-flash-exp
-/models → sprint-planning → validation → feature → gemini → gemini-2.0-flash-exp
-```
-
-### Full Documentation
-
-For complete details on the `/models` command, see [COMMANDS.md](COMMANDS.md#models).
-
----
-
-## Summary
-
-### Key Takeaways
-
-1. **Quality First:** AVC defaults prioritize output quality over pricing
-2. **Sonnet Optimal:** Claude Sonnet 4.5 provides best quality-per-pricing for most stages
-3. **Never Compromise:** Context generation, documentation, and decomposition require high-quality models
-4. **Strategic Upgrades:** Use Opus for complex decomposition and critical context refinement
-5. **Validation Trade-offs:** Domain/feature validation can use Flash for pricing savings if quality trade-off acceptable
-6. **Transparent:** All 14 evaluation prompts included for reproducibility
-
-### Quick Reference
-
-**Always use Sonnet or better:**
-- ✅ All decomposition
-- ✅ All context generation
-- ✅ All documentation
-- ✅ Universal validators (architecture/security)
-- ✅ Task validation
-
-**Consider Flash for pricing savings:**
-- 💰 Domain validators (30-35% quality loss)
-- 💰 Feature validators (30% quality loss)
-- ⚠️ Only if budget-constrained and trade-off acceptable
-
-**Upgrade to Opus for maximum quality:**
-- 🏆 Complex decomposition (+15% quality)
-- 🏆 Critical context refinement (+20% quality)
-- 🏆 Enterprise architectures
-- 🏆 Long-term projects
-
----
-
-## Related Documentation
-
-- [COMMANDS.md](COMMANDS.md) - Complete command reference including `/models`
-- [sponsor-call ceremony](ceremonies/sponsor-call.md) - Ceremony details
-- [sprint-planning ceremony](ceremonies/sprint-planning.md) - Ceremony details
-- [seed ceremony](ceremonies/seed.md) - Ceremony details
-- [ARCHITECTURE.md](architecture/ARCHITECTURE.md) - System architecture overview
+Consider all available models from any provider (Claude, Gemini, OpenAI, etc.)`,
+    metadata: {
+      callFrequency: 15,
+      impact: 'VERY HIGH',
+      taskComplexity: 8,
+      currentDefault: 'Claude Opus 4.6'
+    }
+  }
+];
+
+/**
+ * Get evaluation prompt by ID
+ * @param {string} id - Prompt ID (e.g., 'sponsor-call-suggestions')
+ * @returns {Object|null} Evaluation prompt object or null if not found
+ */
+export function getPromptById(id) {
+  return EVALUATION_PROMPTS.find(p => p.id === id) || null;
+}
+
+/**
+ * Get all prompts for a specific ceremony
+ * @param {string} ceremony - Ceremony name (e.g., 'sponsor-call')
+ * @returns {Array} Array of evaluation prompts for the ceremony
+ */
+export function getPromptsByCeremony(ceremony) {
+  return EVALUATION_PROMPTS.filter(p => p.ceremony === ceremony);
+}
+
+/**
+ * Get prompt statistics
+ * @returns {Object} Statistics about evaluation prompts
+ */
+export function getPromptStats() {
+  const ceremonies = [...new Set(EVALUATION_PROMPTS.map(p => p.ceremony))];
+  const totalCalls = EVALUATION_PROMPTS.reduce((sum, p) => sum + p.metadata.callFrequency, 0);
+
+  return {
+    totalPrompts: EVALUATION_PROMPTS.length,
+    ceremonies: ceremonies.length,
+    ceremonyList: ceremonies,
+    estimatedTotalCalls: totalCalls,
+    impactDistribution: {
+      CRITICAL: EVALUATION_PROMPTS.filter(p => p.metadata.impact === 'CRITICAL').length,
+      'VERY HIGH': EVALUATION_PROMPTS.filter(p => p.metadata.impact === 'VERY HIGH').length,
+      HIGH: EVALUATION_PROMPTS.filter(p => p.metadata.impact === 'HIGH').length,
+      MEDIUM: EVALUATION_PROMPTS.filter(p => p.metadata.impact === 'MEDIUM').length
+    }
+  };
+}
