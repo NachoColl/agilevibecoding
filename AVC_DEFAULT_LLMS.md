@@ -175,17 +175,20 @@ EVALUATION CRITERIA (BEST OUTPUT FIRST):
 
 RECOMMENDATION:
 
-Best Output: Claude Sonnet 4.5
-- Pricing: 🟡 Medium
-- Excellent domain inference from minimal context
-- Strong world knowledge for relevant suggestions
-- Fast enough for real-time user interaction
-- Consistent, coherent suggestions across all fields
-- Optimal balance of quality and speed for this use case
+Based on evaluation criteria above, select the model that best meets:
+1. PRIMARY: Output Quality - Excellent domain inference from minimal context (project name)
+2. SECONDARY: World Knowledge - Strong understanding of business domains and technical stacks
+3. TERTIARY: Task Complexity - Moderate (7/10) - requires intelligent suggestion generation
+4. Speed Requirements: MODERATE - User waiting in real-time (2-4s ideal, <8s acceptable)
+5. Pricing: TERTIARY - Single call per ceremony, minimal impact
 
-Current Default: Claude Sonnet 4.5 ✓
-- Same as best output recommendation
-- Optimal choice for this stage
+Selection Guidance:
+- Prioritize models with strong domain/business knowledge for accurate suggestions
+- Require excellent inference capabilities from very limited context
+- Must support real-time interaction speed (<8 seconds)
+- Pricing is not a constraint (quality worth any tier for user-facing interaction)
+
+Consider all available models from any provider (Claude, Gemini, OpenAI, etc.)
 ```
 
 </details>
@@ -265,18 +268,22 @@ EVALUATION CRITERIA (BEST OUTPUT FIRST):
 
 RECOMMENDATION:
 
-Best Output: Claude Sonnet 4.5
-- Pricing: 🟡 Medium
-- Excellent technical writing and document structure
-- Strong synthesis of multiple inputs into coherent narrative
-- Maintains consistency across complex multi-section document
-- Superior markdown formatting and organization
-- Appropriate technical depth and professional tone
-- Optimal for this critical document
+Based on evaluation criteria above, select the model that best meets:
+1. PRIMARY: Output Quality - CRITICAL - Foundational project document
+2. SECONDARY: Technical Writing - Excellent multi-section document structure
+3. TERTIARY: Task Complexity - High (8/10) - requires synthesis of diverse inputs
+4. Speed Requirements: LOW - Background process, quality >>> speed
+5. Pricing: TERTIARY - Single call, massive quality impact justifies any tier
 
-Current Default: Claude Sonnet 4.5 ✓
-- Same as best output recommendation
-- Optimal choice for this stage
+Selection Guidance:
+- Prioritize models with exceptional technical writing and document synthesis
+- Require strong markdown formatting and organizational structure
+- Must maintain consistency across complex 9-section document
+- Must synthesize questionnaire inputs, suggestions, and context into coherent narrative
+- Speed is not a constraint (can take 10-30 seconds)
+- Pricing not a limitation (worth premium for project foundation)
+
+Consider all available models from any provider (Claude, Gemini, OpenAI, etc.)
 ```
 
 </details>
@@ -355,18 +362,23 @@ EVALUATION CRITERIA (BEST OUTPUT FIRST):
 
 RECOMMENDATION:
 
-Best Output: Claude Sonnet 4.5
-- Pricing: 🟡 Medium
-- Excellent at creating AI-consumable context
-- Superior understanding of what future AI agents need
-- Strong balance of conciseness and completeness
-- Identifies critical vs supplementary information
-- Maintains technical accuracy while summarizing
-- Optimal for this high-leverage stage
+Based on evaluation criteria above, select the model that best meets:
+1. PRIMARY: Output Quality - VERY HIGH - Used by all future AI agents
+2. SECONDARY: AI Context Generation - Excellent understanding of what AI agents need
+3. TERTIARY: Task Complexity - High (8/10) - distillation with accuracy preservation
+4. Speed Requirements: LOW - Background process, quality >>> speed
+5. Pricing: TERTIARY - Single call, very high leverage (affects all future ceremonies)
 
-Current Default: Claude Sonnet 4.5 ✓
-- Same as best output recommendation
-- Optimal choice for this stage
+Selection Guidance:
+- Prioritize models with exceptional AI-to-AI context generation capabilities
+- Require strong balance of conciseness and completeness
+- Must identify critical vs supplementary information effectively
+- Must maintain technical accuracy while summarizing
+- Must avoid introducing contradictions with source documentation
+- Speed not a constraint (background processing)
+- Pricing justified by high leverage (used in every future ceremony)
+
+Consider all available models from any provider (Claude, Gemini, OpenAI, etc.)
 ```
 
 </details>
@@ -431,16 +443,22 @@ EVALUATION CRITERIA (BEST OUTPUT FIRST):
 
 RECOMMENDATION:
 
-Best Output: Claude Sonnet 4.5
-- Pricing: 🟡 Medium
-- Superior analytical capability
-- Better actionable suggestions
-- Optimal for documentation validation
+Based on evaluation criteria above, select the model that best meets:
+1. PRIMARY: Output Quality - HIGH - Analytical validation with actionable feedback
+2. SECONDARY: Task Complexity - Moderate (6/10) - rule application + gap identification
+3. TERTIARY: Context Understanding - Must handle large documents with cross-section relationships
+4. Speed Requirements: LOW - Background validation, quality >>> speed
+5. Pricing: TERTIARY - 2 calls per ceremony, moderate impact
 
-Current Default: Claude Sonnet 4.5 ✓
-- Same as best output recommendation
-- Pricing: 🟡 Medium
-- Excellent validation quality
+Selection Guidance:
+- Prioritize models with strong analytical and critical thinking capabilities
+- Require ability to identify subtle inconsistencies and gaps
+- Must provide actionable, specific feedback for improvement
+- Must understand project documentation best practices
+- Speed not a constraint (background processing)
+- Consider pricing tier relative to quality improvement
+
+Consider all available models from any provider (Claude, Gemini, OpenAI, etc.)
 ```
 
 </details>
@@ -519,17 +537,23 @@ EVALUATION CRITERIA (BEST OUTPUT FIRST):
 
 RECOMMENDATION:
 
-Best Output: Claude Opus 4.6
-- Pricing: 🔴 High
-- Superior hierarchical reasoning
-- Better dependency identification
-- More consistent acceptance criteria
-- Optimal for decomposition
+Based on evaluation criteria above, select the model that best meets:
+1. PRIMARY: Output Quality - CRITICAL - Defines entire project work structure
+2. SECONDARY: Task Complexity - Very High (9/10) - complex hierarchical decomposition
+3. TERTIARY: Hierarchical Reasoning - Exceptional domain breakdown with dependencies
+4. Speed Requirements: LOW - Background process, quality >>> speed
+5. Pricing: TERTIARY - Single call, most critical stage, worth any tier
 
-Current Default: Claude Opus 4.6 ✓
-- Same as best output recommendation
-- Pricing: 🔴 High
-- Maximum quality decomposition
+Selection Guidance:
+- Prioritize models with exceptional hierarchical reasoning and decomposition
+- Require deep project synthesis and implicit dependency recognition
+- Must generate complete, non-overlapping, consistent epic/story structure
+- Must produce specific, testable acceptance criteria at story level
+- Consistency and completeness are paramount (gaps cause downstream failures)
+- Speed not a constraint (one-time background operation)
+- Pricing justified by critical impact on entire project
+
+Consider all available models from any provider (Claude, Gemini, OpenAI, etc.)
 ```
 
 </details>
@@ -602,16 +626,22 @@ EVALUATION CRITERIA (BEST OUTPUT FIRST):
 
 RECOMMENDATION:
 
-Best Output: Claude Sonnet 4.5
-- Pricing: 🟡 Medium
-- Exceptional architectural reasoning
-- Strong security vulnerability identification
-- Reliable and consistent validation
-- Optimal for critical validation workload
+Based on evaluation criteria above, select the model that best meets:
+1. PRIMARY: Output Quality - CRITICAL - Deep architectural and security analysis
+2. SECONDARY: Task Complexity - Very High (9/10) - system-wide analysis
+3. TERTIARY: Reliability - Cannot miss critical architectural flaws or security issues
+4. Speed Requirements: MODERATE - 30 calls in parallel, quality still paramount
+5. Pricing: MODERATE - 30 calls = significant volume, but quality cannot be compromised
 
-Current Default: Claude Sonnet 4.5 ✓
-- Same as best output recommendation
-- Do not compromise on these critical validators
+Selection Guidance:
+- Prioritize models with exceptional architectural reasoning and security analysis
+- Require consistent, reliable identification of vulnerabilities and design flaws
+- Must provide specific, actionable recommendations for improvements
+- Must understand system-wide architecture and cross-reference between components
+- Reliability is critical (false negatives in security/architecture are high-risk)
+- Do not compromise on quality for these critical validators
+
+Consider all available models from any provider (Claude, Gemini, OpenAI, etc.)
 ```
 
 </details>
@@ -675,19 +705,22 @@ EVALUATION CRITERIA (BEST OUTPUT FIRST):
 
 RECOMMENDATION:
 
-Best Output: Claude Sonnet 4.5
-- Pricing: 🟡 Medium
-- Superior domain expertise (+35% vs Flash)
-- More actionable, context-appropriate recommendations
-- Better cross-domain understanding
-- Use when: Quality is priority
+Based on evaluation criteria above, select the model that best meets:
+1. PRIMARY: Output Quality - HIGH - Domain-specific best practices and anti-patterns
+2. SECONDARY: Task Complexity - High (7/10) - requires domain expertise, not just pattern matching
+3. TERTIARY: Volume Impact - HIGHEST (90 calls) - largest pricing driver in ceremony
+4. Speed Requirements: MODERATE - Parallel execution, but quality important
+5. Pricing: SIGNIFICANT - 90 calls make pricing tier materially impactful
 
-Current Default: Gemini 2.0 Flash
-- Pricing: 🟢 Low (often free tier)
-- Adequate for basic domain pattern checking
-- Can identify common anti-patterns
-- Use when: Cost optimization important
-- Trade-off: -35% issue detection
+Selection Guidance:
+- Prioritize models with strong domain knowledge (DevOps, Database, API, Frontend, etc.)
+- Require ability to apply domain-specific best practices and identify anti-patterns
+- Must provide actionable, context-appropriate recommendations
+- Consider pricing tier carefully (90 calls = 3-4x cost difference between tiers)
+- Balance domain expertise depth vs pricing efficiency
+- Acceptable to use lower tier if basic domain pattern checking sufficient
+
+Consider all available models from any provider (Claude, Gemini, OpenAI, etc.)
 ```
 
 </details>
@@ -753,19 +786,22 @@ EVALUATION CRITERIA (BEST OUTPUT FIRST):
 
 RECOMMENDATION:
 
-Best Output: Claude Sonnet 4.5
-- Pricing: 🟡 Medium
-- Better at identifying implicit requirements (+30% vs Flash)
-- More comprehensive completeness checking
-- Better suggestions for test scenarios
-- Use when: Comprehensive feature validation desired
+Based on evaluation criteria above, select the model that best meets:
+1. PRIMARY: Output Quality - MEDIUM-HIGH - Feature completeness and edge case identification
+2. SECONDARY: Task Complexity - Moderate (5/10) - checklist application with implicit requirement detection
+3. TERTIARY: Volume Impact - MODERATE (25 calls) - pricing tier makes moderate impact
+4. Speed Requirements: MODERATE - Parallel execution in background
+5. Pricing: MODERATE - 25 calls = moderate volume, balance quality vs cost
 
-Current Default: Gemini 2.0 Flash
-- Pricing: 🟢 Low (often free tier)
-- Adequate for explicit requirement checking
-- Can identify obvious missing scenarios
-- Use when: Basic completeness checking sufficient
-- Trade-off: -30% edge case detection
+Selection Guidance:
+- Prioritize models capable of identifying implicit requirements (not just explicit ones)
+- Require feature completeness checking (missing scenarios, edge cases)
+- Should provide test scenario suggestions
+- Consider pricing tier (25 calls = 2-3x cost difference between tiers)
+- Balance edge case detection quality vs pricing efficiency
+- Acceptable to use lower tier if basic explicit requirement checking sufficient
+
+Consider all available models from any provider (Claude, Gemini, OpenAI, etc.)
 ```
 
 </details>
@@ -839,16 +875,22 @@ EVALUATION CRITERIA (BEST OUTPUT FIRST):
 
 RECOMMENDATION:
 
-Best Output: Claude Sonnet 4.5
-- Pricing: 🟡 Medium
-- Excellent at creating actionable developer context
-- Superior technical accuracy and relevance
-- Good balance of conciseness and completeness
-- Optimal for this developer-facing stage
+Based on evaluation criteria above, select the model that best meets:
+1. PRIMARY: Output Quality - VERY HIGH - Developers read daily, AI agents use for decomposition
+2. SECONDARY: Technical Writing - Actionable developer guidance with accuracy
+3. TERTIARY: Task Complexity - High (7/10) - synthesis with context inheritance
+4. Speed Requirements: MODERATE - 25 calls in parallel, quality >>> speed
+5. Pricing: MODERATE - 25 calls, high impact justifies investment
 
-Current Default: Claude Sonnet 4.5 ✓
-- Same as best output recommendation
-- Do not compromise on context quality
+Selection Guidance:
+- Prioritize models with excellent technical writing and developer-focused context
+- Require accurate technical guidance and implementation considerations
+- Must balance conciseness with completeness (500-2,000 token output)
+- Must properly inherit and extend parent context
+- Quality directly impacts developer productivity and AI agent effectiveness
+- Do not compromise on context quality (high leverage on downstream work)
+
+Consider all available models from any provider (Claude, Gemini, OpenAI, etc.)
 ```
 
 </details>
@@ -925,17 +967,23 @@ EVALUATION CRITERIA (BEST OUTPUT FIRST):
 
 RECOMMENDATION:
 
-Best Output: Claude Opus 4.6
-- Pricing: 🔴 High
-- Superior task breakdown (+10% vs Sonnet)
-- Better atomic subtask identification
-- More complete task coverage
-- Use when: Complex stories, integration-heavy work
+Based on evaluation criteria above, select the model that best meets:
+1. PRIMARY: Output Quality - CRITICAL - Defines actual implementation plan
+2. SECONDARY: Task Complexity - Very High (8/10) - granular work breakdown with dependencies
+3. TERTIARY: Breakdown Capability - Exceptional atomic subtask identification
+4. Speed Requirements: LOW - Background processing, quality >>> speed
+5. Pricing: TERTIARY - Single call, critical impact justifies any tier
 
-Current Default: Claude Opus 4.6 ✓
-- Pricing: 🔴 High
-- Optimal - Same as Best Output
-- Rationale: Task decomposition is critical; invested in maximum quality
+Selection Guidance:
+- Prioritize models with exceptional hierarchical decomposition and breakdown capability
+- Require accurate identification of atomic, implementable subtasks
+- Must properly identify task dependencies
+- Must understand full story requirements in epic/project context
+- Completeness is critical (missing tasks cause implementation delays)
+- Reliability paramount (inconsistent granularity causes confusion)
+- Single call makes pricing tier less significant than quality
+
+Consider all available models from any provider (Claude, Gemini, OpenAI, etc.)
 ```
 
 </details>
@@ -1008,16 +1056,22 @@ EVALUATION CRITERIA (BEST OUTPUT FIRST):
 
 RECOMMENDATION:
 
-Best Output: Claude Sonnet 4.5
-- Pricing: 🟡 Medium
-- Excellent at identifying gaps (+40-50% vs Flash)
-- Superior granularity assessment
-- Strong dependency validation
-- Optimal for task validation
+Based on evaluation criteria above, select the model that best meets:
+1. PRIMARY: Output Quality - VERY HIGH - Catches planning issues before development
+2. SECONDARY: Validation Reasoning - Sophisticated gap identification and granularity assessment
+3. TERTIARY: Task Complexity - High (7/10) - completeness validation with dependency reasoning
+4. Speed Requirements: MODERATE - 20 calls in parallel, quality >>> speed
+5. Pricing: MODERATE - 20 calls, critical impact justifies investment
 
-Current Default: Claude Sonnet 4.5 ✓
-- Same as best output recommendation
-- Do not compromise on task validation
+Selection Guidance:
+- Prioritize models with excellent completeness validation and gap identification
+- Require sophisticated reasoning about task granularity appropriateness
+- Must validate dependency correctness and implementation feasibility
+- Must cross-reference task hierarchy with story requirements
+- Cannot miss critical completeness problems (false negatives are costly)
+- Do not compromise on quality (prevents downstream implementation issues)
+
+Consider all available models from any provider (Claude, Gemini, OpenAI, etc.)
 ```
 
 </details>
@@ -1088,16 +1142,22 @@ EVALUATION CRITERIA (BEST OUTPUT FIRST):
 
 RECOMMENDATION:
 
-Best Output: Claude Sonnet 4.5
-- Pricing: 🟡 Medium
-- Excellent implementation-focused technical writing
-- Superior technical accuracy and detail level
-- Strong at highlighting gotchas
-- Optimal for developer-facing task context
+Based on evaluation criteria above, select the model that best meets:
+1. PRIMARY: Output Quality - VERY HIGH - Developers read immediately before implementing
+2. SECONDARY: Technical Writing - Implementation-focused guidance with accuracy
+3. TERTIARY: Task Complexity - High (7/10) - synthesis with appropriate detail level
+4. Speed Requirements: MODERATE - 10 calls in parallel, quality >>> speed
+5. Pricing: MODERATE - 10 calls, developer-facing, high impact
 
-Current Default: Claude Sonnet 4.5 ✓
-- Same as best output recommendation
-- Do not compromise on task context quality
+Selection Guidance:
+- Prioritize models with excellent technical writing for implementation guidance
+- Require ability to highlight gotchas, edge cases, and implementation approaches
+- Must provide specific, actionable guidance (not generic advice)
+- Must balance brevity with actionability (300-1,000 token output)
+- Technical details must be accurate (errors cause developer confusion)
+- Do not compromise on quality (directly impacts implementation efficiency)
+
+Consider all available models from any provider (Claude, Gemini, OpenAI, etc.)
 ```
 
 </details>
@@ -1173,15 +1233,22 @@ EVALUATION CRITERIA (BEST OUTPUT FIRST):
 
 RECOMMENDATION:
 
-Best Output: Claude Sonnet 4.5
-- Pricing: 🟡 Medium
-- Excellent technical writing
-- Strong synthesis of learnings
-- Good consistency maintenance
-- Optimal for documentation enhancement
+Based on evaluation criteria above, select the model that best meets:
+1. PRIMARY: Output Quality - HIGH - Maintains PROJECT.md as source of truth
+2. SECONDARY: Technical Writing - Synthesis of implementation learnings
+3. TERTIARY: Task Complexity - High (7/10) - git history analysis + documentation
+4. Speed Requirements: LOW - Background processing, quality >>> speed
+5. Pricing: MODERATE - 10 calls, important but not critical path
 
-Current Default: Claude Sonnet 4.5 ✓
-- Same as best output recommendation
+Selection Guidance:
+- Prioritize models with excellent technical writing and documentation synthesis
+- Require ability to analyze git history and identify implementation patterns
+- Must maintain consistency with existing documentation (no contradictions)
+- Must handle large context (PROJECT.md + git history = 10K-30K tokens)
+- Technical accuracy critical (documentation is project source of truth)
+- Consider balance of quality vs pricing for moderate-volume task
+
+Consider all available models from any provider (Claude, Gemini, OpenAI, etc.)
 ```
 
 </details>
@@ -1252,18 +1319,23 @@ EVALUATION CRITERIA (BEST OUTPUT FIRST):
 
 RECOMMENDATION:
 
-Best Output: Claude Opus 4.6
-- Pricing: 🔴 High
-- Superior code analysis (+20% vs Sonnet)
-- Better insight extraction from diffs
-- More comprehensive gotcha identification
-- Significantly better future AI agent context
-- Use when: Maximum AI agent improvement desired
+Based on evaluation criteria above, select the model that best meets:
+1. PRIMARY: Output Quality - VERY HIGH - Enhances context for all future AI agents
+2. SECONDARY: Code Analysis - Exceptional insight extraction from git diffs
+3. TERTIARY: Task Complexity - Very High (8/10) - pattern identification + synthesis
+4. Speed Requirements: LOW - Background processing, quality >>> speed
+5. Pricing: MODERATE - 15 calls, very high leverage (improves all future ceremonies)
 
-Current Default: Claude Opus 4.6 ✓
-- Pricing: 🔴 High
-- Optimal - Same as Best Output
-- Rationale: Context refinement directly improves all future AI work; invested in maximum quality
+Selection Guidance:
+- Prioritize models with exceptional code analysis and pattern recognition
+- Require ability to extract valuable insights from code diffs and PRs
+- Must identify implementation patterns, gotchas, and best practices
+- Must synthesize from multiple sources (git diffs, issues, comments)
+- Code examples must be accurate (errors propagate to future AI work)
+- Very high leverage justifies premium tier (enhanced context used in all future work)
+- Quality directly impacts all future AI agent effectiveness
+
+Consider all available models from any provider (Claude, Gemini, OpenAI, etc.)
 ```
 
 </details>
