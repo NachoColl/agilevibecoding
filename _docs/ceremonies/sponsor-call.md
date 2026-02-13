@@ -116,11 +116,13 @@ The ceremony begins by asking the project team to define:
 | 3 | Initial Scope | Outlines key features, primary workflows, and essential capabilities |
 | 4 | Deployment Target | Specifies the intended deployment environment and infrastructure |
 | 5 | Technical Considerations | Captures technology stack preferences, constraints, or requirements |
-| 6 | Security & Compliance | Defines regulatory, privacy, and security obligations |
+| 6 | Security & Compliance Requirements | Defines regulatory, privacy, and security obligations |
 
 ---
 
 ### Ceremony Agents
+
+#### Project Scope Agents
 
 If a question is skipped, specialized agents generate structured proposals that can later be refined by the team.
 
@@ -132,15 +134,20 @@ If a question is skipped, specialized agents generate structured proposals that 
 | [Technical Architect](/agents/suggestion-technical-architect) | Recommends technology stack and architectural constraints |
 | [Security Specialist](/agents/suggestion-security-specialist) | Proposes security and compliance requirements |
 
+---
 
-The collected answers are transformed into formal project artifacts using specialized AI agents for documentation:
+### Documentation & Context Generation
+
+The collected answers are transformed into formal project artifacts using specialized AI agents.
+
+#### Documentation Agents
 
 | Agent | Purpose |
 |-------|---------|
 | [Documentation Creator](/agents/project-documentation-creator) | Converts questionnaire responses into a structured 8-section project document |
 | [Documentation Validator](/agents/validator-documentation) | Scores and validates documentation quality (0–100 scale) |
 
-and context creation:
+#### Context Agents
 
 | Agent | Purpose |
 |-------|---------|
@@ -150,9 +157,9 @@ and context creation:
 
 ## Next Steps
 
-### Review Generated Documents
+After completing the Sponsor Call:
 
-Review and update the project documentation and the initial context scope as needed.
+### Review Generated Documents
 
 **Project Documentation**
 
@@ -160,9 +167,7 @@ Review and update the project documentation and the initial context scope as nee
 cat .avc/project/doc.md
 ```
 
-> **Build and Launch Documentation Server**  
-> Run the `/documentation` command to build and launch a local server for viewing human-oriented documentation.
-
+> Run ```/documentation``` to view 
 
 **Project Context**
 

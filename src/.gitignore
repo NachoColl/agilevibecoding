@@ -3,5 +3,5 @@
 
 # Test API keys
 tests/.env-test/.env
-test-questionnaire-*/
+test-*/
 .avc/

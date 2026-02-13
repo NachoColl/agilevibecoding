@@ -41,6 +41,7 @@ export default defineConfig({
         items: [
           { text: 'Install', link: '/install' },
           { text: 'CLI Commands', link: '/commands' },
+          { text: 'AVC Default LLMs', link: '/avc-default-llms' },
           { text: 'Contributing', link: '/contribute' },
         ]
       },
