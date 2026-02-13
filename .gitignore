@@ -4,6 +4,8 @@ node_modules/
 # VitePress build output
 docs/.vitepress/dist
 docs/.vitepress/cache
+_docs/.vitepress/dist
+_docs/.vitepress/cache
 
 # Environment variables and secrets
 .env
