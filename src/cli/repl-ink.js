@@ -1061,19 +1061,6 @@ const ConfigurationOverview = ({ overview, selectedIndex }) => {
     }
   });
 
-  // Calculate total cost
-  let totalCost = 0;
-  overview.stages.forEach(stage => {
-    if (stage.validationTypes) {
-      // Sum validation type costs
-      stage.validationTypes.forEach(vt => {
-        totalCost += vt.cost || 0;
-      });
-    } else {
-      totalCost += stage.cost || 0;
-    }
-  });
-
   // Build children array properly
   const children = [
     React.createElement(Text, { bold: true }, `🔧 Model Configuration - ${overview.ceremony}`),
@@ -1118,12 +1105,8 @@ const ConfigurationOverview = ({ overview, selectedIndex }) => {
     children.push(React.createElement(Box, { key: `item-${idx}`, flexDirection: 'column' }, ...itemChildren));
   });
 
-  // Add total cost
+  // Add navigation help
   children.push(
-    React.createElement(Text, { bold: true, color: 'green' },
-      `💰 Total Estimated Cost: $${totalCost.toFixed(2)} per ceremony`
-    ),
-    React.createElement(Text, {}, ''),
     React.createElement(Text, { dimColor: true }, 'Navigation: ↑/↓ Select | Enter Change | Esc Back')
   );
 
