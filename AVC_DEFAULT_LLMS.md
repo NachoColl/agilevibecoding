@@ -72,16 +72,16 @@ EVALUATION CRITERIA (Priority Order):
    - Pattern Checking → Any capable model
 
 2. Task Complexity & Reasoning
-   - Complex (9-10) → Opus 4.6 or Sonnet 4.5
-   - Advanced (7-8) → Sonnet 4.5
-   - Moderate (5-6) → Sonnet 4.5 or Flash
-   - Simple (1-4) → Flash adequate
+   - Complex (9-10) → Premium tier models with advanced reasoning
+   - Advanced (7-8) → High-quality models with strong reasoning
+   - Moderate (5-6) → Mid to high-tier models
+   - Simple (1-4) → Entry-level models adequate
 
 3. Context Understanding
-   - Deep synthesis → Opus 4.6 > Sonnet 4.5
-   - Multi-document → Sonnet 4.5 > Flash
-   - Single document → Sonnet 4.5 or Flash
-   - Pattern matching → Any model
+   - Deep synthesis → Premium models with exceptional comprehension
+   - Multi-document → High-quality models with strong synthesis
+   - Single document → Mid to high-tier models
+   - Pattern matching → Any model tier
 
 4. Consistency & Reliability
    - Critical path → Most reliable model
@@ -140,32 +140,30 @@ EVALUATION CRITERIA (BEST OUTPUT FIRST):
    - Suggestions must be relevant, specific, and actionable
    - Must demonstrate domain knowledge and industry best practices
    - Quality directly impacts user's project definition experience
-   → Requires strong inference and domain knowledge: Sonnet or Opus tier
+   → Requires appropriate model capabilities
 
 2. Task Complexity: 6/10 (Moderate reasoning with domain inference)
    - Analyze project name for domain clues
    - Infer appropriate technology stack and architecture
    - Generate contextually relevant suggestions across 6 different categories
    - Balance between generic and specific recommendations
-   → Sonnet 4.5 excels at this level of inference
 
 3. Context Understanding:
    - Extremely limited input context (just project name)
    - Must leverage broad domain knowledge to compensate
    - Must infer user intent and project type
-   → Requires excellent world knowledge and inference: Sonnet 4.5 or Opus 4.6
+   → Requires appropriate model capabilities
 
 4. Consistency & Reliability:
    - Suggestions must be coherent across all 6 fields
    - Must avoid contradictory recommendations
    - Critical for user's first impression of AVC
-   → Requires consistent reasoning: Sonnet or Opus
+   → Requires appropriate model capabilities
 
 5. Speed Requirements: IMPORTANT (Secondary)
    - User is actively waiting for suggestions
    - Real-time interaction requires reasonable response time
    - 2-4 second response ideal, <8 seconds acceptable
-   → Sonnet 4.5 fast enough, Opus slower but acceptable
 
 6. Pricing Considerations: TERTIARY
    - Single call per ceremony (low volume)
@@ -231,7 +229,7 @@ EVALUATION CRITERIA (BEST OUTPUT FIRST):
    - Content must be coherent, professional, and actionable
    - Must maintain consistency across all sections
    - Quality affects all downstream project artifacts
-   → Requires highest quality technical writing: Sonnet 4.5 or Opus 4.6
+   → Requires appropriate model capabilities
 
 2. Task Complexity: 8/10 (Advanced technical writing and synthesis)
    - Synthesize multiple questionnaire inputs into coherent narrative
@@ -239,20 +237,18 @@ EVALUATION CRITERIA (BEST OUTPUT FIRST):
    - Generate appropriate technical architecture descriptions
    - Create realistic user personas and success metrics
    - Maintain professional tone and technical accuracy
-   → Sonnet 4.5 excels at structured technical writing
 
 3. Context Understanding:
    - Must understand relationships between questionnaire answers
    - Infer appropriate technical depth and detail level
    - Expand brief answers into comprehensive sections
    - Maintain consistency across document sections
-   → Requires strong synthesis: Sonnet 4.5 or Opus 4.6
+   → Requires appropriate model capabilities
 
 4. Consistency & Reliability:
    - Critical that all sections align and don't contradict
    - Technical architecture must match scope and requirements
    - Success metrics must align with stated goals
-   → Sonnet 4.5 excellent at maintaining consistency
 
 5. Speed Requirements: LOW (Secondary)
    - Background process, user not actively waiting
@@ -326,27 +322,25 @@ EVALUATION CRITERIA (BEST OUTPUT FIRST):
    - Must be concise yet comprehensive enough for AI agents
    - Must include actionable context, not generic summaries
    - Must understand what future AI agents need to know
-   → Requires sophisticated understanding of AI agent needs: Sonnet 4.5 or Opus 4.6
+   → Requires appropriate model capabilities
 
 2. Task Complexity: 7/10 (Advanced summarization + context framing)
    - Intelligent summarization (not just compression)
    - Identify critical architectural decisions vs nice-to-have details
    - Frame information in AI-consumable format
    - Balance brevity with completeness
-   → Sonnet 4.5 excels at creating actionable context for AI
 
 3. Context Understanding:
    - Must understand entire PROJECT.md document
    - Identify patterns and key themes
    - Recognize technical constraints that affect implementation
    - Prioritize information by importance to future AI agents
-   → Requires strong comprehension: Sonnet 4.5 superior
+   → Requires appropriate model capabilities
 
 4. Consistency & Reliability:
    - Must maintain alignment with PROJECT.md
    - Cannot introduce contradictions
    - Must preserve critical technical details
-   → Sonnet 4.5 excellent at faithful summarization
 
 5. Speed Requirements: LOW (Secondary)
    - Background process, final stage
@@ -419,19 +413,18 @@ EVALUATION CRITERIA (BEST OUTPUT FIRST):
    - Must accurately identify quality issues and inconsistencies
    - Must provide actionable feedback for improvement
    - Must understand project documentation best practices
-   → Requires strong analytical capability: Sonnet 4.5 ideal
+   → Requires appropriate model capabilities
 
 2. Task Complexity: 6/10 (Analytical validation + rule application)
    - Apply validation rules to documentation
    - Identify inconsistencies and gaps
    - Assess completeness and coherence
-   → Sonnet 4.5 good, Gemini Pro adequate for rule-based validation
 
 3. Context Understanding:
    - Must handle large documents (full PROJECT.md)
    - Understand relationships across sections
    - Identify subtle inconsistencies
-   → Requires good context window: Sonnet or Gemini Pro
+   → Requires appropriate model capabilities
 
 4. Speed Requirements: LOW (Secondary)
    - Background validation stage
@@ -506,25 +499,23 @@ EVALUATION CRITERIA (BEST OUTPUT FIRST):
    - Must create logical, implementable work breakdown
    - Acceptance criteria must be specific and testable
    - Hierarchy must reflect dependencies
-   → Requires exceptional hierarchical reasoning: Opus 4.6 or Sonnet 4.5
+   → Requires appropriate model capabilities
 
 2. Task Complexity: 9/10 (Complex hierarchical decomposition)
    - Analyze full project scope
    - Break features into implementable story-level units
    - Generate specific, testable acceptance criteria
    - Identify dependencies between stories
-   → Opus 4.6 superior, Sonnet 4.5 very good
 
 3. Context Understanding:
    - Must synthesize entire project vision
    - Understand technical architecture and constraints
    - Recognize implicit dependencies
-   → Requires deep comprehension: Opus 4.6 > Sonnet 4.5
+   → Requires appropriate model capabilities
 
 4. Consistency & Reliability:
    - Critical that decomposition is complete (no gaps)
    - Stories must not overlap or contradict
-   → Opus 4.6 most consistent, Sonnet 4.5 very reliable
 
 5. Speed Requirements: LOW (Secondary)
    - Background process, one-time operation
@@ -596,25 +587,24 @@ EVALUATION CRITERIA (BEST OUTPUT FIRST):
    - Must perform deep architectural analysis
    - Must identify security vulnerabilities
    - Must provide specific, actionable recommendations
-   → Requires exceptional analytical capability: Sonnet 4.5 or Opus 4.6
+   → Requires appropriate model capabilities
 
 2. Task Complexity: 9/10 (Deep architectural and security analysis)
    - Analyze system architecture and design patterns
    - Identify security vulnerabilities
    - Assess technical feasibility
    - Evaluate testing strategies
-   → Sonnet 4.5 excellent, Opus 4.6 superior
 
 3. Context Understanding:
    - Must understand full project architecture
    - Cross-reference with other epics/stories
    - Identify system-wide architectural issues
-   → Requires sophisticated reasoning: Sonnet 4.5 or Opus 4.6
+   → Requires appropriate model capabilities
 
 4. Consistency & Reliability:
    - Cannot miss critical architectural flaws
    - Must consistently identify security issues
-   → Critical reliability needed: Sonnet 4.5 excellent
+   → Critical appropriate model capabilities
 
 5. Speed Requirements: MODERATE (Secondary)
    - 30 calls in parallel validation stage
@@ -682,18 +672,16 @@ EVALUATION CRITERIA (BEST OUTPUT FIRST):
    - Must apply domain-specific best practices
    - Must identify domain anti-patterns
    - Must provide actionable recommendations
-   → Requires good domain knowledge: Sonnet 4.5 ideal
+   → Requires appropriate model capabilities
 
 2. Task Complexity: 7/10 (Domain expertise application)
    - Apply domain-specific patterns
    - Identify violations of domain conventions
    - Not just pattern matching - requires context understanding
-   → Sonnet 4.5 superior, Flash adequate for simpler checks
 
 3. Context Understanding:
    - Must understand project architecture in domain context
    - Cross-reference with other domains
-   → Sonnet 4.5 better context synthesis than Flash
 
 4. Speed Requirements: MODERATE (Secondary)
    - 90 calls = highest volume in sprint-planning
@@ -763,18 +751,16 @@ EVALUATION CRITERIA (BEST OUTPUT FIRST):
    - Must verify feature completeness
    - Must identify missing scenarios or edge cases
    - Should provide feature-specific implementation guidance
-   → Requires good feature understanding: Sonnet 4.5 or Flash adequate
+   → Requires appropriate model capabilities
 
 2. Task Complexity: 5/10 (Feature checklist validation)
    - Apply feature-specific checklists
    - Identify missing scenarios
    - Verify acceptance criteria completeness
-   → Moderate complexity, both Sonnet and Flash capable
 
 3. Context Understanding:
    - Understand feature requirements from acceptance criteria
    - Identify implicit requirements not explicitly stated
-   → Flash adequate, Sonnet better at implicit requirements
 
 4. Speed Requirements: MODERATE (Secondary)
    - 25 calls, parallel execution
@@ -844,25 +830,23 @@ EVALUATION CRITERIA (BEST OUTPUT FIRST):
    - Must create actionable developer guidance
    - Technical context must be accurate and relevant
    - Must understand developer needs
-   → Requires strong technical writing: Sonnet 4.5 or Opus 4.6
+   → Requires appropriate model capabilities
 
 2. Task Complexity: 7/10 (Technical context synthesis)
    - Synthesize acceptance criteria into implementation context
    - Inherit and extend parent epic context
    - Identify technical considerations
    - Create AI-consumable context
-   → Sonnet 4.5 excellent at developer-focused context
 
 3. Context Understanding:
    - Understand full project and parent epic context
    - Recognize technical implications
    - Consider implementation challenges
-   → Requires good synthesis: Sonnet 4.5 superior
+   → Requires appropriate model capabilities
 
 4. Consistency & Reliability:
    - Context must align with acceptance criteria
    - Technical guidance must be accurate
-   → Sonnet 4.5 very consistent
 
 5. Speed Requirements: MODERATE (Secondary)
    - 25 calls, parallel generation
@@ -937,25 +921,23 @@ EVALUATION CRITERIA (BEST OUTPUT FIRST):
    - Must break story into logical task groupings
    - Subtasks must be atomic and implementable
    - Must identify dependencies
-   → Requires exceptional breakdown capability: Opus 4.6 or Sonnet 4.5
+   → Requires appropriate model capabilities
 
 2. Task Complexity: 8/10 (Granular work breakdown)
    - Analyze story and break into tasks
    - Determine appropriate task granularity
    - Break tasks into atomic subtasks
    - Identify task dependencies
-   → Opus 4.6 superior, Sonnet 4.5 very good
 
 3. Context Understanding:
    - Understand full story requirements
    - Consider epic and project context
    - Identify implicit implementation needs
-   → Requires deep comprehension: Opus 4.6 > Sonnet 4.5
+   → Requires appropriate model capabilities
 
 4. Consistency & Reliability:
    - Task breakdown must be complete
    - Dependencies must be accurate
-   → Opus 4.6 most consistent, Sonnet 4.5 very reliable
 
 5. Speed Requirements: LOW (Secondary)
    - Background processing
@@ -1026,25 +1008,23 @@ EVALUATION CRITERIA (BEST OUTPUT FIRST):
    - Must identify gaps in task coverage
    - Must assess task granularity
    - Must validate dependency correctness
-   → Requires sophisticated validation reasoning: Sonnet 4.5
+   → Requires appropriate model capabilities
 
 2. Task Complexity: 7/10 (Completeness validation + reasoning)
    - Analyze task hierarchy for gaps
    - Assess granularity appropriateness
    - Validate dependency relationships
    - Reason about implementation feasibility
-   → Sonnet 4.5 excellent, Flash weaker at reasoning
 
 3. Context Understanding:
    - Must understand full task hierarchy
    - Cross-reference with story requirements
    - Reason about dependencies
-   → Requires strong reasoning: Sonnet 4.5 superior
+   → Requires appropriate model capabilities
 
 4. Consistency & Reliability:
    - Must consistently identify gaps
    - Cannot miss critical completeness problems
-   → Sonnet 4.5 very reliable
 
 5. Speed Requirements: MODERATE (Secondary)
    - 20 calls, parallel validation
@@ -1112,25 +1092,23 @@ EVALUATION CRITERIA (BEST OUTPUT FIRST):
    - Must provide specific, actionable implementation guidance
    - Technical details must be accurate
    - Must highlight gotchas and edge cases
-   → Requires excellent technical writing: Sonnet 4.5
+   → Requires appropriate model capabilities
 
 2. Task Complexity: 7/10 (Implementation-focused technical context)
    - Synthesize task requirements into guidance
    - Provide appropriate technical detail
    - Identify implementation approaches
    - Balance brevity with actionability
-   → Sonnet 4.5 excellent at developer-focused context
 
 3. Context Understanding:
    - Understand task within story/epic context
    - Recognize relevant patterns
    - Identify task dependencies
-   → Requires good synthesis: Sonnet 4.5 superior
+   → Requires appropriate model capabilities
 
 4. Consistency & Reliability:
    - Context must align with task requirements
    - Technical guidance must be accurate
-   → Sonnet 4.5 very reliable
 
 5. Speed Requirements: MODERATE (Secondary)
    - 10 calls, parallel generation
@@ -1204,24 +1182,22 @@ EVALUATION CRITERIA (BEST OUTPUT FIRST):
    - Must synthesize implementation learnings
    - Technical updates must be accurate
    - Must maintain documentation consistency
-   → Requires strong technical writing: Sonnet 4.5
+   → Requires appropriate model capabilities
 
 2. Task Complexity: 7/10 (Technical synthesis and writing)
    - Analyze git history
    - Identify patterns and insights
    - Synthesize into documentation updates
-   → Sonnet 4.5 excellent at technical documentation
 
 3. Context Understanding:
    - Must handle large context (PROJECT.md + git history)
    - Understand implementation changes
    - Identify obsolete information
-   → Large context window needed: Sonnet 4.5 or Opus 4.6
+   → Large context window needed appropriate model capabilities
 
 4. Consistency & Reliability:
    - Updates must not contradict existing content
    - Technical accuracy critical
-   → Sonnet 4.5 very consistent
 
 5. Speed Requirements: LOW (Secondary)
    - Background processing
@@ -1289,25 +1265,24 @@ EVALUATION CRITERIA (BEST OUTPUT FIRST):
    - Must extract valuable insights from code changes
    - Must identify implementation patterns
    - Should include practical code examples
-   → Requires exceptional code analysis: Opus 4.6 or Sonnet 4.5
+   → Requires appropriate model capabilities
 
 2. Task Complexity: 8/10 (Code analysis + insight extraction)
    - Analyze code diffs
    - Identify patterns and best practices
    - Extract insights from issue discussions
    - Synthesize into actionable context
-   → Opus 4.6 superior, Sonnet 4.5 very good
 
 3. Context Understanding:
    - Understand code changes in project context
    - Analyze git diffs
    - Synthesize from multiple sources
-   → Requires strong code analysis: Opus 4.6 > Sonnet 4.5
+   → Requires appropriate model capabilities
 
 4. Consistency & Reliability:
    - Enhanced context must align with original
    - Code examples must be accurate
-   → Both Opus and Sonnet very reliable
+   → Both appropriate model capabilities
 
 5. Speed Requirements: LOW (Secondary)
    - Background processing
