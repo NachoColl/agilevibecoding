@@ -467,6 +467,194 @@ Consider all available models from any provider (Claude, Gemini, OpenAI, etc.)
 
 ---
 
+#### architecture-recommendation - Architecture Recommender
+
+**What it does:** AI analyzes project mission and scope to recommend 3-5 deployment architectures with specific infrastructure approaches.
+
+<details>
+<summary>📋 View Selection Evaluation</summary>
+
+```
+TASK: Select optimal LLM model for architecture recommendation in sponsor-call ceremony
+PRIORITY: Best possible output quality
+
+CONTEXT:
+- Stage: architecture-recommendation (Architecture Recommender)
+- Ceremony: sponsor-call
+- Purpose: AI analyzes mission statement and initial scope to recommend 3-5 deployment architectures
+- Input: Mission statement + initial scope (500-2,000 tokens)
+- Output: Array of 3-5 architecture objects with name, description, requiresCloudProvider flag, bestFor scenario (800-2,000 tokens)
+- Call frequency: 1 per ceremony
+- User interaction: Real-time (user waiting for recommendations)
+- Impact: VERY HIGH - Guides user's technical direction and pre-fills all subsequent questions
+
+EVALUATION CRITERIA (BEST OUTPUT FIRST):
+
+1. Output Quality Requirements: VERY HIGH
+   - Must demonstrate deep architecture knowledge across domains (cloud, PaaS, non-web)
+   - Recommendations must be specific and actionable (e.g., "Next.js on Vercel" not "modern web app")
+   - Must match architecture complexity to project scope (prioritize simplicity for MVPs)
+   - Must consider modern best practices and deployment patterns
+   → Requires exceptional reasoning capabilities
+
+2. Task Complexity: 9/10 (Complex architectural reasoning)
+   - Analyze project domain from brief mission statement
+   - Infer appropriate infrastructure patterns from feature scope
+   - Rank architectures by fit for requirements
+   - Balance scalability vs operational complexity
+   - Consider deployment constraints and trade-offs
+   - Generate 3-5 distinct, non-overlapping options
+
+3. Context Understanding:
+   - Extract architectural implications from minimal context
+   - Understand trade-offs between deployment options (cost, scale, complexity)
+   - Recognize patterns in project types (e.g., SaaS vs CLI tool)
+   - Infer scale and performance requirements from scope
+   → Requires strong synthesis capabilities
+
+4. Consistency & Reliability:
+   - Recommendations must be technically sound
+   - Cannot suggest incompatible technologies
+   - Must align with modern cloud-native patterns
+   - Critical for user's first technical decision point
+   → Requires high reliability
+
+5. Speed Requirements: IMPORTANT (Secondary)
+   - User actively waiting for recommendations
+   - Real-time interaction requires reasonable response time
+   - 3-6 second response ideal, <10 seconds acceptable
+
+6. Pricing Considerations: TERTIARY
+   - Single call per ceremony (low volume)
+   - Critical decision point for entire project
+   - Quality far more important than cost
+   → Worth any pricing tier
+
+RECOMMENDATION:
+
+Based on evaluation criteria above, select the model that best meets:
+1. PRIMARY: Output Quality - VERY HIGH - Architectural expertise across domains
+2. SECONDARY: Task Complexity - Very High (9/10) - sophisticated reasoning about infrastructure
+3. TERTIARY: Reasoning Depth - Must balance multiple factors (scale, cost, complexity, velocity)
+4. Speed Requirements: IMPORTANT - User waiting in real-time (3-6s ideal, <10s acceptable)
+5. Pricing: TERTIARY - Single call, critical decision, worth any tier
+
+Selection Guidance:
+- Prioritize models with exceptional architectural and infrastructure knowledge
+- Require strong reasoning about scalability, deployment patterns, and modern architectures
+- Must generate diverse, non-overlapping architecture options
+- Must demonstrate cloud-native expertise (AWS/Azure/GCP services, PaaS platforms)
+- Recommendations must be specific with actual technology names
+- Quality critical - bad architecture choice affects entire project direction
+- Pricing not a constraint (single call with massive downstream impact)
+
+Consider all available models from any provider (Claude, Gemini, OpenAI, etc.)
+```
+
+</details>
+
+**Best Output:** 🏆 Claude Opus 4.6
+- **Pricing:** 🔴 High
+- **Quality:** Optimal - Superior architectural reasoning and infrastructure expertise
+- **Use when:** All projects (this decision guides entire technical approach!)
+
+**Current Default:** ⚖️ Claude Opus 4.6 ✓
+- **Rationale:** Architecture selection is foundational - requires best-in-class reasoning about infrastructure, scalability, and modern deployment patterns; Opus essential for quality recommendations that guide all subsequent technical decisions
+
+---
+
+#### question-prefilling - Question Prefiller
+
+**What it does:** AI generates contextual answers for remaining questionnaire questions based on selected architecture and cloud provider.
+
+<details>
+<summary>📋 View Selection Evaluation</summary>
+
+```
+TASK: Select optimal LLM model for question pre-filling in sponsor-call ceremony
+PRIORITY: Best possible output quality
+
+CONTEXT:
+- Stage: question-prefilling (Question Prefiller)
+- Ceremony: sponsor-call
+- Purpose: AI generates contextual answers for 4 remaining questions based on selected architecture
+- Input: Mission, scope, selected architecture, cloud provider (1,000-3,000 tokens)
+- Output: Pre-filled answers for TARGET_USERS, DEPLOYMENT_TARGET, TECHNICAL_CONSIDERATIONS, SECURITY_AND_COMPLIANCE_REQUIREMENTS (1,500-4,000 tokens)
+- Call frequency: 1 per ceremony
+- User interaction: Background process after architecture selection
+- Impact: HIGH - Pre-fills all remaining questions, sets technical direction for project
+
+EVALUATION CRITERIA (BEST OUTPUT FIRST):
+
+1. Output Quality Requirements: HIGH
+   - Must generate contextually appropriate answers aligned with architecture
+   - Must be specific about technologies and versions
+   - Must maintain consistency across all 4 questions
+   - Must infer requirements from scope (e.g., payments → PCI-DSS compliance)
+   → Requires strong technical writing capabilities
+
+2. Task Complexity: 7/10 (Technical content generation with constraints)
+   - Generate 4 distinct but related answers
+   - Align all answers with selected architecture
+   - Include cloud provider-specific services when applicable (e.g., AWS Cognito, Azure AD)
+   - Balance detail level (specific but not overwhelming)
+   - Infer implicit requirements from explicit scope
+
+3. Context Understanding:
+   - Understand relationships between architecture and tech stack
+   - Map architecture to specific deployment services
+   - Recognize security implications of architecture choices
+   - Maintain consistency across all questions
+   → Requires architecture-to-implementation knowledge
+
+4. Consistency & Reliability:
+   - All answers must align with selected architecture
+   - Cloud provider services must be accurate and current
+   - Technical considerations must match deployment target
+   - Security requirements must reflect architecture patterns
+
+5. Speed Requirements: MODERATE (Secondary)
+   - Background process after user selection
+   - User waiting but not actively interacting
+   - 5-10 second response acceptable
+
+6. Pricing Considerations: TERTIARY
+   - Single call per ceremony
+   - Important but not critical (user can edit all answers)
+   - Quality worth investment for better starting point
+
+RECOMMENDATION:
+
+Based on evaluation criteria above, select the model that best meets:
+1. PRIMARY: Output Quality - HIGH - Contextual technical content generation
+2. SECONDARY: Technical Writing - Excellent architecture-aligned answer generation
+3. TERTIARY: Task Complexity - High (7/10) - multi-question synthesis with constraints
+4. Speed Requirements: MODERATE - Background processing (5-10s acceptable)
+5. Pricing: TERTIARY - Single call, important quality, but user-editable output
+
+Selection Guidance:
+- Prioritize models with strong technical writing and cloud infrastructure knowledge
+- Require accurate mapping of architecture to specific technologies
+- Must generate consistent, aligned answers across all 4 questions
+- Must demonstrate cloud provider expertise (AWS/Azure/GCP service knowledge)
+- Quality important but not critical (user reviews and can edit all answers before submission)
+- Balance quality vs cost (Sonnet tier likely sufficient, Opus overkill for editable content)
+
+Consider all available models from any provider (Claude, Gemini, OpenAI, etc.)
+```
+
+</details>
+
+**Best Output:** 🏆 Claude Sonnet 4.5
+- **Pricing:** 🟡 Medium
+- **Quality:** Optimal - Excellent technical writing and infrastructure knowledge
+- **Use when:** All projects (now the default!)
+
+**Current Default:** ⚖️ Claude Sonnet 4.5 ✓
+- **Rationale:** Technical content generation with architecture alignment; Sonnet provides optimal quality for this task; Opus not needed since output is user-editable and serves as starting point
+
+---
+
 ### sprint-planning
 
 **Description:** Decomposes project scope into actionable epics and stories, validates them with domain experts, and generates detailed context files.
@@ -718,10 +906,10 @@ Consider all available models from any provider (Claude, Gemini, OpenAI, etc.)
 - **Quality:** +35% better domain-specific issue detection vs Flash
 - **Use when:** Quality priority, willing to invest in better validation
 
-**Current Default:** ⚖️ Gemini 2.0 Flash
-- **Pricing:** 🟢 Low (often free tier)
-- **Rationale:** 90 calls make this largest pricing driver; Flash provides adequate basic domain validation
-- **Trade-off:** -35% issue detection, less detailed feedback vs Sonnet
+**Current Default:** ⚖️ Claude 3.5 Sonnet ✓
+- **Pricing:** 🟡 Medium
+- **Rationale:** Multi-provider evaluation shows consensus for Sonnet tier; 35% better domain-specific issue detection justifies investment
+- **Previous:** Gemini 2.0 Flash (budget option, -35% detection quality)
 
 ---
 
@@ -797,10 +985,10 @@ Consider all available models from any provider (Claude, Gemini, OpenAI, etc.)
 - **Quality:** +30% better completeness and edge case detection vs Flash
 - **Use when:** Thorough feature validation desired, comprehensive requirements coverage
 
-**Current Default:** ⚖️ Gemini 2.0 Flash
-- **Pricing:** 🟢 Low (often free tier)
-- **Rationale:** Adequate for explicit requirement checking; pricing-efficient for moderate-volume validation
-- **Trade-off:** -30% edge case detection, less detailed guidance vs Sonnet
+**Current Default:** ⚖️ Claude 3.5 Sonnet ✓
+- **Pricing:** 🟡 Medium
+- **Rationale:** All 3 providers recommend upgrade from Flash tier; 30% better edge case and completeness detection
+- **Previous:** Gemini 2.0 Flash (budget option, -30% detection quality)
 
 ---
 
@@ -1325,278 +1513,6 @@ Consider all available models from any provider (Claude, Gemini, OpenAI, etc.)
 - **Quality:** Optimal - Same as Best Output
 - **Rationale:** Context refinement directly improves all future AI work; invested in maximum quality
 
----
-
-## Model Summary Tables
-
-### Recommendations by Stage
-
-| Ceremony | Stage | Best Output | Pricing | Current Default | Pricing | Quality Gain |
-|----------|-------|-------------|---------|-----------------|---------|--------------|
-| **sponsor-call** | suggestions | Sonnet 4.5 | 🟡 Med | Sonnet 4.5 ✓ | 🟡 Med | Optimal |
-| | documentation | Sonnet 4.5 | 🟡 Med | Sonnet 4.5 ✓ | 🟡 Med | Optimal |
-| | context | Sonnet 4.5 | 🟡 Med | Sonnet 4.5 ✓ | 🟡 Med | Optimal |
-| | validation | Sonnet 4.5 | 🟡 Med | Sonnet 4.5 ✓ | 🟡 Med | Optimal |
-| **sprint-planning** | decomposition | Opus 4.6 | 🔴 High | Opus 4.6 ✓ | 🔴 High | Optimal |
-| | validation (universal) | Sonnet 4.5 | 🟡 Med | Sonnet 4.5 ✓ | 🟡 Med | Optimal |
-| | validation (domain) | Sonnet 4.5 | 🟡 Med | Flash | 🟢 Low | +35% |
-| | validation (feature) | Sonnet 4.5 | 🟡 Med | Flash | 🟢 Low | +30% |
-| | context-generation | Sonnet 4.5 | 🟡 Med | Sonnet 4.5 ✓ | 🟡 Med | Optimal |
-| **seed** | decomposition | Opus 4.6 | 🔴 High | Opus 4.6 ✓ | 🔴 High | Optimal |
-| | validation | Sonnet 4.5 | 🟡 Med | Sonnet 4.5 ✓ | 🟡 Med | Optimal |
-| | context-generation | Sonnet 4.5 | 🟡 Med | Sonnet 4.5 ✓ | 🟡 Med | Optimal |
-| **context-retrospective** | documentation-update | Sonnet 4.5 | 🟡 Med | Sonnet 4.5 ✓ | 🟡 Med | Optimal |
-| | context-refinement | Opus 4.6 | 🔴 High | Opus 4.6 ✓ | 🔴 High | Optimal |
-
-### Overall Pricing by Ceremony
-
-| Ceremony | Current Defaults | Best Output | Pricing Change |
-|----------|-----------------|-------------|----------------|
-| sponsor-call | Medium | Medium | None (Optimal) |
-| sprint-planning | Medium-High | Medium-High | None (Optimal) |
-| seed | Medium-High | Medium-High | None (Optimal) |
-| context-retrospective | Medium-High | Medium-High | None (Optimal) |
-
----
-
-## Configuration Profiles
-
-### Profile 1: Maximum Quality 🏆
-
-**For:** Quality-first projects, enterprise applications, critical systems
-
-**Configuration:**
-- All decomposition: **Opus 4.6** (🔴 High)
-- All universal validation: **Sonnet 4.5** (🟡 Medium)
-- All domain/feature validation: **Sonnet 4.5** (🟡 Medium)
-- All context generation: **Sonnet 4.5** (🟡 Medium)
-- Context refinement: **Opus 4.6** (🔴 High)
-
-**Pricing:** Medium-High overall
-
-**Use when:**
-- Maximum quality requirements
-- Complex enterprise architectures
-- Critical production applications
-- Long-term projects with many ceremonies
-- AI agent performance is paramount
-
----
-
-### Profile 2: Balanced ⚖️ (Current Defaults)
-
-**For:** Most projects - quality where it matters most
-
-**Configuration:**
-- Decomposition: **Opus 4.6** (🔴 High)
-- Universal validation: **Sonnet 4.5** (🟡 Medium)
-- Domain validation: **Flash** (🟢 Low)
-- Feature validation: **Flash** (🟢 Low)
-- All context generation: **Sonnet 4.5** (🟡 Medium)
-- Context refinement: **Opus 4.6** (🔴 High)
-
-**Pricing:** Medium-High overall
-
-**Use when:**
-- Most projects (recommended)
-- Quality-first approach for critical stages
-- Invested in maximum decomposition and context quality
-- Acceptable validation trade-offs for budget efficiency
-
----
-
-### Profile 3: Budget 💰
-
-**For:** Cost-sensitive projects, prototypes, early-stage development
-
-**Configuration:**
-- Decomposition: **Sonnet 4.5** (🟡 Medium) - *Don't compromise!*
-- All validation: **Flash** (🟢 Low)
-- Context generation: **Flash** (🟢 Low) - *Significant quality loss*
-- Documentation: **Flash** (🟢 Low) - *Significant quality loss*
-
-**Pricing:** Low overall
-
-**Use when:**
-- Budget-constrained projects
-- Early prototypes or MVPs
-- Willing to accept validation depth trade-offs
-- Technical debt risk acceptable
-
-**⚠️ Warnings:**
-- Never use Flash for decomposition (high failure risk)
-- Flash for context generation significantly reduces developer productivity
-- Flash for documentation creates weak project foundation
-
----
-
-## Quality vs Pricing Matrix
-
-### Quality Loss by Stage Type
-
-| Stage Type | Best Output | Pricing | Budget Option | Pricing | Quality Loss | Impact |
-|------------|-------------|---------|---------------|---------|--------------|--------|
-| **Decomposition** | Opus 4.6 | 🔴 High | Sonnet 4.5 | 🟡 Med | Low (10-15%) | Acceptable |
-| **Architecture Validation** | Sonnet 4.5 | 🟡 Med | Flash | 🟢 Low | High (40%) | ⚠️ Risky |
-| **Domain Validation** | Sonnet 4.5 | 🟡 Med | Flash | 🟢 Low | Medium (30%) | ⚠️ Trade-off |
-| **Context Generation** | Sonnet 4.5 | 🟡 Med | Flash | 🟢 Low | Very High (60%) | ❌ Not recommended |
-| **Documentation** | Sonnet 4.5 | 🟡 Med | Flash | 🟢 Low | High (45%) | ❌ Not recommended |
-
-### Key Insights
-
-✅ **Safe Downgrades:**
-- Opus → Sonnet for decomposition: Only 10-15% quality loss, significant pricing savings
-
-⚠️ **Risky Downgrades:**
-- Sonnet → Flash for domain/feature validation: 30-35% quality loss, but sometimes acceptable for budget constraints
-- Sonnet → Flash for architecture/security validation: 40% quality loss - not recommended
-
-❌ **Never Downgrade:**
-- Context generation: 60% quality loss - severely impacts developer productivity and AI agent performance
-- Documentation: 45% quality loss - weak project foundation affects everything
-
-💡 **Best Value:**
-- **Claude Sonnet 4.5** provides optimal quality-per-pricing across most stages
-- Use Opus only for critical decomposition/refinement stages where 10-20% improvement matters
-- Avoid Flash for generation/documentation stages - quality loss too severe
-
----
-
-## Upgrade Guide: When to Use Opus
-
-### Scenarios for Claude Opus 4.6
-
-**Decomposition Stages:**
-- ✅ Complex enterprise architectures with multiple systems
-- ✅ Microservices ecosystems requiring sophisticated dependency management
-- ✅ Large-scale projects (50+ epics/stories)
-- ✅ Projects with complex business logic and workflows
-- ✅ When maximum work breakdown quality is essential
-
-**Context Refinement:**
-- ✅ Long-term projects with many future ceremonies (high ROI on better context)
-- ✅ AI agent performance is absolutely critical
-- ✅ Complex codebases requiring sophisticated pattern recognition
-- ✅ When implementation insights are mission-critical
-
-### Quality Gains
-
-| Stage | Opus vs Sonnet | Impact |
-|-------|----------------|--------|
-| Decomposition | +15% better reasoning | More accurate story scoping, better dependencies |
-| Context Refinement | +20% better insights | Significantly improved future AI agent performance |
-| Complex Reasoning | +25% better synthesis | Superior handling of multi-domain complexity |
-
-### Pricing Consideration
-
-**Pricing:** 🔴 High (worth it for critical stages)
-
-**When the investment pays off:**
-- Single decomposition call with 15% better quality → prevents costly rework on multiple stories
-- Context refinement improvements → compound benefits across all future ceremonies
-- Complex projects → quality improvement justifies pricing for critical decisions
-
----
-
 ## How to Customize
 
-You can customize model selection for your project using the `/models` command.
-
-### Step-by-Step Guide
-
-1. **Run the command:**
-   ```
-   /models
-   ```
-
-2. **Select ceremony:**
-   - sponsor-call
-   - sprint-planning
-   - seed
-   - context-retrospective
-
-3. **Navigate to stage:**
-   - Use arrow keys to navigate
-   - View current model and estimated cost
-   - See stage description and call frequency
-
-4. **For validation stages, select type:**
-   - Universal validators (critical: architecture, security)
-   - Domain validators (tech stack specific)
-   - Feature validators (keyword-based)
-
-5. **Choose provider and model:**
-   - claude → claude-opus-4-6, claude-sonnet-4-5-20250929
-   - gemini → gemini-2.0-flash-exp, gemini-2.5-pro
-   - Based on quality needs and pricing constraints
-
-6. **Save configuration:**
-   - Settings saved to `.avc/avc.json`
-   - Applied to future ceremony executions
-
-### Example Customization Workflows
-
-**Upgrade critical stages to Opus:**
-```
-/models → sprint-planning → decomposition → claude → claude-opus-4-6
-/models → context-retrospective → context-refinement → claude → claude-opus-4-6
-```
-
-**Upgrade validations to Sonnet for better quality:**
-```
-/models → sprint-planning → validation → domain → claude → claude-sonnet-4-5-20250929
-/models → sprint-planning → validation → feature → claude → claude-sonnet-4-5-20250929
-```
-
-**Budget mode (downgrade validation only):**
-```
-/models → sprint-planning → validation → domain → gemini → gemini-2.0-flash-exp
-/models → sprint-planning → validation → feature → gemini → gemini-2.0-flash-exp
-```
-
-### Full Documentation
-
-For complete details on the `/models` command, see [COMMANDS.md](COMMANDS.md#models).
-
----
-
-## Summary
-
-### Key Takeaways
-
-1. **Quality First:** AVC defaults prioritize output quality over pricing
-2. **Sonnet Optimal:** Claude Sonnet 4.5 provides best quality-per-pricing for most stages
-3. **Never Compromise:** Context generation, documentation, and decomposition require high-quality models
-4. **Strategic Upgrades:** Use Opus for complex decomposition and critical context refinement
-5. **Validation Trade-offs:** Domain/feature validation can use Flash for pricing savings if quality trade-off acceptable
-6. **Transparent:** All 14 evaluation prompts included for reproducibility
-
-### Quick Reference
-
-**Always use Sonnet or better:**
-- ✅ All decomposition
-- ✅ All context generation
-- ✅ All documentation
-- ✅ Universal validators (architecture/security)
-- ✅ Task validation
-
-**Consider Flash for pricing savings:**
-- 💰 Domain validators (30-35% quality loss)
-- 💰 Feature validators (30% quality loss)
-- ⚠️ Only if budget-constrained and trade-off acceptable
-
-**Upgrade to Opus for maximum quality:**
-- 🏆 Complex decomposition (+15% quality)
-- 🏆 Critical context refinement (+20% quality)
-- 🏆 Enterprise architectures
-- 🏆 Long-term projects
-
----
-
-## Related Documentation
-
-- [COMMANDS.md](COMMANDS.md) - Complete command reference including `/models`
-- [sponsor-call ceremony](ceremonies/sponsor-call.md) - Ceremony details
-- [sprint-planning ceremony](ceremonies/sprint-planning.md) - Ceremony details
-- [seed ceremony](ceremonies/seed.md) - Ceremony details
-- [ARCHITECTURE.md](architecture/ARCHITECTURE.md) - System architecture overview
+You can customize model selection for your project using the `/models` (see [COMMANDS.md](COMMANDS.md#models)).

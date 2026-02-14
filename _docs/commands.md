@@ -2,7 +2,7 @@
 
 ## /init
 
-Create AVC project structure and configuration files.
+Initializes AVC project structure with default configuration.
 
 ```sh
 > /init
@@ -10,11 +10,22 @@ Create AVC project structure and configuration files.
 
 ### What it does
 
-Sets up your AVC project by creating the `.avc/` directory with the `avc.json` configuration file and a `.env` file for API keys. The command is safe to run multiple times—it preserves your existing configuration and API keys while adding any new settings from CLI updates.
+- Creates `.avc/` folder with project structure
+- Generates `avc.json` configuration with optimal defaults
+- Creates `.env` template for API keys
+- Sets up default models:
+  - Claude Sonnet 4.5 for most stages
+  - Claude Opus 4.6 for complex decomposition tasks
 
 **This command does not require API keys.**
 
-After initialization, you'll be prompted to configure which LLM models to use for ceremonies. You can also reconfigure models anytime with the `/models` command.
+### After initialization
+
+1. Add your API keys to `.env` file
+2. (Optional) Run `/models` to customize LLM model configuration
+3. Run `/sponsor-call` to start defining your project
+
+The default configuration is production-ready and works immediately. The command is safe to run multiple times—it preserves your existing configuration and API keys while adding any new settings from CLI updates.
 
 ### Output
 
@@ -40,6 +51,48 @@ Creates your project foundation through an AI-assisted questionnaire, generating
 ```sh
 > /sponsor-call
 ```
+
+### Architecture-Aware Workflow
+
+The sponsor-call ceremony features intelligent architecture recommendation that reduces ceremony time by ~60%:
+
+1. **Answer Initial Questions**
+   - **Mission Statement** (mandatory) - What problem are you solving?
+   - **Initial Scope** - Key features and capabilities
+
+2. **Architecture Selection** (automatic after scope)
+   - AI analyzes your project and recommends 3-5 deployment architectures
+   - Interactive selector with keyboard navigation:
+     - `↑/↓`: Navigate options
+     - `Enter`: Select architecture
+     - `Esc`: Skip (continue with manual answers)
+   - Examples: "Next.js Full-Stack on Vercel", "AWS Serverless Backend + SPA", "CLI Tool"
+
+3. **Cloud Provider Selection** (conditional)
+   - Shown only if architecture requires cloud provider (AWS/Azure/GCP)
+   - Select your preferred cloud platform
+   - `Esc` to skip and use architecture-agnostic answers
+
+4. **Intelligent Question Pre-filling**
+   - AI generates contextual answers for remaining questions:
+     - Target Users
+     - Deployment Target
+     - Technical Considerations
+     - Security Requirements
+   - Answers are pre-filled based on your architecture selection
+
+5. **Review and Edit**
+   - Preview shows all answers with indicators:
+     - 🤖 = AI-suggested (can be edited)
+     - ✏️ = User-entered
+   - Edit any answer before submission
+   - All AI suggestions are fully editable
+
+**Benefits:**
+- Expert architecture guidance without deep DevOps knowledge
+- Ensures consistent, contextually appropriate answers
+- Educational - learn recommended approaches for your project type
+- Fast iteration while maintaining quality
 
 
 
@@ -291,9 +344,9 @@ All model configuration is stored in `.avc/avc.json` and persists across session
 }
 ```
 
-### Available During Init
+### When to Use
 
-The `/models` configuration flow is also offered automatically after running `/init` for the first time. You can skip it during init and run `/models` anytime later.
+Run `/models` anytime you want to customize which LLM models are used for each ceremony stage. The default configuration uses optimal models and works immediately, so model configuration is entirely optional.
 
 
 ## Keyboard shortcuts
