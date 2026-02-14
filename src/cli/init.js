@@ -192,6 +192,14 @@ class ProjectInitiator {
               context: {
                 provider: 'claude',
                 model: 'claude-sonnet-4-5-20250929'
+              },
+              'architecture-recommendation': {
+                provider: 'claude',
+                model: 'claude-opus-4-6'
+              },
+              'question-prefilling': {
+                provider: 'claude',
+                model: 'claude-sonnet-4-5-20250929'
               }
             },
             agents: [
@@ -1005,10 +1013,12 @@ If you're new to Agile Vibe Coding, visit the [AVC Documentation](https://agilev
     console.log('     • ANTHROPIC_API_KEY for Claude');
     console.log('     • GEMINI_API_KEY for Gemini');
     console.log('     • OPENAI_API_KEY for OpenAI');
-    console.log('  2. Run /sponsor-call to start\n');
+    console.log('  2. (Optional) Run /models to configure LLM models');
+    console.log('  3. Run /sponsor-call to start\n');
 
-    // Offer model configuration
-    return this.configureModelsInteractively();
+    // No longer offer model configuration during init
+    // Users can run /models command to configure models
+    return;
   }
 
   /**

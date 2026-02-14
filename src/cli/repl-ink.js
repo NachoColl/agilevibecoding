@@ -279,25 +279,41 @@ const QuestionnaireProgress = ({ current, total, answers, lastSave }) => {
 };
 
 // Answers preview component
-const AnswersPreview = ({ answers, questions, defaultSuggested }) => {
+const AnswersPreview = ({ answers, questions, defaultSuggested, aiPrefilled }) => {
+  // Check if any AI-prefilled answers exist
+  const hasAiPrefilled = aiPrefilled && aiPrefilled.size > 0;
+
   return React.createElement(Box, { flexDirection: 'column', marginTop: 1 },
     React.createElement(Text, { bold: true, color: 'cyan' },
       '\n📋 Review Your Answers\n'
     ),
+    hasAiPrefilled ? React.createElement(Text, { dimColor: true },
+      '🤖 = AI-suggested (you can edit these) | ✏️ = User-entered\n'
+    ) : null,
     ...questions.map((question, idx) => {
       const answer = answers[question.key] || '(Skipped - will use AI suggestion)';
       const lines = answer.split('\n');
       const isDefault = defaultSuggested && defaultSuggested.has(question.key);
+      const isAiPrefilled = aiPrefilled && aiPrefilled.has(question.key);
 
-      // Color red for defaults
-      const textColor = isDefault ? 'red' : undefined;
-      const labelText = isDefault
-        ? '   (default from settings)\n'
-        : null;
+      // Determine icon and color
+      let icon = '';
+      let textColor = undefined;
+      let labelText = null;
+
+      if (isDefault) {
+        textColor = 'red';
+        labelText = '   (default from settings)\n';
+      } else if (isAiPrefilled) {
+        icon = '🤖 ';
+        textColor = 'yellow';
+      } else if (answers[question.key]) {
+        icon = '✏️ ';
+      }
 
       return React.createElement(Box, { key: idx, flexDirection: 'column', marginBottom: 1 },
         React.createElement(Text, { bold: true },
-          `${idx + 1}. ${question.title}\n`
+          `${icon}${idx + 1}. ${question.title}\n`
         ),
         labelText ? React.createElement(Text, {
           color: textColor,
@@ -315,7 +331,7 @@ const AnswersPreview = ({ answers, questions, defaultSuggested }) => {
     }),
     React.createElement(Box, { marginTop: 1 },
       React.createElement(Text, { dimColor: true },
-        '\nType 1-5 to edit a question | Enter to submit | Escape to cancel\n'
+        '\nType 1-6 to edit a question | Enter to submit | Escape to cancel\n'
       )
     )
   );
@@ -990,6 +1006,85 @@ const ModelConfigPrompt = () => {
 /**
  * Ceremony Selector Component
  */
+/**
+ * Architecture Selector Component
+ */
+const ArchitectureSelector = ({ architectures, selectedIndex }) => {
+  return React.createElement(Box, { flexDirection: 'column', borderStyle: 'round', borderColor: 'cyan', paddingX: 1 },
+    React.createElement(Text, { bold: true }, '🏗️  Recommended Deployment Architectures'),
+    React.createElement(Text, {}, ''),
+    React.createElement(Text, { dimColor: true }, 'Based on your mission and scope, here are recommended approaches:'),
+    React.createElement(Box, { flexDirection: 'column', marginTop: 1 },
+      ...architectures.map((arch, idx) => {
+        const icon = arch.requiresCloudProvider ? '☁️' : '🌐';
+        const isSelected = idx === selectedIndex;
+
+        return React.createElement(Box, { key: idx, flexDirection: 'column', marginBottom: 1 },
+          React.createElement(Text, { color: isSelected ? 'green' : 'white', bold: isSelected },
+            (isSelected ? '▶ ' : '  ') + icon + ' ' + arch.name
+          ),
+          React.createElement(Text, { dimColor: true, marginLeft: 4 },
+            arch.description.substring(0, 100) + (arch.description.length > 100 ? '...' : '')
+          ),
+          React.createElement(Text, { italic: true, dimColor: true, marginLeft: 4 },
+            'Best for: ' + arch.bestFor.substring(0, 80) + (arch.bestFor.length > 80 ? '...' : '')
+          )
+        );
+      })
+    ),
+    React.createElement(Text, {}, ''),
+    React.createElement(Text, { dimColor: true }, '↑/↓: Navigate | Enter: Select | Esc: Skip (use manual answers)')
+  );
+};
+
+/**
+ * Cloud Provider Selector Component
+ */
+const CloudProviderSelector = ({ architectureName, selectedIndex }) => {
+  const providers = [
+    {
+      id: 'AWS',
+      name: 'Amazon Web Services',
+      description: 'Most comprehensive cloud platform with 200+ services and global reach',
+      icon: '🟠'
+    },
+    {
+      id: 'Azure',
+      name: 'Microsoft Azure',
+      description: 'Strong .NET/Windows integration, excellent hybrid cloud capabilities',
+      icon: '🔵'
+    },
+    {
+      id: 'GCP',
+      name: 'Google Cloud Platform',
+      description: 'Cutting-edge data/ML services, strong Kubernetes support',
+      icon: '🔴'
+    }
+  ];
+
+  return React.createElement(Box, { flexDirection: 'column', borderStyle: 'round', borderColor: 'cyan', paddingX: 1 },
+    React.createElement(Text, { bold: true }, '☁️  Select Cloud Provider for "' + architectureName + '"'),
+    React.createElement(Text, {}, ''),
+    React.createElement(Text, { dimColor: true }, 'Your selected architecture requires a cloud provider. Choose one:'),
+    React.createElement(Box, { flexDirection: 'column', marginTop: 1 },
+      ...providers.map((provider, idx) => {
+        const isSelected = idx === selectedIndex;
+
+        return React.createElement(Box, { key: provider.id, flexDirection: 'column', marginBottom: 1 },
+          React.createElement(Text, { color: isSelected ? 'green' : 'white', bold: isSelected },
+            (isSelected ? '▶ ' : '  ') + provider.icon + ' ' + provider.name + ' (' + provider.id + ')'
+          ),
+          React.createElement(Text, { dimColor: true, marginLeft: 4 },
+            provider.description
+          )
+        );
+      })
+    ),
+    React.createElement(Text, {}, ''),
+    React.createElement(Text, { dimColor: true }, '↑/↓: Navigate | Enter: Select | Esc: Skip')
+  );
+};
+
 const CeremonySelector = ({ ceremonies, selectedIndex, onIndexChange }) => {
   return React.createElement(Box, { flexDirection: 'column', borderStyle: 'round', borderColor: 'cyan', paddingX: 1 },
     React.createElement(Text, { bold: true }, 'Select Ceremony to Configure'),
@@ -1235,6 +1330,20 @@ const App = () => {
 
   // Stable initial render state - prevents first-keypress layout glitch
   const [isStableRender, setIsStableRender] = useState(false);
+
+  // Architecture selection state
+  const [architectureSelectorActive, setArchitectureSelectorActive] = useState(false);
+  const [architectureOptions, setArchitectureOptions] = useState([]);
+  const [selectedArchitectureIndex, setSelectedArchitectureIndex] = useState(0);
+  const [selectedArchitecture, setSelectedArchitecture] = useState(null);
+
+  // Cloud provider selection state
+  const [cloudProviderSelectorActive, setCloudProviderSelectorActive] = useState(false);
+  const [cloudProviderIndex, setCloudProviderIndex] = useState(0);
+  const [selectedCloudProvider, setSelectedCloudProvider] = useState(null);
+
+  // Pre-fill tracking
+  const [aiPrefilledQuestions, setAiPrefilledQuestions] = useState(new Set());
 
   // Active logger for long-running commands (e.g., /sponsor-call with questionnaire)
   const [activeLogger, setActiveLogger] = useState(null);
@@ -1760,19 +1869,14 @@ https://agilevibecoding.org
     const outputManager = new ConsoleOutputManager(setOutput);
     outputManager.start();
 
-    let result;
     try {
-      result = await initiator.init();
+      await initiator.init();
     } finally {
       outputManager.stop();
     }
 
-    // Check if init returned configuration data
-    if (result && result.shouldConfigure) {
-      setModelConfigurator(result.configurator);
-      setModelConfigActive(true);
-      setModelConfigMode('prompt');
-    }
+    // No longer activate model configuration after init
+    // Users can run /models command to configure models
   };
 
   const runSprintPlanning = async () => {
@@ -1891,15 +1995,47 @@ https://agilevibecoding.org
     if (initiator.hasIncompleteProgress(progressPath)) {
       const savedProgress = initiator.readProgress(progressPath);
 
-      if (savedProgress && savedProgress.stage === 'questionnaire') {
-        // Resume from saved progress - show preview to allow editing any question
-        setQuestionnaireAnswers(savedProgress.collectedValues || {});
-        setShowPreview(true);
-        setOutput(prev => prev +
-          '\n🎯 Sponsor Call Ceremony - Resuming from saved progress\n' +
-          '📖 https://agilevibecoding.org/ceremonies/sponsor-call\n'
-        );
-        return;
+      if (savedProgress) {
+        // Resume from architecture selection stage
+        if (savedProgress.stage === 'architecture-selection') {
+          setQuestionnaireAnswers(savedProgress.collectedValues || {});
+          setArchitectureOptions(savedProgress.architectureSelection?.options || []);
+          setArchitectureSelectorActive(true);
+          setOutput(prev => prev +
+            '\n🎯 Sponsor Call Ceremony - Resuming from architecture selection\n' +
+            '📖 https://agilevibecoding.org/ceremonies/sponsor-call\n'
+          );
+          return;
+        }
+
+        // Resume from cloud provider selection stage
+        if (savedProgress.stage === 'cloud-provider-selection') {
+          setQuestionnaireAnswers(savedProgress.collectedValues || {});
+          setSelectedArchitecture(savedProgress.architectureSelection?.selected || null);
+          setCloudProviderSelectorActive(true);
+          setOutput(prev => prev +
+            '\n🎯 Sponsor Call Ceremony - Resuming from cloud provider selection\n' +
+            '📖 https://agilevibecoding.org/ceremonies/sponsor-call\n'
+          );
+          return;
+        }
+
+        // Resume from questionnaire stage
+        if (savedProgress.stage === 'questionnaire') {
+          // Restore AI prefill state if present
+          if (savedProgress.aiPrefilledQuestions && Array.isArray(savedProgress.aiPrefilledQuestions)) {
+            setAiPrefilledQuestions(new Set(savedProgress.aiPrefilledQuestions));
+          }
+
+          // Resume from saved progress - show preview to allow editing any question
+          setQuestionnaireAnswers(savedProgress.collectedValues || {});
+          setShowPreview(true);
+          setOutput(prev => prev +
+            '\n🎯 Sponsor Call Ceremony - Resuming from saved progress\n' +
+            '📖 https://agilevibecoding.org/ceremonies/sponsor-call\n'
+          );
+          return;
+        }
       }
     }
 
@@ -2073,7 +2209,7 @@ https://agilevibecoding.org
     }));
   };
 
-  const moveToNextQuestion = () => {
+  const moveToNextQuestion = async () => {
     setCurrentAnswer([]);
     setEmptyLineCount(0);
     setCursorLine(0);
@@ -2092,6 +2228,17 @@ https://agilevibecoding.org
       setEditingQuestionIndex(-1);
       setShowPreview(true);
       setQuestionnaireActive(false);
+      return;
+    }
+
+    // Check if we just answered INITIAL_SCOPE (index 2)
+    // If so, trigger architecture selection before moving to next question
+    if (currentQuestionIndex === 2 && questionnaireAnswers.MISSION_STATEMENT && questionnaireAnswers.INITIAL_SCOPE) {
+      // Auto-save progress before architecture selection
+      autoSaveProgress();
+
+      // Trigger architecture selection
+      await triggerArchitectureSelection();
       return;
     }
 
@@ -2154,19 +2301,134 @@ https://agilevibecoding.org
     }
   };
 
+  /**
+   * Trigger architecture recommendation and selection
+   */
+  const triggerArchitectureSelection = async () => {
+    setQuestionnaireActive(false);
+    setMode('executing');
+    setExecutingMessage('Analyzing your project requirements...');
+
+    try {
+      const processor = new TemplateProcessor('sponsor-call', null, true);
+      const architectures = await processor.getArchitectureRecommendations(
+        questionnaireAnswers.MISSION_STATEMENT,
+        questionnaireAnswers.INITIAL_SCOPE
+      );
+
+      // Show architecture selector
+      setArchitectureOptions(architectures);
+      setSelectedArchitectureIndex(0);
+      setArchitectureSelectorActive(true);
+      setMode('prompt');
+
+      // Save progress
+      autoSaveProgress();
+    } catch (error) {
+      // Graceful degradation - skip architecture selection on error
+      console.error('Architecture recommendation failed:', error.message);
+      setOutput(prev => prev + `\n❌ Failed to generate architecture recommendations: ${error.message}\n`);
+      setOutput(prev => prev + 'Continuing with manual questionnaire...\n\n');
+
+      // Continue with regular questionnaire flow
+      setQuestionnaireActive(true);
+      setMode('prompt');
+      if (currentQuestionIndex < questionnaireQuestions.length - 1) {
+        setCurrentQuestionIndex(currentQuestionIndex + 1);
+      }
+    }
+  };
+
+  /**
+   * Proceed to question pre-filling after architecture selection
+   */
+  const proceedToQuestionPrefilling = async (architecture, cloudProvider = null) => {
+    setMode('executing');
+    setExecutingMessage('Generating intelligent recommendations based on your architecture...');
+
+    try {
+      const processor = new TemplateProcessor('sponsor-call', null, true);
+      const prefilled = await processor.prefillQuestions(
+        questionnaireAnswers.MISSION_STATEMENT,
+        questionnaireAnswers.INITIAL_SCOPE,
+        architecture,
+        cloudProvider
+      );
+
+      // Merge pre-filled with existing answers (don't overwrite user answers)
+      const updatedAnswers = {
+        ...questionnaireAnswers,
+        TARGET_USERS: questionnaireAnswers.TARGET_USERS || prefilled.TARGET_USERS || '',
+        DEPLOYMENT_TARGET: questionnaireAnswers.DEPLOYMENT_TARGET || prefilled.DEPLOYMENT_TARGET || '',
+        TECHNICAL_CONSIDERATIONS: questionnaireAnswers.TECHNICAL_CONSIDERATIONS || prefilled.TECHNICAL_CONSIDERATIONS || '',
+        SECURITY_AND_COMPLIANCE_REQUIREMENTS: questionnaireAnswers.SECURITY_AND_COMPLIANCE_REQUIREMENTS || prefilled.SECURITY_AND_COMPLIANCE_REQUIREMENTS || ''
+      };
+
+      setQuestionnaireAnswers(updatedAnswers);
+
+      // Track which questions were AI-prefilled
+      const prefilledSet = new Set();
+      if (prefilled.TARGET_USERS && !questionnaireAnswers.TARGET_USERS) prefilledSet.add('TARGET_USERS');
+      if (prefilled.DEPLOYMENT_TARGET && !questionnaireAnswers.DEPLOYMENT_TARGET) prefilledSet.add('DEPLOYMENT_TARGET');
+      if (prefilled.TECHNICAL_CONSIDERATIONS && !questionnaireAnswers.TECHNICAL_CONSIDERATIONS) prefilledSet.add('TECHNICAL_CONSIDERATIONS');
+      if (prefilled.SECURITY_AND_COMPLIANCE_REQUIREMENTS && !questionnaireAnswers.SECURITY_AND_COMPLIANCE_REQUIREMENTS) prefilledSet.add('SECURITY_AND_COMPLIANCE_REQUIREMENTS');
+
+      setAiPrefilledQuestions(prefilledSet);
+
+      // Save progress
+      autoSaveProgress();
+
+      // Show preview
+      setShowPreview(true);
+      setMode('prompt');
+
+      setOutput(prev => prev + '\n✨ AI has suggested answers for the remaining questions.\n');
+      setOutput(prev => prev + 'Review them below and edit any that need changes.\n\n');
+
+    } catch (error) {
+      // Graceful degradation
+      console.error('Question pre-filling failed:', error.message);
+      setOutput(prev => prev + `\n❌ Failed to generate recommendations: ${error.message}\n`);
+      setOutput(prev => prev + 'Please answer the remaining questions manually.\n\n');
+
+      // Continue with manual questionnaire
+      setQuestionnaireActive(true);
+      setMode('prompt');
+      if (currentQuestionIndex < questionnaireQuestions.length - 1) {
+        setCurrentQuestionIndex(currentQuestionIndex + 1);
+      }
+    }
+  };
+
   const autoSaveProgress = () => {
-    if (!questionnaireActive) return;
+    if (!questionnaireActive && !architectureSelectorActive && !cloudProviderSelectorActive) return;
 
     try {
       const initiator = new ProjectInitiator();
+
+      // Determine current stage
+      let stage = 'questionnaire';
+      if (architectureSelectorActive) {
+        stage = 'architecture-selection';
+      } else if (cloudProviderSelectorActive) {
+        stage = 'cloud-provider-selection';
+      }
+
       const progress = {
-        stage: 'questionnaire',
+        stage,
         totalQuestions: questionnaireQuestions.length,
         answeredQuestions: Object.keys(questionnaireAnswers).length,
         collectedValues: questionnaireAnswers,
         currentQuestionIndex,
         currentAnswer: currentAnswer.join('\n'),
-        lastUpdate: new Date().toISOString()
+        lastUpdate: new Date().toISOString(),
+        // Architecture selection state
+        architectureSelection: selectedArchitecture ? {
+          options: architectureOptions,
+          selected: selectedArchitecture
+        } : null,
+        cloudProvider: selectedCloudProvider,
+        aiPrefilledQuestions: Array.from(aiPrefilledQuestions)
       };
 
       initiator.writeProgress(progress, initiator.sponsorCallProgressPath);
@@ -2992,6 +3254,95 @@ https://agilevibecoding.org
     }
   }, { isActive: questionnaireActive && !showPreview });
 
+  // Architecture selector input handler
+  useInput(async (inputChar, key) => {
+    if (!architectureSelectorActive) return;
+
+    // Arrow up
+    if (key.upArrow) {
+      setSelectedArchitectureIndex(prev => Math.max(0, prev - 1));
+      return;
+    }
+
+    // Arrow down
+    if (key.downArrow) {
+      setSelectedArchitectureIndex(prev => Math.min(architectureOptions.length - 1, prev + 1));
+      return;
+    }
+
+    // Enter - select architecture
+    if (key.return) {
+      const selected = architectureOptions[selectedArchitectureIndex];
+      setSelectedArchitecture(selected);
+      setArchitectureSelectorActive(false);
+
+      // If cloud architecture, show provider selector
+      if (selected.requiresCloudProvider) {
+        setCloudProviderSelectorActive(true);
+        setCloudProviderIndex(0);
+      } else {
+        // Proceed directly to question pre-filling
+        await proceedToQuestionPrefilling(selected, null);
+      }
+      return;
+    }
+
+    // Escape - skip architecture selection
+    if (key.escape) {
+      setArchitectureSelectorActive(false);
+      setArchitectureOptions([]);
+      setSelectedArchitecture(null);
+
+      // Continue with manual questionnaire
+      setQuestionnaireActive(true);
+      setMode('prompt');
+      if (currentQuestionIndex < questionnaireQuestions.length - 1) {
+        setCurrentQuestionIndex(currentQuestionIndex + 1);
+      }
+      return;
+    }
+  }, { isActive: architectureSelectorActive });
+
+  // Cloud provider selector input handler
+  useInput(async (inputChar, key) => {
+    if (!cloudProviderSelectorActive) return;
+
+    const providers = ['AWS', 'Azure', 'GCP'];
+
+    // Arrow up
+    if (key.upArrow) {
+      setCloudProviderIndex(prev => Math.max(0, prev - 1));
+      return;
+    }
+
+    // Arrow down
+    if (key.downArrow) {
+      setCloudProviderIndex(prev => Math.min(2, prev + 1));
+      return;
+    }
+
+    // Enter - select provider
+    if (key.return) {
+      const provider = providers[cloudProviderIndex];
+      setSelectedCloudProvider(provider);
+      setCloudProviderSelectorActive(false);
+
+      // Proceed to question pre-filling
+      await proceedToQuestionPrefilling(selectedArchitecture, provider);
+      return;
+    }
+
+    // Escape - skip provider selection
+    if (key.escape) {
+      setCloudProviderSelectorActive(false);
+      setSelectedCloudProvider(null);
+
+      // Proceed with architecture only (no specific cloud provider)
+      await proceedToQuestionPrefilling(selectedArchitecture, null);
+      return;
+    }
+  }, { isActive: cloudProviderSelectorActive });
+
   // Preview mode input handler
   useInput((inputChar, key) => {
     if (!showPreview) return;
@@ -3780,6 +4131,28 @@ https://agilevibecoding.org
       );
     }
 
+    // Show architecture selector if active
+    if (architectureSelectorActive) {
+      return React.createElement(Box, { flexDirection: 'column', marginY: 1 },
+        React.createElement(Text, null, output),
+        React.createElement(ArchitectureSelector, {
+          architectures: architectureOptions,
+          selectedIndex: selectedArchitectureIndex
+        })
+      );
+    }
+
+    // Show cloud provider selector if active
+    if (cloudProviderSelectorActive) {
+      return React.createElement(Box, { flexDirection: 'column', marginY: 1 },
+        React.createElement(Text, null, output),
+        React.createElement(CloudProviderSelector, {
+          architectureName: selectedArchitecture?.name || 'Selected Architecture',
+          selectedIndex: cloudProviderIndex
+        })
+      );
+    }
+
     // Show preview if active
     if (showPreview) {
       return React.createElement(Box, { flexDirection: 'column', marginY: 1 },
@@ -3787,7 +4160,8 @@ https://agilevibecoding.org
         React.createElement(AnswersPreview, {
           answers: questionnaireAnswers,
           questions: questionnaireQuestions,
-          defaultSuggested: defaultSuggestedAnswers
+          defaultSuggested: defaultSuggestedAnswers,
+          aiPrefilled: aiPrefilledQuestions
         })
       );
     }

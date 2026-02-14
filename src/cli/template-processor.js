@@ -2246,6 +2246,172 @@ Return your response as JSON following the exact structure specified in your ins
 
     return currentContent;
   }
+
+  /**
+   * Get architecture recommendations based on mission statement and initial scope
+   * @param {string} missionStatement - The project's mission statement
+   * @param {string} initialScope - The initial scope/features
+   * @returns {Promise<Array>} Array of architecture recommendations
+   */
+  async getArchitectureRecommendations(missionStatement, initialScope) {
+    debug('getArchitectureRecommendations called', { missionStatement, initialScope });
+
+    try {
+      // Get stage-specific provider for architecture recommendation
+      const provider = await this.getProviderForStageInstance('architecture-recommendation');
+
+      if (!provider || typeof provider.generateJSON !== 'function') {
+        throw new Error('Architecture recommendation provider not available');
+      }
+
+      // Read agent instructions
+      debug('Loading architecture-recommender.md agent');
+      const architectureRecommenderAgent = fs.readFileSync(
+        path.join(this.agentsPath, 'architecture-recommender.md'),
+        'utf8'
+      );
+
+      // Build prompt
+      const prompt = `Given the following project definition:
+
+**Mission Statement:**
+${missionStatement}
+
+**Initial Scope (Features to Implement):**
+${initialScope}
+
+Analyze this project and recommend 3-5 deployment architectures that best fit these requirements.
+
+Return your response as JSON following the exact structure specified in your instructions.`;
+
+      debug('Calling LLM for architecture recommendations');
+      const result = await this.retryWithBackoff(
+        () => provider.generateJSON(prompt, architectureRecommenderAgent),
+        'architecture recommendations'
+      );
+
+      debug('Architecture recommendations received', { count: result.architectures?.length });
+
+      // Validate response structure
+      if (!result.architectures || !Array.isArray(result.architectures)) {
+        throw new Error('Invalid architecture recommendation response: missing architectures array');
+      }
+
+      if (result.architectures.length < 1) {
+        throw new Error('No architecture recommendations received');
+      }
+
+      // Validate each architecture has required fields
+      result.architectures.forEach((arch, index) => {
+        if (!arch.name || !arch.description || typeof arch.requiresCloudProvider !== 'boolean' || !arch.bestFor) {
+          throw new Error(`Architecture at index ${index} is missing required fields`);
+        }
+      });
+
+      return result.architectures;
+    } catch (error) {
+      console.error('[ERROR] getArchitectureRecommendations failed:', error.message);
+      debug('getArchitectureRecommendations error', { error: error.message, stack: error.stack });
+      throw error;
+    }
+  }
+
+  /**
+   * Pre-fill questionnaire answers based on architecture selection
+   * @param {string} missionStatement - The project's mission statement
+   * @param {string} initialScope - The initial scope/features
+   * @param {Object} architecture - Selected architecture object
+   * @param {string|null} cloudProvider - Selected cloud provider (AWS/Azure/GCP) or null
+   * @returns {Promise<Object>} Object with pre-filled answers
+   */
+  async prefillQuestions(missionStatement, initialScope, architecture, cloudProvider = null) {
+    debug('prefillQuestions called', {
+      missionStatement,
+      initialScope,
+      architectureName: architecture.name,
+      cloudProvider
+    });
+
+    try {
+      // Get stage-specific provider for question prefilling
+      const provider = await this.getProviderForStageInstance('question-prefilling');
+
+      if (!provider || typeof provider.generateJSON !== 'function') {
+        throw new Error('Question prefilling provider not available');
+      }
+
+      // Read agent instructions
+      debug('Loading question-prefiller.md agent');
+      const questionPrefillerAgent = fs.readFileSync(
+        path.join(this.agentsPath, 'question-prefiller.md'),
+        'utf8'
+      );
+
+      // Build prompt
+      let prompt = `Given the following project context:
+
+**Mission Statement:**
+${missionStatement}
+
+**Initial Scope (Features to Implement):**
+${initialScope}
+
+**Selected Architecture:**
+- Name: ${architecture.name}
+- Description: ${architecture.description}
+- Best For: ${architecture.bestFor}`;
+
+      if (cloudProvider) {
+        prompt += `\n- Cloud Provider: ${cloudProvider}`;
+      }
+
+      prompt += `
+
+Generate intelligent, context-aware answers for these questions:
+1. TARGET_USERS: Who will use this application and what are their roles/characteristics?
+2. DEPLOYMENT_TARGET: Where and how will this application be deployed?
+3. TECHNICAL_CONSIDERATIONS: Technology stack, architectural patterns, scalability, and performance
+4. SECURITY_AND_COMPLIANCE_REQUIREMENTS: Security measures, privacy, authentication, and compliance
+
+Return your response as JSON following the exact structure specified in your instructions.`;
+
+      debug('Calling LLM for question prefilling');
+      const result = await this.retryWithBackoff(
+        () => provider.generateJSON(prompt, questionPrefillerAgent),
+        'question prefilling'
+      );
+
+      debug('Question prefilling received', {
+        hasTargetUsers: !!result.TARGET_USERS,
+        hasDeploymentTarget: !!result.DEPLOYMENT_TARGET,
+        hasTechnicalConsiderations: !!result.TECHNICAL_CONSIDERATIONS,
+        hasSecurityRequirements: !!result.SECURITY_AND_COMPLIANCE_REQUIREMENTS
+      });
+
+      // Validate response structure
+      const requiredFields = [
+        'TARGET_USERS',
+        'DEPLOYMENT_TARGET',
+        'TECHNICAL_CONSIDERATIONS',
+        'SECURITY_AND_COMPLIANCE_REQUIREMENTS'
+      ];
+
+      const missingFields = requiredFields.filter(field => !result[field]);
+      if (missingFields.length > 0) {
+        console.warn(`⚠️  Warning: Pre-filling missing fields: ${missingFields.join(', ')}`);
+        // Fill missing fields with empty strings
+        missingFields.forEach(field => {
+          result[field] = '';
+        });
+      }
+
+      return result;
+    } catch (error) {
+      console.error('[ERROR] prefillQuestions failed:', error.message);
+      debug('prefillQuestions error', { error: error.message, stack: error.stack });
+      throw error;
+    }
+  }
 }
 
 export { TemplateProcessor };
