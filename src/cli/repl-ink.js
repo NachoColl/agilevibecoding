@@ -8,6 +8,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import { ProjectInitiator } from './init.js';
 import { DocumentationBuilder } from './build-docs.js';
+import { KanbanServerManager } from './kanban-server-manager.js';
 import { UpdateChecker } from './update-checker.js';
 import { UpdateInstaller } from './update-installer.js';
 import { CommandLogger } from './command-logger.js';
@@ -145,16 +146,17 @@ const questionnaireQuestions = [
     example: 'Enable small businesses to manage inventory and sales through an intuitive mobile-first platform that syncs across devices and provides real-time analytics.'
   },
   {
-    key: 'TARGET_USERS',
-    title: 'Target Users',
-    guidance: 'Who will use this application? Describe the user types and their roles.',
-    example: 'Small business owners managing daily operations, inventory managers tracking stock levels, sales staff processing orders, and administrators overseeing system configuration.'
-  },
-  {
     key: 'INITIAL_SCOPE',
     title: 'Initial Scope & Key Features',
     guidance: 'Describe the initial scope: key features, main workflows, and core functionality. What will users be able to do?',
     example: 'Users can create and manage tasks, assign them to team members with due dates, track progress through kanban boards, receive notifications for updates, and generate reports on team productivity.'
+  },
+  // Questions below are AI-prefilled after architecture selection
+  {
+    key: 'TARGET_USERS',
+    title: 'Target Users',
+    guidance: 'Who will use this application? Describe the user types and their roles.',
+    example: 'Small business owners managing daily operations, inventory managers tracking stock levels, sales staff processing orders, and administrators overseeing system configuration.'
   },
   {
     key: 'DEPLOYMENT_TARGET',
@@ -536,6 +538,7 @@ const CommandSelector = ({ onSelect, onCancel, filter }) => {
       commands: [
         { label: '/init           Initialize an AVC project', value: '/init', aliases: ['/i'] },
         { label: '/documentation  Build and serve documentation', value: '/documentation', aliases: ['/d'] },
+        { label: '/kanban         Launch kanban board server', value: '/kanban', aliases: ['/k'] },
         { label: '/remove         Remove AVC project structure', value: '/remove', aliases: ['/rm'] }
       ]
     },
@@ -1513,6 +1516,7 @@ const App = () => {
     '/tokens', '/tk',
     '/remove', '/rm',
     '/documentation', '/d',
+    '/kanban', '/k',
     '/processes', '/p',
     '/help', '/h',
     '/version', '/v',
@@ -1743,6 +1747,12 @@ const App = () => {
           case '/d':
             setExecutingMessage('Building documentation...');
             await runBuildDocumentation();
+            break;
+
+          case '/kanban':
+          case '/k':
+            setExecutingMessage('Starting kanban board server...');
+            await runKanban();
             break;
 
           case '/processes':
@@ -2209,7 +2219,7 @@ https://agilevibecoding.org
     }));
   };
 
-  const moveToNextQuestion = async () => {
+  const moveToNextQuestion = async (justAnsweredKey = null, justAnsweredValue = null) => {
     setCurrentAnswer([]);
     setEmptyLineCount(0);
     setCursorLine(0);
@@ -2222,6 +2232,19 @@ https://agilevibecoding.org
       pasteTimer.current = null;
     }
 
+    // Clear paste state for the question we just answered to prevent contamination
+    if (justAnsweredKey) {
+      setPastedContent(prev => {
+        const newState = { ...prev };
+        delete newState[justAnsweredKey];
+        return newState;
+      });
+      setIsPasted(prev => ({
+        ...prev,
+        [justAnsweredKey]: false
+      }));
+    }
+
     // If editing from preview, return to preview after submitting the edit
     if (isEditingFromPreview) {
       setIsEditingFromPreview(false);
@@ -2231,9 +2254,15 @@ https://agilevibecoding.org
       return;
     }
 
-    // Check if we just answered INITIAL_SCOPE (index 2)
+    // Build current answers including the just-answered value (to avoid React state timing issues)
+    const currentAnswers = {
+      ...questionnaireAnswers,
+      ...(justAnsweredKey && { [justAnsweredKey]: justAnsweredValue })
+    };
+
+    // Check if we just answered INITIAL_SCOPE (index 1)
     // If so, trigger architecture selection before moving to next question
-    if (currentQuestionIndex === 2 && questionnaireAnswers.MISSION_STATEMENT && questionnaireAnswers.INITIAL_SCOPE) {
+    if (currentQuestionIndex === 1 && currentAnswers.MISSION_STATEMENT && currentAnswers.INITIAL_SCOPE) {
       // Auto-save progress before architecture selection
       autoSaveProgress();
 
@@ -2725,6 +2754,148 @@ https://agilevibecoding.org
     );
   };
 
+  const runKanban = async () => {
+    const kanbanManager = new KanbanServerManager();
+    const manager = getProcessManager();
+
+    // Check if project is initialized
+    if (!kanbanManager.hasWorkItems()) {
+      setOutput(prev => prev + '\n❌ No work items found\n\n');
+      setOutput(prev => prev + 'Please run /sponsor-call or /sprint-planning first to create work items.\n\n');
+      return;
+    }
+
+    const port = kanbanManager.getPort();
+
+    // Check if kanban server is already running (managed process)
+    const runningProcesses = manager.getRunningProcesses();
+    const existingKanbanServer = runningProcesses.find(p => p.name === 'Kanban Board Server');
+
+    if (existingKanbanServer) {
+      // We have a managed process - check if it's actually running
+      const portInUse = await kanbanManager.isPortInUse(port);
+
+      if (portInUse) {
+        // Managed process exists and port is in use - restart it
+        setOutput(prev => prev + '\n🔄 Kanban server already running, restarting...\n\n');
+        manager.stopProcess(existingKanbanServer.id);
+
+        // Clean up stopped/finished processes
+        manager.cleanupFinished();
+
+        // Wait a bit for the port to be released
+        await new Promise(resolve => setTimeout(resolve, 1000));
+      } else {
+        // Managed process exists but port is not in use - it died, clean up
+        setOutput(prev => prev + '\n⚠️  Previous kanban server died, starting new one...\n\n');
+        manager.stopProcess(existingKanbanServer.id);
+
+        // Clean up stopped/finished processes
+        manager.cleanupFinished();
+      }
+    } else {
+      // No managed process - check if port is in use by external process
+      const portInUse = await kanbanManager.isPortInUse(port);
+
+      if (portInUse) {
+        // Port is in use by external process - find and kill it
+        const processInfo = await kanbanManager.findProcessUsingPort(port);
+
+        if (processInfo) {
+          // Found the process using the port - check if it's AVC kanban server
+          const isOurKanban = await kanbanManager.isKanbanServer(port);
+
+          if (isOurKanban) {
+            // It's confirmed to be AVC kanban server - safe to kill
+            setOutput(prev => prev + '\n⚠️  AVC kanban server already running (external process)\n');
+            setOutput(prev => prev + `Process: ${processInfo.command} (PID: ${processInfo.pid})\n`);
+            setOutput(prev => prev + 'Killing external process and restarting...\n\n');
+
+            // Try to kill the process
+            const killed = await kanbanManager.killProcess(processInfo.pid);
+
+            if (!killed) {
+              // Failed to kill (permission denied, etc.)
+              setOutput(prev => prev +
+                `❌ Failed to kill process ${processInfo.pid}\n\n` +
+                `   Unable to stop the process (permission denied or process protected).\n` +
+                `   Please manually stop the process or change the port.\n\n` +
+                `   To change the port, edit .avc/avc.json:\n` +
+                `   {\n` +
+                `     "settings": {\n` +
+                `       "kanban": {\n` +
+                `         "port": 4174\n` +
+                `       }\n` +
+                `     }\n` +
+                `   }\n\n`
+              );
+              return;
+            }
+
+            setOutput(prev => prev + '✓ Process killed successfully\n\n');
+
+            // Remove from process manager if it was a managed process
+            manager.removeProcessByPid(processInfo.pid);
+
+            // Wait for port to be released
+            await new Promise(resolve => setTimeout(resolve, 1000));
+          } else {
+            // It's NOT AVC kanban - show warning
+            setOutput(prev => prev +
+              `\n⚠️  Port ${port} is in use by another process:\n` +
+              `   Command: ${processInfo.command}\n` +
+              `   PID: ${processInfo.pid}\n\n` +
+              `   Please stop this process manually or change the kanban port.\n\n` +
+              `   To change the port, edit .avc/avc.json:\n` +
+              `   {\n` +
+              `     "settings": {\n` +
+              `       "kanban": {\n` +
+              `         "port": 4174\n` +
+              `       }\n` +
+              `     }\n` +
+              `   }\n\n`
+            );
+            return;
+          }
+        } else {
+          // Port is in use but couldn't find the process (rare case)
+          setOutput(prev => prev + `\n❌ Port ${port} is in use but process could not be identified\n\n`);
+          setOutput(prev => prev + `   To change the port, edit .avc/avc.json:\n`);
+          setOutput(prev => prev + `   {\n`);
+          setOutput(prev => prev + `     "settings": {\n`);
+          setOutput(prev => prev + `       "kanban": {\n`);
+          setOutput(prev => prev + `         "port": 4174\n`);
+          setOutput(prev => prev + `       }\n`);
+          setOutput(prev => prev + `     }\n`);
+          setOutput(prev => prev + `   }\n\n`);
+          return;
+        }
+      }
+    }
+
+    // Start kanban server in background
+    setOutput(prev => prev + '\n📊 Starting AVC Kanban Board server...\n');
+
+    const kanbanServerPath = path.join(__dirname, '..', 'kanban', 'server', 'start.js');
+
+    const processId = manager.startProcess({
+      name: 'Kanban Board Server',
+      command: 'node',
+      args: [kanbanServerPath, process.cwd(), String(port)],
+      cwd: process.cwd()
+    });
+
+    setOutput(prev => prev +
+      '✓ Kanban server started successfully\n\n' +
+      `   Backend API: http://localhost:${port}\n` +
+      `   Health check: http://localhost:${port}/api/health\n` +
+      `   Work items: http://localhost:${port}/api/work-items\n\n` +
+      `   View process output: /processes\n` +
+      `   Stop server: /processes (then select and stop)\n\n` +
+      `   💡 Frontend UI coming in next release!\n\n`
+    );
+  };
+
   // Handle keyboard input in prompt mode
   useInput((inputChar, key) => {
     if (mode !== 'prompt') return;
@@ -2941,14 +3112,14 @@ https://agilevibecoding.org
           console.log('Using default from settings...');
           saveQuestionnaireAnswer(questionKey, defaultAnswer);
           markAnswerAsDefaultSuggested(questionKey);
-          moveToNextQuestion();
+          moveToNextQuestion(questionKey, defaultAnswer);
           return;
         }
 
         // 2. Fall back to AI suggestion
         console.log('Skipping - will use AI suggestion...');
         saveQuestionnaireAnswer(questionKey, null);
-        moveToNextQuestion();
+        moveToNextQuestion(questionKey, null);
         return;
       }
 
@@ -2997,7 +3168,7 @@ https://agilevibecoding.org
           }
 
           saveQuestionnaireAnswer(currentQuestion.key, finalAnswer);
-          moveToNextQuestion();
+          moveToNextQuestion(currentQuestion.key, finalAnswer);
           return;
         }
       } else {

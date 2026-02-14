@@ -72,7 +72,7 @@ export class ModelConfigurator {
 
       // Define available stages per ceremony (excluding 'main' and 'validation' which are handled separately)
       const ceremonyStages = {
-        'sponsor-call': ['suggestions', 'documentation', 'context'],
+        'sponsor-call': ['suggestions', 'architecture-recommendation', 'question-prefilling', 'documentation', 'context'],
         'sprint-planning': ['decomposition', 'context-generation', 'validation'],
         'seed': ['decomposition', 'validation', 'context-generation'],
         'context-retrospective': ['documentation-update', 'context-refinement']
@@ -121,6 +121,8 @@ export class ModelConfigurator {
     const ceremonyStageDescriptions = {
       'sponsor-call': {
         'suggestions': 'Questionnaire Suggestions - AI analyzes project name and suggests answers',
+        'architecture-recommendation': 'Architecture Recommendation - AI suggests 3-5 deployment architectures based on project scope',
+        'question-prefilling': 'Question Pre-filling - AI generates intelligent answers based on selected architecture',
         'documentation': 'Documentation Generation - AI creates initial project documentation',
         'context': 'Context File Creation - AI generates initial project context.md'
       },
