@@ -162,14 +162,26 @@ CONFIDENCE: High`),
     it('should handle provider initialization failures', async () => {
       const engine = new ModelQueryEngine();
 
-      // Clear API keys to simulate missing keys
-      delete process.env.ANTHROPIC_API_KEY;
-      delete process.env.OPENAI_API_KEY;
-      delete process.env.GEMINI_API_KEY;
+      // Save original values
+      const originalAnthropicKey = process.env.ANTHROPIC_API_KEY;
+      const originalOpenAIKey = process.env.OPENAI_API_KEY;
+      const originalGeminiKey = process.env.GEMINI_API_KEY;
 
-      // Should throw error when no providers available
-      await expect(engine.initializeProviders()).rejects.toThrow('No LLM providers available');
-    });
+      try {
+        // Clear API keys to simulate missing keys
+        delete process.env.ANTHROPIC_API_KEY;
+        delete process.env.OPENAI_API_KEY;
+        delete process.env.GEMINI_API_KEY;
+
+        // Should throw error when no providers available
+        await expect(engine.initializeProviders()).rejects.toThrow('No LLM providers available');
+      } finally {
+        // Restore original values
+        if (originalAnthropicKey) process.env.ANTHROPIC_API_KEY = originalAnthropicKey;
+        if (originalOpenAIKey) process.env.OPENAI_API_KEY = originalOpenAIKey;
+        if (originalGeminiKey) process.env.GEMINI_API_KEY = originalGeminiKey;
+      }
+    }, 60000); // Increased timeout as API validation can be slow
 
     it('should handle query failures gracefully', async () => {
       const engine = new ModelQueryEngine();

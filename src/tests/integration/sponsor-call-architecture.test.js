@@ -72,6 +72,11 @@ describe('Sponsor Call Architecture Selection Workflow', () => {
 
   describe('getArchitectureRecommendations', () => {
     it('should return architecture recommendations', async () => {
+      if (!global.hasRealApiKeys()) {
+        console.log('⚠️  Skipping test: requires real API keys (set ANTHROPIC_API_KEY in .env)');
+        return;
+      }
+
       const missionStatement = 'Help remote teams track daily tasks and collaborate asynchronously';
       const initialScope = 'Task creation, assignment, comments, basic notifications';
 
@@ -100,6 +105,11 @@ describe('Sponsor Call Architecture Selection Workflow', () => {
     }, 60000); // Increase timeout for LLM call
 
     it('should handle mission statements for different project types', async () => {
+      if (!global.hasRealApiKeys()) {
+        console.log('⚠️  Skipping test: requires real API keys (set ANTHROPIC_API_KEY in .env)');
+        return;
+      }
+
       const testCases = [
         {
           mission: 'Provide real-time image classification API for e-commerce',
@@ -123,17 +133,27 @@ describe('Sponsor Call Architecture Selection Workflow', () => {
     }, 120000);
 
     it('should throw error when architecture recommendation fails', async () => {
+      if (!global.hasRealApiKeys()) {
+        console.log('⚠️  Skipping test: requires real API keys (set ANTHROPIC_API_KEY in .env)');
+        return;
+      }
+
       // Create processor with invalid configuration
       const invalidProcessor = new TemplateProcessor('invalid-ceremony', null, true);
 
       await expect(
         invalidProcessor.getArchitectureRecommendations('test', 'test')
       ).rejects.toThrow();
-    });
+    }, 20000);
   });
 
   describe('prefillQuestions', () => {
     it('should prefill questions based on architecture selection', async () => {
+      if (!global.hasRealApiKeys()) {
+        console.log('⚠️  Skipping test: requires real API keys (set ANTHROPIC_API_KEY in .env)');
+        return;
+      }
+
       const missionStatement = 'Help remote teams track daily tasks';
       const initialScope = 'Task creation, assignment, comments';
       const architecture = {
@@ -168,6 +188,11 @@ describe('Sponsor Call Architecture Selection Workflow', () => {
     }, 60000);
 
     it('should include cloud provider in pre-filled answers when specified', async () => {
+      if (!global.hasRealApiKeys()) {
+        console.log('⚠️  Skipping test: requires real API keys (set ANTHROPIC_API_KEY in .env)');
+        return;
+      }
+
       const missionStatement = 'Real-time API for image classification';
       const initialScope = 'Image upload, ML inference, batch processing';
       const architecture = {
@@ -200,6 +225,11 @@ describe('Sponsor Call Architecture Selection Workflow', () => {
     }, 60000);
 
     it('should handle different cloud providers', async () => {
+      if (!global.hasRealApiKeys()) {
+        console.log('⚠️  Skipping test: requires real API keys (set ANTHROPIC_API_KEY in .env)');
+        return;
+      }
+
       const architecture = {
         name: 'Containerized Application',
         description: 'Docker containers with managed database',

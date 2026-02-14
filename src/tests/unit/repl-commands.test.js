@@ -60,6 +60,7 @@ describe('REPL Command Consistency', () => {
       const expectedBaseCommands = [
         '/init',
         '/documentation',
+        '/kanban',
         '/sponsor-call',
         '/sprint-planning',
         '/seed',
@@ -78,6 +79,7 @@ describe('REPL Command Consistency', () => {
       const expectedAliases = {
         '/i': '/init',
         '/d': '/documentation',
+        '/k': '/kanban',
         '/sc': '/sponsor-call',
         '/sp': '/sprint-planning',
         '/s': '/status',
@@ -205,11 +207,11 @@ describe('REPL Command Consistency', () => {
         menuCommands.push(match[1]);
       }
 
-      // Expected: 14 base commands + 13 aliases in tab completion
-      expect(tabCommands.length).toBe(27);
+      // Expected: 15 base commands + 14 aliases in tab completion
+      expect(tabCommands.length).toBe(29);
 
-      // Expected: 14 base commands in menu (no aliases)
-      expect(menuCommands.length).toBe(14);
+      // Expected: 15 base commands in menu (no aliases)
+      expect(menuCommands.length).toBe(15);
     });
 
     it('should not have duplicate commands in any list', () => {

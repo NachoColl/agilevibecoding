@@ -5,6 +5,11 @@ export default defineConfig({
     globals: true,
     environment: 'node',
     setupFiles: ['./tests/setup.js'],
+    exclude: [
+      '**/node_modules/**',
+      '**/dist/**',
+      '**/kanban/client/**',  // Kanban client has its own test config with jsdom
+    ],
     coverage: {
       provider: 'v8',
       reporter: ['text', 'json', 'html'],
@@ -17,7 +22,8 @@ export default defineConfig({
         'cli/update-checker.js',  // Update utilities
         'cli/node-package-installer.js',
         'cli/update-notifier.js',
-        'tests/**'
+        'tests/**',
+        'kanban/client/**'  // Kanban client tested separately
       ],
       thresholds: {
         lines: 50,
