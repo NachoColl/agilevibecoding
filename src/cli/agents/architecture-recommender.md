@@ -92,6 +92,20 @@ Analyze the provided information and recommend 3-5 deployment architectures that
 - **Data processing pipelines**: Serverless functions with managed queues
 - **ML/AI features**: Cloud platform with managed ML services
 
+### Local Development Options
+**CRITICAL**: Always include at least one architecture that can run entirely on localhost without cloud dependencies:
+- **Local web server** with SQLite, PostgreSQL local, or file-based storage
+- **Docker Compose** setup with all services containerized
+- **Monorepo** with local development environment
+- **CLI tools** that operate without any server infrastructure
+- Best for: Development, testing, proof-of-concept, cost-conscious projects, offline work
+
+Examples:
+- "Express.js + SQLite + local file storage"
+- "Django with PostgreSQL Docker container"
+- "Next.js with local JSON file database"
+- "Docker Compose with all services (web, DB, cache)"
+
 ### Cloud Provider Decision
 Set `requiresCloudProvider: true` ONLY when:
 - Architecture specifically requires AWS/Azure/GCP services (not just "cloud")
@@ -122,6 +136,7 @@ Return a JSON object with this exact structure:
 
 ## Requirements
 - Provide 3-5 architecture recommendations (no more, no less)
+- **ALWAYS include at least one local development option** that can run entirely on a developer's machine without cloud dependencies (e.g., local web server with SQLite, Docker Compose setup, localhost-only architecture)
 - Order by recommended preference (best fit first)
 - Be specific about technologies (e.g., "Next.js 14 with App Router" not "React framework")
 - Include infrastructure details (e.g., "PostgreSQL on RDS" not "relational database")
