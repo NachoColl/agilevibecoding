@@ -2340,16 +2340,28 @@ https://agilevibecoding.org
    * Trigger architecture recommendation and selection
    */
   const triggerArchitectureSelection = async () => {
-    setQuestionnaireActive(false);
+    // Set executing state FIRST to show spinner immediately
     setMode('executing');
-    setExecutingMessage('Analyzing your project requirements...');
+    setIsExecuting(true);
+    setExecutingMessage('🏗️  Analyzing your project...');
+    setExecutingSubstep('Preparing architecture analysis');
+
+    // Then hide questionnaire
+    setQuestionnaireActive(false);
 
     try {
       const processor = new TemplateProcessor('sponsor-call', null, true);
+
+      // Update substep before API call
+      setExecutingSubstep('Calling AI to recommend deployment architectures (this may take 10-30 seconds)');
+
       const architectures = await processor.getArchitectureRecommendations(
         questionnaireAnswers.MISSION_STATEMENT,
         questionnaireAnswers.INITIAL_SCOPE
       );
+
+      // Clear executing state
+      setIsExecuting(false);
 
       // Show architecture selector
       setArchitectureOptions(architectures);
@@ -2362,6 +2374,11 @@ https://agilevibecoding.org
     } catch (error) {
       // Graceful degradation - skip architecture selection on error
       console.error('Architecture recommendation failed:', error.message);
+
+      // Clear executing state
+      setIsExecuting(false);
+      setExecutingSubstep('');
+
       setOutput(prev => prev + `\n❌ Failed to generate architecture recommendations: ${error.message}\n`);
       setOutput(prev => prev + 'Continuing with manual questionnaire...\n\n');
 
@@ -2378,11 +2395,18 @@ https://agilevibecoding.org
    * Proceed to question pre-filling after architecture selection
    */
   const proceedToQuestionPrefilling = async (architecture, cloudProvider = null) => {
+    // Set executing state FIRST to show spinner immediately
     setMode('executing');
-    setExecutingMessage('Generating intelligent recommendations based on your architecture...');
+    setIsExecuting(true);
+    setExecutingMessage('✨ Generating intelligent recommendations...');
+    setExecutingSubstep('Preparing question pre-filling analysis');
 
     try {
       const processor = new TemplateProcessor('sponsor-call', null, true);
+
+      // Update substep before API call
+      setExecutingSubstep('Calling AI to generate contextual answers (this may take 10-30 seconds)');
+
       const prefilled = await processor.prefillQuestions(
         questionnaireAnswers.MISSION_STATEMENT,
         questionnaireAnswers.INITIAL_SCOPE,
@@ -2413,6 +2437,10 @@ https://agilevibecoding.org
       // Save progress
       autoSaveProgress();
 
+      // Clear executing state
+      setIsExecuting(false);
+      setExecutingSubstep('');
+
       // Show preview
       setShowPreview(true);
       setMode('prompt');
@@ -2423,6 +2451,11 @@ https://agilevibecoding.org
     } catch (error) {
       // Graceful degradation
       console.error('Question pre-filling failed:', error.message);
+
+      // Clear executing state
+      setIsExecuting(false);
+      setExecutingSubstep('');
+
       setOutput(prev => prev + `\n❌ Failed to generate recommendations: ${error.message}\n`);
       setOutput(prev => prev + 'Please answer the remaining questions manually.\n\n');
 
