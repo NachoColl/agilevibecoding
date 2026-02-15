@@ -23,6 +23,35 @@ class ConsoleOutputManager {
     this.originalError = console.error;
     this.originalWarn = console.warn;
     this.isActive = false;
+
+    // Batching to reduce re-renders
+    this.messageBuffer = [];
+    this.flushTimer = null;
+    this.flushInterval = 100; // Flush every 100ms
+  }
+
+  /**
+   * Flush accumulated messages to UI
+   */
+  flush() {
+    if (this.messageBuffer.length === 0) return;
+
+    const messages = this.messageBuffer.join('');
+    this.messageBuffer = [];
+
+    this.setOutput(prev => prev + messages);
+  }
+
+  /**
+   * Schedule a flush if not already scheduled
+   */
+  scheduleFlush() {
+    if (this.flushTimer !== null) return;
+
+    this.flushTimer = setTimeout(() => {
+      this.flush();
+      this.flushTimer = null;
+    }, this.flushInterval);
   }
 
   /**
@@ -45,8 +74,9 @@ class ConsoleOutputManager {
         return;
       }
 
-      // User-facing messages: stream to Ink UI
-      this.setOutput(prev => prev + message + '\n');
+      // User-facing messages: buffer and batch for UI
+      this.messageBuffer.push(message + '\n');
+      this.scheduleFlush();
 
       // Also forward to CommandLogger for file logging
       // CommandLogger is in inkMode, so it won't forward to real console
@@ -57,8 +87,9 @@ class ConsoleOutputManager {
     console.error = (...args) => {
       const message = args.join(' ');
 
-      // Display errors in UI with error prefix
-      this.setOutput(prev => prev + `❌ ${message}\n`);
+      // Display errors in UI with error prefix - buffer and batch
+      this.messageBuffer.push(`❌ ${message}\n`);
+      this.scheduleFlush();
 
       // Also forward to CommandLogger for file logging
       this.originalError(...args);
@@ -68,8 +99,9 @@ class ConsoleOutputManager {
     console.warn = (...args) => {
       const message = args.join(' ');
 
-      // Display warnings in UI with warning prefix
-      this.setOutput(prev => prev + `⚠️  ${message}\n`);
+      // Display warnings in UI with warning prefix - buffer and batch
+      this.messageBuffer.push(`⚠️  ${message}\n`);
+      this.scheduleFlush();
 
       // Also forward to CommandLogger for file logging
       this.originalWarn(...args);
@@ -82,6 +114,13 @@ class ConsoleOutputManager {
   stop() {
     if (!this.isActive) return;
     this.isActive = false;
+
+    // Flush any remaining buffered messages
+    if (this.flushTimer !== null) {
+      clearTimeout(this.flushTimer);
+      this.flushTimer = null;
+    }
+    this.flush();
 
     console.log = this.originalLog;
     console.error = this.originalError;

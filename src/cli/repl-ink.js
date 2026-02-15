@@ -2093,47 +2093,60 @@ https://agilevibecoding.org
     outputManager.start();
 
     // Progress callback to update spinner message, substep, and execution state
+    // Uses batching to reduce re-renders
     const progressCallback = (message, substep = null, metadata = {}) => {
+      // Batch all state updates together to prevent flickering
       if (substep !== null) {
         // Update substep only
         setExecutingSubstep(substep);
 
-        // Update execution state substep
-        setExecutionState(prev => ({
-          ...prev,
-          substep: substep
-        }));
+        // Update execution state with all changes in one call
+        setExecutionState(prev => {
+          const updates = { ...prev, substep: substep };
+
+          // Include metadata updates in same batch
+          if (metadata.tokensUsed) {
+            updates.tokensUsed = {
+              input: metadata.tokensUsed.input || 0,
+              output: metadata.tokensUsed.output || 0,
+              total: (metadata.tokensUsed.input || 0) + (metadata.tokensUsed.output || 0)
+            };
+          }
+
+          if (metadata.filesCreated) {
+            updates.filesCreated = metadata.filesCreated;
+          }
+
+          return updates;
+        });
       } else {
         // Update main message and clear substep
         setExecutingMessage(message);
         setExecutingSubstep('');
 
-        // Update execution state stage
-        setExecutionState(prev => ({
-          ...prev,
-          stage: message,
-          substep: ''
-        }));
-      }
+        // Update execution state with all changes in one call
+        setExecutionState(prev => {
+          const updates = {
+            ...prev,
+            stage: message,
+            substep: ''
+          };
 
-      // Update token usage if provided
-      if (metadata.tokensUsed) {
-        setExecutionState(prev => ({
-          ...prev,
-          tokensUsed: {
-            input: metadata.tokensUsed.input || 0,
-            output: metadata.tokensUsed.output || 0,
-            total: (metadata.tokensUsed.input || 0) + (metadata.tokensUsed.output || 0)
+          // Include metadata updates in same batch
+          if (metadata.tokensUsed) {
+            updates.tokensUsed = {
+              input: metadata.tokensUsed.input || 0,
+              output: metadata.tokensUsed.output || 0,
+              total: (metadata.tokensUsed.input || 0) + (metadata.tokensUsed.output || 0)
+            };
           }
-        }));
-      }
 
-      // Update files created if provided
-      if (metadata.filesCreated) {
-        setExecutionState(prev => ({
-          ...prev,
-          filesCreated: metadata.filesCreated
-        }));
+          if (metadata.filesCreated) {
+            updates.filesCreated = metadata.filesCreated;
+          }
+
+          return updates;
+        });
       }
     };
 
