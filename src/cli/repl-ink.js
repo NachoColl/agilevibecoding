@@ -3489,12 +3489,12 @@ https://agilevibecoding.org
       // If cloud architecture, show provider selector
       if (selected.requiresCloudProvider) {
         setOutput(prev => prev + `\n✓ Selected: ${selected.name}\n`);
-        setOutput(prev => prev + '\nThis architecture requires a cloud provider.\n');
+        setOutput(prev => prev + 'This architecture requires a cloud provider.\n');
         setCloudProviderSelectorActive(true);
         setCloudProviderIndex(0);
       } else {
         // Proceed directly to question pre-filling
-        setOutput(prev => prev + `\n✓ Selected: ${selected.name}\n\n`);
+        setOutput(prev => prev + `\n✓ Selected: ${selected.name}\n`);
         await proceedToQuestionPrefilling(selected, null);
       }
       return;
@@ -3541,7 +3541,7 @@ https://agilevibecoding.org
       setCloudProviderSelectorActive(false);
 
       // Show confirmation
-      setOutput(prev => prev + `\n✓ Cloud Provider: ${provider}\n\n`);
+      setOutput(prev => prev + `\n✓ Cloud Provider: ${provider}\n`);
 
       // Proceed to question pre-filling
       await proceedToQuestionPrefilling(selectedArchitecture, provider);
@@ -3554,7 +3554,7 @@ https://agilevibecoding.org
       setSelectedCloudProvider(null);
 
       // Show skip message
-      setOutput(prev => prev + '\n⊘ Skipped cloud provider selection\n\n');
+      setOutput(prev => prev + '\n⊘ Skipped cloud provider selection\n');
 
       // Proceed with architecture only (no specific cloud provider)
       await proceedToQuestionPrefilling(selectedArchitecture, null);
