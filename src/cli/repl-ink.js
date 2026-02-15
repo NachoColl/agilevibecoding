@@ -1601,6 +1601,11 @@ const App = () => {
   // Handle command execution
   const executeCommand = async (cmd) => {
     try {
+      // Prevent duplicate execution if already executing
+      if (isExecuting) {
+        return;
+      }
+
       // Mark that user has interacted (hide Banner permanently)
       setHasInteracted(true);
 
