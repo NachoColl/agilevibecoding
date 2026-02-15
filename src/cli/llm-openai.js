@@ -1,5 +1,6 @@
 import OpenAI from 'openai';
 import { LLMProvider } from './llm-provider.js';
+import { getMaxTokensForModel } from './llm-token-limits.js';
 
 export class OpenAIProvider extends LLMProvider {
   constructor(model = 'gpt-5.2-chat-latest', reasoningEffort = 'medium') {
@@ -136,11 +137,14 @@ export class OpenAIProvider extends LLMProvider {
         messages
       };
 
+      // Use model-specific maximum tokens
+      const maxTokens = getMaxTokensForModel(this.model);
+
       // GPT-5+ models use max_completion_tokens, older models use max_tokens
       if (this.model.startsWith('gpt-5') || this.model.startsWith('o1') || this.model.startsWith('o3')) {
-        params.max_completion_tokens = 8000;
+        params.max_completion_tokens = maxTokens;
       } else {
-        params.max_tokens = 8000;
+        params.max_tokens = maxTokens;
       }
 
       // Enable JSON mode if model supports it (GPT-4+)
@@ -196,11 +200,14 @@ export class OpenAIProvider extends LLMProvider {
         messages
       };
 
+      // Use model-specific maximum tokens
+      const maxTokens = getMaxTokensForModel(this.model);
+
       // GPT-5+ models use max_completion_tokens, older models use max_tokens
       if (this.model.startsWith('gpt-5') || this.model.startsWith('o1') || this.model.startsWith('o3')) {
-        params.max_completion_tokens = 8000;
+        params.max_completion_tokens = maxTokens;
       } else {
-        params.max_tokens = 8000;
+        params.max_tokens = maxTokens;
       }
 
       const response = await this._withRetry(

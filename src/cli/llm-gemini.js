@@ -1,5 +1,6 @@
 import { GoogleGenAI } from '@google/genai';
 import { LLMProvider } from './llm-provider.js';
+import { getMaxTokensForModel } from './llm-token-limits.js';
 
 export class GeminiProvider extends LLMProvider {
   constructor(model = 'gemini-2.5-flash') { super('gemini', model); }
@@ -36,12 +37,15 @@ export class GeminiProvider extends LLMProvider {
 
     const fullPrompt = agentInstructions ? `${agentInstructions}\n\n${prompt}` : prompt;
 
+    // Use model-specific maximum tokens
+    const maxTokens = getMaxTokensForModel(this.model);
+
     const params = {
       model: this.model,
       contents: fullPrompt,
       generationConfig: {
         responseMimeType: 'application/json',  // Gemini's native JSON mode
-        maxOutputTokens: 8000
+        maxOutputTokens: maxTokens
       }
     };
 
@@ -80,11 +84,14 @@ export class GeminiProvider extends LLMProvider {
 
     const fullPrompt = agentInstructions ? `${agentInstructions}\n\n${prompt}` : prompt;
 
+    // Use model-specific maximum tokens
+    const maxTokens = getMaxTokensForModel(this.model);
+
     const params = {
       model: this.model,
       contents: fullPrompt,
       generationConfig: {
-        maxOutputTokens: 8000
+        maxOutputTokens: maxTokens
       }
     };
 

@@ -1,5 +1,6 @@
 import Anthropic from '@anthropic-ai/sdk';
 import { LLMProvider } from './llm-provider.js';
+import { getMaxTokensForModel } from './llm-token-limits.js';
 
 export class ClaudeProvider extends LLMProvider {
   constructor(model) { super('claude', model); }
@@ -33,10 +34,13 @@ export class ClaudeProvider extends LLMProvider {
 
     const fullPrompt = agentInstructions ? `${agentInstructions}\n\n${prompt}` : prompt;
 
+    // Use model-specific maximum tokens
+    const maxTokens = getMaxTokensForModel(this.model);
+
     const response = await this._withRetry(
       () => this._client.messages.create({
         model: this.model,
-        max_tokens: 8000,
+        max_tokens: maxTokens,
         messages: [{
           role: 'user',
           content: fullPrompt
@@ -74,10 +78,13 @@ export class ClaudeProvider extends LLMProvider {
 
     const fullPrompt = agentInstructions ? `${agentInstructions}\n\n${prompt}` : prompt;
 
+    // Use model-specific maximum tokens
+    const maxTokens = getMaxTokensForModel(this.model);
+
     const response = await this._withRetry(
       () => this._client.messages.create({
         model: this.model,
-        max_tokens: 8000,
+        max_tokens: maxTokens,
         messages: [{
           role: 'user',
           content: fullPrompt
