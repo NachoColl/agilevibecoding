@@ -1851,6 +1851,7 @@ const App = () => {
 /sponsor-call (/sc)      Run Sponsor Call ceremony
 /status (or /s)          Show current project status
 /models (or /m)          Configure LLM models for ceremonies
+/kanban (or /k)          Launch kanban board visualization
 /processes (/p)          View and manage background processes
 /remove (or /rm)         Remove AVC project structure
 /help (or /h)            Show this help message

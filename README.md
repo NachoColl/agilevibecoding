@@ -299,6 +299,30 @@ Updates all context scopes based on learnings from implementation. Ensures AI ag
 **[📖 Read Full Documentation](ceremonies/context-retrospective.md)**
 
 
+### **Kanban Board** - Work Item Visualization
+
+**Status**
+
+✅ **Production Ready**
+
+Visual kanban board for managing AVC work items. Interactive web interface with real-time updates, filtering, grouping, and detailed work item views.
+
+**Key Features**
+
+- **5 Workflow Columns**: Backlog, Ready, In Progress, Review, Done
+- **Real-time Updates**: WebSocket sync when work items change
+- **Advanced Filtering**: By type (Epic/Story/Task/Subtask), status, and full-text search
+- **Multiple Groupings**: View by Status, Epic hierarchy, or Type
+- **Interactive Cards**: Click for full details with context, documentation, and children
+- **Modern UI**: Built with React, shadcn/ui, Tailwind CSS, and Framer Motion
+
+**Usage**
+
+`/kanban` (alias: `/k`)
+
+**[📖 Read Full Documentation](ceremonies/kanban.md)**
+
+
 ## Multi-Provider LLM Support
 
 AVC supports **different LLM providers for each ceremony**, allowing you to optimize for cost, speed, or quality based on ceremony-specific requirements.
