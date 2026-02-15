@@ -4513,7 +4513,7 @@ https://agilevibecoding.org
   };
 
   const renderPrompt = () => {
-    if (mode !== 'prompt' || questionnaireActive || showPreview || removeConfirmActive || killConfirmActive || processViewerActive || cancelConfirmActive || isExecuting || modelConfigActive) return null;
+    if (mode !== 'prompt' || questionnaireActive || showPreview || removeConfirmActive || killConfirmActive || processViewerActive || cancelConfirmActive || isExecuting || modelConfigActive || architectureSelectorActive || cloudProviderSelectorActive) return null;
 
     // Show loading indicator while app is initializing
     if (!isStableRender) {
