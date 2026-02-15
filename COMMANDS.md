@@ -242,6 +242,200 @@ The Sponsor Call ceremony automatically syncs the generated project definition t
 4. View your project definition as a formatted website
 
 
+## /kanban
+
+Visualize your AVC project work items in an interactive kanban board web interface.
+
+**Alias:** `/k`
+
+**📖 [Full ceremony documentation →](ceremonies/kanban.md)**
+
+```sh
+> /kanban
+```
+
+### What it does
+
+Launches a full-stack web application that provides a visual kanban board for managing your AVC work items (Epics, Stories, Tasks, Subtasks). The board displays your project's hierarchical work structure with real-time updates as files change.
+
+The command runs as a **background process**, allowing you to continue using the REPL while the kanban board is running.
+
+**This command does not require API keys.**
+
+### Requirements
+
+- Must have work items created in your project (at least one Epic, Story, Task, or Subtask)
+- Project must be initialized with `/init`
+
+### Features
+
+**Visual Organization:**
+- **5 Workflow Columns**: Backlog, Ready, In Progress, Review, Done
+- **9 AVC Statuses Mapped**: Planned/Pending → Backlog, Ready → Ready, Implementing/Feedback → In Progress, Implemented/Testing → Review, Completed → Done
+- **Drag & Drop** (future): Move cards between columns
+- **Real-time Updates**: WebSocket sync when work item files change
+
+**Filtering & Search:**
+- **Type Filters**: Toggle visibility of Epics, Stories, Tasks, Subtasks
+- **Column Visibility**: Show/hide specific workflow columns
+- **Search**: Full-text search across work item names, IDs, descriptions, and epic names
+- **Filter Persistence**: Your filter preferences are saved in browser localStorage
+
+**Grouping Modes:**
+- **By Status** (default): Traditional kanban columns
+- **By Epic**: Hierarchical view showing epics with their child items grouped by status
+- **By Type**: Separate sections for Epics, Stories, Tasks, Subtasks
+
+**Card Details:**
+- Click any card to open detailed modal
+- **Overview Tab**: Full work item details with status, type, epic association, children count
+- **Context Tab**: Inherited context from parent work items (markdown rendered)
+- **Documentation Tab**: Work item's doc.md content (markdown rendered)
+- **Children Tab**: List of child work items with status indicators
+- **Keyboard Navigation**: Arrow keys to navigate between cards, Esc to close
+
+**Animations:**
+- Smooth entrance animations for cards and columns
+- Hover effects with elevation
+- Framer Motion-powered transitions between grouping modes
+
+### Server Configuration
+
+The kanban server port is configurable in `.avc/avc.json`:
+
+```json
+{
+  "settings": {
+    "kanban": {
+      "port": 4174
+    }
+  }
+}
+```
+
+**Default ports:**
+- Backend API/WebSocket: 4174
+- Frontend UI: 5173
+
+### Port Conflict Handling
+
+The command intelligently handles port conflicts:
+
+1. **AVC Kanban Server Already Running (Managed Process):**
+   - Restarts the existing server
+   - Shows: `🔄 Kanban server already running, restarting...`
+
+2. **AVC Kanban Server Running Externally (Previous Session):**
+   - Verifies it's an AVC kanban server (checks health endpoint)
+   - Automatically kills and restarts
+   - Shows: `⚠️ AVC kanban server already running (external process)`
+
+3. **Non-AVC Process Using Port:**
+   - Shows process details (PID, command)
+   - Asks for confirmation before killing
+   - User can cancel and change port in config
+
+### Background Process Management
+
+The kanban server runs as a managed background process:
+
+- **View process status:** Use `/processes` (or `/p`) command
+- **Stop server:** Select the process and press 's' to stop
+- **Auto-cleanup:** Stopped processes disappear after 3 seconds
+- **View logs:** Process output is captured and viewable in process details
+
+### Output
+
+```
+📊 Starting Kanban Board server...
+   Backend: http://localhost:4174
+   Frontend: http://localhost:5173
+
+✓ Server started successfully!
+   Open http://localhost:5173 in your browser
+
+   View process output: /processes
+```
+
+### Example Workflow
+
+```sh
+# 1. Initialize project and create work items
+> /init
+> /sponsor-call
+# (Create epics, stories, tasks through ceremonies)
+
+# 2. Launch kanban board
+> /kanban
+
+# 3. Open browser to http://localhost:5173
+
+# 4. Interact with board:
+#    - Filter by type (Epics, Stories, Tasks)
+#    - Search for work items
+#    - Click cards to view details
+#    - Switch grouping modes (Status / Epic / Type)
+
+# 5. Check process status
+> /processes
+
+# 6. Stop server when done
+> /processes
+# (Select "Kanban Server" and press 's')
+```
+
+### Troubleshooting
+
+**No work items to display**
+
+The kanban board requires at least one work item. Create work items through:
+- `/sponsor-call` - Creates initial epics
+- Sprint planning ceremonies - Creates stories and tasks
+- Manual creation in `.avc/project/` directories
+
+**Port already in use**
+
+Edit `.avc/avc.json` to change the port:
+```json
+{
+  "settings": {
+    "kanban": {
+      "port": 5174
+    }
+  }
+}
+```
+
+**Browser shows "Cannot connect"**
+
+Check that both backend (4174) and frontend (5173) servers are running:
+```sh
+> /processes
+```
+
+If only one is running, restart with `/kanban`.
+
+**Real-time updates not working**
+
+The WebSocket connection may have failed. Check browser console for connection errors. Refresh the page to reconnect.
+
+### Technology Stack
+
+**Backend:**
+- Express.js - HTTP API server
+- WebSocket (ws) - Real-time updates
+- Chokidar - File watching for changes
+
+**Frontend:**
+- React 18 - UI framework
+- Vite - Build tool and dev server
+- Tailwind CSS - Styling
+- Framer Motion - Animations
+- Zustand - State management
+- lucide-react - Icons
+- react-markdown - Markdown rendering
+
+
 ## /models
 
 View and configure which LLM models are used for ceremonies.
@@ -366,6 +560,7 @@ Run `/models` anytime you want to customize which LLM models are used for each c
 | `/i` | `/init` |
 | `/sc` | `/sponsor-call` |
 | `/d` | `/documentation` |
+| `/k` | `/kanban` |
 | `/m` | `/models` |
 | `/p` | `/processes` |
 | `/s` | `/status` |

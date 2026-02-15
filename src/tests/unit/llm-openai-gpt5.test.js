@@ -184,7 +184,7 @@ describe('OpenAIProvider - GPT-5 Parameter Handling', () => {
 
       expect(mockClient.chat.completions.create).toHaveBeenCalledWith(
         expect.objectContaining({
-          max_completion_tokens: 8000
+          max_completion_tokens: 16384
         })
       );
     });
@@ -211,7 +211,7 @@ describe('OpenAIProvider - GPT-5 Parameter Handling', () => {
 
       expect(mockClient.chat.completions.create).toHaveBeenCalledWith(
         expect.objectContaining({
-          max_completion_tokens: 8000
+          max_completion_tokens: 16384
         })
       );
     });

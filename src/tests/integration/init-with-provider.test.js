@@ -323,7 +323,11 @@ describe('ProjectInitiator with Provider Integration', () => {
         })
       );
 
-      const result = await initiator.init();
+      await initiator.init();
+
+      // init() no longer returns configuration data
+      // Test configureModelsInteractively() directly (used by /models command)
+      const result = await initiator.configureModelsInteractively();
 
       expect(result).toBeDefined();
       expect(result.shouldConfigure).toBe(true);
@@ -380,7 +384,10 @@ describe('ProjectInitiator with Provider Integration', () => {
         });
       });
 
-      const result = await initiator.init();
+      await initiator.init();
+
+      // Test configureModelsInteractively() directly
+      const result = await initiator.configureModelsInteractively();
 
       expect(result.configurator).toBeDefined();
       const providers = result.configurator.availableProviders;
@@ -427,7 +434,10 @@ describe('ProjectInitiator with Provider Integration', () => {
         })
       );
 
-      const result = await initiator.init();
+      await initiator.init();
+
+      // Test configureModelsInteractively() directly
+      const result = await initiator.configureModelsInteractively();
       const models = result.configurator.getAvailableModels();
 
       // All models should be returned
@@ -478,7 +488,10 @@ describe('ProjectInitiator with Provider Integration', () => {
         })
       );
 
-      const result = await initiator.init();
+      await initiator.init();
+
+      // Test configureModelsInteractively() directly
+      const result = await initiator.configureModelsInteractively();
 
       // Change validation to use claude instead of gemini
       result.configurator.updateStage('sponsor-call', 'validation', 'claude-sonnet-4-5-20250929');
@@ -532,7 +545,10 @@ describe('ProjectInitiator with Provider Integration', () => {
         })
       );
 
-      const result = await initiator.init();
+      await initiator.init();
+
+      // Test configureModelsInteractively() directly
+      const result = await initiator.configureModelsInteractively();
       const issues = result.configurator.validateConfig();
 
       // Should detect missing gemini key
@@ -589,7 +605,10 @@ describe('ProjectInitiator with Provider Integration', () => {
         })
       );
 
-      const result = await initiator.init();
+      await initiator.init();
+
+      // Test configureModelsInteractively() directly
+      const result = await initiator.configureModelsInteractively();
       const ceremonies = result.configurator.getCeremonies();
 
       expect(ceremonies.length).toBe(2);
