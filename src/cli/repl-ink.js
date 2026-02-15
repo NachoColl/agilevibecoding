@@ -7,6 +7,7 @@ import { readFileSync, existsSync, unlinkSync } from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { ProjectInitiator } from './init.js';
+import { TemplateProcessor } from './template-processor.js';
 import { DocumentationBuilder } from './build-docs.js';
 import { KanbanServerManager } from './kanban-server-manager.js';
 import { UpdateChecker } from './update-checker.js';
