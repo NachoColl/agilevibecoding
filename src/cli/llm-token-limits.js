@@ -1,35 +1,50 @@
 /**
- * Model-specific maximum output token limits
+ * Model-specific maximum output token limits (ACTUAL API MAXIMUMS)
  *
- * These limits represent the maximum output tokens each model can generate.
- * Using model-specific limits ensures we get complete documentation without truncation.
+ * These limits represent the ACTUAL maximum output tokens each model can generate
+ * according to official API documentation (verified February 2026).
+ *
+ * Critical Updates (Feb 2026):
+ * - Claude 4.x models: 64K-128K tokens (8x-16x previous limits)
+ * - Gemini 2.5 Flash: 65,535 tokens (8x previous limit)
+ * - GPT-4o/mini: 16,384 tokens (unchanged)
+ *
+ * Using actual model limits ensures complete documentation generation without truncation.
+ *
+ * Sources:
+ * - Claude: https://docs.cloud.google.com/vertex-ai/generative-ai/docs/partner-models/claude/
+ * - Gemini: https://docs.cloud.google.com/vertex-ai/generative-ai/docs/models/gemini/
+ * - OpenAI: https://community.openai.com/t/what-is-the-token-limit-of-the-new-version-gpt-4o/752528
  */
 
 export const MODEL_MAX_TOKENS = {
   // Claude models (Anthropic)
-  'claude-sonnet-4-5-20250929': 8192,
-  'claude-sonnet-4-5': 8192,
-  'claude-sonnet-4': 8192,
-  'claude-opus-4-6': 16384,
-  'claude-opus-4': 16384,
-  'claude-haiku-4-5-20251001': 8192,
-  'claude-haiku-4-5': 8192,
-  'claude-haiku-4': 8192,
+  // Source: https://docs.cloud.google.com/vertex-ai/generative-ai/docs/partner-models/claude/
+  'claude-sonnet-4-5-20250929': 64000,  // Was 8192 - ACTUAL: 64,000 tokens
+  'claude-sonnet-4-5': 64000,
+  'claude-sonnet-4': 64000,
+  'claude-opus-4-6': 128000,            // Was 16384 - ACTUAL: 128,000 tokens
+  'claude-opus-4': 128000,
+  'claude-haiku-4-5-20251001': 64000,   // Was 8192 - ACTUAL: 64,000 tokens
+  'claude-haiku-4-5': 64000,
+  'claude-haiku-4': 64000,
 
   // OpenAI models
+  // Source: https://community.openai.com/t/what-is-the-token-limit-of-the-new-version-gpt-4o/752528
   'gpt-5.2-chat-latest': 16384,    // Test/future model
   'gpt-5.2-pro': 16384,
   'gpt-5.2-codex': 16384,
-  'gpt-4o': 16384,
+  'gpt-4o': 16384,                 // Correct - max 16,384 tokens
   'gpt-4o-2024-11-20': 16384,
-  'gpt-4o-mini': 16384,
+  'gpt-4o-mini': 16384,            // Correct - max 16,384 tokens
   'gpt-4-turbo': 4096,
   'gpt-4': 8192,
   'gpt-3.5-turbo': 4096,
 
   // Google Gemini models
-  'gemini-2.5-flash': 8192,
-  'gemini-2.0-flash': 8192,
+  // Source: https://docs.cloud.google.com/vertex-ai/generative-ai/docs/models/gemini/
+  'gemini-2.5-flash': 65535,       // Was 8192 - ACTUAL: 65,535 tokens
+  'gemini-2.0-flash': 8192,        // Correct - max 8,192 tokens
   'gemini-2.0-flash-exp': 8192,
   'gemini-1.5-pro': 8192,
   'gemini-1.5-flash': 8192,
