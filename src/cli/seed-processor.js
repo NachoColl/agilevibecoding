@@ -4,6 +4,7 @@ import { LLMProvider } from './llm-provider.js';
 import { TokenTracker } from './token-tracker.js';
 import { fileURLToPath } from 'url';
 import { getCeremonyHeader } from './message-constants.js';
+import { sendError, sendWarning, sendSuccess, sendInfo, sendOutput, sendIndented, sendSectionHeader } from './messaging-api.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -61,7 +62,7 @@ class SeedProcessor {
       const ceremony = config.settings?.ceremonies?.find(c => c.name === this.ceremonyName);
 
       if (!ceremony) {
-        console.warn(`⚠️  Ceremony '${this.ceremonyName}' not found in config, using defaults`);
+        sendWarning(`Ceremony '${this.ceremonyName}' not found in config, using defaults`);
         return { provider: 'claude', model: 'claude-sonnet-4-5-20250929' };
       }
 
@@ -70,7 +71,7 @@ class SeedProcessor {
         model: ceremony.defaultModel || 'claude-sonnet-4-5-20250929'
       };
     } catch (error) {
-      console.warn(`⚠️  Could not read ceremony config: ${error.message}`);
+      sendWarning(`Could not read ceremony config: ${error.message}`);
       return { provider: 'claude', model: 'claude-sonnet-4-5-20250929' };
     }
   }
@@ -80,8 +81,8 @@ class SeedProcessor {
       this.llmProvider = await LLMProvider.create(this._providerName, this._modelName);
       return this.llmProvider;
     } catch (error) {
-      console.log(`⚠️  Could not initialize ${this._providerName} provider`);
-      console.log(`${error.message}`);
+      sendWarning(`Could not initialize ${this._providerName} provider`);
+      sendOutput(`${error.message}`);
       return null;
     }
   }
@@ -101,8 +102,8 @@ class SeedProcessor {
         }
 
         const delay = Math.pow(2, attempt) * 1000;
-        console.log(`⚠️  Retry ${attempt}/${maxRetries} in ${delay/1000}s: ${operation}`);
-        console.log(`Error: ${error.message}`);
+        sendWarning(`Retry ${attempt}/${maxRetries} in ${delay/1000}s: ${operation}`);
+        sendOutput(`Error: ${error.message}`);
         await new Promise(resolve => setTimeout(resolve, delay));
       }
     }
@@ -195,7 +196,7 @@ class SeedProcessor {
 
   // STAGE 3: Decompose Story → Tasks + Subtasks
   async decomposeIntoTasksSubtasks(contextData) {
-    console.log('\n🔄 Stage 1/3: Decomposing Story into Tasks and Subtasks...\n');
+    sendSectionHeader('Stage 1/3: Decomposing Story into Tasks and Subtasks');
 
     if (!this.llmProvider) {
       await this.initializeLLMProvider();
@@ -250,7 +251,7 @@ Return your response as JSON following the exact structure specified in your ins
     // Calculate total subtasks
     const totalSubtasks = hierarchy.tasks.reduce((sum, task) => sum + (task.subtasks?.length || 0), 0);
 
-    console.log(`✅ Generated ${hierarchy.tasks.length} Tasks with ${totalSubtasks} Subtasks\n`);
+    sendSuccess(`Generated ${hierarchy.tasks.length} Tasks with ${totalSubtasks} Subtasks`);
 
     return hierarchy;
   }
@@ -260,13 +261,13 @@ Return your response as JSON following the exact structure specified in your ins
     const { tasks } = hierarchy;
 
     if (tasks.length < 2 || tasks.length > 5) {
-      console.warn(`⚠️  Warning: Expected 2-5 Tasks, got ${tasks.length}`);
+      sendWarning(`Expected 2-5 Tasks, got ${tasks.length}`);
     }
 
     for (const task of tasks) {
       const subtaskCount = task.subtasks?.length || 0;
       if (subtaskCount < 1 || subtaskCount > 3) {
-        console.warn(`⚠️  Warning: Task ${task.name} has ${subtaskCount} Subtasks (expected 1-3)`);
+        sendWarning(`Task ${task.name} has ${subtaskCount} Subtasks (expected 1-3)`);
       }
 
       // Validate Task ID format (context-XXXX-XXXX-XXXX)
@@ -293,7 +294,7 @@ Return your response as JSON following the exact structure specified in your ins
     }
 
     if (!result.withinBudget) {
-      console.warn(`⚠️  Warning: ${id} context exceeds token budget (${result.tokenCount} tokens)`);
+      sendWarning(`${id} context exceeds token budget (${result.tokenCount} tokens)`);
     }
 
     return result;
@@ -335,7 +336,7 @@ Return your response as JSON following the exact structure specified in your ins
 
   // STAGE 7: Write Task/Subtask files
   async writeTaskSubtaskFiles(hierarchy, contextData) {
-    console.log('\n💾 Stage 3/3: Writing Task and Subtask files...\n');
+    sendSectionHeader('Stage 3/3: Writing Task and Subtask files');
 
     // Read agent
     const featureContextGeneratorAgent = fs.readFileSync(
@@ -362,7 +363,7 @@ Return your response as JSON following the exact structure specified in your ins
         `# ${task.name}\n\n*Documentation will be added during implementation and retrospective ceremonies.*\n`,
         'utf8'
       );
-      console.log(`   ✅ ${task.id}/doc.md`);
+      sendIndented(`${task.id}/doc.md`, 1);
 
       // Generate and write Task context.md
       const taskContext = await this.retryWithBackoff(
@@ -374,7 +375,7 @@ Return your response as JSON following the exact structure specified in your ins
         taskContext.contextMarkdown,
         'utf8'
       );
-      console.log(`   ✅ ${task.id}/context.md`);
+      sendIndented(`${task.id}/context.md`, 1);
 
       // Write Task work.json
       const taskWorkJson = {
@@ -399,7 +400,7 @@ Return your response as JSON following the exact structure specified in your ins
         JSON.stringify(taskWorkJson, null, 2),
         'utf8'
       );
-      console.log(`   ✅ ${task.id}/work.json`);
+      sendIndented(`${task.id}/work.json`, 1);
 
       taskCount++;
       taskIds.push(task.id);
@@ -418,7 +419,7 @@ Return your response as JSON following the exact structure specified in your ins
           `# ${subtask.name}\n\n*Documentation will be added during implementation and retrospective ceremonies.*\n`,
           'utf8'
         );
-        console.log(`      ✅ ${subtask.id}/doc.md`);
+        sendIndented(`${subtask.id}/doc.md`, 2);
 
         // Generate and write Subtask context.md
         const subtaskContext = await this.retryWithBackoff(
@@ -430,7 +431,7 @@ Return your response as JSON following the exact structure specified in your ins
           subtaskContext.contextMarkdown,
           'utf8'
         );
-        console.log(`      ✅ ${subtask.id}/context.md`);
+        sendIndented(`${subtask.id}/context.md`, 2);
 
         // Write Subtask work.json
         const subtaskWorkJson = {
@@ -454,12 +455,12 @@ Return your response as JSON following the exact structure specified in your ins
           JSON.stringify(subtaskWorkJson, null, 2),
           'utf8'
         );
-        console.log(`      ✅ ${subtask.id}/work.json`);
+        sendIndented(`${subtask.id}/work.json`, 2);
 
         subtaskCount++;
       }
 
-      console.log(''); // Empty line between tasks
+      sendOutput(''); // Empty line between tasks
     }
 
     return { taskCount, subtaskCount, taskIds };
@@ -480,22 +481,22 @@ Return your response as JSON following the exact structure specified in your ins
       'utf8'
     );
 
-    console.log(`✅ Updated ${this.storyId}/work.json\n`);
+    sendSuccess(`Updated ${this.storyId}/work.json`);
   }
 
   // Display summary
   displaySummary(hierarchy, contextData, taskCount, subtaskCount) {
-    console.log(`\n✅ Story decomposed into Tasks and Subtasks!\n`);
-    console.log(`Story: ${contextData.storyWork.name} (${this.storyId})`);
-    console.log(`  Created:`);
-    console.log(`    • ${taskCount} Tasks`);
-    console.log(`    • ${subtaskCount} Subtasks\n`);
+    sendSuccess(`Story decomposed into Tasks and Subtasks!`);
+    sendOutput(`Story: ${contextData.storyWork.name} (${this.storyId})`);
+    sendIndented('Created:', 1);
+    sendIndented(`- ${taskCount} Tasks`, 2);
+    sendIndented(`- ${subtaskCount} Subtasks`, 2);
 
-    console.log(`Structure:`);
+    sendSectionHeader('Structure');
     for (const task of hierarchy.tasks) {
-      console.log(`  Task: ${task.name} (${task.id})`);
+      sendIndented(`Task: ${task.name} (${task.id})`, 1);
       for (const subtask of task.subtasks || []) {
-        console.log(`    • Subtask: ${subtask.name}`);
+        sendIndented(`- Subtask: ${subtask.name}`, 2);
       }
     }
   }
@@ -511,7 +512,7 @@ Return your response as JSON following the exact structure specified in your ins
       this.validatePrerequisites();
 
       // Stage 2: Read Story context
-      console.log('📋 Reading Story context...\n');
+      sendInfo('Reading Story context...');
       const contextData = this.readStoryContext();
 
       // Stage 3: Decompose
@@ -521,7 +522,7 @@ Return your response as JSON following the exact structure specified in your ins
       this.validateTaskSubtaskStructure(hierarchy);
 
       // Stage 5-7: Generate contexts and write files
-      console.log('\n📝 Stage 2/3: Generating context files...\n');
+      sendSectionHeader('Stage 2/3: Generating context files');
       const { taskCount, subtaskCount, taskIds } = await this.writeTaskSubtaskFiles(hierarchy, contextData);
 
       // Stage 8: Update Story work.json
@@ -533,25 +534,25 @@ Return your response as JSON following the exact structure specified in your ins
       // Display token usage
       if (this.llmProvider) {
         const usage = this.llmProvider.getTokenUsage();
-        console.log('\n📊 Token Usage:');
-        console.log(`   Input: ${usage.inputTokens.toLocaleString()} tokens`);
-        console.log(`   Output: ${usage.outputTokens.toLocaleString()} tokens`);
-        console.log(`   Total: ${usage.totalTokens.toLocaleString()} tokens`);
-        console.log(`   API Calls: ${usage.totalCalls}`);
+        sendSectionHeader('Token Usage');
+        sendIndented(`Input: ${usage.inputTokens.toLocaleString()} tokens`, 1);
+        sendIndented(`Output: ${usage.outputTokens.toLocaleString()} tokens`, 1);
+        sendIndented(`Total: ${usage.totalTokens.toLocaleString()} tokens`, 1);
+        sendIndented(`API Calls: ${usage.totalCalls}`, 1);
 
         this.tokenTracker.addExecution(this.ceremonyName, {
           input: usage.inputTokens,
           output: usage.outputTokens
         });
-        console.log('✅ Token history updated\n');
+        sendSuccess('Token history updated');
       }
 
-      console.log('Next steps:');
-      console.log('   1. Review Task/Subtask breakdown in .avc/project/');
-      console.log('   2. Start implementing Subtasks (smallest work units)\n');
+      sendSectionHeader('Next steps');
+      sendIndented('1. Review Task/Subtask breakdown in .avc/project/', 1);
+      sendIndented('2. Start implementing Subtasks (smallest work units)', 1);
 
     } catch (error) {
-      console.error(`\n❌ Seed ceremony failed: ${error.message}\n`);
+      sendError(`Seed ceremony failed: ${error.message}`);
       throw error;
     }
   }

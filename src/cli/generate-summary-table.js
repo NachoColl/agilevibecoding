@@ -8,6 +8,7 @@
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { sendError, sendWarning, sendSuccess, sendInfo, sendOutput, sendIndented, sendSectionHeader } from './messaging-api.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -19,8 +20,8 @@ function loadResults() {
   const jsonPath = path.join(process.cwd(), '_temp', 'model-recommendations.json');
 
   if (!fs.existsSync(jsonPath)) {
-    console.error('❌ ERROR: model-recommendations.json not found in _temp/');
-    console.error('   Please run "npm run models:evaluate" first.\n');
+    sendError('model-recommendations.json not found in _temp/');
+    sendIndented('Please run "npm run models:evaluate" first.', 1);
     process.exit(1);
   }
 
@@ -71,16 +72,16 @@ function generateMarkdownTable(results) {
       const currentDefault = analysis?.currentDefault || 'Unknown';
 
       // Get provider recommendations
-      const claudeRec = recommendations.claude?.model || '❌ Error';
-      const openaiRec = recommendations.openai?.model || '❌ Error';
-      const geminiRec = recommendations.gemini?.model || '❌ Error';
+      const claudeRec = recommendations.claude?.model || 'Error';
+      const openaiRec = recommendations.openai?.model || 'Error';
+      const geminiRec = recommendations.gemini?.model || 'Error';
 
       // Get consensus
       const consensus = analysis?.consensus?.level || 'unknown';
-      const consensusEmoji = consensus === 'full' ? '✅' :
-                            consensus === 'partial' ? '⚠️' :
-                            consensus === 'none' ? '❌' : '❓';
-      const consensusText = `${consensusEmoji} ${consensus}`;
+      const consensusPrefix = consensus === 'full' ? '[OK]' :
+                            consensus === 'partial' ? '[WARN]' :
+                            consensus === 'none' ? '[ERR]' : '[?]';
+      const consensusText = `${consensusPrefix} ${consensus}`;
 
       markdown += `| ${stageName} | ${currentDefault} | ${claudeRec} | ${openaiRec} | ${geminiRec} | ${consensusText} |\n`;
     }
@@ -127,7 +128,7 @@ function generateDetailedTable(results) {
 
       for (const [provider, rec] of Object.entries(recommendations)) {
         if (rec.status === 'error') {
-          markdown += `| ${provider} | ❌ Error | N/A | ${rec.error} |\n`;
+          markdown += `| ${provider} | Error | N/A | ${rec.error} |\n`;
         } else {
           const reasoning = truncate(rec.reasoning, 100);
           markdown += `| ${provider} | ${rec.model} | ${rec.confidence} | ${reasoning} |\n`;
@@ -204,16 +205,16 @@ function generateComparisonMatrix(results) {
   for (const evaluation of evaluations) {
     const { ceremony, stage, stageName, recommendations, analysis } = evaluation;
 
-    const claudeModel = recommendations.claude?.model || '❌';
-    const openaiModel = recommendations.openai?.model || '❌';
-    const geminiModel = recommendations.gemini?.model || '❌';
+    const claudeModel = recommendations.claude?.model || '[ERR]';
+    const openaiModel = recommendations.openai?.model || '[ERR]';
+    const geminiModel = recommendations.gemini?.model || '[ERR]';
 
     // Consensus indicator
     const consensus = analysis?.consensus?.level || 'unknown';
-    const agreementText = consensus === 'full' ? '✅ All agree' :
-                         consensus === 'partial' ? `⚠️ ${analysis?.consensus?.agreement}` :
-                         consensus === 'none' ? '❌ No consensus' :
-                         '❓ Unknown';
+    const agreementText = consensus === 'full' ? '[OK] All agree' :
+                         consensus === 'partial' ? `[WARN] ${analysis?.consensus?.agreement}` :
+                         consensus === 'none' ? '[ERR] No consensus' :
+                         '[?] Unknown';
 
     const stageLabel = `${ceremony}/${stage}`;
 
@@ -224,10 +225,10 @@ function generateComparisonMatrix(results) {
 
   // Add legend
   markdown += '## Legend\n\n';
-  markdown += '- ✅ **Full consensus** - All providers recommend same model tier\n';
-  markdown += '- ⚠️ **Partial consensus** - Majority agreement (2/3 providers)\n';
-  markdown += '- ❌ **No consensus** - All providers recommend different models\n';
-  markdown += '- ❌ **Error** - Provider query failed\n\n';
+  markdown += '- [OK] **Full consensus** - All providers recommend same model tier\n';
+  markdown += '- [WARN] **Partial consensus** - Majority agreement (2/3 providers)\n';
+  markdown += '- [ERR] **No consensus** - All providers recommend different models\n';
+  markdown += '- [ERR] **Error** - Provider query failed\n\n';
 
   return markdown;
 }
@@ -284,51 +285,51 @@ function generateStatistics(results) {
  * Main function
  */
 function main() {
-  console.log('\n╔══════════════════════════════════════════════════════════════╗');
-  console.log('║           Generate Summary Tables from Evaluation           ║');
-  console.log('╚══════════════════════════════════════════════════════════════╝\n');
+  sendOutput('\n╔══════════════════════════════════════════════════════════════╗');
+  sendOutput('║           Generate Summary Tables from Evaluation           ║');
+  sendOutput('╚══════════════════════════════════════════════════════════════╝');
 
   // Load results
-  console.log('📂 Loading evaluation results...');
+  sendInfo('Loading evaluation results...');
   const results = loadResults();
-  console.log('   ✓ Results loaded\n');
+  sendIndented('Results loaded', 1);
 
   // Generate outputs
   const tempDir = path.join(process.cwd(), '_temp');
 
-  console.log('📊 Generating summary tables...\n');
+  sendSectionHeader('Generating summary tables');
 
   // 1. Simple summary table
   const summaryTable = generateMarkdownTable(results);
   const summaryPath = path.join(tempDir, 'EVALUATION_SUMMARY_TABLE.md');
   fs.writeFileSync(summaryPath, summaryTable, 'utf-8');
-  console.log(`   ✓ Summary table: ${summaryPath}`);
+  sendIndented(`Summary table: ${summaryPath}`, 1);
 
   // 2. Detailed table with reasoning
   const detailedTable = generateDetailedTable(results);
   const detailedPath = path.join(tempDir, 'EVALUATION_DETAILED_TABLE.md');
   fs.writeFileSync(detailedPath, detailedTable, 'utf-8');
-  console.log(`   ✓ Detailed table: ${detailedPath}`);
+  sendIndented(`Detailed table: ${detailedPath}`, 1);
 
   // 3. Comparison matrix
   const comparisonMatrix = generateComparisonMatrix(results);
   const matrixPath = path.join(tempDir, 'EVALUATION_COMPARISON_MATRIX.md');
   fs.writeFileSync(matrixPath, comparisonMatrix, 'utf-8');
-  console.log(`   ✓ Comparison matrix: ${matrixPath}`);
+  sendIndented(`Comparison matrix: ${matrixPath}`, 1);
 
   // 4. Statistics
   const statistics = generateStatistics(results);
   const statsPath = path.join(tempDir, 'EVALUATION_STATISTICS.md');
   fs.writeFileSync(statsPath, statistics, 'utf-8');
-  console.log(`   ✓ Statistics: ${statsPath}`);
+  sendIndented(`Statistics: ${statsPath}`, 1);
 
   // 5. CSV export
   const csv = generateCSV(results);
   const csvPath = path.join(tempDir, 'evaluation-results.csv');
   fs.writeFileSync(csvPath, csv, 'utf-8');
-  console.log(`   ✓ CSV export: ${csvPath}`);
+  sendIndented(`CSV export: ${csvPath}`, 1);
 
-  console.log('\n✅ All tables generated successfully!\n');
+  sendSuccess('All tables generated successfully!');
 }
 
 // Run if executed directly

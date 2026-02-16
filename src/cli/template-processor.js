@@ -7,6 +7,7 @@ import { LLMVerifier } from './llm-verifier.js';
 import { TokenTracker } from './token-tracker.js';
 import { VerificationTracker } from './verification-tracker.js';
 import { fileURLToPath } from 'url';
+import { sendError, sendWarning, sendSuccess, sendInfo, sendOutput, sendIndented, sendSectionHeader } from './messaging-api.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -166,7 +167,7 @@ class TemplateProcessor {
       const ceremony = config.settings?.ceremonies?.find(c => c.name === ceremonyName);
 
       if (!ceremony) {
-        console.warn(`⚠️  Ceremony '${ceremonyName}' not found in config, using defaults`);
+        sendWarning(`Ceremony '${ceremonyName}' not found in config, using defaults`);
         return {
           provider: 'claude',
           model: 'claude-sonnet-4-5-20250929',
@@ -182,7 +183,7 @@ class TemplateProcessor {
         stagesConfig: ceremony.stages || null
       };
     } catch (error) {
-      console.warn(`⚠️  Could not read ceremony config: ${error.message}`);
+      sendWarning(`Could not read ceremony config: ${error.message}`);
       return {
         provider: 'claude',
         model: 'claude-sonnet-4-5-20250929',
@@ -307,12 +308,12 @@ Please carefully follow the output format requirements to avoid these issues.
     try {
       const agentPath = path.join(__dirname, 'agents', agentFileName);
       if (!fs.existsSync(agentPath)) {
-        console.warn(`⚠️  Agent instruction file not found: ${agentFileName}`);
+        sendWarning(`Agent instruction file not found: ${agentFileName}`);
         return null;
       }
       return fs.readFileSync(agentPath, 'utf8');
     } catch (error) {
-      console.warn(`⚠️  Could not load agent instructions: ${error.message}`);
+      sendWarning(`Could not load agent instructions: ${error.message}`);
       return null;
     }
   }
@@ -338,7 +339,7 @@ Please carefully follow the output format requirements to avoid these issues.
 
       return this.loadAgentInstructions(agent.instruction);
     } catch (error) {
-      console.warn(`⚠️  Could not get agent for stage ${stage}: ${error.message}`);
+      sendWarning(`Could not get agent for stage ${stage}: ${error.message}`);
       return null;
     }
   }
@@ -427,7 +428,7 @@ Please carefully follow the output format requirements to avoid these issues.
   async promptSingular(name, guidance) {
     const rl = this.createInterface();
 
-    console.log(`\n📝 ${name}`);
+    sendSectionHeader(name);
     if (guidance) {
       console.log(`${guidance}`);
     }
@@ -476,7 +477,7 @@ Please carefully follow the output format requirements to avoid these issues.
   async promptPlural(name, guidance) {
     const rl = this.createInterface();
 
-    console.log(`\n📝 ${name}`);
+    sendSectionHeader(name);
     if (guidance) {
       console.log(`${guidance}`);
     }
@@ -534,7 +535,7 @@ Please carefully follow the output format requirements to avoid these issues.
 
       return this.llmProvider;
     } catch (error) {
-      console.log(`⚠️  Could not initialize LLM provider`);
+      sendWarning(`Could not initialize LLM provider`);
       console.log(`${error.message}`);
       throw error;
     }
@@ -617,7 +618,7 @@ Please carefully follow the output format requirements to avoid these issues.
         }
 
         const delay = Math.pow(2, attempt) * 1000; // 2s, 4s, 8s
-        console.log(`⚠️  Retry ${attempt}/${maxRetries} in ${delay/1000}s: ${operation}`);
+        sendWarning(`Retry ${attempt}/${maxRetries} in ${delay/1000}s: ${operation}`);
         console.log(`Error: ${error.message}`);
         await new Promise(resolve => setTimeout(resolve, delay));
       }
@@ -644,7 +645,7 @@ Please carefully follow the output format requirements to avoid these issues.
 
     const agentPath = path.join(this.agentsPath, agentFile);
     if (!fs.existsSync(agentPath)) {
-      console.warn(`⚠️  Agent file not found: ${agentFile}`);
+      sendWarning(`Agent file not found: ${agentFile}`);
       return null;
     }
 
@@ -718,7 +719,7 @@ Please carefully follow the output format requirements to avoid these issues.
         return this.parseLLMResponse(text, isPlural);
       }
     } catch (error) {
-      console.warn(`⚠️  Could not generate suggestions: ${error.message}`);
+      sendWarning(`Could not generate suggestions: ${error.message}`);
       return null;
     }
   }
@@ -732,7 +733,7 @@ Please carefully follow the output format requirements to avoid these issues.
 
     // In non-interactive mode, skip readline prompts and use defaults/AI
     if (this.nonInteractive) {
-      console.log(`\n📝 ${variable.displayName}`);
+      sendSectionHeader(variable.displayName);
       if (variable.guidance) {
         console.log(`   ${variable.guidance}`);
       }
@@ -754,12 +755,12 @@ Please carefully follow the output format requirements to avoid these issues.
       const defaultValue = defaults[variable.name];
 
       if (defaultValue) {
-        console.log('📋 Using default from settings...');
+        sendInfo('Using default from settings...');
         value = variable.isPlural
           ? (Array.isArray(defaultValue) ? defaultValue : [defaultValue])
           : defaultValue;
 
-        console.log('✅ Default applied:');
+        sendSuccess('Default applied:');
         if (Array.isArray(value)) {
           value.forEach((item, idx) => console.log(`${idx + 1}. ${item}`));
         } else {
@@ -769,11 +770,11 @@ Please carefully follow the output format requirements to avoid these issues.
       }
 
       // No default available, try AI suggestions
-      console.log('✨ Generating AI suggestion...');
+      sendInfo('Generating AI suggestion...');
       value = await this.generateSuggestions(variable.name, variable.isPlural, context);
 
       if (value) {
-        console.log('✅ AI suggestion:');
+        sendSuccess('AI suggestion:');
         if (Array.isArray(value)) {
           value.forEach((item, idx) => console.log(`${idx + 1}. ${item}`));
         } else {
@@ -920,16 +921,16 @@ Return the enhanced markdown document.`;
 
       // Check if documentation folder exists
       if (!fs.existsSync(docsDir)) {
-        console.log('ℹ️  VitePress documentation folder not found, skipping sync');
+        sendInfo('VitePress documentation folder not found, skipping sync');
         return false;
       }
 
       // Write to .avc/documentation/index.md
       fs.writeFileSync(indexPath, content, 'utf8');
-      console.log(`   ✓ Synced to .avc/documentation/index.md`);
+      sendIndented(`Synced to .avc/documentation/index.md`);
       return true;
     } catch (error) {
-      console.warn(`   ⚠️  Could not sync to VitePress: ${error.message}`);
+      sendWarning(`Could not sync to VitePress: ${error.message}`);
       return false;
     }
   }
@@ -963,10 +964,10 @@ Return the enhanced markdown document.`;
         stdio: 'inherit'
       });
 
-      console.log('✓ VitePress build completed');
+      sendSuccess('VitePress build completed');
       return true;
     } catch (error) {
-      console.warn(`⚠️  VitePress build failed: ${error.message}`);
+      sendWarning(`VitePress build failed: ${error.message}`);
       return false;
     }
   }
@@ -1003,7 +1004,7 @@ Return the enhanced markdown document.`;
    */
   async processTemplate(initialProgress = null) {
     debug('Starting processTemplate', { hasInitialProgress: !!initialProgress, ceremony: this.ceremonyName });
-    console.log('\n📋 Project Setup Questionnaire\n');
+    sendSectionHeader('Project Setup Questionnaire\n');
 
     // 1. Read template
     debug('Reading template file', { templatePath: this.templatePath });
@@ -1026,19 +1027,19 @@ Return the enhanced markdown document.`;
 
       // Check if ALL answers are pre-filled (from REPL questionnaire)
       if (answeredCount === variables.length) {
-        console.log(`✅ Using ${answeredCount} pre-filled answers from questionnaire.\n`);
+        sendSuccess(`Using ${answeredCount} pre-filled answers from questionnaire.\n`);
 
         // Use pre-filled answers, but check defaults or AI for skipped (null) answers
         for (const variable of variables) {
           if (collectedValues[variable.name] === null) {
-            console.log(`\n📝 ${variable.displayName}`);
+            sendSectionHeader(variable.displayName);
 
             // First, check if there's a default for this question
             const defaults = this.readDefaults();
             const defaultValue = defaults[variable.name];
 
             if (defaultValue) {
-              console.log('✓ Using default from settings');
+              sendSuccess('Using default from settings');
               collectedValues[variable.name] = variable.isPlural
                 ? (Array.isArray(defaultValue) ? defaultValue : [defaultValue])
                 : defaultValue;
@@ -1253,7 +1254,7 @@ Return the enhanced markdown document.`;
         const { jsonPath, summaryPath } = this.verificationTracker.saveToFile();
 
         if (jsonPath && summaryPath) {
-          console.log(`\n📊 Verification tracking saved:`);
+          sendSectionHeader(`Verification tracking saved:`);
           console.log(`   JSON: ${jsonPath}`);
           console.log(`   Summary: ${summaryPath}`);
         }
@@ -1329,7 +1330,7 @@ Return the enhanced markdown document.`;
 
       return verificationResult.content;
     } catch (error) {
-      console.warn(`⚠️  Could not generate context: ${error.message}`);
+      sendWarning(`Could not generate context: ${error.message}`);
       return null;
     }
   }
@@ -1348,7 +1349,7 @@ Return the enhanced markdown document.`;
    * @param {Object} collectedValues - Values from questionnaire
    */
   async generateHierarchy(collectedValues) {
-    console.log('\n📊 Generating project hierarchy...\n');
+    sendSectionHeader('Generating project hierarchy...\n');
 
     // Read agent instructions
     const epicStoryDecomposerAgent = fs.readFileSync(
@@ -1365,7 +1366,7 @@ Return the enhanced markdown document.`;
     );
 
     // 1. Decompose into Epics and Stories
-    console.log('🔄 Stage 5/7: Decomposing features into Epics and Stories...');
+    sendInfo('Stage 5/7: Decomposing features into Epics and Stories...');
     const decompositionPrompt = this.buildDecompositionPrompt(collectedValues);
     const hierarchy = await this.retryWithBackoff(
       () => this.llmProvider.generateJSON(decompositionPrompt, epicStoryDecomposerAgent),
@@ -1377,10 +1378,10 @@ Return the enhanced markdown document.`;
       throw new Error('Invalid hierarchy response: missing epics array');
     }
 
-    console.log(`✅ Generated ${hierarchy.epics.length} Epics with ${hierarchy.validation?.storyCount || 0} Stories\n`);
+    sendSuccess(`Generated ${hierarchy.epics.length} Epics with ${hierarchy.validation?.storyCount || 0} Stories\n`);
 
     // 2. Generate context.md files for each level
-    console.log('📝 Stage 6/7: Generating context.md files...\n');
+    sendSectionHeader('Stage 6/7: Generating context.md files...\n');
 
     // Calculate total contexts to generate
     const totalStories = hierarchy.epics.reduce((sum, epic) => sum + (epic.stories?.length || 0), 0);
@@ -1417,17 +1418,17 @@ Return the enhanced markdown document.`;
       }
     }
 
-    console.log('\n✅ Context generation complete\n');
+    sendSuccess('Context generation complete\n');
 
     // 3. Write all files to disk
-    console.log('💾 Stage 7/7: Writing files to disk...\n');
+    sendSectionHeader('Stage 7/7: Writing files to disk...\n');
     await this.writeHierarchyToFiles(hierarchy, projectContext, collectedValues);
 
     // Display token usage statistics
     if (this.llmProvider) {
       const mainUsage = this.llmProvider.getTokenUsage();
 
-      console.log('\n📊 Token Usage:\n');
+      sendSectionHeader('Token Usage:\n');
 
       // Main provider usage
       console.log(`   Main Provider (${this._providerName}):`);
@@ -1473,7 +1474,7 @@ Return the enhanced markdown document.`;
         });
       }
 
-      console.log('\n✅ Token history updated');
+      sendSuccess('Token history updated');
     }
   }
 
@@ -1525,7 +1526,7 @@ Return your response as JSON following the exact structure specified in your ins
     }
 
     if (!result.withinBudget) {
-      console.warn(`⚠️  Warning: ${id} context exceeds token budget (${result.tokenCount} tokens)`);
+      sendWarning(`Warning: ${id} context exceeds token budget (${result.tokenCount} tokens)`);
     }
 
     return result;
@@ -1550,7 +1551,7 @@ Return your response as JSON following the exact structure specified in your ins
     }
 
     if (!result.withinBudget) {
-      console.warn(`⚠️  Warning: ${id} context exceeds token budget (${result.tokenCount} tokens)`);
+      sendWarning(`Warning: ${id} context exceeds token budget (${result.tokenCount} tokens)`);
     }
 
     return result;
@@ -1622,7 +1623,7 @@ Return your response as JSON following the exact structure specified in your ins
       projectContext.contextMarkdown,
       'utf8'
     );
-    console.log('✅ project/context.md\n');
+    sendSuccess('project/context.md\n');
 
     // 2. Write Epic and Story files
     for (const epic of hierarchy.epics) {
@@ -1637,7 +1638,7 @@ Return your response as JSON following the exact structure specified in your ins
         `# ${epic.name}\n\n*Documentation will be added during implementation and retrospective ceremonies.*\n`,
         'utf8'
       );
-      console.log(`   ✅ ${epic.id}/doc.md`);
+      sendIndented(`${epic.id}/doc.md`);
 
       // Generate and write Epic context.md
       const epicContext = await this.generateContext('epic', epic.id, { ...collectedValues, epic },
@@ -1648,7 +1649,7 @@ Return your response as JSON following the exact structure specified in your ins
         epicContext.contextMarkdown,
         'utf8'
       );
-      console.log(`   ✅ ${epic.id}/context.md`);
+      sendIndented(`${epic.id}/context.md`);
 
       // Write Epic work.json
       const epicWorkJson = {
@@ -1672,7 +1673,7 @@ Return your response as JSON following the exact structure specified in your ins
         JSON.stringify(epicWorkJson, null, 2),
         'utf8'
       );
-      console.log(`   ✅ ${epic.id}/work.json`);
+      sendIndented(`${epic.id}/work.json`);
 
       // Write Story files
       for (const story of epic.stories || []) {
@@ -1687,7 +1688,7 @@ Return your response as JSON following the exact structure specified in your ins
           `# ${story.name}\n\n*Documentation will be added during implementation and retrospective ceremonies.*\n`,
           'utf8'
         );
-        console.log(`      ✅ ${story.id}/doc.md`);
+        sendIndented(`${story.id}/doc.md`);
 
         // Generate and write Story context.md
         const storyContext = await this.generateContext('story', story.id, { ...collectedValues, epic, story },
@@ -1698,7 +1699,7 @@ Return your response as JSON following the exact structure specified in your ins
           storyContext.contextMarkdown,
           'utf8'
         );
-        console.log(`      ✅ ${story.id}/context.md`);
+        sendIndented(`${story.id}/context.md`);
 
         // Write Story work.json
         const storyWorkJson = {
@@ -1722,14 +1723,14 @@ Return your response as JSON following the exact structure specified in your ins
           JSON.stringify(storyWorkJson, null, 2),
           'utf8'
         );
-        console.log(`      ✅ ${story.id}/work.json`);
+        sendIndented(`${story.id}/work.json`);
       }
 
       console.log(''); // Empty line between epics
     }
 
-    console.log(`✅ Hierarchy written to ${projectPath}/\n`);
-    console.log(`📊 Summary:`);
+    sendSuccess(`Hierarchy written to ${projectPath}/\n`);
+    sendSectionHeader(`Summary:`);
     console.log(`   • 1 Project (doc.md + context.md)`);
     console.log(`   • ${hierarchy.epics.length} Epics (doc.md + context.md + work.json each)`);
     console.log(`   • ${hierarchy.validation?.storyCount || 0} Stories (doc.md + context.md + work.json each)`);
@@ -1782,7 +1783,7 @@ Return your response as JSON following the exact structure specified in your ins
     try {
       provider = await this.getValidationProviderForTypeInstance('documentation');
     } catch (error) {
-      console.log('⚠️  Skipping validation (validation provider not available)\n');
+      sendWarning('Skipping validation (validation provider not available)\n');
       return {
         validationStatus: 'acceptable',
         overallScore: 75,
@@ -1794,7 +1795,7 @@ Return your response as JSON following the exact structure specified in your ins
     }
 
     if (!provider || typeof provider.generateJSON !== 'function') {
-      console.log('⚠️  Skipping validation (validation provider not available)\n');
+      sendWarning('Skipping validation (validation provider not available)\n');
       return {
         validationStatus: 'acceptable',
         overallScore: 75,
@@ -1886,7 +1887,7 @@ Return your response as JSON following the exact structure specified in your ins
     try {
       provider = await this.getValidationProviderForTypeInstance('context');
     } catch (error) {
-      console.log('⚠️  Skipping validation (validation provider not available)\n');
+      sendWarning('Skipping validation (validation provider not available)\n');
       return {
         validationStatus: 'acceptable',
         overallScore: 75,
@@ -1899,7 +1900,7 @@ Return your response as JSON following the exact structure specified in your ins
     }
 
     if (!provider || typeof provider.generateJSON !== 'function') {
-      console.log('⚠️  Skipping validation (validation provider not available)\n');
+      sendWarning('Skipping validation (validation provider not available)\n');
       return {
         validationStatus: 'acceptable',
         overallScore: 75,
@@ -1995,12 +1996,12 @@ Return your response as JSON following the exact structure specified in your ins
     try {
       provider = await this.getValidationProviderForTypeInstance('documentation');
     } catch (error) {
-      console.log('⚠️  Skipping improvement (validation provider not available)\n');
+      sendWarning('Skipping improvement (validation provider not available)\n');
       return docContent;
     }
 
     if (!provider || typeof provider.generateText !== 'function') {
-      console.log('⚠️  Skipping improvement (validation provider not available)\n');
+      sendWarning('Skipping improvement (validation provider not available)\n');
       return docContent;
     }
 
@@ -2079,12 +2080,12 @@ Return your response as JSON following the exact structure specified in your ins
     try {
       provider = await this.getValidationProviderForTypeInstance('context');
     } catch (error) {
-      console.log('⚠️  Skipping improvement (validation provider not available)\n');
+      sendWarning('Skipping improvement (validation provider not available)\n');
       return contextContent;
     }
 
     if (!provider || typeof provider.generateText !== 'function') {
-      console.log('⚠️  Skipping improvement (validation provider not available)\n');
+      sendWarning('Skipping improvement (validation provider not available)\n');
       return contextContent;
     }
 
@@ -2173,7 +2174,7 @@ Return your response as JSON following the exact structure specified in your ins
       }
 
       // Display results
-      console.log(`📊 Score: ${validation.overallScore}/100`);
+      sendSectionHeader(`Score: ${validation.overallScore}/100`);
       console.log(`   Status: ${validation.validationStatus}`);
 
       // Count issues by severity
@@ -2201,7 +2202,7 @@ Return your response as JSON following the exact structure specified in your ins
           console.log(`   ${icon} ${section}: ${desc.substring(0, 80)}${desc.length > 80 ? '...' : ''}`);
         });
       } else {
-        console.log(`   ✅ No issues found`);
+        sendIndented(`No issues found`);
       }
 
       // Check if ready
@@ -2210,18 +2211,18 @@ Return your response as JSON following the exact structure specified in your ins
         : validation.readyForUse;
 
       if (isReady && validation.overallScore >= threshold) {
-        console.log(`\n   ✅ ${type === 'context' ? 'context scope' : type} passed validation!\n`);
+        sendIndented(`${type === 'context' ? 'context scope' : type} passed validation!\n`);
         break;
       }
 
       // Check if max iterations reached
       if (iteration + 1 >= maxIterations) {
-        console.log(`\n   ⚠️  Max iterations reached. Accepting current version.\n`);
+        sendWarning(`Max iterations reached. Accepting current version.\n`);
         break;
       }
 
       // Improve
-      console.log(`\n🔄 Improving ${type === 'context' ? 'context scope' : type} based on feedback...\n`);
+      sendInfo(`Improving ${type === 'context' ? 'context scope' : type} based on feedback...\n`);
       const improvementType = type === 'documentation' ? 'Project Brief' : 'project context';
       this.reportSubstep(`Improving ${improvementType} based on validation...`);
       currentContent = type === 'documentation'
@@ -2834,7 +2835,7 @@ Return your response as JSON following the exact structure specified in your ins
 
       const missingFields = requiredFields.filter(field => !result[field]);
       if (missingFields.length > 0) {
-        console.warn(`⚠️  Warning: Pre-filling missing fields: ${missingFields.join(', ')}`);
+        sendWarning(`Warning: Pre-filling missing fields: ${missingFields.join(', ')}`);
         // Fill missing fields with empty strings
         missingFields.forEach(field => {
           result[field] = '';

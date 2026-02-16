@@ -6,6 +6,7 @@ import { EpicStoryValidator } from './epic-story-validator.js';
 import { VerificationTracker } from './verification-tracker.js';
 import { fileURLToPath } from 'url';
 import { getCeremonyHeader } from './message-constants.js';
+import { sendError, sendWarning, sendSuccess, sendInfo, sendOutput, sendIndented, sendSectionHeader } from './messaging-api.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -104,7 +105,7 @@ class SprintPlanningProcessor {
       const ceremony = config.settings?.ceremonies?.find(c => c.name === this.ceremonyName);
 
       if (!ceremony) {
-        console.warn(`⚠️  Ceremony '${this.ceremonyName}' not found in config, using defaults`);
+        sendWarning(`Ceremony '${this.ceremonyName}' not found in config, using defaults`);
         return {
           provider: 'claude',
           model: 'claude-sonnet-4-5-20250929',
@@ -118,7 +119,7 @@ class SprintPlanningProcessor {
         stagesConfig: ceremony.stages || null
       };
     } catch (error) {
-      console.warn(`⚠️  Could not read ceremony config: ${error.message}`);
+      sendWarning(`Could not read ceremony config: ${error.message}`);
       return {
         provider: 'claude',
         model: 'claude-sonnet-4-5-20250929',
@@ -313,7 +314,7 @@ class SprintPlanningProcessor {
         }
       } catch (error) {
         this.debug(`Could not parse ${epicWorkJsonPath}: ${error.message}`);
-        console.warn(`⚠️  Could not parse ${epicWorkJsonPath}: ${error.message}`);
+        sendWarning(`Could not parse ${epicWorkJsonPath}: ${error.message}`);
       }
     }
 
@@ -350,12 +351,12 @@ class SprintPlanningProcessor {
     this.debug('⚠️  No standard scope section found');
     this.debug('Using entire doc.md content as scope source');
 
-    console.warn('\n⚠️  No standard scope section found in doc.md');
-    console.warn('   Using entire documentation for feature extraction.');
-    console.warn('   For better results and lower token usage, consider adding one of:');
-    console.warn('   - "## Initial Scope"');
-    console.warn('   - "## Scope"');
-    console.warn('   - "## Features"\n');
+    sendWarning('No standard scope section found in doc.md');
+    sendIndented('Using entire documentation for feature extraction.', 1);
+    sendIndented('For better results and lower token usage, consider adding one of:', 1);
+    sendIndented('- "## Initial Scope"', 1);
+    sendIndented('- "## Scope"', 1);
+    sendIndented('- "## Features"', 1);
 
     this.debug(`Using full doc content (${docContent.length} chars)`);
     return docContent;
@@ -422,7 +423,7 @@ class SprintPlanningProcessor {
   async decomposeIntoEpicsStories(scope, existingEpics, existingStories, projectContext) {
     this.debugStage(4, 'Decompose into Epics + Stories');
 
-    console.log('\n🔄 Stage 1/3: Decomposing scope into Epics and Stories...\n');
+    sendSectionHeader('Stage 1/3: Decomposing scope into Epics and Stories');
 
     // Get stage-specific provider for decomposition
     const provider = await this.getProviderForStageInstance('decomposition');
@@ -540,7 +541,7 @@ Return your response as JSON following the exact structure specified in your ins
       validation: hierarchy.validation
     });
 
-    console.log(`✅ Generated ${hierarchy.epics.length} new Epics with ${hierarchy.validation?.storyCount || 0} new Stories\n`);
+    sendSuccess(`Generated ${hierarchy.epics.length} new Epics with ${hierarchy.validation?.storyCount || 0} new Stories`);
 
     return hierarchy;
   }
@@ -548,7 +549,7 @@ Return your response as JSON following the exact structure specified in your ins
   // STAGE 5: Multi-Agent Validation
   async validateHierarchy(hierarchy, projectContext) {
     this.debugStage(5, 'Multi-Agent Validation');
-    console.log('🔍 Validating Epics and Stories with domain experts...\n');
+    sendInfo('Validating Epics and Stories with domain experts...');
 
     // Initialize default LLM provider if not already done (for fallback)
     if (!this.llmProvider) {
@@ -590,7 +591,7 @@ Return your response as JSON following the exact structure specified in your ins
 
         // For now, continue with warnings (user can review files later)
         // TODO: Implement auto-fix or ask user for confirmation
-        console.log(`   ⚠️  Epic will be created with validation warnings\n`);
+        sendWarning('Epic will be created with validation warnings');
       }
 
       // Validate each story under this epic
@@ -612,12 +613,12 @@ Return your response as JSON following the exact structure specified in your ins
           this.displayValidationIssues(storyValidation);
 
           // For now, continue with warnings (user can review files later)
-          console.log(`   ⚠️  Story will be created with validation warnings\n`);
+          sendWarning('Story will be created with validation warnings');
         }
       }
     }
 
-    console.log('✅ Validation complete\n');
+    sendSuccess('Validation complete');
     return hierarchy;
   }
 
@@ -898,7 +899,7 @@ ${projectContext}
 
     if (!result.withinBudget) {
       this.debug(`⚠️  Warning: ${id} context exceeds token budget (${result.tokenCount} tokens)`);
-      console.warn(`⚠️  Warning: ${id} context exceeds token budget (${result.tokenCount} tokens)`);
+      sendWarning(`${id} context exceeds token budget (${result.tokenCount} tokens)`);
     }
 
     return result;
@@ -938,7 +939,7 @@ ${projectContext}
   async writeHierarchyFiles(hierarchy, projectContext) {
     this.debugStage(7, 'Generate Contexts & Write Files');
 
-    console.log('\n💾 Stage 2/3: Generating context files...\n');
+    sendSectionHeader('Stage 2/3: Generating context files');
 
     // Read agent
     const agentPath = path.join(this.agentsPath, 'feature-context-generator.md');
@@ -946,7 +947,7 @@ ${projectContext}
     const featureContextGeneratorAgent = fs.readFileSync(agentPath, 'utf8');
     this.debug(`Agent loaded (${featureContextGeneratorAgent.length} bytes)`);
 
-    console.log('\n💾 Stage 3/3: Writing hierarchy files...\n');
+    sendSectionHeader('Stage 3/3: Writing hierarchy files');
 
     let epicCount = 0;
     let storyCount = 0;
@@ -1145,7 +1146,7 @@ ${projectContext}
       this.validatePrerequisites();
 
       // Stage 2: Read existing hierarchy
-      console.log('📋 Analyzing existing project structure...\n');
+      sendInfo('Analyzing existing project structure...');
       const { existingEpics, existingStories, maxEpicNum, maxStoryNums } = this.readExistingHierarchy();
 
       // Log pre-existing hierarchy counts
@@ -1192,14 +1193,14 @@ ${projectContext}
       this.debug('Total hierarchy counts', { epics: totalEpics, stories: totalStories });
       this.debug('Created this run', { epics: epicCount, stories: storyCount });
 
-      console.log(`\n✅ Project hierarchy expanded!\n`);
-      console.log(`Created:`);
-      console.log(`   • ${epicCount} new Epics`);
-      console.log(`   • ${storyCount} new Stories\n`);
-      console.log(`Total project structure:`);
-      console.log(`   • ${totalEpics} Epics`);
-      console.log(`   • ${totalStories} Stories`);
-      console.log(`   • 0 Tasks (run /seed to create tasks for stories)\n`);
+      sendSuccess('Project hierarchy expanded!');
+      sendSectionHeader('Created');
+      sendIndented(`- ${epicCount} new Epics`, 1);
+      sendIndented(`- ${storyCount} new Stories`, 1);
+      sendSectionHeader('Total project structure');
+      sendIndented(`- ${totalEpics} Epics`, 1);
+      sendIndented(`- ${totalStories} Stories`, 1);
+      sendIndented('- 0 Tasks (run /seed to create tasks for stories)', 1);
 
       // Display token usage
       if (this.llmProvider) {
@@ -1212,23 +1213,23 @@ ${projectContext}
           total: usage.totalTokens
         });
 
-        console.log('📊 Token Usage:');
-        console.log(`   Input: ${usage.inputTokens.toLocaleString()} tokens`);
-        console.log(`   Output: ${usage.outputTokens.toLocaleString()} tokens`);
-        console.log(`   Total: ${usage.totalTokens.toLocaleString()} tokens`);
-        console.log(`   API Calls: ${usage.totalCalls}`);
+        sendSectionHeader('Token Usage');
+        sendIndented(`Input: ${usage.inputTokens.toLocaleString()} tokens`, 1);
+        sendIndented(`Output: ${usage.outputTokens.toLocaleString()} tokens`, 1);
+        sendIndented(`Total: ${usage.totalTokens.toLocaleString()} tokens`, 1);
+        sendIndented(`API Calls: ${usage.totalCalls}`, 1);
 
         this.tokenTracker.addExecution(this.ceremonyName, {
           input: usage.inputTokens,
           output: usage.outputTokens
         });
         this.debug('Token tracking saved to .avc/token-history.json');
-        console.log('✅ Token history updated\n');
+        sendSuccess('Token history updated');
       }
 
-      console.log('Next steps:');
-      console.log('   1. Review Epic/Story structure in .avc/project/');
-      console.log('   2. Run /seed <story-id> to decompose a Story into Tasks/Subtasks\n');
+      sendSectionHeader('Next steps');
+      sendIndented('1. Review Epic/Story structure in .avc/project/', 1);
+      sendIndented('2. Run /seed <story-id> to decompose a Story into Tasks/Subtasks', 1);
 
       // Log ceremony execution end
       const runDuration = Date.now() - runId;
@@ -1296,7 +1297,7 @@ ${projectContext}
         platform: process.platform
       });
 
-      console.error(`\n❌ Project expansion failed: ${error.message}\n`);
+      sendError(`Project expansion failed: ${error.message}`);
 
       // Mark execution as aborted on error
       history.completeExecution('sprint-planning', executionId, 'abrupt-termination', {
