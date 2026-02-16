@@ -199,7 +199,6 @@ export function isContextActive() {
  * Called once during REPL initialization
  *
  * @param {Object} callbacks - Callback functions
- * @param {Function} callbacks.setOutput - setOutput React state setter
  * @param {Function} callbacks.setExecutingMessage - setExecutingMessage React state setter
  * @param {Function} callbacks.setExecutingSubstep - setExecutingSubstep React state setter
  *
@@ -207,16 +206,12 @@ export function isContextActive() {
  * // In repl-ink.js
  * useEffect(() => {
  *   registerCallbacks({
- *     setOutput,
  *     setExecutingMessage,
  *     setExecutingSubstep
  *   });
  * }, []);
  */
 export function registerCallbacks(callbacks) {
-  if (callbacks.setOutput) {
-    messageManager.setOutputCallback(callbacks.setOutput);
-  }
   if (callbacks.setExecutingMessage) {
     messageManager.setExecutingMessageCallback(callbacks.setExecutingMessage);
   }

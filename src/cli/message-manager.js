@@ -8,6 +8,7 @@
 
 import { MessageType } from './message-types.js';
 import { ExecutionContext } from './execution-context.js';
+import { outputBuffer } from './output-buffer.js';
 
 /**
  * MessageManager singleton class
@@ -21,19 +22,10 @@ class MessageManager {
     this.currentContext = null;
     this.contextHistory = [];
     this.maxHistorySize = 10;
-    this.outputCallback = null;
     this.executingMessageCallback = null;
     this.executingSubstepCallback = null;
 
     MessageManager.instance = this;
-  }
-
-  /**
-   * Set output callback (from React state setter)
-   * @param {Function} callback - setOutput function
-   */
-  setOutputCallback(callback) {
-    this.outputCallback = callback;
   }
 
   /**
@@ -73,9 +65,7 @@ class MessageManager {
     }
 
     // Clear output buffer at start of new command
-    if (this.outputCallback) {
-      this.outputCallback('');
-    }
+    outputBuffer.clear();
 
     return this.currentContext;
   }
@@ -203,9 +193,7 @@ class MessageManager {
    * @private
    */
   _handleCeremonyHeader(content) {
-    if (this.outputCallback) {
-      this.outputCallback(prev => prev + content + '\n\n');
-    }
+    outputBuffer.append(content + '\n\n');
   }
 
   /**
@@ -239,9 +227,7 @@ class MessageManager {
    * @private
    */
   _handleUserOutput(content) {
-    if (this.outputCallback) {
-      this.outputCallback(prev => prev + content);
-    }
+    outputBuffer.append(content);
   }
 
   /**
@@ -250,9 +236,7 @@ class MessageManager {
    */
   _handleError(content) {
     const formattedContent = `❌ ${content}`;
-    if (this.outputCallback) {
-      this.outputCallback(prev => prev + formattedContent + '\n');
-    }
+    outputBuffer.append(formattedContent + '\n');
   }
 
   /**
@@ -261,9 +245,7 @@ class MessageManager {
    */
   _handleWarning(content) {
     const formattedContent = `⚠️  ${content}`;
-    if (this.outputCallback) {
-      this.outputCallback(prev => prev + formattedContent + '\n');
-    }
+    outputBuffer.append(formattedContent + '\n');
   }
 
   /**
@@ -272,9 +254,7 @@ class MessageManager {
    */
   _handleSuccess(content) {
     const formattedContent = `✓ ${content}`;
-    if (this.outputCallback) {
-      this.outputCallback(prev => prev + formattedContent + '\n');
-    }
+    outputBuffer.append(formattedContent + '\n');
   }
 
   /**
@@ -283,9 +263,7 @@ class MessageManager {
    */
   _handleInfo(content) {
     const formattedContent = `ℹ️  ${content}`;
-    if (this.outputCallback) {
-      this.outputCallback(prev => prev + formattedContent + '\n');
-    }
+    outputBuffer.append(formattedContent + '\n');
   }
 
   /**
@@ -336,7 +314,6 @@ class MessageManager {
       currentContext: this.currentContext ? this.currentContext.toJSON() : null,
       historySize: this.contextHistory.length,
       hasCallbacks: {
-        output: !!this.outputCallback,
         executingMessage: !!this.executingMessageCallback,
         executingSubstep: !!this.executingSubstepCallback
       }

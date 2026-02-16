@@ -16,6 +16,8 @@ import { CommandLogger } from './command-logger.js';
 import ConsoleOutputManager from './console-output-manager.js';
 import { BackgroundProcessManager } from './process-manager.js';
 import { registerCallbacks, startCommand, endCommand, cancelCommand, sendCeremonyHeader, sendProgress, sendSubstep, sendOutput, sendError, sendWarning, sendSuccess, sendInfo, sendDebug, clearProgress } from './messaging-api.js';
+import { outputBuffer } from './output-buffer.js';
+import { StaticOutput } from './components/static-output.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -1531,7 +1533,7 @@ const App = () => {
   const { exit } = useApp();
   const [mode, setMode] = useState('prompt'); // 'prompt' | 'selector' | 'executing'
   const [input, setInput] = useState('');
-  const [output, setOutput] = useState('');
+  const [outputLines, setOutputLines] = useState([]);
   const [commandHistory, setCommandHistory] = useState([]);
   const [historyIndex, setHistoryIndex] = useState(-1);
   const [isExecuting, setIsExecuting] = useState(false);
@@ -1675,10 +1677,17 @@ const App = () => {
   // Register messaging callbacks for centralized message management
   useEffect(() => {
     registerCallbacks({
-      setOutput,
       setExecutingMessage,
       setExecutingSubstep
     });
+  }, []);
+
+  // Subscribe to OutputBuffer changes
+  useEffect(() => {
+    const unsubscribe = outputBuffer.subscribe((lines) => {
+      setOutputLines(lines);
+    });
+    return unsubscribe;
   }, []);
 
   // Start update checker on mount
@@ -1914,7 +1923,7 @@ const App = () => {
       setIsExecuting(true);
 
       // Add command to output history (don't clear previous output)
-      setOutput(prev => prev + `\n> ${command}\n`);
+      outputBuffer.append( `\n> ${command}\n`);
 
       // Create command logger
       const commandName = command.replace('/', '').toLowerCase();
@@ -1951,12 +1960,12 @@ const App = () => {
         switch (command.toLowerCase()) {
           case '/help':
             setExecutingMessage('Loading help...');
-            setOutput(prev => prev + showHelp());
+            outputBuffer.append( showHelp());
             break;
 
           case '/version':
             setExecutingMessage('Loading version info...');
-            setOutput(prev => prev + showVersion());
+            outputBuffer.append( showVersion());
             break;
 
           case '/exit':
@@ -1965,12 +1974,12 @@ const App = () => {
             const running = manager.getRunningProcesses();
 
             if (running.length > 0) {
-              setOutput(prev => prev + '\n🛑 Stopping background processes...\n');
+              outputBuffer.append( '\n🛑 Stopping background processes...\n');
               const stopped = manager.stopAll();
-              setOutput(prev => prev + `Stopped ${stopped} process(es)\n\n`);
+              outputBuffer.append( `Stopped ${stopped} process(es)\n\n`);
             }
 
-            setOutput(prev => prev + '\n👋 Thanks for using AVC!\n');
+            outputBuffer.append( '\n👋 Thanks for using AVC!\n');
             setTimeout(() => {
               exit();
               process.exit(0);
@@ -2164,7 +2173,7 @@ https://agilevibecoding.org
     const initiator = new ProjectInitiator();
 
     // Use ConsoleOutputManager for unified console handling
-    const outputManager = new ConsoleOutputManager(setOutput);
+    const outputManager = new ConsoleOutputManager();
     outputManager.start();
 
     try {
@@ -2181,7 +2190,7 @@ https://agilevibecoding.org
     const initiator = new ProjectInitiator();
 
     if (!initiator.isAvcProject()) {
-      setOutput(prev => prev +
+      outputBuffer.append(
         '\n❌ Project not initialized\n\n' +
         'Please run /init first to create the project structure.\n\n'
       );
@@ -2193,7 +2202,7 @@ https://agilevibecoding.org
     logger.start();
 
     // Use ConsoleOutputManager for unified console handling (filters [DEBUG] automatically)
-    const outputManager = new ConsoleOutputManager(setOutput);
+    const outputManager = new ConsoleOutputManager();
     outputManager.start();
 
     try {
@@ -2203,7 +2212,7 @@ https://agilevibecoding.org
       logger.stop();
     }
 
-    setOutput(prev => prev +
+    outputBuffer.append(
       `📝 Debug log saved: ${logger.getLogPath()}\n` +
       '📖 https://agilevibecoding.org/ceremonies/sprint-planning\n'
     );
@@ -2213,7 +2222,7 @@ https://agilevibecoding.org
     const initiator = new ProjectInitiator();
 
     if (!initiator.isAvcProject()) {
-      setOutput(prev => prev +
+      outputBuffer.append(
         '\n❌ Project not initialized\n\n' +
         'Please run /init first to create the project structure.\n\n'
       );
@@ -2221,7 +2230,7 @@ https://agilevibecoding.org
     }
 
     // Use ConsoleOutputManager for unified console handling
-    const outputManager = new ConsoleOutputManager(setOutput);
+    const outputManager = new ConsoleOutputManager();
     outputManager.start();
 
     try {
@@ -2230,7 +2239,7 @@ https://agilevibecoding.org
       outputManager.stop();
     }
 
-    setOutput(prev => prev +
+    outputBuffer.append(
       '📖 https://agilevibecoding.org/ceremonies/seed\n'
     );
   };
@@ -2414,7 +2423,7 @@ https://agilevibecoding.org
     });
 
     // Use ConsoleOutputManager for unified console handling
-    const outputManager = new ConsoleOutputManager(setOutput);
+    const outputManager = new ConsoleOutputManager();
     outputManager.start();
 
     // Progress callback to update spinner message, substep, and execution state
@@ -2862,14 +2871,14 @@ https://agilevibecoding.org
   //     setExecutingSubstep('');
   //
   //     // Show updated comparison
-  //     setOutput(prev => prev + '\n📊 Enhanced Database Comparison:\n\n');
-  //     setOutput(prev => prev + `SQL: ${detailedRec.comparison.sqlOption.specificVersion || detailedRec.comparison.sqlOption.database}\n`);
-  //     setOutput(prev => prev + `  Cost: ~${detailedRec.comparison.sqlOption.estimatedCosts?.monthly || 'varies'}\n\n`);
-  //     setOutput(prev => prev + `NoSQL: ${detailedRec.comparison.nosqlOption.specificVersion || detailedRec.comparison.nosqlOption.database}\n`);
-  //     setOutput(prev => prev + `  Cost: ~${detailedRec.comparison.nosqlOption.estimatedCosts?.monthly || 'varies'}\n\n`);
+  //     outputBuffer.append( '\n📊 Enhanced Database Comparison:\n\n');
+  //     outputBuffer.append( `SQL: ${detailedRec.comparison.sqlOption.specificVersion || detailedRec.comparison.sqlOption.database}\n`);
+  //     outputBuffer.append( `  Cost: ~${detailedRec.comparison.sqlOption.estimatedCosts?.monthly || 'varies'}\n\n`);
+  //     outputBuffer.append( `NoSQL: ${detailedRec.comparison.nosqlOption.specificVersion || detailedRec.comparison.nosqlOption.database}\n`);
+  //     outputBuffer.append( `  Cost: ~${detailedRec.comparison.nosqlOption.estimatedCosts?.monthly || 'varies'}\n\n`);
   //
   //     if (detailedRec.recommendation) {
-  //       setOutput(prev => prev + `Recommendation: ${detailedRec.recommendation}\n\n`);
+  //       outputBuffer.append( `Recommendation: ${detailedRec.recommendation}\n\n`);
   //     }
   //
   //     // Save progress
@@ -2886,8 +2895,8 @@ https://agilevibecoding.org
   //     setIsExecuting(false);
   //     setExecutingSubstep('');
   //
-  //     setOutput(prev => prev + `\n⚠️  Detailed analysis failed: ${error.message}\n`);
-  //     setOutput(prev => prev + 'Using quick comparison instead...\n');
+  //     outputBuffer.append( `\n⚠️  Detailed analysis failed: ${error.message}\n`);
+  //     outputBuffer.append( 'Using quick comparison instead...\n');
   //
   //     // Fall back to quick comparison and return to selector
   //     setDatabaseChoiceActive(true);
@@ -3048,7 +3057,7 @@ https://agilevibecoding.org
     const initiator = new ProjectInitiator();
 
     // Use ConsoleOutputManager for unified console handling
-    const outputManager = new ConsoleOutputManager(setOutput);
+    const outputManager = new ConsoleOutputManager();
     outputManager.start();
 
     try {
@@ -3062,7 +3071,7 @@ https://agilevibecoding.org
     const initiator = new ProjectInitiator();
 
     // Use ConsoleOutputManager for unified console handling
-    const outputManager = new ConsoleOutputManager(setOutput);
+    const outputManager = new ConsoleOutputManager();
     outputManager.start();
 
     let result;
@@ -3085,7 +3094,7 @@ https://agilevibecoding.org
 
     // Check if project is initialized
     if (!initiator.isAvcProject()) {
-      setOutput(prev => prev +
+      outputBuffer.append(
         '\n❌ Project not initialized\n\n' +
         'Please run /init first to create the project structure.\n\n'
       );
@@ -3093,7 +3102,7 @@ https://agilevibecoding.org
     }
 
     // Use ConsoleOutputManager for unified console handling
-    const outputManager = new ConsoleOutputManager(setOutput);
+    const outputManager = new ConsoleOutputManager();
     outputManager.start();
 
     try {
@@ -3108,7 +3117,7 @@ https://agilevibecoding.org
 
     // Check if project is initialized
     if (!initiator.isAvcProject()) {
-      setOutput(prev => prev + '\n⚠️  No AVC project found in this directory.\n\nNothing to remove.\n');
+      outputBuffer.append( '\n⚠️  No AVC project found in this directory.\n\nNothing to remove.\n');
       return;
     }
 
@@ -3183,7 +3192,7 @@ https://agilevibecoding.org
       logs.push('You may need to manually remove it.\n');
     }
 
-    setOutput(prev => prev + logs.join('\n'));
+    outputBuffer.append( logs.join('\n'));
 
     // Return to prompt mode
     setIsExecuting(false);
@@ -3199,8 +3208,8 @@ https://agilevibecoding.org
 
     // Check if project is initialized
     if (!builder.hasDocumentation()) {
-      setOutput(prev => prev + '\n❌ Documentation not found\n\n');
-      setOutput(prev => prev + 'Please run /init first to create documentation structure.\n\n');
+      outputBuffer.append( '\n❌ Documentation not found\n\n');
+      outputBuffer.append( 'Please run /init first to create documentation structure.\n\n');
       return;
     }
 
@@ -3216,7 +3225,7 @@ https://agilevibecoding.org
 
       if (portInUse) {
         // Managed process exists and port is in use - restart it
-        setOutput(prev => prev + '\n🔄 Documentation server already running, restarting...\n\n');
+        outputBuffer.append( '\n🔄 Documentation server already running, restarting...\n\n');
         manager.stopProcess(existingDocServer.id);
 
         // Clean up stopped/finished processes
@@ -3226,7 +3235,7 @@ https://agilevibecoding.org
         await new Promise(resolve => setTimeout(resolve, 1000));
       } else {
         // Managed process exists but port is not in use - it died, clean up
-        setOutput(prev => prev + '\n⚠️  Previous documentation server died, starting new one...\n\n');
+        outputBuffer.append( '\n⚠️  Previous documentation server died, starting new one...\n\n');
         manager.stopProcess(existingDocServer.id);
 
         // Clean up stopped/finished processes
@@ -3246,16 +3255,16 @@ https://agilevibecoding.org
 
           if (isOurDocs) {
             // It's confirmed to be AVC documentation server - safe to kill
-            setOutput(prev => prev + '\n⚠️  AVC documentation server already running (external process)\n');
-            setOutput(prev => prev + `Process: ${processInfo.command} (PID: ${processInfo.pid})\n`);
-            setOutput(prev => prev + 'Killing external process and restarting...\n\n');
+            outputBuffer.append( '\n⚠️  AVC documentation server already running (external process)\n');
+            outputBuffer.append( `Process: ${processInfo.command} (PID: ${processInfo.pid})\n`);
+            outputBuffer.append( 'Killing external process and restarting...\n\n');
 
             // Try to kill the process
             const killed = await builder.killProcess(processInfo.pid);
 
             if (!killed) {
               // Failed to kill (permission denied, etc.)
-              setOutput(prev => prev +
+              outputBuffer.append(
                 `❌ Failed to kill process ${processInfo.pid}\n\n` +
                 `   Unable to stop the process (permission denied or process protected).\n` +
                 `   Please manually stop the process or change the port.\n\n` +
@@ -3271,7 +3280,7 @@ https://agilevibecoding.org
               return;
             }
 
-            setOutput(prev => prev + '✓ Process killed successfully\n\n');
+            outputBuffer.append( '✓ Process killed successfully\n\n');
 
             // Remove from process manager if it was a managed process
             manager.removeProcessByPid(processInfo.pid);
@@ -3291,15 +3300,15 @@ https://agilevibecoding.org
           }
         } else {
           // Port is in use but couldn't find the process (rare case)
-          setOutput(prev => prev + `\n❌ Port ${port} is in use but process could not be identified\n\n`);
-          setOutput(prev => prev + `   To change the port, edit .avc/avc.json:\n`);
-          setOutput(prev => prev + `   {\n`);
-          setOutput(prev => prev + `     "settings": {\n`);
-          setOutput(prev => prev + `       "documentation": {\n`);
-          setOutput(prev => prev + `         "port": 5173\n`);
-          setOutput(prev => prev + `       }\n`);
-          setOutput(prev => prev + `     }\n`);
-          setOutput(prev => prev + `   }\n\n`);
+          outputBuffer.append( `\n❌ Port ${port} is in use but process could not be identified\n\n`);
+          outputBuffer.append( `   To change the port, edit .avc/avc.json:\n`);
+          outputBuffer.append( `   {\n`);
+          outputBuffer.append( `     "settings": {\n`);
+          outputBuffer.append( `       "documentation": {\n`);
+          outputBuffer.append( `         "port": 5173\n`);
+          outputBuffer.append( `       }\n`);
+          outputBuffer.append( `     }\n`);
+          outputBuffer.append( `   }\n\n`);
           return;
         }
       }
@@ -3324,7 +3333,7 @@ https://agilevibecoding.org
       cwd: builder.docsDir
     });
 
-    setOutput(prev => prev +
+    outputBuffer.append(
       '📦 Starting documentation server in background...\n' +
       `   URL: http://localhost:${port}\n` +
       `   View process output: /processes\n\n`
@@ -3337,8 +3346,8 @@ https://agilevibecoding.org
 
     // Check if project is initialized
     if (!kanbanManager.hasWorkItems()) {
-      setOutput(prev => prev + '\n❌ No work items found\n\n');
-      setOutput(prev => prev + 'Please run /sponsor-call or /sprint-planning first to create work items.\n\n');
+      outputBuffer.append( '\n❌ No work items found\n\n');
+      outputBuffer.append( 'Please run /sponsor-call or /sprint-planning first to create work items.\n\n');
       return;
     }
 
@@ -3354,7 +3363,7 @@ https://agilevibecoding.org
 
       if (portInUse) {
         // Managed process exists and port is in use - restart it
-        setOutput(prev => prev + '\n🔄 Kanban server already running, restarting...\n\n');
+        outputBuffer.append( '\n🔄 Kanban server already running, restarting...\n\n');
         manager.stopProcess(existingKanbanServer.id);
 
         // Clean up stopped/finished processes
@@ -3364,7 +3373,7 @@ https://agilevibecoding.org
         await new Promise(resolve => setTimeout(resolve, 1000));
       } else {
         // Managed process exists but port is not in use - it died, clean up
-        setOutput(prev => prev + '\n⚠️  Previous kanban server died, starting new one...\n\n');
+        outputBuffer.append( '\n⚠️  Previous kanban server died, starting new one...\n\n');
         manager.stopProcess(existingKanbanServer.id);
 
         // Clean up stopped/finished processes
@@ -3384,9 +3393,9 @@ https://agilevibecoding.org
 
           if (isOurKanban) {
             // It's confirmed to be AVC kanban server - safe to kill
-            setOutput(prev => prev + '\n⚠️  AVC kanban server already running (external process)\n');
-            setOutput(prev => prev + `Process: ${processInfo.command} (PID: ${processInfo.pid})\n`);
-            setOutput(prev => prev + 'Killing external process and restarting...\n\n');
+            outputBuffer.append( '\n⚠️  AVC kanban server already running (external process)\n');
+            outputBuffer.append( `Process: ${processInfo.command} (PID: ${processInfo.pid})\n`);
+            outputBuffer.append( 'Killing external process and restarting...\n\n');
 
             // Try to kill the process
             const killed = await kanbanManager.killProcess(processInfo.pid);
@@ -4030,8 +4039,8 @@ https://agilevibecoding.org
         await proceedToQuestionPrefilling(selected, null); // No cloud provider
       } else if (selected.requiresCloudProvider) {
         // Cloud deployment with cloud architecture: Show provider selector
-        setOutput(prev => prev + `\n✓ Selected: ${selected.name}\n`);
-        setOutput(prev => prev + 'This architecture requires a cloud provider.\n');
+        outputBuffer.append( `\n✓ Selected: ${selected.name}\n`);
+        outputBuffer.append( 'This architecture requires a cloud provider.\n');
         setCloudProviderSelectorActive(true);
         setCloudProviderIndex(0);
       } else {
@@ -4271,7 +4280,7 @@ https://agilevibecoding.org
   //     setDatabaseChoiceActive(true);
   //     setDatabaseQuestionInput('');
   //     setMode('prompt');
-  //     setOutput(prev => prev + '\n⊘ Cancelled customization\n');
+  //     outputBuffer.append( '\n⊘ Cancelled customization\n');
   //     return;
   //   }
   //
@@ -4544,7 +4553,7 @@ https://agilevibecoding.org
       }
       message += `\nTokens consumed: ${executionState.tokensUsed.input.toLocaleString()} input, ${executionState.tokensUsed.output.toLocaleString()} output (${executionState.tokensUsed.total.toLocaleString()} total)\n`;
 
-      setOutput(prev => prev + message);
+      outputBuffer.append( message);
       return;
     }
 
@@ -4577,7 +4586,7 @@ https://agilevibecoding.org
         setRemoveConfirmActive(false);
         setRemoveConfirmInput('');
         setMode('prompt');
-        setOutput(prev => prev + '\n❌ Operation cancelled.\n\nNo files were deleted.\n');
+        outputBuffer.append( '\n❌ Operation cancelled.\n\nNo files were deleted.\n');
       }
       return;
     }
@@ -4593,7 +4602,7 @@ https://agilevibecoding.org
       setRemoveConfirmActive(false);
       setRemoveConfirmInput('');
       setMode('prompt');
-      setOutput('\n❌ Operation cancelled.\n\nNo files were deleted.\n');
+      outputBuffer.append('\n❌ Operation cancelled.\n\nNo files were deleted.\n');
       return;
     }
 
@@ -4626,7 +4635,7 @@ https://agilevibecoding.org
           // Failed to kill - reset mode and show error
           setIsExecuting(false);
           setMode('prompt');
-          setOutput(prev => prev +
+          outputBuffer.append(
             `\n❌ Failed to kill process ${processToKill.pid}\n\n` +
             `   Unable to stop the process (permission denied or process protected).\n` +
             `   Please manually stop the process or change the port.\n\n` +
@@ -4642,7 +4651,7 @@ https://agilevibecoding.org
           return;
         }
 
-        setOutput(prev => prev + `\n✓ Process ${processToKill.pid} killed successfully\n\n`);
+        outputBuffer.append( `\n✓ Process ${processToKill.pid} killed successfully\n\n`);
 
         // Remove from process manager if it was managed
         const manager = getProcessManager();
@@ -4652,12 +4661,12 @@ https://agilevibecoding.org
         await new Promise(resolve => setTimeout(resolve, 1000));
 
         // Now proceed with building and starting documentation
-        setOutput(prev => prev + '📚 Building documentation...\n');
+        outputBuffer.append( '📚 Building documentation...\n');
         setExecutingMessage('Building documentation...');
 
         try {
           await builder.build();
-          setOutput(prev => prev + '✓ Documentation built successfully\n\n');
+          outputBuffer.append( '✓ Documentation built successfully\n\n');
 
           setExecutingMessage('Starting documentation server...');
 
@@ -4671,13 +4680,13 @@ https://agilevibecoding.org
             cwd: builder.docsDir
           });
 
-          setOutput(prev => prev +
+          outputBuffer.append(
             '📦 Starting documentation server in background...\n' +
             `   URL: http://localhost:${port}\n` +
             `   View process output: /processes\n\n`
           );
         } catch (error) {
-          setOutput(prev => prev + `\n❌ Error: ${error.message}\n\n`);
+          outputBuffer.append( `\n❌ Error: ${error.message}\n\n`);
         } finally {
           setIsExecuting(false);
           setMode('prompt');
@@ -4688,7 +4697,7 @@ https://agilevibecoding.org
         setKillConfirmActive(false);
         setKillConfirmInput('');
         setMode('prompt');
-        setOutput(prev => prev +
+        outputBuffer.append(
           '\n❌ Operation cancelled.\n\n' +
           `   To change the port, edit .avc/avc.json:\n` +
           `   {\n` +
@@ -4704,7 +4713,7 @@ https://agilevibecoding.org
         setKillConfirmActive(false);
         setKillConfirmInput('');
         setMode('prompt');
-        setOutput(prev => prev + '\n❌ Invalid response. Operation cancelled.\n\n');
+        outputBuffer.append( '\n❌ Invalid response. Operation cancelled.\n\n');
       }
       return;
     }
@@ -4720,7 +4729,7 @@ https://agilevibecoding.org
       setKillConfirmActive(false);
       setKillConfirmInput('');
       setMode('prompt');
-      setOutput(prev => prev + '\n❌ Operation cancelled.\n\n');
+      outputBuffer.append( '\n❌ Operation cancelled.\n\n');
       return;
     }
 
@@ -4736,7 +4745,7 @@ https://agilevibecoding.org
 
     // Handle Escape (cancel)
     if (key.escape) {
-      setOutput(prev => prev + '\n✅ You can configure models later by editing .avc/avc.json\n');
+      outputBuffer.append( '\n✅ You can configure models later by editing .avc/avc.json\n');
       setModelConfigActive(false);
       setInput(''); // Clear input buffer
       setMode('prompt');
@@ -4749,9 +4758,9 @@ https://agilevibecoding.org
       if (char === 'y') {
         setModelConfigMode('ceremony');
         setCeremonySelectIndex(0);
-        setOutput(prev => prev + '\n');
+        outputBuffer.append( '\n');
       } else if (char === 'n') {
-        setOutput(prev => prev + '\n✅ You can configure models later by editing .avc/avc.json\n');
+        outputBuffer.append( '\n✅ You can configure models later by editing .avc/avc.json\n');
         setModelConfigActive(false);
         setInput(''); // Clear input buffer
         setMode('prompt');
@@ -4799,7 +4808,7 @@ https://agilevibecoding.org
       // Save configuration and exit
       if (configurationChanges.length > 0) {
         modelConfigurator.saveConfig();
-        setOutput(prev => prev + '\n💾 Configuration saved successfully!\n');
+        outputBuffer.append( '\n💾 Configuration saved successfully!\n');
       }
       setModelConfigActive(false);
       setInput(''); // Clear input buffer
@@ -4973,7 +4982,7 @@ https://agilevibecoding.org
         newModel: selectedModel.id
       }]);
 
-      setOutput(prev => prev + `\n✅ Updated ${stageName}: ${selectedStage.model} → ${selectedModel.id}\n`);
+      outputBuffer.append( `\n✅ Updated ${stageName}: ${selectedStage.model} → ${selectedModel.id}\n`);
 
       // Clear validation type and go back to appropriate selection
       setSelectedValidationType(null);
@@ -5029,7 +5038,7 @@ https://agilevibecoding.org
   const handleProcessStop = (processId) => {
     const manager = getProcessManager();
     manager.stopProcess(processId);
-    setOutput(prev => prev + `\n✓ Process stopped\n`);
+    outputBuffer.append( `\n✓ Process stopped\n`);
     // Stay on details view to see final output
   };
 
@@ -5084,7 +5093,7 @@ https://agilevibecoding.org
     // Show cancel questionnaire confirmation if active
     if (cancelConfirmActive) {
       return React.createElement(Box, { flexDirection: 'column', marginY: 1 },
-        React.createElement(Text, null, output),
+        React.createElement(StaticOutput, { lines: outputLines }),
         React.createElement(CancelQuestionnaireConfirmation)
       );
     }
@@ -5092,7 +5101,7 @@ https://agilevibecoding.org
     // Show cancel execution confirmation if active
     if (cancelExecutionActive) {
       return React.createElement(Box, { flexDirection: 'column', marginY: 1 },
-        React.createElement(Text, null, output),
+        React.createElement(StaticOutput, { lines: outputLines }),
         React.createElement(CancelExecutionConfirmation, {
           executionState: executionState
         })
@@ -5102,7 +5111,7 @@ https://agilevibecoding.org
     // Show database choice selector if active (new comparison format)
     if (databaseChoiceActive && databaseComparison) {
       return React.createElement(Box, { flexDirection: 'column', marginY: 1 },
-        React.createElement(Text, null, output),
+        React.createElement(StaticOutput, { lines: outputLines }),
         React.createElement(DatabaseRecommendationDisplay, {
           comparison: databaseComparison,
           keyMetrics: databaseComparison.keyMetrics || {}
@@ -5130,7 +5139,7 @@ https://agilevibecoding.org
     // Show architecture selector if active
     if (architectureSelectorActive) {
       return React.createElement(Box, { flexDirection: 'column', marginY: 1 },
-        React.createElement(Text, null, output),
+        React.createElement(StaticOutput, { lines: outputLines }),
         React.createElement(ArchitectureSelector, {
           architectures: architectureOptions,
           selectedIndex: selectedArchitectureIndex
@@ -5141,7 +5150,7 @@ https://agilevibecoding.org
     // Show deployment strategy selector if active
     if (deploymentStrategySelectorActive) {
       return React.createElement(Box, { flexDirection: 'column', marginY: 1 },
-        React.createElement(Text, null, output),
+        React.createElement(StaticOutput, { lines: outputLines }),
         React.createElement(DeploymentStrategySelector, {
           selectedIndex: deploymentStrategyIndex
         })
@@ -5151,7 +5160,7 @@ https://agilevibecoding.org
     // Show cloud provider selector if active
     if (cloudProviderSelectorActive) {
       return React.createElement(Box, { flexDirection: 'column', marginY: 1 },
-        React.createElement(Text, null, output),
+        React.createElement(StaticOutput, { lines: outputLines }),
         React.createElement(CloudProviderSelector, {
           architectureName: selectedArchitecture?.name || 'Selected Architecture',
           selectedIndex: cloudProviderIndex
@@ -5162,7 +5171,7 @@ https://agilevibecoding.org
     // Show preview if active
     if (showPreview) {
       return React.createElement(Box, { flexDirection: 'column', marginY: 1 },
-        React.createElement(Text, null, output),
+        React.createElement(StaticOutput, { lines: outputLines }),
         React.createElement(AnswersPreview, {
           answers: questionnaireAnswers,
           questions: questionnaireQuestions,
@@ -5177,7 +5186,7 @@ https://agilevibecoding.org
       const currentQuestion = questionnaireQuestions[currentQuestionIndex];
 
       return React.createElement(Box, { flexDirection: 'column', flexShrink: 0 },
-        React.createElement(Text, null, output),
+        React.createElement(StaticOutput, { lines: outputLines }),
         React.createElement(QuestionDisplay, {
           question: currentQuestion,
           index: currentQuestionIndex,
@@ -5203,9 +5212,7 @@ https://agilevibecoding.org
     if (isExecuting) {
       return React.createElement(Box, { flexDirection: 'column', marginY: 1, flexShrink: 0 },
         // Show output first (includes command echo)
-        output ? React.createElement(Box, { marginBottom: 1 },
-          React.createElement(Text, null, output)
-        ) : null,
+        React.createElement(StaticOutput, { lines: outputLines }),
         // Show spinner below output
         React.createElement(LoadingSpinner, {
           message: executingMessage,
@@ -5215,10 +5222,8 @@ https://agilevibecoding.org
     }
 
     // Show output if available (but not when in selector mode to avoid overlap)
-    if (output && mode !== 'selector') {
-      return React.createElement(Box, { marginY: 1, flexShrink: 0 },
-        React.createElement(Text, null, output)
-      );
+    if (outputLines.length > 0 && mode !== 'selector') {
+      return React.createElement(StaticOutput, { lines: outputLines });
     }
 
     return null;

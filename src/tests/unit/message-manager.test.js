@@ -5,9 +5,9 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { messageManager } from '../../cli/message-manager.js';
 import { MessageType } from '../../cli/message-types.js';
+import { outputBuffer } from '../../cli/output-buffer.js';
 
 describe('MessageManager', () => {
-  let outputCallback;
   let executingMessageCallback;
   let executingSubstepCallback;
 
@@ -15,13 +15,14 @@ describe('MessageManager', () => {
     // Reset manager state
     messageManager.reset();
 
+    // Clear output buffer
+    outputBuffer.clear();
+
     // Create mock callbacks
-    outputCallback = vi.fn();
     executingMessageCallback = vi.fn();
     executingSubstepCallback = vi.fn();
 
-    // Register callbacks
-    messageManager.setOutputCallback(outputCallback);
+    // Register callbacks (output now goes to outputBuffer)
     messageManager.setExecutingMessageCallback(executingMessageCallback);
     messageManager.setExecutingSubstepCallback(executingSubstepCallback);
   });
@@ -47,8 +48,14 @@ describe('MessageManager', () => {
     });
 
     it('should clear output when starting new execution', () => {
+      // Add some content first
+      outputBuffer.append('some old content');
+      expect(outputBuffer.getLineCount()).toBeGreaterThan(0);
+
+      // Starting new execution should clear output buffer
       messageManager.startExecution('test');
-      expect(outputCallback).toHaveBeenCalledWith('');
+      expect(outputBuffer.getLineCount()).toBe(0);
+      expect(outputBuffer.getLines()).toEqual([]);
     });
 
     it('should cancel previous context when starting new one', () => {
@@ -121,29 +128,31 @@ describe('MessageManager', () => {
 
     it('should send user output', () => {
       messageManager.send(MessageType.USER_OUTPUT, 'Hello World');
-      expect(outputCallback).toHaveBeenCalledWith(expect.any(Function));
 
-      // Simulate React state update
-      const updateFn = outputCallback.mock.calls[1][0]; // First call is clear, second is message
-      const result = updateFn('');
-      expect(result).toBe('Hello World');
+      const lines = outputBuffer.getLines();
+      expect(lines).toEqual(['Hello World']);
     });
 
     it('should not send message when no active context', () => {
       messageManager.endExecution();
-      outputCallback.mockClear();
+
+      // Clear buffer after ending execution
+      outputBuffer.clear();
 
       messageManager.send(MessageType.USER_OUTPUT, 'Should not appear');
-      // Only the clear call from endExecution, no new calls
-      expect(outputCallback).toHaveBeenCalledTimes(0);
+
+      // Buffer should still be empty
+      expect(outputBuffer.getLineCount()).toBe(0);
     });
 
     it('should not send message after context cancelled', () => {
       messageManager.cancelExecution();
-      outputCallback.mockClear();
+
+      // Clear buffer after cancellation
+      outputBuffer.clear();
 
       messageManager.send(MessageType.USER_OUTPUT, 'Should not appear');
-      expect(outputCallback).toHaveBeenCalledTimes(0);
+      expect(outputBuffer.getLineCount()).toBe(0);
     });
   });
 
@@ -154,9 +163,9 @@ describe('MessageManager', () => {
 
     it('should send error with emoji prefix', () => {
       messageManager.send(MessageType.ERROR, 'Something failed');
-      const updateFn = outputCallback.mock.calls[1][0];
-      const result = updateFn('');
-      expect(result).toBe('❌ Something failed\n');
+
+      const lines = outputBuffer.getLines();
+      expect(lines).toEqual(['❌ Something failed', '']);
     });
   });
 
@@ -167,9 +176,9 @@ describe('MessageManager', () => {
 
     it('should send warning with emoji prefix', () => {
       messageManager.send(MessageType.WARNING, 'Be careful');
-      const updateFn = outputCallback.mock.calls[1][0];
-      const result = updateFn('');
-      expect(result).toBe('⚠️  Be careful\n');
+
+      const lines = outputBuffer.getLines();
+      expect(lines).toEqual(['⚠️  Be careful', '']);
     });
   });
 
@@ -180,9 +189,9 @@ describe('MessageManager', () => {
 
     it('should send success with emoji prefix', () => {
       messageManager.send(MessageType.SUCCESS, 'Operation completed');
-      const updateFn = outputCallback.mock.calls[1][0];
-      const result = updateFn('');
-      expect(result).toBe('✓ Operation completed\n');
+
+      const lines = outputBuffer.getLines();
+      expect(lines).toEqual(['✓ Operation completed', '']);
     });
   });
 
@@ -193,9 +202,9 @@ describe('MessageManager', () => {
 
     it('should send info with emoji prefix', () => {
       messageManager.send(MessageType.INFO, 'Using Claude provider');
-      const updateFn = outputCallback.mock.calls[1][0];
-      const result = updateFn('');
-      expect(result).toBe('ℹ️  Using Claude provider\n');
+
+      const lines = outputBuffer.getLines();
+      expect(lines).toEqual(['ℹ️  Using Claude provider', '']);
     });
   });
 
@@ -206,9 +215,9 @@ describe('MessageManager', () => {
 
     it('should send ceremony header with double newline', () => {
       messageManager.send(MessageType.CEREMONY_HEADER, '🎯 Test\n📖 https://example.com');
-      const updateFn = outputCallback.mock.calls[1][0];
-      const result = updateFn('');
-      expect(result).toBe('🎯 Test\n📖 https://example.com\n\n');
+
+      const lines = outputBuffer.getLines();
+      expect(lines).toEqual(['🎯 Test', '📖 https://example.com', '', '']);
     });
   });
 
@@ -251,8 +260,8 @@ describe('MessageManager', () => {
       expect(console.log).toHaveBeenCalledWith(
         expect.stringMatching(/\[DEBUG\]\[.*\] Debug info/)
       );
-      // Should not call outputCallback (except for initial clear)
-      expect(outputCallback).toHaveBeenCalledTimes(1);
+      // Should not add to output buffer
+      expect(outputBuffer.getLineCount()).toBe(0);
     });
 
     it('should send debug with data', () => {
@@ -302,7 +311,6 @@ describe('MessageManager', () => {
       expect(json.hasCurrentContext).toBe(false);
       expect(json.currentContext).toBeNull();
       expect(json.historySize).toBe(0);
-      expect(json.hasCallbacks.output).toBe(true);
       expect(json.hasCallbacks.executingMessage).toBe(true);
       expect(json.hasCallbacks.executingSubstep).toBe(true);
     });

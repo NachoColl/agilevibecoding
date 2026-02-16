@@ -3,11 +3,11 @@
  *
  * Provides consistent console interception across all commands:
  * - Filters [DEBUG] messages (file only, not displayed in UI)
- * - Streams output to Ink UI via setOutput
+ * - Streams output to OutputBuffer for Static component rendering
  * - Works with CommandLogger for file logging (without console duplication)
  *
  * Usage:
- *   const manager = new ConsoleOutputManager(setOutput);
+ *   const manager = new ConsoleOutputManager();
  *   manager.start();
  *   try {
  *     await someOperation(); // console.log calls will be captured
@@ -16,42 +16,14 @@
  *   }
  */
 
+import { outputBuffer } from './output-buffer.js';
+
 class ConsoleOutputManager {
-  constructor(setOutput) {
-    this.setOutput = setOutput;
+  constructor() {
     this.originalLog = console.log;
     this.originalError = console.error;
     this.originalWarn = console.warn;
     this.isActive = false;
-
-    // Batching to reduce re-renders
-    this.messageBuffer = [];
-    this.flushTimer = null;
-    this.flushInterval = 100; // Flush every 100ms
-  }
-
-  /**
-   * Flush accumulated messages to UI
-   */
-  flush() {
-    if (this.messageBuffer.length === 0) return;
-
-    const messages = this.messageBuffer.join('');
-    this.messageBuffer = [];
-
-    this.setOutput(prev => prev + messages);
-  }
-
-  /**
-   * Schedule a flush if not already scheduled
-   */
-  scheduleFlush() {
-    if (this.flushTimer !== null) return;
-
-    this.flushTimer = setTimeout(() => {
-      this.flush();
-      this.flushTimer = null;
-    }, this.flushInterval);
   }
 
   /**
@@ -74,9 +46,8 @@ class ConsoleOutputManager {
         return;
       }
 
-      // User-facing messages: buffer and batch for UI
-      this.messageBuffer.push(message + '\n');
-      this.scheduleFlush();
+      // User-facing messages: append directly to buffer
+      outputBuffer.append(message + '\n');
 
       // Also forward to CommandLogger for file logging
       // CommandLogger is in inkMode, so it won't forward to real console
@@ -87,9 +58,8 @@ class ConsoleOutputManager {
     console.error = (...args) => {
       const message = args.join(' ');
 
-      // Display errors in UI with error prefix - buffer and batch
-      this.messageBuffer.push(`❌ ${message}\n`);
-      this.scheduleFlush();
+      // Display errors in UI with error prefix
+      outputBuffer.append(`❌ ${message}\n`);
 
       // Also forward to CommandLogger for file logging
       this.originalError(...args);
@@ -99,9 +69,8 @@ class ConsoleOutputManager {
     console.warn = (...args) => {
       const message = args.join(' ');
 
-      // Display warnings in UI with warning prefix - buffer and batch
-      this.messageBuffer.push(`⚠️  ${message}\n`);
-      this.scheduleFlush();
+      // Display warnings in UI with warning prefix
+      outputBuffer.append(`⚠️  ${message}\n`);
 
       // Also forward to CommandLogger for file logging
       this.originalWarn(...args);
@@ -115,13 +84,7 @@ class ConsoleOutputManager {
     if (!this.isActive) return;
     this.isActive = false;
 
-    // Flush any remaining buffered messages
-    if (this.flushTimer !== null) {
-      clearTimeout(this.flushTimer);
-      this.flushTimer = null;
-    }
-    this.flush();
-
+    // Restore original console methods
     console.log = this.originalLog;
     console.error = this.originalError;
     console.warn = this.originalWarn;
