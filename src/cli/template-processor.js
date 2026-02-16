@@ -2362,8 +2362,8 @@ Return your response as JSON following the exact structure specified in your ins
    * @param {string} initialScope - The initial scope/features
    * @returns {Promise<Object>} Database recommendation object
    */
-  async getDatabaseRecommendation(missionStatement, initialScope) {
-    debug('getDatabaseRecommendation called', { missionStatement, initialScope });
+  async getDatabaseRecommendation(missionStatement, initialScope, deploymentStrategy = null) {
+    debug('getDatabaseRecommendation called', { missionStatement, initialScope, deploymentStrategy });
 
     try {
       // Get stage-specific provider for database recommendation
@@ -2380,15 +2380,46 @@ Return your response as JSON following the exact structure specified in your ins
         'utf8'
       );
 
-      // Build prompt
-      const prompt = `Given the following project definition:
+      // Build prompt with deployment strategy context
+      let prompt = `Given the following project definition:
 
 **Mission Statement:**
 ${missionStatement}
 
 **Initial Scope (Features to Implement):**
 ${initialScope}
+`;
 
+      // Add deployment strategy context if provided
+      if (deploymentStrategy === 'local-mvp') {
+        prompt += `
+**Deployment Strategy:** Local MVP First
+The user has chosen to start with a local development environment and migrate to cloud later.
+
+IMPORTANT: Prioritize local-friendly databases:
+- For SQL: Recommend SQLite (zero setup, file-based) or PostgreSQL in Docker (production parity)
+- For NoSQL: Recommend local MongoDB in Docker or JSON file storage
+- Include clear migration paths to cloud databases (SQLite → RDS/Cloud SQL, local MongoDB → Atlas)
+- Emphasize zero cost during MVP phase
+- Show cost comparison: "$0/month local" vs cloud costs
+
+`;
+      } else if (deploymentStrategy === 'cloud') {
+        prompt += `
+**Deployment Strategy:** Cloud Deployment
+The user has chosen to deploy to production cloud infrastructure from day one.
+
+IMPORTANT: Prioritize managed cloud databases:
+- For SQL: Recommend AWS RDS, Azure Database, Google Cloud SQL
+- For NoSQL: Recommend DynamoDB, MongoDB Atlas, Azure Cosmos DB
+- Emphasize managed features (backups, scaling, monitoring, high availability)
+- Include realistic monthly cost estimates
+- Focus on production-ready, scalable options
+
+`;
+      }
+
+      prompt += `
 Analyze this project and determine if it needs a database, and if so, recommend the most appropriate database solution.
 
 Return your response as JSON following the exact structure specified in your instructions.`;

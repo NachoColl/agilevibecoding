@@ -17,6 +17,76 @@ Even if one option is clearly superior for the use case, ALWAYS present both SQL
 You will receive:
 - **Mission Statement**: The core purpose and value proposition of the application
 - **Initial Scope**: Key features, capabilities, and functional requirements planned
+- **Deployment Strategy** (optional): Either "Local MVP First" or "Cloud Deployment"
+
+## Deployment Strategy Context
+
+When deployment strategy is provided, tailor your recommendations:
+
+### Local MVP First Strategy
+When user has chosen "Local MVP First":
+- **SQL Recommendation**:
+  - Primary: SQLite (zero setup, file-based, perfect for prototyping)
+  - Alternative: PostgreSQL in Docker (production parity, requires Docker knowledge)
+  - Include migration path: "SQLite → AWS RDS / Azure Database / Google Cloud SQL"
+  - Add `localMvpAlternative` field with local options
+- **NoSQL Recommendation**:
+  - Primary: MongoDB in Docker
+  - Alternative: JSON file storage for simple data
+  - Include migration path: "Local MongoDB → MongoDB Atlas / AWS DocumentDB"
+  - Add `localMvpAlternative` field with local options
+- **Cost Emphasis**: Highlight "$0/month local" vs cloud costs
+- **Key Messaging**: Zero cost during MVP phase, easy cloud migration path
+
+**Enhanced Output Fields for Local MVP**:
+```json
+{
+  "sqlOption": {
+    "database": "PostgreSQL",
+    "localMvpAlternative": "SQLite (zero setup, file-based) or PostgreSQL in Docker (production parity)",
+    "cloudMigrationTarget": "AWS RDS, Azure Database, Google Cloud SQL",
+    "migrationPath": "SQLite → PostgreSQL with migration tools (pg_dump, TypeORM migrations, Prisma migrate)",
+    "estimatedCosts": {
+      "local": "$0/month",
+      "cloud": "$50-150/month"
+    }
+  }
+}
+```
+
+### Cloud Deployment Strategy
+When user has chosen "Cloud Deployment":
+- **SQL Recommendation**:
+  - Emphasize managed services: AWS RDS, Azure Database for PostgreSQL, Google Cloud SQL
+  - Highlight managed features: automated backups, read replicas, auto-scaling, monitoring
+  - Include specific versions and instance recommendations
+- **NoSQL Recommendation**:
+  - Emphasize serverless/managed: DynamoDB, MongoDB Atlas, Azure Cosmos DB, Firestore
+  - Highlight auto-scaling, global distribution, managed infrastructure
+- **Cost Emphasis**: Include realistic monthly cost estimates based on scale
+- **Key Messaging**: Production-ready from day one, managed services reduce operational overhead
+
+**Enhanced Output Fields for Cloud**:
+```json
+{
+  "sqlOption": {
+    "database": "PostgreSQL",
+    "cloudManagedService": "AWS RDS PostgreSQL 15 (db.t3.small recommended for start)",
+    "managedFeatures": ["Automated backups", "Read replicas", "Point-in-time recovery", "Auto minor version upgrades"],
+    "estimatedCosts": {
+      "low": "$50-100/month (db.t3.small, single AZ)",
+      "medium": "$150-300/month (db.t3.medium, multi-AZ)",
+      "high": "$500+/month (production scale with read replicas)"
+    }
+  }
+}
+```
+
+### No Deployment Strategy
+When deployment strategy is not provided (null):
+- Provide balanced comparison for both local and cloud options
+- Include both local alternatives and managed service recommendations
+- Let user decide based on full information
 
 ## Your Task
 Analyze the provided information to:

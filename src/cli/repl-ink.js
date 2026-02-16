@@ -2660,7 +2660,8 @@ https://agilevibecoding.org
 
       const dbRec = await processor.getDatabaseRecommendation(
         questionnaireAnswers.MISSION_STATEMENT,
-        questionnaireAnswers.INITIAL_SCOPE
+        questionnaireAnswers.INITIAL_SCOPE,
+        deploymentStrategy // Pass deployment strategy for context
       );
 
       // Check if database is needed and has comparison (new format)
