@@ -2284,10 +2284,29 @@ https://agilevibecoding.org
       const savedProgress = initiator.readProgress(progressPath);
 
       if (savedProgress) {
+        // Restore deployment strategy if present (applies to all stages)
+        if (savedProgress.deploymentStrategy) {
+          setDeploymentStrategy(savedProgress.deploymentStrategy);
+        }
+
+        // Resume from deployment strategy selection
+        if (savedProgress.stage === 'deployment-strategy') {
+          setQuestionnaireAnswers(savedProgress.collectedValues || {});
+          setDeploymentStrategySelectorActive(true);
+          setDeploymentStrategyIndex(savedProgress.deploymentStrategyIndex || 0);
+          setMode('selector');
+          sendCeremonyHeader('🎯 Sponsor Call Ceremony - Resuming from deployment strategy selection', 'https://agilevibecoding.org/ceremonies/sponsor-call');
+          return;
+        }
+
         // Resume from database choice stage
         if (savedProgress.stage === 'database-choice') {
           setQuestionnaireAnswers(savedProgress.collectedValues || {});
           setDatabaseRecommendation(savedProgress.databaseRecommendation || null);
+          if (savedProgress.databaseComparison) {
+            setDatabaseComparison(savedProgress.databaseComparison);
+            setRecommendedChoice(savedProgress.recommendedChoice || 'sql');
+          }
           setDatabaseChoiceActive(true);
           setDatabaseChoiceIndex(0);
           setMode('prompt');
@@ -2311,6 +2330,13 @@ https://agilevibecoding.org
         if (savedProgress.stage === 'architecture-selection') {
           setQuestionnaireAnswers(savedProgress.collectedValues || {});
           setDatabaseRecommendation(savedProgress.databaseRecommendation || null);
+          if (savedProgress.databaseComparison) {
+            setDatabaseComparison(savedProgress.databaseComparison);
+            setRecommendedChoice(savedProgress.recommendedChoice || 'sql');
+          }
+          if (savedProgress.selectedDatabaseType) {
+            setSelectedDatabaseType(savedProgress.selectedDatabaseType);
+          }
           setArchitectureOptions(savedProgress.architectureSelection?.options || []);
           setArchitectureSelectorActive(true);
           sendCeremonyHeader('🎯 Sponsor Call Ceremony - Resuming from architecture selection', 'https://agilevibecoding.org/ceremonies/sponsor-call');
@@ -2321,6 +2347,13 @@ https://agilevibecoding.org
         if (savedProgress.stage === 'cloud-provider-selection') {
           setQuestionnaireAnswers(savedProgress.collectedValues || {});
           setDatabaseRecommendation(savedProgress.databaseRecommendation || null);
+          if (savedProgress.databaseComparison) {
+            setDatabaseComparison(savedProgress.databaseComparison);
+            setRecommendedChoice(savedProgress.recommendedChoice || 'sql');
+          }
+          if (savedProgress.selectedDatabaseType) {
+            setSelectedDatabaseType(savedProgress.selectedDatabaseType);
+          }
           setSelectedArchitecture(savedProgress.architectureSelection?.selected || null);
           setCloudProviderSelectorActive(true);
           sendCeremonyHeader('🎯 Sponsor Call Ceremony - Resuming from cloud provider selection', 'https://agilevibecoding.org/ceremonies/sponsor-call');
