@@ -185,11 +185,11 @@ const questionnaireQuestions = [
 
 // Question display component
 const QuestionDisplay = ({ question, index, total, editMode }) => {
-  const helpText = `\n💡 Tip: You can paste multi-line text from other apps\n↵↵ Press Enter twice when done, or Enter once to skip\n^U Press Ctrl+U to clear all text\n`;
+  const helpText = `\nTip: You can paste multi-line text from other apps\n↵↵ Press Enter twice when done, or Enter once to skip\n^U Press Ctrl+U to clear all text\n`;
 
   return React.createElement(Box, { flexDirection: 'column', flexShrink: 0 },
     React.createElement(Text, { bold: true, color: 'white' },
-      `\n📝 Question ${index + 1} of ${total}: ${question.title}${editMode ? ' [EDIT MODE]' : ''}\n`
+      `\nQuestion ${index + 1} of ${total}: ${question.title}${editMode ? ' [EDIT MODE]' : ''}\n`
     ),
     React.createElement(Text, { color: 'white' },
       question.guidance
@@ -292,10 +292,10 @@ const AnswersPreview = ({ answers, questions, defaultSuggested, aiPrefilled }) =
 
   return React.createElement(Box, { flexDirection: 'column', marginTop: 1 },
     React.createElement(Text, { bold: true, color: 'cyan' },
-      '\n📋 Review Your Answers\n'
+      '\nReview Your Answers\n'
     ),
     hasAiPrefilled ? React.createElement(Text, { dimColor: true },
-      '🤖 = AI-suggested (you can edit these) | ✏️ = User-entered\n'
+      'AI = AI-suggested (you can edit these) | User = User-entered\n'
     ) : null,
     ...questions.map((question, idx) => {
       const answer = answers[question.key] || '(Skipped - will use AI suggestion)';
@@ -312,10 +312,10 @@ const AnswersPreview = ({ answers, questions, defaultSuggested, aiPrefilled }) =
         textColor = 'red';
         labelText = '   (default from settings)\n';
       } else if (isAiPrefilled) {
-        icon = '🤖 ';
+        icon = 'AI: ';
         textColor = 'yellow';
       } else if (answers[question.key]) {
-        icon = '✏️ ';
+        icon = 'User: ';
       }
 
       return React.createElement(Box, { key: idx, flexDirection: 'column', marginBottom: 1 },
@@ -348,7 +348,7 @@ const AnswersPreview = ({ answers, questions, defaultSuggested, aiPrefilled }) =
 const CancelQuestionnaireConfirmation = () => {
   return React.createElement(Box, { flexDirection: 'column', marginTop: 1 },
     React.createElement(Text, { bold: true, color: 'yellow' },
-      '\n⚠️  Cancel Questionnaire\n'
+      '\nCancel Questionnaire\n'
     ),
     React.createElement(Text, null,
       'You have answered some questions. What would you like to do with your progress?\n'
@@ -384,7 +384,7 @@ const CancelExecutionConfirmation = ({ executionState }) => {
 
   return React.createElement(Box, { flexDirection: 'column', marginTop: 1 },
     React.createElement(Text, { bold: true, color: 'yellow' },
-      '\n⚠️  Cancel Operation\n'
+      '\nCancel Operation\n'
     ),
     React.createElement(Text, null,
       'Do you want to cancel the current operation?\n'
@@ -432,16 +432,16 @@ const CancelExecutionConfirmation = ({ executionState }) => {
 const RemoveConfirmation = ({ contents, confirmInput }) => {
   return React.createElement(Box, { flexDirection: 'column', marginTop: 1 },
     React.createElement(Text, { bold: true, color: 'red' },
-      '\n🗑️  Remove AVC Project Structure\n'
+      '\nRemove AVC Project Structure\n'
     ),
     React.createElement(Text, { color: 'yellow' },
-      '⚠️  WARNING: This is a DESTRUCTIVE operation!\n'
+      'WARNING: This is a DESTRUCTIVE operation!\n'
     ),
     React.createElement(Text, null,
       'The following will be PERMANENTLY DELETED:\n'
     ),
     contents.length > 0 && React.createElement(Box, { flexDirection: 'column', marginY: 1 },
-      React.createElement(Text, { bold: true }, '📁 .avc/ folder contents:'),
+      React.createElement(Text, { bold: true }, '.avc/ folder contents:'),
       ...contents.map((item, idx) =>
         React.createElement(Text, { key: idx, dimColor: true },
           `• ${item}`
@@ -449,16 +449,16 @@ const RemoveConfirmation = ({ contents, confirmInput }) => {
       )
     ),
     React.createElement(Text, { color: 'red' },
-      '\n❌ All project definitions, epics, stories, tasks, and documentation will be lost.'
+      '\nAll project definitions, epics, stories, tasks, and documentation will be lost.'
     ),
     React.createElement(Text, { color: 'red' },
-      '❌ All VitePress documentation will be deleted.'
+      'All VitePress documentation will be deleted.'
     ),
     React.createElement(Text, { color: 'red' },
-      '❌ This action CANNOT be undone.\n'
+      'This action CANNOT be undone.\n'
     ),
     React.createElement(Text, { dimColor: true },
-      'ℹ️  Note: The .env file will NOT be deleted.\n'
+      'Note: The .env file will NOT be deleted.\n'
     ),
     React.createElement(Box, { borderStyle: 'round', borderColor: 'yellow', marginY: 1 },
       React.createElement(Box, { flexDirection: 'column' },
@@ -487,7 +487,7 @@ const RemoveConfirmation = ({ contents, confirmInput }) => {
 const KillProcessConfirmation = ({ processInfo, confirmInput }) => {
   return React.createElement(Box, { flexDirection: 'column', marginTop: 1 },
     React.createElement(Text, { bold: true, color: 'yellow' },
-      '\n⚠️  External Process Using Port\n'
+      '\nExternal Process Using Port\n'
     ),
     React.createElement(Text, null,
       `Port ${processInfo.port} is currently in use by an external process:\n`
@@ -501,7 +501,7 @@ const KillProcessConfirmation = ({ processInfo, confirmInput }) => {
       )
     ),
     React.createElement(Text, { color: 'red' },
-      '⚠️  This is NOT an AVC documentation server.\n'
+      'This is NOT an AVC documentation server.\n'
     ),
     React.createElement(Text, null,
       'Killing this process may cause unexpected behavior if it\'s part of\n'
@@ -725,7 +725,7 @@ const ProcessViewer = ({ processes, onSelect, onCancel }) => {
 
   if (processList.length === 0) {
     return React.createElement(Box, { flexDirection: 'column', marginTop: 1 },
-      React.createElement(Text, null, '\n📦 Background Processes\n'),
+      React.createElement(Text, null, '\nBackground Processes\n'),
       React.createElement(Text, { dimColor: true }, '   No background processes running\n'),
       React.createElement(Text, { dimColor: true }, '   Press Esc to return\n')
     );
@@ -734,16 +734,16 @@ const ProcessViewer = ({ processes, onSelect, onCancel }) => {
   const manager = getProcessManager();
 
   return React.createElement(Box, { flexDirection: 'column', marginTop: 1 },
-    React.createElement(Text, null, '\n📦 Background Processes\n'),
+    React.createElement(Text, null, '\nBackground Processes\n'),
     React.createElement(Text, { dimColor: true },
       `   Select a process to view details (${processList.length} total)\n`
     ),
     React.createElement(Box, { flexDirection: 'column', marginTop: 1 },
       ...processList.map((process, idx) => {
         const isSelected = idx === selectedIndex;
-        const statusIcon = process.status === 'running' ? '▶' :
-          process.status === 'stopped' ? '⏸' :
-            process.status === 'exited' ? '✓' : '✗';
+        const statusIcon = process.status === 'running' ? '(running)' :
+          process.status === 'stopped' ? '(stopped)' :
+            process.status === 'exited' ? '(exited)' : '(error)';
         const uptime = manager.formatUptime(manager.getUptime(process.id));
 
         return React.createElement(Box, { key: process.id },
@@ -802,7 +802,7 @@ const ProcessDetailsViewer = ({ process, onBack, onStop }) => {
   return React.createElement(Box, { flexDirection: 'column', marginTop: 1 },
     // Header
     React.createElement(Text, { bold: true },
-      `\n📦 ${process.name}\n`
+      `\n${process.name}\n`
     ),
 
     // Process info
@@ -832,7 +832,7 @@ const ProcessDetailsViewer = ({ process, onBack, onStop }) => {
 
     // Output section
     React.createElement(Text, { bold: true },
-      '\n📄 Recent Output (last 50 lines):\n'
+      '\nRecent Output (last 50 lines):\n'
     ),
 
     recentOutput.length === 0
@@ -884,12 +884,12 @@ const ProcessStatusIndicator = ({ processes }) => {
   if (runningProcesses.length === 1) {
     const process = runningProcesses[0];
     return React.createElement(Text, { dimColor: true },
-      `📦 ${process.name} running`
+      `${process.name} running`
     );
   }
 
   return React.createElement(Text, { dimColor: true },
-    `📦 ${runningProcesses.length} processes running`
+    `${runningProcesses.length} processes running`
   );
 };
 
@@ -976,8 +976,8 @@ const BottomRightStatus = React.memo(({ backgroundProcesses }) => {
     const processIndicator = React.createElement(ProcessStatusIndicator, { processes: backgroundProcesses });
     // Get the text content to calculate padding
     const processText = runningCount === 1
-      ? `📦 ${runningProcesses[0].name} running`
-      : `📦 ${runningCount} processes running`;
+      ? `${runningProcesses[0].name} running`
+      : `${runningCount} processes running`;
     const processPadding = Math.max(0, width - processText.length - 2);
 
     return React.createElement(Box, { justifyContent: 'flex-end' },
@@ -1019,17 +1019,17 @@ const ModelConfigPrompt = () => {
  */
 const ArchitectureSelector = ({ architectures, selectedIndex }) => {
   return React.createElement(Box, { flexDirection: 'column', borderStyle: 'round', borderColor: 'cyan', paddingX: 1 },
-    React.createElement(Text, { bold: true }, '🏗️  Recommended Deployment Architectures'),
+    React.createElement(Text, { bold: true }, 'Recommended Deployment Architectures'),
     React.createElement(Text, {}, ''),
     React.createElement(Text, { dimColor: true }, 'Based on your mission and scope, here are recommended approaches:'),
     React.createElement(Box, { flexDirection: 'column', marginTop: 1 },
       ...architectures.map((arch, idx) => {
-        const icon = arch.requiresCloudProvider ? '☁️' : '🌐';
+        const icon = arch.requiresCloudProvider ? '[Cloud]' : '[Local]';
         const isSelected = idx === selectedIndex;
 
         return React.createElement(Box, { key: idx, flexDirection: 'column', marginBottom: 1 },
           React.createElement(Text, { color: isSelected ? 'green' : 'white', bold: isSelected },
-            (isSelected ? '▶ ' : '  ') + icon + ' ' + arch.name
+            (isSelected ? '> ' : '  ') + icon + ' ' + arch.name
           ),
           React.createElement(Text, { dimColor: true, marginLeft: 4 },
             arch.description.substring(0, 100) + (arch.description.length > 100 ? '...' : '')
@@ -1053,7 +1053,7 @@ const DeploymentStrategySelector = ({ selectedIndex }) => {
   const strategies = [
     {
       id: 'local-mvp',
-      icon: '🏠',
+      icon: '',
       label: 'Local MVP First',
       description: 'Build and validate your MVP on your local machine',
       details: [
@@ -1065,7 +1065,7 @@ const DeploymentStrategySelector = ({ selectedIndex }) => {
     },
     {
       id: 'cloud',
-      icon: '☁️',
+      icon: '',
       label: 'Cloud Deployment',
       description: 'Deploy to production cloud infrastructure from day one',
       details: [
@@ -1078,7 +1078,7 @@ const DeploymentStrategySelector = ({ selectedIndex }) => {
   ];
 
   return React.createElement(Box, { flexDirection: 'column', marginY: 1 },
-    React.createElement(Text, { bold: true, color: 'cyan' }, '\n🚀 Deployment Strategy\n'),
+    React.createElement(Text, { bold: true, color: 'cyan' }, '\nDeployment Strategy\n'),
     React.createElement(Text, null, 'Choose how you want to deploy your application:\n'),
 
     React.createElement(Box, { flexDirection: 'column', marginTop: 1 },
@@ -1088,7 +1088,7 @@ const DeploymentStrategySelector = ({ selectedIndex }) => {
         return React.createElement(Box, { key: strategy.id, flexDirection: 'column', marginTop: i > 0 ? 2 : 0 },
           // Label with arrow
           React.createElement(Box, { flexDirection: 'row' },
-            React.createElement(Text, { color: 'white' }, '▶ '),
+            React.createElement(Text, { color: 'white' }, '> '),
             React.createElement(Text, {
               bold: true,
               inverse: isSelected,
@@ -1131,24 +1131,24 @@ const CloudProviderSelector = ({ architectureName, selectedIndex }) => {
       id: 'AWS',
       name: 'Amazon Web Services',
       description: 'Most comprehensive cloud platform with 200+ services and global reach',
-      icon: '🟠'
+      icon: ''
     },
     {
       id: 'Azure',
       name: 'Microsoft Azure',
       description: 'Strong .NET/Windows integration, excellent hybrid cloud capabilities',
-      icon: '🔵'
+      icon: ''
     },
     {
       id: 'GCP',
       name: 'Google Cloud Platform',
       description: 'Cutting-edge data/ML services, strong Kubernetes support',
-      icon: '🔴'
+      icon: ''
     }
   ];
 
   return React.createElement(Box, { flexDirection: 'column', borderStyle: 'round', borderColor: 'cyan', paddingX: 1 },
-    React.createElement(Text, { bold: true }, '☁️  Select Cloud Provider for "' + architectureName + '"'),
+    React.createElement(Text, { bold: true }, 'Select Cloud Provider for "' + architectureName + '"'),
     React.createElement(Text, {}, ''),
     React.createElement(Text, { dimColor: true }, 'Your selected architecture requires a cloud provider. Choose one:'),
     React.createElement(Box, { flexDirection: 'column', marginTop: 1 },
@@ -1157,7 +1157,7 @@ const CloudProviderSelector = ({ architectureName, selectedIndex }) => {
 
         return React.createElement(Box, { key: provider.id, flexDirection: 'column', marginBottom: 1 },
           React.createElement(Text, { color: isSelected ? 'green' : 'white', bold: isSelected },
-            (isSelected ? '▶ ' : '  ') + provider.icon + ' ' + provider.name + ' (' + provider.id + ')'
+            (isSelected ? '> ' : '  ') + provider.name + ' (' + provider.id + ')'
           ),
           React.createElement(Text, { dimColor: true, marginLeft: 4 },
             provider.description
@@ -1190,29 +1190,29 @@ const DatabaseRecommendationDisplay = ({ comparison, keyMetrics }) => {
     .join(', ');
 
   return React.createElement(Box, { flexDirection: 'column', marginY: 1 },
-    React.createElement(Text, { bold: true, color: 'cyan' }, '\n🗄️  Database Options Comparison\n'),
+    React.createElement(Text, { bold: true, color: 'cyan' }, '\nDatabase Options Comparison\n'),
 
     // Key Metrics (only show defined values)
     keyMetrics && React.createElement(Box, { marginTop: 1, flexDirection: 'column' },
-      keyMetrics.estimatedReadWriteRatio && React.createElement(Text, { color: 'gray' }, '📊 Read/Write: ' + keyMetrics.estimatedReadWriteRatio),
-      keyMetrics.expectedThroughput && React.createElement(Text, { color: 'gray' }, '⚡ Throughput: ' + keyMetrics.expectedThroughput),
-      keyMetrics.dataComplexity && React.createElement(Text, { color: 'gray' }, '🔗 Data complexity: ' + keyMetrics.dataComplexity)
+      keyMetrics.estimatedReadWriteRatio && React.createElement(Text, { color: 'gray' }, 'Read/Write: ' + keyMetrics.estimatedReadWriteRatio),
+      keyMetrics.expectedThroughput && React.createElement(Text, { color: 'gray' }, 'Throughput: ' + keyMetrics.expectedThroughput),
+      keyMetrics.dataComplexity && React.createElement(Text, { color: 'gray' }, 'Data complexity: ' + keyMetrics.dataComplexity)
     ),
 
     // SQL Option
     React.createElement(Box, { marginTop: 2, flexDirection: 'column' },
       React.createElement(Text, { bold: true, color: 'green' }, 'SQL (e.g., ' + sqlExamples + ')'),
       React.createElement(Box, { marginTop: 1, flexDirection: 'column' },
-        React.createElement(Text, { color: 'white' }, '✅ Pros:'),
+        React.createElement(Text, { color: 'white' }, 'Pros:'),
         ...comparison.sqlOption.pros.slice(0, 3).map((pro, i) =>
           React.createElement(Text, { key: `sql-pro-${i}`, color: 'gray' }, '  • ' + pro)
         ),
-        React.createElement(Text, { color: 'white', marginTop: 1 }, '❌ Cons:'),
+        React.createElement(Text, { color: 'white', marginTop: 1 }, 'Cons:'),
         ...comparison.sqlOption.cons.slice(0, 3).map((con, i) =>
           React.createElement(Text, { key: `sql-con-${i}`, color: 'gray' }, '  • ' + con)
         ),
         comparison.sqlOption.estimatedCosts && React.createElement(Text, { color: 'yellow', marginTop: 1 },
-          '💰 ~' + comparison.sqlOption.estimatedCosts.monthly + '/mo'
+          'Cost: ~' + comparison.sqlOption.estimatedCosts.monthly + '/mo'
         )
       )
     ),
@@ -1221,16 +1221,16 @@ const DatabaseRecommendationDisplay = ({ comparison, keyMetrics }) => {
     React.createElement(Box, { marginTop: 2, flexDirection: 'column' },
       React.createElement(Text, { bold: true, color: 'blue' }, 'NoSQL (e.g., ' + nosqlExamples + ')'),
       React.createElement(Box, { marginTop: 1, flexDirection: 'column' },
-        React.createElement(Text, { color: 'white' }, '✅ Pros:'),
+        React.createElement(Text, { color: 'white' }, 'Pros:'),
         ...comparison.nosqlOption.pros.slice(0, 3).map((pro, i) =>
           React.createElement(Text, { key: `nosql-pro-${i}`, color: 'gray' }, '  • ' + pro)
         ),
-        React.createElement(Text, { color: 'white', marginTop: 1 }, '❌ Cons:'),
+        React.createElement(Text, { color: 'white', marginTop: 1 }, 'Cons:'),
         ...comparison.nosqlOption.cons.slice(0, 3).map((con, i) =>
           React.createElement(Text, { key: `nosql-con-${i}`, color: 'gray' }, '  • ' + con)
         ),
         comparison.nosqlOption.estimatedCosts && React.createElement(Text, { color: 'yellow', marginTop: 1 },
-          '💰 ~' + comparison.nosqlOption.estimatedCosts.monthly + '/mo'
+          'Cost: ~' + comparison.nosqlOption.estimatedCosts.monthly + '/mo'
         )
       )
     )
@@ -1253,19 +1253,19 @@ const DatabaseChoiceSelector = ({ comparison, selectedIndex, recommendedChoice }
 
   const choices = [
     {
-      label: '🤖 Let AI choose ' + recommendedType + ' (' + recommendedDb + ' as primary option)',
+      label: 'Let AI choose ' + recommendedType + ' (' + recommendedDb + ' as primary option)',
       description: 'AI recommends this based on your project requirements'
     },
     {
-      label: '🟢 Choose SQL (e.g., PostgreSQL, MySQL, SQLite)',
+      label: 'Choose SQL (e.g., PostgreSQL, MySQL, SQLite)',
       description: '~' + sqlCost + '/mo - ' + (comparison.sqlOption.bestFor || 'Best for complex relationships').substring(0, 60)
     },
     {
-      label: '🔵 Choose NoSQL (e.g., MongoDB, DynamoDB, Firestore)',
+      label: 'Choose NoSQL (e.g., MongoDB, DynamoDB, Firestore)',
       description: '~' + nosqlCost + '/mo - ' + (comparison.nosqlOption.bestFor || 'Best for simple access patterns').substring(0, 60)
     },
     {
-      label: '⏭️  Skip',
+      label: 'Skip',
       description: 'No database analysis (proceed with general architecture)'
     }
   ];
@@ -1279,7 +1279,7 @@ const DatabaseChoiceSelector = ({ comparison, selectedIndex, recommendedChoice }
             bold: i === selectedIndex,
             inverse: i === selectedIndex,
             color: i === selectedIndex ? 'green' : 'white'
-          }, (i === selectedIndex ? '▶ ' : '  ') + choice.label),
+          }, (i === selectedIndex ? '> ' : '  ') + choice.label),
           React.createElement(Text, { color: 'gray' }, ' - ' + choice.description)
         )
       )
@@ -1383,7 +1383,7 @@ const StageSelector = ({ ceremonyName, stages, selectedIndex, availableProviders
             (idx === selectedIndex ? '› ' : '  ') + (idx + 1) + '. ' + stage.name
           ),
           React.createElement(Text, { dimColor: true },
-            'Current: ' + stage.model + ' (' + stage.provider + ')' + (!hasApiKey ? ' ⚠️  No API key' : '')
+            'Current: ' + stage.model + ' (' + stage.provider + ')' + (!hasApiKey ? ' (No API key)' : '')
           )
         );
       })
@@ -1418,7 +1418,7 @@ const ConfigurationOverview = ({ overview, selectedIndex }) => {
 
   // Build children array properly
   const children = [
-    React.createElement(Text, { bold: true }, `🔧 Model Configuration - ${overview.ceremony}`),
+    React.createElement(Text, { bold: true }, `Model Configuration - ${overview.ceremony}`),
     React.createElement(Text, {}, '')
   ];
 
@@ -1505,8 +1505,8 @@ const ModelSelector = ({ stageName, currentModel, models, selectedIndex }) => {
     React.createElement(Box, { flexDirection: 'column', marginTop: 1 },
       ...models.map((model, idx) => {
         const isCurrent = model.id === currentModel;
-        const apiKeyIndicator = model.hasApiKey ? ' ✓' : ' ⚠️';
-        const prefix = (idx === selectedIndex ? '› ' : '  ') + (idx + 1) + '. ';
+        const apiKeyIndicator = model.hasApiKey ? ' (OK)' : ' (No key)';
+        const prefix = (idx === selectedIndex ? '> ' : '  ') + (idx + 1) + '. ';
         const name = model.displayName + (isCurrent ? ' (current)' : '') + apiKeyIndicator;
         const pricing = ' $' + model.pricing.input.toFixed(2) + '/$' + model.pricing.output.toFixed(2);
 
@@ -1783,7 +1783,7 @@ const App = () => {
       const running = manager.getRunningProcesses();
 
       if (running.length > 0) {
-        console.log('\n🛑 Stopping background processes...\n');
+        console.log('\nStopping background processes...\n');
         manager.stopAll();
       }
     };
@@ -1975,12 +1975,12 @@ const App = () => {
             const running = manager.getRunningProcesses();
 
             if (running.length > 0) {
-              outputBuffer.append( '\n🛑 Stopping background processes...\n');
+              outputBuffer.append( '\nStopping background processes...\n');
               const stopped = manager.stopAll();
               outputBuffer.append( `Stopped ${stopped} process(es)\n\n`);
             }
 
-            outputBuffer.append( '\n👋 Thanks for using AVC!\n');
+            outputBuffer.append( '\nThanks for using AVC!\n');
             setTimeout(() => {
               exit();
               process.exit(0);
@@ -2065,12 +2065,12 @@ const App = () => {
             const runningOnRestart = restartManager.getRunningProcesses();
 
             if (runningOnRestart.length > 0) {
-              sendOutput('\n🛑 Stopping background processes...\n');
+              sendOutput('\nStopping background processes...\n');
               const stopped = restartManager.stopAll();
               sendOutput(`Stopped ${stopped} process(es)\n\n`);
             }
 
-            sendOutput('🔄 Restarting AVC...\n');
+            sendOutput('Restarting AVC...\n');
             setTimeout(() => {
               exit();
               try {
@@ -2084,7 +2084,7 @@ const App = () => {
             if (command.startsWith('/')) {
               sendError(`Unknown command: ${command}\n\nType /help to see available commands\nTip: Try /h for help, /v for version, /q to exit`);
             } else {
-              sendInfo(`💡 Commands must start with /\n\nExample: /init, /status, /help\nTip: Type / and press Enter to see all commands`);
+              sendInfo(`Commands must start with /\n\nExample: /init, /status, /help\nTip: Type / and press Enter to see all commands`);
             }
         }
       } catch (error) {
@@ -2150,7 +2150,7 @@ const App = () => {
 /restart                 Restart AVC (Ctrl+R)
 /exit (or /q)            Exit AVC interactive mode
 
-💡 Tips:
+Tips:
 - Type / and press Enter to see interactive command selector
 - Use arrow keys (↑/↓) to navigate command history
 - Use Tab key to auto-complete commands
@@ -2164,7 +2164,7 @@ const App = () => {
   const showVersion = () => {
     const version = getVersion();
     return `
-🎯 AVC Framework v${version}
+AVC Framework v${version}
 Agile Vibe Coding - AI-powered development framework
 https://agilevibecoding.org
 `;
@@ -2211,8 +2211,8 @@ https://agilevibecoding.org
     }
 
     outputBuffer.append(
-      `📝 Debug log saved: ${logger.getLogPath()}\n` +
-      '📖 https://agilevibecoding.org/ceremonies/sprint-planning\n'
+      `Debug log saved: ${logger.getLogPath()}\n` +
+      'https://agilevibecoding.org/ceremonies/sprint-planning\n'
     );
   };
 
@@ -2235,7 +2235,7 @@ https://agilevibecoding.org
     }
 
     outputBuffer.append(
-      '📖 https://agilevibecoding.org/ceremonies/seed\n'
+      'https://agilevibecoding.org/ceremonies/seed\n'
     );
   };
 
@@ -2512,7 +2512,7 @@ https://agilevibecoding.org
       }
 
       // Build complete summary message
-      let summary = '\n✅ Sponsor Call Completed\n\n';
+      let summary = '\nSponsor Call Completed\n\n';
 
       // Activities performed
       if (result && result.activities && result.activities.length > 0) {
@@ -2534,7 +2534,7 @@ https://agilevibecoding.org
 
       // Token usage
       if (result && result.tokenUsage) {
-        summary += '\n📊 Token Usage:\n';
+        summary += '\nToken Usage:\n';
         summary += `Input: ${result.tokenUsage.input.toLocaleString()} tokens | `;
         summary += `Output: ${result.tokenUsage.output.toLocaleString()} tokens | `;
         summary += `Total: ${result.tokenUsage.total.toLocaleString()} tokens\n`;
@@ -2571,7 +2571,7 @@ https://agilevibecoding.org
         defaults: config.settings?.questionnaire?.defaults || {}
       };
     } catch (error) {
-      console.log('⚠️  Could not load questionnaire config:', error.message);
+      console.log('Could not load questionnaire config:', error.message);
       return { defaults: {} };
     }
   };
@@ -2640,7 +2640,7 @@ https://agilevibecoding.org
       autoSaveProgress(currentAnswers);
 
       // Add answered questions to output buffer before showing selector
-      sendOutput('\n📋 Answered Questions:\n\n');
+      sendOutput('\nAnswered Questions:\n\n');
       sendOutput(`Q1: Mission Statement\n${currentAnswers.MISSION_STATEMENT}\n\n`);
       sendOutput(`Q2: Initial Scope\n${currentAnswers.INITIAL_SCOPE}\n\n`);
 
@@ -2718,7 +2718,7 @@ https://agilevibecoding.org
     // Set executing state FIRST to show spinner immediately
     setMode('executing');
     setIsExecuting(true);
-    sendProgress('🗄️  Analyzing database requirements...');
+    sendProgress('Analyzing database requirements...');
     sendSubstep('Preparing database analysis');
 
     // Then hide questionnaire
@@ -2749,9 +2749,9 @@ https://agilevibecoding.org
         // Show database comparison with AI recommendation
         const aiRec = dbRec.recommendedChoice === 'sql' ? 'SQL' : 'NoSQL';
         const aiDb = dbRec.recommendedChoice === 'sql' ? dbRec.comparison.sqlOption.database : dbRec.comparison.nosqlOption.database;
-        sendOutput('\n📊 Database options comparison generated\n');
+        sendOutput('\nDatabase options comparison generated\n');
         sendOutput(`SQL: ${dbRec.comparison.sqlOption.database} vs NoSQL: ${dbRec.comparison.nosqlOption.database}\n`);
-        sendOutput(`🤖 AI recommends: ${aiRec} (${aiDb})\n\n`);
+        sendOutput(`AI recommends: ${aiRec} (${aiDb})\n\n`);
 
         // Activate selector (no setTimeout needed with StaticOutput)
         setDatabaseChoiceActive(true);
@@ -2762,7 +2762,7 @@ https://agilevibecoding.org
         autoSaveProgress();
       } else {
         // No database needs or low confidence, skip to architecture
-        sendInfo('📝 No database requirements detected, proceeding with architecture analysis...');
+        sendInfo('No database requirements detected, proceeding with architecture analysis...');
         await proceedToArchitectureRecommendation();
       }
     } catch (error) {
@@ -2783,7 +2783,7 @@ https://agilevibecoding.org
   const proceedToArchitectureRecommendation = async () => {
     setMode('executing');
     setIsExecuting(true);
-    sendProgress('🏗️  Analyzing deployment architecture...');
+    sendProgress('Analyzing deployment architecture...');
     sendSubstep('Preparing architecture analysis');
 
     try {
@@ -2909,7 +2909,7 @@ https://agilevibecoding.org
     // Set executing state FIRST to show spinner immediately
     setMode('executing');
     setIsExecuting(true);
-    sendProgress('✨ Generating intelligent recommendations...');
+    sendProgress('Generating intelligent recommendations...');
     sendSubstep('Preparing question pre-filling analysis');
 
     try {
@@ -2961,7 +2961,7 @@ https://agilevibecoding.org
       setIsExecuting(false);
       clearProgress();
 
-      sendOutput('\n✨ AI has suggested answers for the remaining questions.\n');
+      sendOutput('\nAI has suggested answers for the remaining questions.\n');
       sendOutput('Review them below and edit any that need changes.\n\n');
 
       // Wait for output buffer to update before showing preview
@@ -3092,7 +3092,7 @@ https://agilevibecoding.org
     // Check if project is initialized
     if (!initiator.isAvcProject()) {
       outputBuffer.append(
-        '\n❌ Project not initialized\n\n' +
+        '\nProject not initialized\n\n' +
         'Please run /init first to create the project structure.\n\n'
       );
       return;
@@ -3114,7 +3114,7 @@ https://agilevibecoding.org
 
     // Check if project is initialized
     if (!initiator.isAvcProject()) {
-      outputBuffer.append( '\n⚠️  No AVC project found in this directory.\n\nNothing to remove.\n');
+      outputBuffer.append( '\nNo AVC project found in this directory.\n\nNothing to remove.\n');
       return;
     }
 
@@ -3146,8 +3146,8 @@ https://agilevibecoding.org
       const fs = await import('fs');
       fs.rmSync(initiator.avcDir, { recursive: true, force: true });
 
-      logs.push('✅ Successfully deleted:\n');
-      logs.push('   📁 .avc/ folder and all contents:');
+      logs.push('Successfully deleted:\n');
+      logs.push('   .avc/ folder and all contents:');
       deletedItems.forEach(item => {
         logs.push(`      • ${item}`);
       });
@@ -3161,7 +3161,7 @@ https://agilevibecoding.org
       const hasWorktreesFolder = initiator.hasWorktreesFolder();
 
       if (hasEnvFile || hasSrcFolder || hasWorktreesFolder) {
-        logs.push('ℹ️  Preserved files:\n');
+        logs.push('Preserved files:\n');
 
         if (hasEnvFile) {
           logs.push('   The .env file was NOT deleted and still contains:');
@@ -3171,20 +3171,20 @@ https://agilevibecoding.org
         }
 
         if (hasSrcFolder) {
-          logs.push('✅ The src/ folder was NOT deleted.');
+          logs.push('The src/ folder was NOT deleted.');
           logs.push('   All your AVC-managed code has been preserved.\n');
         }
 
         if (hasWorktreesFolder) {
-          logs.push('✅ The worktrees/ folder was NOT deleted.');
+          logs.push('The worktrees/ folder was NOT deleted.');
           logs.push('   All your git worktrees have been preserved.\n');
         }
       }
 
-      logs.push('✅ AVC project structure has been completely removed.\n');
+      logs.push('AVC project structure has been completely removed.\n');
       logs.push('You can re-initialize anytime by running /init\n');
     } catch (error) {
-      logs.push(`❌ Error during deletion: ${error.message}\n`);
+      logs.push(`Error during deletion: ${error.message}\n`);
       logs.push('The .avc folder may be partially deleted.');
       logs.push('You may need to manually remove it.\n');
     }
@@ -3205,7 +3205,7 @@ https://agilevibecoding.org
 
     // Check if project is initialized
     if (!builder.hasDocumentation()) {
-      outputBuffer.append( '\n❌ Documentation not found\n\n');
+      outputBuffer.append( '\nDocumentation not found\n\n');
       outputBuffer.append( 'Please run /init first to create documentation structure.\n\n');
       return;
     }
@@ -3222,7 +3222,7 @@ https://agilevibecoding.org
 
       if (portInUse) {
         // Managed process exists and port is in use - restart it
-        outputBuffer.append( '\n🔄 Documentation server already running, restarting...\n\n');
+        outputBuffer.append( '\nDocumentation server already running, restarting...\n\n');
         manager.stopProcess(existingDocServer.id);
 
         // Clean up stopped/finished processes
@@ -3232,7 +3232,7 @@ https://agilevibecoding.org
         await new Promise(resolve => setTimeout(resolve, 1000));
       } else {
         // Managed process exists but port is not in use - it died, clean up
-        outputBuffer.append( '\n⚠️  Previous documentation server died, starting new one...\n\n');
+        outputBuffer.append( '\nPrevious documentation server died, starting new one...\n\n');
         manager.stopProcess(existingDocServer.id);
 
         // Clean up stopped/finished processes
@@ -3252,7 +3252,7 @@ https://agilevibecoding.org
 
           if (isOurDocs) {
             // It's confirmed to be AVC documentation server - safe to kill
-            outputBuffer.append( '\n⚠️  AVC documentation server already running (external process)\n');
+            outputBuffer.append( '\nAVC documentation server already running (external process)\n');
             outputBuffer.append( `Process: ${processInfo.command} (PID: ${processInfo.pid})\n`);
             outputBuffer.append( 'Killing external process and restarting...\n\n');
 
@@ -3262,7 +3262,7 @@ https://agilevibecoding.org
             if (!killed) {
               // Failed to kill (permission denied, etc.)
               outputBuffer.append(
-                `❌ Failed to kill process ${processInfo.pid}\n\n` +
+                `Failed to kill process ${processInfo.pid}\n\n` +
                 `   Unable to stop the process (permission denied or process protected).\n` +
                 `   Please manually stop the process or change the port.\n\n` +
                 `   To change the port, edit .avc/avc.json:\n` +
@@ -3277,7 +3277,7 @@ https://agilevibecoding.org
               return;
             }
 
-            outputBuffer.append( '✓ Process killed successfully\n\n');
+            outputBuffer.append( 'Process killed successfully\n\n');
 
             // Remove from process manager if it was a managed process
             manager.removeProcessByPid(processInfo.pid);
@@ -3297,7 +3297,7 @@ https://agilevibecoding.org
           }
         } else {
           // Port is in use but couldn't find the process (rare case)
-          outputBuffer.append( `\n❌ Port ${port} is in use but process could not be identified\n\n`);
+          outputBuffer.append( `\nPort ${port} is in use but process could not be identified\n\n`);
           outputBuffer.append( `   To change the port, edit .avc/avc.json:\n`);
           outputBuffer.append( `   {\n`);
           outputBuffer.append( `     "settings": {\n`);
@@ -3312,7 +3312,7 @@ https://agilevibecoding.org
     }
 
     // Build documentation first
-    sendOutput('\n📚 Building documentation...\n');
+    sendOutput('\nBuilding documentation...\n');
 
     try {
       await builder.build();
@@ -3331,7 +3331,7 @@ https://agilevibecoding.org
     });
 
     outputBuffer.append(
-      '📦 Starting documentation server in background...\n' +
+      'Starting documentation server in background...\n' +
       `   URL: http://localhost:${port}\n` +
       `   View process output: /processes\n\n`
     );
@@ -3343,7 +3343,7 @@ https://agilevibecoding.org
 
     // Check if project is initialized
     if (!kanbanManager.hasWorkItems()) {
-      outputBuffer.append( '\n❌ No work items found\n\n');
+      outputBuffer.append( '\nNo work items found\n\n');
       outputBuffer.append( 'Please run /sponsor-call or /sprint-planning first to create work items.\n\n');
       return;
     }
@@ -3360,7 +3360,7 @@ https://agilevibecoding.org
 
       if (portInUse) {
         // Managed process exists and port is in use - restart it
-        outputBuffer.append( '\n🔄 Kanban server already running, restarting...\n\n');
+        outputBuffer.append( '\nKanban server already running, restarting...\n\n');
         manager.stopProcess(existingKanbanServer.id);
 
         // Clean up stopped/finished processes
@@ -3370,7 +3370,7 @@ https://agilevibecoding.org
         await new Promise(resolve => setTimeout(resolve, 1000));
       } else {
         // Managed process exists but port is not in use - it died, clean up
-        outputBuffer.append( '\n⚠️  Previous kanban server died, starting new one...\n\n');
+        outputBuffer.append( '\nPrevious kanban server died, starting new one...\n\n');
         manager.stopProcess(existingKanbanServer.id);
 
         // Clean up stopped/finished processes
@@ -3390,7 +3390,7 @@ https://agilevibecoding.org
 
           if (isOurKanban) {
             // It's confirmed to be AVC kanban server - safe to kill
-            outputBuffer.append( '\n⚠️  AVC kanban server already running (external process)\n');
+            outputBuffer.append( '\nAVC kanban server already running (external process)\n');
             outputBuffer.append( `Process: ${processInfo.command} (PID: ${processInfo.pid})\n`);
             outputBuffer.append( 'Killing external process and restarting...\n\n');
 
@@ -3453,7 +3453,7 @@ https://agilevibecoding.org
     }
 
     // Start kanban server in background
-    sendOutput('\n📊 Starting AVC Kanban Board server...\n');
+    sendOutput('\nStarting AVC Kanban Board server...\n');
 
     const kanbanServerPath = path.join(__dirname, '..', 'kanban', 'server', 'start.js');
 
@@ -3470,7 +3470,7 @@ https://agilevibecoding.org
       `   Work items: http://localhost:${port}/api/work-items\n\n` +
       `   View process output: /processes\n` +
       `   Stop server: /processes (then select and stop)\n\n` +
-      `   💡 Frontend UI coming in next release!\n`);
+      `   Tip: Frontend UI coming in next release!\n`);
   };
 
   // Handle keyboard input in prompt mode
@@ -3486,12 +3486,12 @@ https://agilevibecoding.org
       const runningOnCtrlR = ctrlRManager.getRunningProcesses();
 
       if (runningOnCtrlR.length > 0) {
-        sendOutput('\n🛑 Stopping background processes...\n');
+        sendOutput('\nStopping background processes...\n');
         const stopped = ctrlRManager.stopAll();
         sendOutput(`   Stopped ${stopped} process(es)\n\n`);
       }
 
-      sendOutput('🔄 Restarting AVC...\n');
+      sendOutput('Restarting AVC...\n');
       setTimeout(() => {
         exit();
         try {
@@ -3677,7 +3677,7 @@ https://agilevibecoding.org
 
         // Mission Statement is mandatory - cannot be skipped
         if (currentQuestionIndex === 0) {
-          console.log('⚠️  Mission Statement is mandatory - please provide an answer');
+          console.log('Mission Statement is mandatory - please provide an answer');
           return;
         }
 
@@ -4036,7 +4036,7 @@ https://agilevibecoding.org
         await proceedToQuestionPrefilling(selected, null); // No cloud provider
       } else if (selected.requiresCloudProvider) {
         // Cloud deployment with cloud architecture: Show provider selector
-        outputBuffer.append( `\n✓ Selected: ${selected.name}\n`);
+        outputBuffer.append( `\nSelected: ${selected.name}\n`);
         outputBuffer.append( 'This architecture requires a cloud provider.\n');
         setCloudProviderSelectorActive(true);
         setCloudProviderIndex(0);
@@ -4106,14 +4106,14 @@ https://agilevibecoding.org
         sendSuccess(`Deployment Strategy: ${strategyName}`);
 
         if (selected === 'local-mvp') {
-          sendInfo('\n🏠 You\'ve chosen to start with a local development environment.\n');
+          sendInfo('\nYou\'ve chosen to start with a local development environment.\n');
           sendOutput('What this means:\n');
           sendOutput('• Zero cloud costs during MVP development\n');
           sendOutput('• Run everything on your machine or with Docker\n');
           sendOutput('• Database: SQLite or containerized PostgreSQL/MongoDB\n');
           sendOutput('• When ready: Migrate to cloud with our step-by-step guide\n');
         } else {
-          sendInfo('\n☁️  You\'ve chosen cloud deployment from day one.\n');
+          sendInfo('\nYou\'ve chosen cloud deployment from day one.\n');
           sendOutput('What this means:\n');
           sendOutput('• Production-ready infrastructure from the start\n');
           sendOutput('• Managed databases, auto-scaling, monitoring\n');
@@ -4201,7 +4201,7 @@ https://agilevibecoding.org
       setQuestionnaireActive(false);
 
       // Show skip message
-      sendInfo('⊘ Skipped cloud provider selection');
+      sendInfo('Skipped cloud provider selection');
 
       // Proceed with architecture only (no specific cloud provider)
       await proceedToQuestionPrefilling(selectedArchitecture, null);
@@ -4243,21 +4243,21 @@ https://agilevibecoding.org
         setSelectedDatabaseType(aiChoice);
         const chosenDb = aiChoice === 'sql' ? databaseComparison.sqlOption.database : databaseComparison.nosqlOption.database;
         const chosenType = aiChoice === 'sql' ? 'SQL' : 'NoSQL';
-        sendOutput('\n🤖 AI chose: ' + chosenType + ' (' + chosenDb + ')\n');
+        sendOutput('\nAI chose: ' + chosenType + ' (' + chosenDb + ')\n');
         await proceedToArchitectureRecommendation();
       } else if (choice === 'sql') {
         // User manually chose SQL option
         setSelectedDatabaseType('sql');
-        sendOutput('\n🟢 Chosen: SQL (' + databaseComparison.sqlOption.database + ')\n');
+        sendOutput('\nChosen: SQL (' + databaseComparison.sqlOption.database + ')\n');
         await proceedToArchitectureRecommendation();
       } else if (choice === 'nosql') {
         // User manually chose NoSQL option
         setSelectedDatabaseType('nosql');
-        sendOutput('\n🔵 Chosen: NoSQL (' + databaseComparison.nosqlOption.database + ')\n');
+        sendOutput('\nChosen: NoSQL (' + databaseComparison.nosqlOption.database + ')\n');
         await proceedToArchitectureRecommendation();
       } else if (choice === 'skip') {
         // Clear database comparison, proceed without
-        sendInfo('⊘ Skipped database analysis');
+        sendInfo('Skipped database analysis');
         setDatabaseComparison(null);
         setRecommendedChoice(null);
         setSelectedDatabaseType(null);
@@ -4541,7 +4541,7 @@ https://agilevibecoding.org
         filesCreated: []
       });
 
-      let message = '\n❌ Operation cancelled.\n';
+      let message = '\nOperation cancelled.\n';
       if (filesDeleted.length > 0) {
         message += '\nDeleted files:\n';
         filesDeleted.forEach(f => {
@@ -4583,7 +4583,7 @@ https://agilevibecoding.org
         setRemoveConfirmActive(false);
         setRemoveConfirmInput('');
         setMode('prompt');
-        outputBuffer.append( '\n❌ Operation cancelled.\n\nNo files were deleted.\n');
+        outputBuffer.append( '\nOperation cancelled.\n\nNo files were deleted.\n');
       }
       return;
     }
@@ -4599,7 +4599,7 @@ https://agilevibecoding.org
       setRemoveConfirmActive(false);
       setRemoveConfirmInput('');
       setMode('prompt');
-      outputBuffer.append('\n❌ Operation cancelled.\n\nNo files were deleted.\n');
+      outputBuffer.append('\nOperation cancelled.\n\nNo files were deleted.\n');
       return;
     }
 
@@ -4633,7 +4633,7 @@ https://agilevibecoding.org
           setIsExecuting(false);
           setMode('prompt');
           outputBuffer.append(
-            `\n❌ Failed to kill process ${processToKill.pid}\n\n` +
+            `\nFailed to kill process ${processToKill.pid}\n\n` +
             `   Unable to stop the process (permission denied or process protected).\n` +
             `   Please manually stop the process or change the port.\n\n` +
             `   To change the port, edit .avc/avc.json:\n` +
@@ -4648,7 +4648,7 @@ https://agilevibecoding.org
           return;
         }
 
-        outputBuffer.append( `\n✓ Process ${processToKill.pid} killed successfully\n\n`);
+        outputBuffer.append( `\nProcess ${processToKill.pid} killed successfully\n\n`);
 
         // Remove from process manager if it was managed
         const manager = getProcessManager();
@@ -4658,12 +4658,12 @@ https://agilevibecoding.org
         await new Promise(resolve => setTimeout(resolve, 1000));
 
         // Now proceed with building and starting documentation
-        outputBuffer.append( '📚 Building documentation...\n');
+        outputBuffer.append( 'Building documentation...\n');
         setExecutingMessage('Building documentation...');
 
         try {
           await builder.build();
-          outputBuffer.append( '✓ Documentation built successfully\n\n');
+          outputBuffer.append( 'Documentation built successfully\n\n');
 
           setExecutingMessage('Starting documentation server...');
 
@@ -4678,12 +4678,12 @@ https://agilevibecoding.org
           });
 
           outputBuffer.append(
-            '📦 Starting documentation server in background...\n' +
+            'Starting documentation server in background...\n' +
             `   URL: http://localhost:${port}\n` +
             `   View process output: /processes\n\n`
           );
         } catch (error) {
-          outputBuffer.append( `\n❌ Error: ${error.message}\n\n`);
+          outputBuffer.append( `\nError: ${error.message}\n\n`);
         } finally {
           setIsExecuting(false);
           setMode('prompt');
@@ -4695,7 +4695,7 @@ https://agilevibecoding.org
         setKillConfirmInput('');
         setMode('prompt');
         outputBuffer.append(
-          '\n❌ Operation cancelled.\n\n' +
+          '\nOperation cancelled.\n\n' +
           `   To change the port, edit .avc/avc.json:\n` +
           `   {\n` +
           `     "settings": {\n` +
@@ -4710,7 +4710,7 @@ https://agilevibecoding.org
         setKillConfirmActive(false);
         setKillConfirmInput('');
         setMode('prompt');
-        outputBuffer.append( '\n❌ Invalid response. Operation cancelled.\n\n');
+        outputBuffer.append( '\nInvalid response. Operation cancelled.\n\n');
       }
       return;
     }
@@ -4726,7 +4726,7 @@ https://agilevibecoding.org
       setKillConfirmActive(false);
       setKillConfirmInput('');
       setMode('prompt');
-      outputBuffer.append( '\n❌ Operation cancelled.\n\n');
+      outputBuffer.append( '\nOperation cancelled.\n\n');
       return;
     }
 
@@ -4742,7 +4742,7 @@ https://agilevibecoding.org
 
     // Handle Escape (cancel)
     if (key.escape) {
-      outputBuffer.append( '\n✅ You can configure models later by editing .avc/avc.json\n');
+      outputBuffer.append( '\nYou can configure models later by editing .avc/avc.json\n');
       setModelConfigActive(false);
       setInput(''); // Clear input buffer
       setMode('prompt');
@@ -4757,7 +4757,7 @@ https://agilevibecoding.org
         setCeremonySelectIndex(0);
         outputBuffer.append( '\n');
       } else if (char === 'n') {
-        outputBuffer.append( '\n✅ You can configure models later by editing .avc/avc.json\n');
+        outputBuffer.append( '\nYou can configure models later by editing .avc/avc.json\n');
         setModelConfigActive(false);
         setInput(''); // Clear input buffer
         setMode('prompt');
@@ -4805,7 +4805,7 @@ https://agilevibecoding.org
       // Save configuration and exit
       if (configurationChanges.length > 0) {
         modelConfigurator.saveConfig();
-        outputBuffer.append( '\n💾 Configuration saved successfully!\n');
+        outputBuffer.append( '\nConfiguration saved successfully!\n');
       }
       setModelConfigActive(false);
       setInput(''); // Clear input buffer
@@ -4979,7 +4979,7 @@ https://agilevibecoding.org
         newModel: selectedModel.id
       }]);
 
-      outputBuffer.append( `\n✅ Updated ${stageName}: ${selectedStage.model} → ${selectedModel.id}\n`);
+      outputBuffer.append( `\nUpdated ${stageName}: ${selectedStage.model} → ${selectedModel.id}\n`);
 
       // Clear validation type and go back to appropriate selection
       setSelectedValidationType(null);
@@ -5035,7 +5035,7 @@ https://agilevibecoding.org
   const handleProcessStop = (processId) => {
     const manager = getProcessManager();
     manager.stopProcess(processId);
-    outputBuffer.append( `\n✓ Process stopped\n`);
+    outputBuffer.append( `\nProcess stopped\n`);
     // Stay on details view to see final output
   };
 
@@ -5368,12 +5368,12 @@ export function startRepl() {
     const running = manager.getRunningProcesses();
 
     if (running.length > 0) {
-      console.log('\n\n🛑 Stopping background processes...');
+      console.log('\n\nStopping background processes...');
       const stopped = manager.stopAll();
       console.log(`   Stopped ${stopped} process(es)\n`);
     }
 
-    console.log('👋 Thanks for using AVC!\n');
+    console.log('Thanks for using AVC!\n');
     process.exit(0);
   };
 
@@ -5389,12 +5389,12 @@ export function startRepl() {
 
   // Handle uncaught exceptions
   process.on('uncaughtException', (error) => {
-    console.error('\n\n❌ Uncaught exception:', error.message);
+    console.error('\n\nUncaught exception:', error.message);
     const manager = getProcessManager();
     const running = manager.getRunningProcesses();
 
     if (running.length > 0) {
-      console.log('\n🛑 Stopping background processes...');
+      console.log('\nStopping background processes...');
       manager.stopAll();
     }
 
@@ -5403,12 +5403,12 @@ export function startRepl() {
 
   // Handle unhandled promise rejections
   process.on('unhandledRejection', (reason, promise) => {
-    console.error('\n\n❌ Unhandled promise rejection:', reason);
+    console.error('\n\nUnhandled promise rejection:', reason);
     const manager = getProcessManager();
     const running = manager.getRunningProcesses();
 
     if (running.length > 0) {
-      console.log('\n🛑 Stopping background processes...');
+      console.log('\nStopping background processes...');
       manager.stopAll();
     }
 
