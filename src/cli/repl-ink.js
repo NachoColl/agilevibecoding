@@ -2743,10 +2743,14 @@ https://agilevibecoding.org
         sendOutput(`SQL: ${dbRec.comparison.sqlOption.database} vs NoSQL: ${dbRec.comparison.nosqlOption.database}\n`);
         sendOutput(`🤖 AI recommends: ${aiRec} (${aiDb})\n\n`);
 
-        // Show database choice selector
-        setDatabaseChoiceActive(true);
-        setDatabaseChoiceIndex(0);
-        setMode('prompt');
+        // Wait for output buffer to update before activating selector
+        // This prevents visual glitches from React re-rendering before output updates
+        // and allows ConsoleOutputManager's 100ms buffer to flush
+        setTimeout(() => {
+          setDatabaseChoiceActive(true);
+          setDatabaseChoiceIndex(0);
+          setMode('prompt');
+        }, 150);
 
         // Save progress
         autoSaveProgress();
@@ -2819,12 +2823,14 @@ https://agilevibecoding.org
       sendError(`Failed to generate architecture recommendations: ${error.message}`);
       sendOutput('Continuing with manual questionnaire...\n\n');
 
-      // Continue with regular questionnaire flow
-      setQuestionnaireActive(true);
-      setMode('prompt');
-      if (currentQuestionIndex < questionnaireQuestions.length - 1) {
-        setCurrentQuestionIndex(currentQuestionIndex + 1);
-      }
+      // Wait for error messages to appear before switching to questionnaire
+      setTimeout(() => {
+        setQuestionnaireActive(true);
+        setMode('prompt');
+        if (currentQuestionIndex < questionnaireQuestions.length - 1) {
+          setCurrentQuestionIndex(currentQuestionIndex + 1);
+        }
+      }, 150);
     }
   };
 
@@ -2949,12 +2955,15 @@ https://agilevibecoding.org
       setIsExecuting(false);
       clearProgress();
 
-      // Show preview
-      setShowPreview(true);
-      setMode('prompt');
-
       sendOutput('\n✨ AI has suggested answers for the remaining questions.\n');
       sendOutput('Review them below and edit any that need changes.\n\n');
+
+      // Wait for output buffer to update before showing preview
+      // This prevents visual glitches from React re-rendering before output updates
+      setTimeout(() => {
+        setShowPreview(true);
+        setMode('prompt');
+      }, 150);
 
     } catch (error) {
       // Graceful degradation
@@ -2967,12 +2976,14 @@ https://agilevibecoding.org
       sendError(`Failed to generate recommendations: ${error.message}`);
       sendOutput('Please answer the remaining questions manually.\n\n');
 
-      // Continue with manual questionnaire
-      setQuestionnaireActive(true);
-      setMode('prompt');
-      if (currentQuestionIndex < questionnaireQuestions.length - 1) {
-        setCurrentQuestionIndex(currentQuestionIndex + 1);
-      }
+      // Wait for error messages to appear before switching to questionnaire
+      setTimeout(() => {
+        setQuestionnaireActive(true);
+        setMode('prompt');
+        if (currentQuestionIndex < questionnaireQuestions.length - 1) {
+          setCurrentQuestionIndex(currentQuestionIndex + 1);
+        }
+      }, 150);
     }
   };
 
