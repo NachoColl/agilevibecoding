@@ -2239,6 +2239,9 @@ https://agilevibecoding.org
     // Start new execution context - cancels previous run and clears output
     startCommand('sponsor-call');
 
+    // Send ceremony header FIRST - before any other messages
+    sendCeremonyHeader('🎯 Sponsor Call Ceremony', 'https://agilevibecoding.org/ceremonies/sponsor-call');
+
     const initiator = new ProjectInitiator();
 
     // Check if project is initialized
@@ -2396,7 +2399,7 @@ https://agilevibecoding.org
     setEmptyLineCount(0);
     setEditMode(false);
     setShowPreview(false);
-    sendCeremonyHeader('🎯 Sponsor Call Ceremony', 'https://agilevibecoding.org/ceremonies/sponsor-call');
+    // Ceremony header already sent at start of runSponsorCall
   };
 
   const runSponsorCallWithAnswers = async (answers) => {
