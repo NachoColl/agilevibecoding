@@ -1083,12 +1083,15 @@ const DeploymentStrategySelector = ({ selectedIndex }) => {
         const isSelected = i === selectedIndex;
 
         return React.createElement(Box, { key: strategy.id, flexDirection: 'column', marginTop: i > 0 ? 2 : 0 },
-          // Label
-          React.createElement(Text, {
-            bold: true,
-            inverse: isSelected,
-            color: isSelected ? 'green' : 'white'
-          }, (isSelected ? '▶ ' : '  ') + strategy.label),
+          // Label with arrow
+          React.createElement(Box, { flexDirection: 'row' },
+            React.createElement(Text, { color: 'white' }, '▶ '),
+            React.createElement(Text, {
+              bold: true,
+              inverse: isSelected,
+              color: isSelected ? 'green' : 'white'
+            }, strategy.label)
+          ),
 
           // Description
           React.createElement(Box, { marginLeft: 3, marginTop: 1, flexDirection: 'column' },
@@ -1103,7 +1106,7 @@ const DeploymentStrategySelector = ({ selectedIndex }) => {
 
             // Best for
             React.createElement(Text, { color: 'yellow', marginTop: 1 },
-              'Best for: ' + strategy.bestFor
+              '\nBest for: ' + strategy.bestFor
             )
           )
         );
