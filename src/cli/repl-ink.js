@@ -1621,6 +1621,7 @@ const App = () => {
   const [deploymentStrategy, setDeploymentStrategy] = useState(null); // 'local-mvp' | 'cloud' | null
   const [deploymentStrategySelectorActive, setDeploymentStrategySelectorActive] = useState(false);
   const [deploymentStrategyIndex, setDeploymentStrategyIndex] = useState(0); // 0: Local MVP, 1: Cloud
+  const [isProcessingDeploymentStrategy, setIsProcessingDeploymentStrategy] = useState(false); // Prevent duplicate execution
 
   // Pre-fill tracking
   const [aiPrefilledQuestions, setAiPrefilledQuestions] = useState(new Set());
@@ -4050,7 +4051,7 @@ https://agilevibecoding.org
 
   // Deployment strategy selector input handler
   useInput(async (inputChar, key) => {
-    if (!deploymentStrategySelectorActive) return;
+    if (!deploymentStrategySelectorActive || isProcessingDeploymentStrategy) return;
 
     // Arrow up
     if (key.upArrow) {
@@ -4066,56 +4067,68 @@ https://agilevibecoding.org
 
     // Enter - select strategy
     if (key.return) {
-      const strategies = ['local-mvp', 'cloud'];
-      const selected = strategies[deploymentStrategyIndex];
+      setIsProcessingDeploymentStrategy(true);
 
-      setDeploymentStrategy(selected);
-      setDeploymentStrategySelectorActive(false);
+      try {
+        const strategies = ['local-mvp', 'cloud'];
+        const selected = strategies[deploymentStrategyIndex];
 
-      // Set executing state IMMEDIATELY to prevent questionnaire from flashing
-      setMode('executing');
-      setIsExecuting(true);
-      setQuestionnaireActive(false);
+        setDeploymentStrategy(selected);
+        setDeploymentStrategySelectorActive(false);
 
-      // Show confirmation
-      const strategyName = selected === 'local-mvp' ? 'Local MVP First' : 'Cloud Deployment';
-      sendSuccess(`Deployment Strategy: ${strategyName}`);
+        // Set executing state IMMEDIATELY to prevent questionnaire from flashing
+        setMode('executing');
+        setIsExecuting(true);
+        setQuestionnaireActive(false);
 
-      if (selected === 'local-mvp') {
-        sendInfo('\n🏠 You\'ve chosen to start with a local development environment.\n');
-        sendOutput('What this means:\n');
-        sendOutput('• Zero cloud costs during MVP development\n');
-        sendOutput('• Run everything on your machine or with Docker\n');
-        sendOutput('• Database: SQLite or containerized PostgreSQL/MongoDB\n');
-        sendOutput('• When ready: Migrate to cloud with our step-by-step guide\n');
-      } else {
-        sendInfo('\n☁️  You\'ve chosen cloud deployment from day one.\n');
-        sendOutput('What this means:\n');
-        sendOutput('• Production-ready infrastructure from the start\n');
-        sendOutput('• Managed databases, auto-scaling, monitoring\n');
-        sendOutput('• Cloud provider selection (AWS/Azure/GCP)\n');
-        sendOutput('• Monthly costs: Estimated $50-200+ based on scale\n');
+        // Show confirmation
+        const strategyName = selected === 'local-mvp' ? 'Local MVP First' : 'Cloud Deployment';
+        sendSuccess(`Deployment Strategy: ${strategyName}`);
+
+        if (selected === 'local-mvp') {
+          sendInfo('\n🏠 You\'ve chosen to start with a local development environment.\n');
+          sendOutput('What this means:\n');
+          sendOutput('• Zero cloud costs during MVP development\n');
+          sendOutput('• Run everything on your machine or with Docker\n');
+          sendOutput('• Database: SQLite or containerized PostgreSQL/MongoDB\n');
+          sendOutput('• When ready: Migrate to cloud with our step-by-step guide\n');
+        } else {
+          sendInfo('\n☁️  You\'ve chosen cloud deployment from day one.\n');
+          sendOutput('What this means:\n');
+          sendOutput('• Production-ready infrastructure from the start\n');
+          sendOutput('• Managed databases, auto-scaling, monitoring\n');
+          sendOutput('• Cloud provider selection (AWS/Azure/GCP)\n');
+          sendOutput('• Monthly costs: Estimated $50-200+ based on scale\n');
+        }
+
+        // Proceed to database analysis and architecture recommendation
+        await triggerArchitectureSelection();
+      } finally {
+        setIsProcessingDeploymentStrategy(false);
       }
-
-      // Proceed to database analysis and architecture recommendation
-      await triggerArchitectureSelection();
       return;
     }
 
     // Escape - skip strategy selection (show all options)
     if (key.escape) {
-      setDeploymentStrategySelectorActive(false);
-      setDeploymentStrategy(null); // No strategy preference
+      setIsProcessingDeploymentStrategy(true);
 
-      // Set executing state IMMEDIATELY to prevent questionnaire from flashing
-      setMode('executing');
-      setIsExecuting(true);
-      setQuestionnaireActive(false);
+      try {
+        setDeploymentStrategySelectorActive(false);
+        setDeploymentStrategy(null); // No strategy preference
 
-      sendInfo('Skipped deployment strategy. All architecture options will be shown.');
+        // Set executing state IMMEDIATELY to prevent questionnaire from flashing
+        setMode('executing');
+        setIsExecuting(true);
+        setQuestionnaireActive(false);
 
-      // Proceed to database analysis without strategy filter
-      await triggerArchitectureSelection();
+        sendInfo('Skipped deployment strategy. All architecture options will be shown.');
+
+        // Proceed to database analysis without strategy filter
+        await triggerArchitectureSelection();
+      } finally {
+        setIsProcessingDeploymentStrategy(false);
+      }
       return;
     }
   }, { isActive: deploymentStrategySelectorActive });
