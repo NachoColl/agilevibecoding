@@ -2311,7 +2311,7 @@ https://agilevibecoding.org
           setDeploymentStrategySelectorActive(true);
           setDeploymentStrategyIndex(savedProgress.deploymentStrategyIndex || 0);
           setMode('prompt');
-          sendCeremonyHeader('🎯 Sponsor Call Ceremony - Resuming from deployment strategy selection', 'https://agilevibecoding.org/ceremonies/sponsor-call');
+          sendInfo('Resuming from deployment strategy selection...\n');
           return;
         }
 
@@ -2326,7 +2326,7 @@ https://agilevibecoding.org
           setDatabaseChoiceActive(true);
           setDatabaseChoiceIndex(0);
           setMode('prompt');
-          sendCeremonyHeader('🎯 Sponsor Call Ceremony - Resuming from database analysis', 'https://agilevibecoding.org/ceremonies/sponsor-call');
+          sendInfo('Resuming from database analysis...\n');
           return;
         }
 
@@ -2338,7 +2338,7 @@ https://agilevibecoding.org
           setDatabaseQuestionIndex(savedProgress.databaseQuestionIndex || 0);
           setDatabaseQuestionsActive(true);
           setMode('prompt');
-          sendCeremonyHeader('🎯 Sponsor Call Ceremony - Resuming from database deep-dive questions', 'https://agilevibecoding.org/ceremonies/sponsor-call');
+          sendInfo('Resuming from database deep-dive questions...\n');
           return;
         }
 
@@ -2355,7 +2355,7 @@ https://agilevibecoding.org
           }
           setArchitectureOptions(savedProgress.architectureSelection?.options || []);
           setArchitectureSelectorActive(true);
-          sendCeremonyHeader('🎯 Sponsor Call Ceremony - Resuming from architecture selection', 'https://agilevibecoding.org/ceremonies/sponsor-call');
+          sendInfo('Resuming from architecture selection...\n');
           return;
         }
 
@@ -2372,7 +2372,7 @@ https://agilevibecoding.org
           }
           setSelectedArchitecture(savedProgress.architectureSelection?.selected || null);
           setCloudProviderSelectorActive(true);
-          sendCeremonyHeader('🎯 Sponsor Call Ceremony - Resuming from cloud provider selection', 'https://agilevibecoding.org/ceremonies/sponsor-call');
+          sendInfo('Resuming from cloud provider selection...\n');
           return;
         }
 
@@ -2386,7 +2386,7 @@ https://agilevibecoding.org
           // Resume from saved progress - show preview to allow editing any question
           setQuestionnaireAnswers(savedProgress.collectedValues || {});
           setShowPreview(true);
-          sendCeremonyHeader('🎯 Sponsor Call Ceremony - Resuming from saved progress', 'https://agilevibecoding.org/ceremonies/sponsor-call');
+          sendInfo('Resuming from saved progress...\n');
           return;
         }
       }
@@ -2643,6 +2643,11 @@ https://agilevibecoding.org
       // Pass currentAnswers to handle React state timing issues
       autoSaveProgress(currentAnswers);
 
+      // Add answered questions to output buffer before showing selector
+      sendOutput('\n📋 Answered Questions:\n\n');
+      sendOutput(`Q1: Mission Statement\n${currentAnswers.MISSION_STATEMENT}\n\n`);
+      sendOutput(`Q2: Initial Scope\n${currentAnswers.INITIAL_SCOPE}\n\n`);
+
       // Show deployment strategy selector
       setQuestionnaireActive(false);
       setMode('prompt');
@@ -2752,14 +2757,10 @@ https://agilevibecoding.org
         sendOutput(`SQL: ${dbRec.comparison.sqlOption.database} vs NoSQL: ${dbRec.comparison.nosqlOption.database}\n`);
         sendOutput(`🤖 AI recommends: ${aiRec} (${aiDb})\n\n`);
 
-        // Wait for output buffer to update before activating selector
-        // This prevents visual glitches from React re-rendering before output updates
-        // and allows ConsoleOutputManager's 100ms buffer to flush
-        setTimeout(() => {
-          setDatabaseChoiceActive(true);
-          setDatabaseChoiceIndex(0);
-          setMode('prompt');
-        }, 150);
+        // Activate selector (no setTimeout needed with StaticOutput)
+        setDatabaseChoiceActive(true);
+        setDatabaseChoiceIndex(0);
+        setMode('prompt');
 
         // Save progress
         autoSaveProgress();
