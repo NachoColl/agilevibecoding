@@ -3933,14 +3933,19 @@ https://agilevibecoding.org
       setSelectedArchitecture(selected);
       setArchitectureSelectorActive(false);
 
-      // If cloud architecture, show provider selector
-      if (selected.requiresCloudProvider) {
+      // Check deployment strategy first
+      if (deploymentStrategy === 'local-mvp') {
+        // Local MVP strategy: NEVER show cloud provider, even if architecture flags it
+        sendSuccess(`Selected: ${selected.name}`);
+        await proceedToQuestionPrefilling(selected, null); // No cloud provider
+      } else if (selected.requiresCloudProvider) {
+        // Cloud deployment with cloud architecture: Show provider selector
         setOutput(prev => prev + `\n✓ Selected: ${selected.name}\n`);
         setOutput(prev => prev + 'This architecture requires a cloud provider.\n');
         setCloudProviderSelectorActive(true);
         setCloudProviderIndex(0);
       } else {
-        // Proceed directly to question pre-filling
+        // Cloud deployment with PaaS architecture or no strategy: Skip provider
         sendSuccess(`Selected: ${selected.name}`);
         await proceedToQuestionPrefilling(selected, null);
       }
