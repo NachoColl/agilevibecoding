@@ -30,6 +30,9 @@ sequenceDiagram
     actor User
     participant REPL as AVC REPL
     participant QA as Questionnaire
+    participant DepStrat as Deployment Strategy
+    participant DBAnalyzer as Database Analyzer
+    participant DBChoice as Database Choice
     participant ArchRec as Architecture Recommender
     participant ArchSel as Architecture Selector
     participant CloudSel as Cloud Provider Selector
@@ -50,9 +53,22 @@ sequenceDiagram
     User->>QA: Enter scope
     QA->>QA: Auto-save progress
 
+    Note over REPL,DepStrat: 🆕 Deployment Strategy Selection
+    REPL->>DepStrat: Show Local MVP vs Cloud options
+    DepStrat->>User: Select strategy (↑/↓/Enter/Esc)
+    User->>DepStrat: Choose "Local MVP First" or "Cloud"
+
+    Note over REPL,DBAnalyzer: 🆕 Database Analysis Stage
+    REPL->>DBAnalyzer: Analyze database needs (mission + scope + strategy)
+    DBAnalyzer->>DBAnalyzer: Generate SQL vs NoSQL comparison
+    DBAnalyzer-->>DBChoice: Comparison + AI recommendation
+
+    DBChoice->>User: Choose database (AI/SQL/NoSQL/Skip)
+    User->>DBChoice: Select option
+
     Note over REPL,ArchRec: 🆕 Architecture Selection Stage
-    REPL->>ArchRec: Analyze mission + scope
-    ArchRec->>ArchRec: Generate 3-5 architectures
+    REPL->>ArchRec: Analyze (mission + scope + strategy + database)
+    ArchRec->>ArchRec: Generate 3-5 filtered architectures
     ArchRec-->>ArchSel: Architecture options
 
     ArchSel->>User: Select architecture (↑/↓/Enter/Esc)
@@ -64,7 +80,7 @@ sequenceDiagram
     end
 
     Note over REPL,Prefill: 🆕 Intelligent Pre-filling Stage
-    REPL->>Prefill: Generate answers (architecture + provider)
+    REPL->>Prefill: Generate answers (architecture + provider + database + strategy)
     Prefill->>Prefill: Create contextual answers
     Prefill-->>QA: Pre-filled Q3-Q6
 
@@ -104,6 +120,10 @@ sequenceDiagram
     REPL->>FS: Write .avc/project/context.md
     REPL->>FS: Copy to .avc/documentation/index.md
 
+    opt Local MVP strategy
+        REPL->>FS: Write .avc/DEPLOYMENT_MIGRATION.md
+    end
+
     REPL->>User: ✅ Ceremony complete
     REPL->>User: Show files created + token usage
 ```
@@ -126,33 +146,196 @@ The ceremony begins by asking the project team to define:
 |---|----------|--------|---------|
 | 1 | **Mission Statement** | Manual (required) | Defines the core purpose and value proposition of the project |
 | 2 | **Initial Scope** | Manual or AI-suggested | Outlines key features, primary workflows, and essential capabilities |
-| 3 | Target Users | 🤖 AI-prefilled (editable) | Identifies user types and their roles based on architecture |
-| 4 | Deployment Target | 🤖 AI-prefilled (editable) | Specifies the intended deployment environment and infrastructure |
-| 5 | Technical Considerations | 🤖 AI-prefilled (editable) | Captures technology stack preferences, constraints, or requirements |
+| 3 | Target Users | 🤖 AI-prefilled (editable) | Identifies end users and their roles based on **mission and scope only** |
+| 4 | Deployment Target | 🤖 AI-prefilled (editable) | Specifies the deployment environment matching selected architecture and strategy |
+| 5 | Technical Considerations | 🤖 AI-prefilled (editable) | Technology stack aligned with architecture, database, and deployment strategy |
 | 6 | Security & Compliance Requirements | 🤖 AI-prefilled (editable) | Defines regulatory, privacy, and security obligations |
+
+> **Important:** Target Users (Q3) represent the **end users of your application** (customers, admins, employees), NOT the developers building it. This is determined from your mission and scope, and is **not affected** by your deployment strategy choice.
+
+---
+
+## Deployment Strategy Selection
+
+After answering the Mission Statement and Initial Scope, you'll be asked to choose your deployment approach. This strategic decision filters architecture and database recommendations to match your development goals.
+
+### The Two Strategies
+
+**🏠 Local MVP First**
+- Build and validate your MVP on your local machine
+- Zero cloud costs during development phase
+- Run on localhost or Docker Compose
+- Migrate to cloud when ready for production
+
+**Best for:**
+- Validating ideas before cloud investment
+- Learning new technologies
+- Budget-conscious projects
+- Rapid prototyping and iteration
+
+**☁️ Cloud Deployment**
+- Deploy to production cloud infrastructure from day one
+- AWS, Azure, or Google Cloud Platform
+- Scalable managed services, production-ready
+- Immediate global availability
+
+**Best for:**
+- Enterprise projects with immediate scale needs
+- Production-ready from launch
+- Leveraging managed cloud services
+- High availability requirements
+
+### How It Affects Recommendations
+
+Your deployment strategy choice filters subsequent recommendations:
+
+**Local MVP First:**
+- Architecture options: Docker Compose setups, localhost configurations
+- Database options: SQLite, local PostgreSQL/MongoDB in Docker
+- Technical stack: Zero-cost local development tools
+- Migration guide: Auto-generated with step-by-step cloud deployment instructions
+
+**Cloud Deployment:**
+- Architecture options: AWS ECS, Azure AKS, GCP Cloud Run, serverless
+- Database options: RDS, DynamoDB, MongoDB Atlas, Cloud SQL
+- Technical stack: Managed cloud services, auto-scaling, CDN
+- Cost estimates: Included for each component
+
+### Making Your Choice
+
+```
+🚀 Deployment Strategy
+
+Choose how you want to deploy your application:
+
+▶ Local MVP First
+   Build and validate your MVP on your local machine
+     • Zero cloud costs during development phase
+     • Run on localhost or Docker Compose
+     • Migrate to cloud when ready for production
+
+   Best for: Validating ideas, learning, budget-conscious projects
+
+  Cloud Deployment
+   Deploy to production cloud infrastructure from day one
+     • AWS, Azure, or Google Cloud Platform
+     • Scalable managed services, production-ready
+     • Immediate global availability
+
+   Best for: Enterprise projects, immediate scale requirements
+
+↑/↓: Navigate | Enter: Select | Esc: Skip (show all options)
+```
+
+**You can skip** deployment strategy selection (`Esc`) to see all architecture options regardless of deployment approach.
+
+---
+
+## Database Analysis & Selection
+
+Based on your mission statement and scope, the AI analyzes your data storage needs and presents a comparison between SQL and NoSQL database approaches.
+
+### How It Works
+
+**1. AI Analysis**
+   - Analyzes CRUD patterns in your scope
+   - Evaluates data relationship complexity
+   - Estimates read/write ratio
+   - Considers deployment strategy context (local vs cloud)
+
+**2. SQL vs NoSQL Comparison**
+   - Presents both options with honest pros/cons
+   - Shows cost estimates for each (local vs cloud)
+   - Provides specific database recommendations
+   - AI suggests the better fit based on analysis
+
+**3. Your Choice**
+   - 🤖 Let AI choose (uses AI recommendation)
+   - 🟢 Choose SQL
+   - 🔵 Choose NoSQL
+   - ⏭️ Skip database analysis
+
+### Example Comparison
+
+```
+📊 Database Options Comparison
+
+Based on your project scope, here's the analysis:
+
+SQL: PostgreSQL
+✅ Pros:
+  • ACID compliance ensures data integrity
+  • Mature ecosystem with extensive tooling
+  • Complex queries and joins are efficient
+  • Strong consistency guarantees
+
+❌ Cons:
+  • Higher operational cost (~$150-200/month cloud)
+  • Requires schema migrations for changes
+  • Vertical scaling can be expensive
+
+Best for: Applications with complex relationships and consistency requirements
+
+NoSQL: MongoDB
+✅ Pros:
+  • Flexible schema for evolving data models
+  • Horizontal scaling built-in
+  • Lower cost for read-heavy workloads
+  • Fast iteration during development
+
+❌ Cons:
+  • Limited query flexibility compared to SQL
+  • Eventual consistency can complicate logic
+  • Join operations are less efficient
+
+Best for: Applications with flexible data models and high scalability needs
+
+🤖 AI recommends: SQL (PostgreSQL)
+Reasoning: Your scope mentions user accounts, permissions, and relational data
+between tasks, comments, and attachments. PostgreSQL excels at these relationships.
+
+Choose your database approach:
+  🤖 Let AI choose (SQL - PostgreSQL)
+  🟢 Choose SQL (PostgreSQL)
+  🔵 Choose NoSQL (MongoDB)
+  ⏭️  Skip database analysis
+
+↑/↓: Navigate | Enter: Select
+```
+
+**Local MVP Strategy:** Database recommendations include local-friendly options (SQLite, Docker containers) with migration paths to cloud databases.
+
+**Cloud Strategy:** Database recommendations focus on managed cloud services with cost estimates and production-ready configurations.
+
+### When Database Analysis is Skipped
+
+If your project doesn't require a database (e.g., static site, CLI tool), the AI may skip this stage automatically. You can also skip it manually by pressing `Esc`.
 
 ---
 
 ## Architecture Selection
 
-After answering the Mission Statement and Initial Scope, the ceremony automatically triggers an intelligent architecture recommendation stage that reduces ceremony time by ~60%.
+After selecting your deployment strategy and database type, the ceremony automatically triggers an intelligent architecture recommendation stage that reduces ceremony time by ~60%.
 
 ### How It Works
 
 **1. AI Analysis**
-   - Architecture Recommender agent analyzes your mission and scope
+   - Architecture Recommender agent analyzes your mission, scope, deployment strategy, and database choice
    - Uses Claude Opus 4.6 for exceptional architectural reasoning
+   - Filters architectures based on deployment strategy (local vs cloud)
+   - Matches architectures to selected database type (SQL vs NoSQL)
    - Considers project complexity, features, scale, and requirements
 
 **2. Architecture Options**
-   - Presents 3-5 deployment architectures ranked by fit
+   - Presents 3-5 deployment architectures **filtered by your choices**
    - Each option includes:
-     - **Name:** Clear, concise architecture identifier (e.g., "Next.js Full-Stack on Vercel")
+     - **Name:** Clear, concise architecture identifier (e.g., "Docker Compose Full-Stack" or "AWS ECS Containerized")
      - **Description:** Infrastructure approach and key services (2-3 sentences)
      - **Best For:** When this option is optimal for your use case
    - Visual indicators:
      - ☁️ = Requires cloud provider selection (AWS/Azure/GCP)
      - 🌐 = Platform-agnostic or PaaS
+     - 🏠 = Local development architecture (if Local MVP strategy chosen)
 
 **3. Keyboard Navigation**
    - `↑/↓` arrows: Move between architecture options
@@ -217,17 +400,25 @@ Your selected architecture requires a cloud provider. Choose one:
 After selecting architecture (and optionally cloud provider), the **Question Prefiller** agent generates contextual answers for the remaining questionnaire questions:
 
 **Pre-filled Questions:**
-1. **Target Users** - User personas, roles, and characteristics based on scope
-2. **Deployment Target** - Specific hosting platform and infrastructure matching architecture
-3. **Technical Considerations** - Tech stack, frameworks, scalability patterns aligned with architecture
-4. **Security Requirements** - Auth, encryption, compliance inferred from architecture and scope
+1. **Target Users** - User personas, roles, and characteristics **based on mission and scope only** (NOT deployment strategy)
+2. **Deployment Target** - Specific hosting platform and infrastructure matching architecture and deployment strategy
+3. **Technical Considerations** - Tech stack, frameworks, database, scalability patterns aligned with all selections
+4. **Security Requirements** - Auth, encryption, compliance inferred from architecture, database, and scope
 
 **Pre-filled answers are intelligent:**
-- ✅ Align exactly with your selected architecture
+- ✅ Align exactly with your selected architecture, deployment strategy, and database
 - ✅ Include specific technologies and service names
 - ✅ Reference your cloud provider if selected (e.g., "AWS Cognito for authentication")
+- ✅ Match deployment strategy (local Docker setup vs cloud managed services)
+- ✅ Include database-specific details (connection pooling, ORMs, migration tools)
 - ✅ Infer requirements from scope (e.g., payments mentioned → PCI-DSS compliance)
 - ✅ Match complexity to project maturity (MVP vs enterprise-scale)
+
+**Target Users determination:**
+- ✅ Inferred from mission statement and scope ONLY
+- ❌ NOT affected by deployment strategy (local vs cloud)
+- ✅ Represents end users of your application, not developers building it
+- Example: "Task management for remote teams" → Users are remote team members, NOT developers
 
 **You can edit any answer** before proceeding to documentation generation.
 
@@ -292,12 +483,13 @@ All answers remain **fully editable**. The AI suggestions serve as intelligent d
 
 #### Architecture Selection Agents
 
-Intelligent agents that analyze your project and provide expert architecture recommendations.
+Intelligent agents that analyze your project and provide expert architecture and database recommendations.
 
 | Agent | Purpose | Location |
 |-------|---------|----------|
-| [Architecture Recommender](/agents/architecture-recommender) | Analyzes mission and scope to recommend 3-5 deployment architectures (cloud, PaaS, non-web) | `/agents/architecture-recommender` |
-| [Question Prefiller](/agents/question-prefiller) | Generates contextual answers for remaining questions based on selected architecture and cloud provider | `/agents/question-prefiller` |
+| [Database Recommender](/agents/database-recommender) | Analyzes mission and scope to recommend SQL vs NoSQL with detailed comparison | `/agents/database-recommender` |
+| [Architecture Recommender](/agents/architecture-recommender) | Analyzes mission, scope, and deployment strategy to recommend 3-5 filtered deployment architectures | `/agents/architecture-recommender` |
+| [Question Prefiller](/agents/question-prefiller) | Generates contextual answers for Q3-Q6 based on selected architecture, database, and deployment strategy | `/agents/question-prefiller` |
 
 #### Project Scope Agents
 
@@ -363,6 +555,24 @@ Architectural context file that guides all future AI agents:
 ```bash
 cat .avc/project/context.md
 ```
+
+**Migration Guide** (`.avc/DEPLOYMENT_MIGRATION.md`) - *Local MVP strategy only*
+
+If you chose "Local MVP First", a comprehensive cloud migration guide is auto-generated:
+
+```bash
+cat .avc/DEPLOYMENT_MIGRATION.md
+```
+
+Includes:
+- Current local stack summary
+- When to migrate to cloud
+- 3-4 cloud migration options with costs
+- Step-by-step database migration
+- Environment variables changes
+- CI/CD pipeline examples
+- Monitoring and observability setup
+- Migration checklist
 
 ### Refine AI-Suggested Content
 
