@@ -8,6 +8,7 @@ import { execSync } from 'child_process';
 import { TemplateProcessor } from './template-processor.js';
 import { ModelConfigurator } from './init-model-config.js';
 import { MESSAGES, getCeremonyHeader } from './message-constants.js';
+import { sendError, sendWarning, sendSuccess, sendInfo, sendOutput, sendIndented, sendSectionHeader } from './messaging-api.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -111,10 +112,10 @@ class ProjectInitiator {
   createAvcFolder() {
     if (!this.hasAvcFolder()) {
       fs.mkdirSync(this.avcDir, { recursive: true });
-      console.log('✓ Created .avc/ folder');
+      sendSuccess('Created .avc/ folder');
       return true;
     }
-    console.log('✓ .avc/ folder already exists');
+    sendSuccess('.avc/ folder already exists');
     return false;
   }
 
@@ -131,10 +132,10 @@ class ProjectInitiator {
   createSrcFolder() {
     if (!this.hasSrcFolder()) {
       fs.mkdirSync(this.srcDir, { recursive: true });
-      console.log('✓ Created src/ folder (for AVC-managed code)');
+      sendSuccess('Created src/ folder (for AVC-managed code)');
       return true;
     }
-    console.log('✓ src/ folder already exists');
+    sendSuccess('src/ folder already exists');
     return false;
   }
 
@@ -151,10 +152,10 @@ class ProjectInitiator {
   createWorktreesFolder() {
     if (!this.hasWorktreesFolder()) {
       fs.mkdirSync(this.worktreesDir, { recursive: true });
-      console.log('✓ Created worktrees/ folder (for git worktrees)');
+      sendSuccess('Created worktrees/ folder (for git worktrees)');
       return true;
     }
-    console.log('✓ worktrees/ folder already exists');
+    sendSuccess('worktrees/ folder already exists');
     return false;
   }
 
@@ -440,7 +441,7 @@ class ProjectInitiator {
         JSON.stringify(defaultConfig, null, 2),
         'utf8'
       );
-      console.log('✓ Created .avc/avc.json configuration file');
+      sendSuccess('Created .avc/avc.json configuration file');
       return true;
     }
 
@@ -461,15 +462,15 @@ class ProjectInitiator {
 
       if (existingJson !== mergedJson) {
         fs.writeFileSync(this.avcConfigPath, mergedJson, 'utf8');
-        console.log('✓ Updated .avc/avc.json with new configuration attributes');
+        sendSuccess('Updated .avc/avc.json with new configuration attributes');
         return true;
       }
 
-      console.log('✓ .avc/avc.json is up to date');
+      sendSuccess('.avc/avc.json is up to date');
       return false;
     } catch (error) {
       console.error(`⚠️  Warning: Could not merge avc.json: ${error.message}`);
-      console.log('✓ .avc/avc.json already exists (merge skipped)');
+      sendSuccess('.avc/avc.json already exists (merge skipped)');
       return false;
     }
   }
@@ -522,7 +523,7 @@ class ProjectInitiator {
         envContent += `${key}=\n`;
       });
       fs.writeFileSync(envPath, envContent, 'utf8');
-      console.log('✓ Created .env file for API keys');
+      sendSuccess('Created .env file for API keys');
       return true;
     }
 
@@ -550,12 +551,12 @@ class ProjectInitiator {
       });
 
       fs.appendFileSync(envPath, appendContent, 'utf8');
-      console.log(`✓ Added ${missingKeys.length} missing API key variable(s) to .env file:`);
-      missingKeys.forEach(key => console.log(`   • ${key}`));
+      sendSuccess(`Added ${missingKeys.length} missing API key variable(s) to .env file:`);
+      missingKeys.forEach(key => sendIndented(`• ${key}`, 1));
       return true;
     }
 
-    console.log('✓ .env file already exists with all API key variables');
+    sendSuccess('.env file already exists with all API key variables');
     return false;
   }
 
@@ -602,9 +603,9 @@ class ProjectInitiator {
 
     if (addedItems.length > 0) {
       fs.writeFileSync(gitignorePath, newContent, 'utf8');
-      console.log(`✓ Added to .gitignore: ${addedItems.join(', ')}`);
+      sendSuccess(`Added to .gitignore: ${addedItems.join(', ')}`);
     } else {
-      console.log('✓ .gitignore already up to date');
+      sendSuccess('.gitignore already up to date');
     }
   }
 
@@ -620,16 +621,16 @@ class ProjectInitiator {
     // Create directory structure
     if (!fs.existsSync(vitepressDir)) {
       fs.mkdirSync(vitepressDir, { recursive: true });
-      console.log('✓ Created .avc/documentation/.vitepress/ folder');
+      sendSuccess('Created .avc/documentation/.vitepress/ folder');
     } else {
-      console.log('✓ .avc/documentation/.vitepress/ folder already exists');
+      sendSuccess('.avc/documentation/.vitepress/ folder already exists');
     }
 
     if (!fs.existsSync(publicDir)) {
       fs.mkdirSync(publicDir, { recursive: true });
-      console.log('✓ Created .avc/documentation/public/ folder');
+      sendSuccess('Created .avc/documentation/public/ folder');
     } else {
-      console.log('✓ .avc/documentation/public/ folder already exists');
+      sendSuccess('.avc/documentation/public/ folder already exists');
     }
 
     // Create VitePress config
@@ -639,9 +640,9 @@ class ProjectInitiator {
       let configContent = fs.readFileSync(templatePath, 'utf8');
       configContent = configContent.replace('{{PROJECT_NAME}}', this.getProjectName());
       fs.writeFileSync(configPath, configContent, 'utf8');
-      console.log('✓ Created .avc/documentation/.vitepress/config.mts');
+      sendSuccess('Created .avc/documentation/.vitepress/config.mts');
     } else {
-      console.log('✓ .avc/documentation/.vitepress/config.mts already exists');
+      sendSuccess('.avc/documentation/.vitepress/config.mts already exists');
     }
 
     // Create initial index.md
@@ -681,9 +682,9 @@ If you're new to Agile Vibe Coding, visit the [AVC Documentation](https://agilev
 *Documentation powered by [Agile Vibe Coding](https://agilevibecoding.org)*
 `;
       fs.writeFileSync(indexPath, indexContent, 'utf8');
-      console.log('✓ Created .avc/documentation/index.md');
+      sendSuccess('Created .avc/documentation/index.md');
     } else {
-      console.log('✓ .avc/documentation/index.md already exists');
+      sendSuccess('.avc/documentation/index.md already exists');
     }
   }
 
@@ -981,13 +982,15 @@ If you're new to Agile Vibe Coding, visit the [AVC Documentation](https://agilev
    * Creates .avc folder, avc.json config, .env file, and gitignore entry
    */
   async init() {
-    console.log('\n🚀 AVC Project Initiator\n');
-    console.log(`Project directory: ${this.projectRoot}\n`);
+    sendSectionHeader('AVC Project Initiator');
+    sendOutput(`Project directory: ${this.projectRoot}`);
+    sendOutput('');
 
     if (this.isAvcProject()) {
       // Project already initialized
-      console.log('✓ AVC project already initialized');
-      console.log('\nProject is ready to use.');
+      sendSuccess('AVC project already initialized');
+      sendOutput('');
+      sendOutput('Project is ready to use.');
       return;
     }
 
@@ -1008,14 +1011,17 @@ If you're new to Agile Vibe Coding, visit the [AVC Documentation](https://agilev
       console.log = originalLog;
     }
 
-    console.log('\n✅ AVC project initialized!\n');
-    console.log('Next steps:');
-    console.log('  1. Add your API key(s) to .env file');
-    console.log('     • ANTHROPIC_API_KEY for Claude');
-    console.log('     • GEMINI_API_KEY for Gemini');
-    console.log('     • OPENAI_API_KEY for OpenAI');
-    console.log('  2. (Optional) Run /models to configure LLM models');
-    console.log('  3. Run /sponsor-call to start\n');
+    sendOutput('');
+    sendSuccess('AVC project initialized!');
+    sendOutput('');
+    sendOutput('Next steps:');
+    sendIndented('1. Add your API key(s) to .env file', 1);
+    sendIndented('• ANTHROPIC_API_KEY for Claude', 2);
+    sendIndented('• GEMINI_API_KEY for Gemini', 2);
+    sendIndented('• OPENAI_API_KEY for OpenAI', 2);
+    sendIndented('2. (Optional) Run /models to configure LLM models', 1);
+    sendIndented('3. Run /sponsor-call to start', 1);
+    sendOutput('');
 
     // No longer offer model configuration during init
     // Users can run /models command to configure models
@@ -1027,12 +1033,15 @@ If you're new to Agile Vibe Coding, visit the [AVC Documentation](https://agilev
    * Shows current model configuration and offers interactive editing
    */
   async models() {
-    console.log('\n🔧 Model Configuration\n');
+    sendSectionHeader('Model Configuration');
+    sendOutput('');
 
     // Check if project is initialized
     if (!this.isAvcProject()) {
-      console.log(`ERROR: ${MESSAGES.PROJECT_NOT_INITIALIZED.error}\n`);
-      console.log(`${MESSAGES.PROJECT_NOT_INITIALIZED.help}\n`);
+      sendError(MESSAGES.PROJECT_NOT_INITIALIZED.error);
+      sendOutput('');
+      sendOutput(MESSAGES.PROJECT_NOT_INITIALIZED.help);
+      sendOutput('');
       return;
     }
 
@@ -1065,21 +1074,21 @@ If you're new to Agile Vibe Coding, visit the [AVC Documentation](https://agilev
     const ceremonies = configurator.getCeremonies();
     ceremonies.forEach(c => {
       const ceremonyUrl = `https://agilevibecoding.org/ceremonies/${c.name}.html`;
-      console.log(`${colors.bold}${colors.cyan}${c.name}${colors.reset} - ${colors.blue}${ceremonyUrl}${colors.reset}`);
-      console.log(''); // Add space after title
-      console.log(`• ${colors.yellow}main${colors.reset} -> ${colors.green}${c.mainModel}${colors.reset} (${c.mainProvider})`);
+      sendOutput(`${colors.bold}${colors.cyan}${c.name}${colors.reset} - ${colors.blue}${ceremonyUrl}${colors.reset}`);
+      sendOutput(''); // Add space after title
+      sendOutput(`• ${colors.yellow}main${colors.reset} -> ${colors.green}${c.mainModel}${colors.reset} (${c.mainProvider})`);
       if (c.validationProvider) {
         const hasValidationKey = configurator.availableProviders.includes(c.validationProvider);
         const keyWarning = hasValidationKey ? '' : ' ⚠️ No API key';
-        console.log(`• ${colors.yellow}validation${colors.reset} -> ${colors.green}${c.validationModel}${colors.reset} (${c.validationProvider})${keyWarning}`);
+        sendOutput(`• ${colors.yellow}validation${colors.reset} -> ${colors.green}${c.validationModel}${colors.reset} (${c.validationProvider})${keyWarning}`);
       }
       Object.keys(c.stages).forEach(stageName => {
         const stage = c.stages[stageName];
         const hasStageKey = configurator.availableProviders.includes(stage.provider);
         const keyWarning = hasStageKey ? '' : ' ⚠️ No API key';
-        console.log(`• ${colors.yellow}${stageName}${colors.reset} -> ${colors.green}${stage.model}${colors.reset} (${stage.provider})${keyWarning}`);
+        sendOutput(`• ${colors.yellow}${stageName}${colors.reset} -> ${colors.green}${stage.model}${colors.reset} (${stage.provider})${keyWarning}`);
       });
-      console.log(''); // Add space after each ceremony
+      sendOutput(''); // Add space after each ceremony
     });
 
     // Return configurator for REPL to use
@@ -1099,8 +1108,10 @@ If you're new to Agile Vibe Coding, visit the [AVC Documentation](https://agilev
 
     // Check if project is initialized
     if (!this.isAvcProject()) {
-      console.log(`ERROR: ${MESSAGES.PROJECT_NOT_INITIALIZED.error}\n`);
-      console.log(`${MESSAGES.PROJECT_NOT_INITIALIZED.help}\n`);
+      sendError(MESSAGES.PROJECT_NOT_INITIALIZED.error);
+      sendOutput('');
+      sendOutput(MESSAGES.PROJECT_NOT_INITIALIZED.help);
+      sendOutput('');
       return;
     }
 
@@ -1215,7 +1226,8 @@ If you're new to Agile Vibe Coding, visit the [AVC Documentation](https://agilev
    * Display token usage statistics and costs
    */
   async showTokenStats() {
-    console.log('\n📊 Token Usage Statistics\n');
+    sendSectionHeader('Token Usage Statistics');
+    sendOutput('');
 
     const { TokenTracker } = await import('./token-tracker.js');
     const tracker = new TokenTracker(this.avcDir);
@@ -1226,47 +1238,54 @@ If you're new to Agile Vibe Coding, visit the [AVC Documentation](https://agilev
 
     // All-time totals
     const allTime = data.totals.allTime;
-    console.log('All-Time Totals:');
-    console.log(`   Input Tokens: ${allTime.input.toLocaleString()}`);
-    console.log(`   Output Tokens: ${allTime.output.toLocaleString()}`);
-    console.log(`   Total Tokens: ${allTime.total.toLocaleString()}`);
-    console.log(`   Executions: ${allTime.executions}`);
+    sendOutput('All-Time Totals:');
+    sendIndented(`Input Tokens: ${allTime.input.toLocaleString()}`, 1);
+    sendIndented(`Output Tokens: ${allTime.output.toLocaleString()}`, 1);
+    sendIndented(`Total Tokens: ${allTime.total.toLocaleString()}`, 1);
+    sendIndented(`Executions: ${allTime.executions}`, 1);
 
     if (allTime.cost && allTime.cost.total > 0) {
-      console.log(`\n💰 Estimated Total Cost:`);
-      console.log(`   Input: $${allTime.cost.input.toFixed(4)}`);
-      console.log(`   Output: $${allTime.cost.output.toFixed(4)}`);
-      console.log(`   Total: $${allTime.cost.total.toFixed(4)}`);
+      sendOutput('');
+      sendOutput('Estimated Total Cost:');
+      sendIndented(`Input: $${allTime.cost.input.toFixed(4)}`, 1);
+      sendIndented(`Output: $${allTime.cost.output.toFixed(4)}`, 1);
+      sendIndented(`Total: $${allTime.cost.total.toFixed(4)}`, 1);
     }
 
     // Show breakdown by ceremony type
-    console.log(`\n📋 By Ceremony Type:`);
+    sendOutput('');
+    sendOutput('By Ceremony Type:');
     const ceremonyTypes = Object.keys(data).filter(k => !['version', 'lastUpdated', 'totals'].includes(k));
 
     for (const ceremonyType of ceremonyTypes) {
       const ceremony = data[ceremonyType];
       if (ceremony.allTime && ceremony.allTime.executions > 0) {
-        console.log(`\n   ${ceremonyType}:`);
-        console.log(`      Executions: ${ceremony.allTime.executions}`);
-        console.log(`      Tokens: ${ceremony.allTime.total.toLocaleString()}`);
+        sendOutput('');
+        sendIndented(`${ceremonyType}:`, 1);
+        sendIndented(`Executions: ${ceremony.allTime.executions}`, 3);
+        sendIndented(`Tokens: ${ceremony.allTime.total.toLocaleString()}`, 3);
         if (ceremony.allTime.cost && ceremony.allTime.cost.total > 0) {
-          console.log(`      Cost: $${ceremony.allTime.cost.total.toFixed(4)}`);
+          sendIndented(`Cost: $${ceremony.allTime.cost.total.toFixed(4)}`, 3);
         }
       }
     }
 
-    console.log('');
+    sendOutput('');
   }
 
   /**
    * Run Sprint Planning ceremony to create/expand Epics and Stories
    */
   async sprintPlanning() {
-    console.log('\n🚀 Starting Sprint Planning ceremony...\n');
+    sendOutput('');
+    sendOutput('Starting Sprint Planning ceremony...');
+    sendOutput('');
 
     if (!this.isAvcProject()) {
-      console.log('❌ Project not initialized\n');
-      console.log('Please run /init first.\n');
+      sendError('Project not initialized');
+      sendOutput('');
+      sendOutput('Please run /init first.');
+      sendOutput('');
       return;
     }
 
@@ -1280,18 +1299,25 @@ If you're new to Agile Vibe Coding, visit the [AVC Documentation](https://agilev
    * @param {string} storyId - Story ID (e.g., context-0001-0001)
    */
   async seed(storyId) {
-    console.log(`\n🌱 Seeding Story: ${storyId}\n`);
+    sendOutput('');
+    sendOutput(`Seeding Story: ${storyId}`);
+    sendOutput('');
 
     if (!this.isAvcProject()) {
-      console.log('❌ Project not initialized\n');
-      console.log('Please run /init first.\n');
+      sendError('Project not initialized');
+      sendOutput('');
+      sendOutput('Please run /init first.');
+      sendOutput('');
       return;
     }
 
     if (!storyId) {
-      console.log('❌ Story ID required\n');
-      console.log('Usage: /seed <story-id>\n');
-      console.log('Example: /seed context-0001-0001\n');
+      sendError('Story ID required');
+      sendOutput('');
+      sendOutput('Usage: /seed <story-id>');
+      sendOutput('');
+      sendOutput('Example: /seed context-0001-0001');
+      sendOutput('');
       return;
     }
 
@@ -1306,22 +1332,27 @@ If you're new to Agile Vibe Coding, visit the [AVC Documentation](https://agilev
    */
   async sponsorCall() {
     const header = getCeremonyHeader('sponsor-call');
-    console.log(`\n${header.title}\n`);
-    console.log(`Project directory: ${this.projectRoot}\n`);
+    sendOutput('');
+    sendOutput(header.title);
+    sendOutput('');
+    sendOutput(`Project directory: ${this.projectRoot}`);
+    sendOutput('');
 
     // Check if running in REPL mode
     const isReplMode = process.env.AVC_REPL_MODE === 'true';
     if (isReplMode) {
       // REPL mode is handled by repl-ink.js questionnaire display
       // This code path shouldn't be reached from REPL
-      console.log('⚠️  Unexpected: Ceremony called directly from REPL');
+      sendWarning('Unexpected: Ceremony called directly from REPL');
       return;
     }
 
     // Check if project is initialized
     if (!this.isAvcProject()) {
-      console.log(`ERROR: ${MESSAGES.PROJECT_NOT_INITIALIZED.error}\n`);
-      console.log(`${MESSAGES.PROJECT_NOT_INITIALIZED.help}\n`);
+      sendError(MESSAGES.PROJECT_NOT_INITIALIZED.error);
+      sendOutput('');
+      sendOutput(MESSAGES.PROJECT_NOT_INITIALIZED.help);
+      sendOutput('');
       return; // Don't exit in REPL mode
     }
 
@@ -1330,10 +1361,13 @@ If you're new to Agile Vibe Coding, visit the [AVC Documentation](https://agilev
     const history = new CeremonyHistory(this.avcDir);
 
     if (history.hasSuccessfulCompletion('sponsor-call')) {
-      console.log('❌ Sponsor Call has already completed successfully\n');
-      console.log('Project documentation already exists at .avc/project/doc.md\n');
-      console.log('To regenerate documentation, first run /remove to clear the project,');
-      console.log('then run /init followed by /sponsor-call again.\n');
+      sendError('Sponsor Call has already completed successfully');
+      sendOutput('');
+      sendOutput('Project documentation already exists at .avc/project/doc.md');
+      sendOutput('');
+      sendOutput('To regenerate documentation, first run /remove to clear the project,');
+      sendOutput('then run /init followed by /sponsor-call again.');
+      sendOutput('');
       return; // Don't allow re-running
     }
 
@@ -1345,22 +1379,28 @@ If you're new to Agile Vibe Coding, visit the [AVC Documentation](https://agilev
       progress = this.readProgress(progressPath);
 
       if (progress && progress.stage !== 'completed') {
-        console.log('⚠️  Found incomplete ceremony from previous session');
-        console.log(`   Last activity: ${new Date(progress.lastUpdate).toLocaleString()}`);
-        console.log(`   Stage: ${progress.stage}`);
-        console.log(`   Progress: ${progress.answeredQuestions || 0}/${progress.totalQuestions || 0} questions answered`);
-        console.log('\n▶️  Continuing from where you left off...\n');
+        sendWarning('Found incomplete ceremony from previous session');
+        sendIndented(`Last activity: ${new Date(progress.lastUpdate).toLocaleString()}`, 1);
+        sendIndented(`Stage: ${progress.stage}`, 1);
+        sendIndented(`Progress: ${progress.answeredQuestions || 0}/${progress.totalQuestions || 0} questions answered`, 1);
+        sendOutput('');
+        sendInfo('Continuing from where you left off...');
+        sendOutput('');
       }
     } else {
       // Fresh start
-      console.log('Starting Sponsor Call ceremony...\n');
+      sendOutput('Starting Sponsor Call ceremony...');
+      sendOutput('');
     }
 
     // Validate API key before starting ceremony
     const validationResult = await this.validateProviderApiKey();
     if (!validationResult.valid) {
-      console.log('\n❌ API Key Validation Failed\n');
-      console.log(`   ${validationResult.message}\n`);
+      sendOutput('');
+      sendError('API Key Validation Failed');
+      sendOutput('');
+      sendIndented(validationResult.message, 1);
+      sendOutput('');
       return; // Don't exit in REPL mode
     }
 
@@ -1385,32 +1425,38 @@ If you're new to Agile Vibe Coding, visit the [AVC Documentation](https://agilev
     this.writeProgress(progress, progressPath);
     this.clearProgress(progressPath);
 
-    console.log('\n✅ Project defined successfully!');
-    console.log('\nNext steps:');
-    console.log('  1. Review .avc/project/doc.md for your project definition');
-    console.log('  2. Review .avc/avc.json configuration');
-    console.log('  3. Create your project context and work items');
-    console.log('  4. Use AI agents to implement features');
+    sendOutput('');
+    sendSuccess('Project defined successfully!');
+    sendOutput('');
+    sendOutput('Next steps:');
+    sendIndented('1. Review .avc/project/doc.md for your project definition', 1);
+    sendIndented('2. Review .avc/avc.json configuration', 1);
+    sendIndented('3. Create your project context and work items', 1);
+    sendIndented('4. Use AI agents to implement features', 1);
   }
 
   /**
    * Display current project status
    */
   status() {
-    console.log('\n📊 AVC Project Status\n');
-    console.log(`Project directory: ${this.projectRoot}`);
-    console.log(`Project name: ${this.getProjectName()}\n`);
+    sendSectionHeader('AVC Project Status');
+    sendOutput('');
+    sendOutput(`Project directory: ${this.projectRoot}`);
+    sendOutput(`Project name: ${this.getProjectName()}`);
+    sendOutput('');
 
-    console.log('Components:');
-    console.log(`  .avc/ folder:      ${this.hasAvcFolder() ? '✓' : '✗'}`);
-    console.log(`  src/ folder:       ${this.hasSrcFolder() ? '✓' : '✗'}`);
-    console.log(`  worktrees/ folder: ${this.hasWorktreesFolder() ? '✓' : '✗'}`);
-    console.log(`  avc.json:          ${this.hasAvcConfig() ? '✓' : '✗'}`);
+    sendOutput('Components:');
+    sendIndented(`.avc/ folder:      ${this.hasAvcFolder() ? '✓' : '✗'}`, 1);
+    sendIndented(`src/ folder:       ${this.hasSrcFolder() ? '✓' : '✗'}`, 1);
+    sendIndented(`worktrees/ folder: ${this.hasWorktreesFolder() ? '✓' : '✗'}`, 1);
+    sendIndented(`avc.json:          ${this.hasAvcConfig() ? '✓' : '✗'}`, 1);
 
-    console.log(`\nStatus: ${this.isAvcProject() ? '✅ Initialized' : '⚠️  Not initialized'}`);
+    sendOutput('');
+    sendOutput(`Status: ${this.isAvcProject() ? 'Initialized' : 'Not initialized'}`);
 
     if (!this.isAvcProject()) {
-      console.log('\nRun "avc init" to initialize the project.');
+      sendOutput('');
+      sendOutput('Run "avc init" to initialize the project.');
     }
   }
 
@@ -1419,54 +1465,64 @@ If you're new to Agile Vibe Coding, visit the [AVC Documentation](https://agilev
    * Requires confirmation by typing "delete all"
    */
   async remove() {
-    console.log('\n🗑️  Remove AVC Project Structure\n');
-    console.log(`Project directory: ${this.projectRoot}\n`);
+    sendSectionHeader('Remove AVC Project Structure');
+    sendOutput('');
+    sendOutput(`Project directory: ${this.projectRoot}`);
+    sendOutput('');
 
     // Check if project is initialized
     if (!this.isAvcProject()) {
-      console.log('⚠️  No AVC project found in this directory.\n');
-      console.log('Nothing to remove.\n');
+      sendWarning('No AVC project found in this directory.');
+      sendOutput('');
+      sendOutput('Nothing to remove.');
+      sendOutput('');
       return;
     }
 
     // Show what will be deleted
-    console.log('⚠️  WARNING: This is a DESTRUCTIVE operation!\n');
-    console.log('The following will be PERMANENTLY DELETED:\n');
+    sendWarning('WARNING: This is a DESTRUCTIVE operation!');
+    sendOutput('');
+    sendOutput('The following will be PERMANENTLY DELETED:');
+    sendOutput('');
 
     // List contents of .avc folder
     const avcContents = this.getAvcContents();
     if (avcContents.length > 0) {
-      console.log('📁 .avc/ folder contents:');
+      sendOutput('.avc/ folder contents:');
       avcContents.forEach(item => {
-        console.log(`   • ${item}`);
+        sendIndented(`• ${item}`, 1);
       });
-      console.log('');
+      sendOutput('');
     }
 
-    console.log('❌ All project definitions, epics, stories, tasks, and documentation will be lost.');
-    console.log('❌ All VitePress documentation will be deleted.');
-    console.log('❌ This action CANNOT be undone.\n');
+    sendError('All project definitions, epics, stories, tasks, and documentation will be lost.');
+    sendError('All VitePress documentation will be deleted.');
+    sendError('This action CANNOT be undone.');
+    sendOutput('');
 
     // Check for .env file
     const envPath = path.join(this.projectRoot, '.env');
     const hasEnvFile = fs.existsSync(envPath);
     if (hasEnvFile) {
-      console.log('ℹ️  Note: The .env file will NOT be deleted.');
-      console.log('You may want to manually remove API keys if no longer needed.\n');
+      sendInfo('Note: The .env file will NOT be deleted.');
+      sendOutput('You may want to manually remove API keys if no longer needed.');
+      sendOutput('');
     }
 
     // Check for src folder
     const hasSrcFolder = this.hasSrcFolder();
     if (hasSrcFolder) {
-      console.log('✅ IMPORTANT: The src/ folder will NOT be deleted.');
-      console.log('All your AVC-managed code will be preserved.\n');
+      sendSuccess('IMPORTANT: The src/ folder will NOT be deleted.');
+      sendOutput('All your AVC-managed code will be preserved.');
+      sendOutput('');
     }
 
     // Check for worktrees folder
     const hasWorktreesFolder = this.hasWorktreesFolder();
     if (hasWorktreesFolder) {
-      console.log('✅ IMPORTANT: The worktrees/ folder will NOT be deleted.');
-      console.log('All your git worktrees will be preserved.\n');
+      sendSuccess('IMPORTANT: The worktrees/ folder will NOT be deleted.');
+      sendOutput('All your git worktrees will be preserved.');
+      sendOutput('');
     }
 
     // Check if running in REPL mode
@@ -1475,16 +1531,16 @@ If you're new to Agile Vibe Coding, visit the [AVC Documentation](https://agilev
     if (isReplMode) {
       // In REPL mode, interactive confirmation is handled by repl-ink.js
       // This code path shouldn't be reached from REPL
-      console.log('⚠️  Unexpected: Remove called directly from REPL');
-      console.log('Interactive confirmation should be handled by REPL interface.');
+      sendWarning('Unexpected: Remove called directly from REPL');
+      sendOutput('Interactive confirmation should be handled by REPL interface.');
       return;
     }
 
-    console.log('─'.repeat(60));
-    console.log('To confirm deletion, type exactly: delete all');
-    console.log('To cancel, type anything else or press Ctrl+C');
-    console.log('─'.repeat(60));
-    console.log('');
+    sendOutput('─'.repeat(60));
+    sendOutput('To confirm deletion, type exactly: delete all');
+    sendOutput('To cancel, type anything else or press Ctrl+C');
+    sendOutput('─'.repeat(60));
+    sendOutput('');
 
     // Create readline interface for confirmation
     const readline = await import('readline');
@@ -1496,11 +1552,12 @@ If you're new to Agile Vibe Coding, visit the [AVC Documentation](https://agilev
     return new Promise((resolve) => {
       rl.question('Confirmation: ', (answer) => {
         rl.close();
-        console.log('');
+        sendOutput('');
 
         if (answer.trim() === 'delete all') {
           // Proceed with deletion
-          console.log('🗑️  Deleting AVC project structure...\n');
+          sendOutput('Deleting AVC project structure...');
+          sendOutput('');
 
           try {
             // Get list of what's being deleted before deletion
@@ -1509,53 +1566,64 @@ If you're new to Agile Vibe Coding, visit the [AVC Documentation](https://agilev
             // Delete .avc folder
             fs.rmSync(this.avcDir, { recursive: true, force: true });
 
-            console.log('✅ Successfully deleted:\n');
-            console.log('📁 .avc/ folder and all contents:');
+            sendSuccess('Successfully deleted:');
+            sendOutput('');
+            sendOutput('.avc/ folder and all contents:');
             deletedItems.forEach(item => {
-              console.log(`      • ${item}`);
+              sendIndented(`• ${item}`, 3);
             });
-            console.log('');
+            sendOutput('');
 
             // Reminder about preserved files
             if (hasEnvFile || hasSrcFolder || hasWorktreesFolder) {
-              console.log('ℹ️  Preserved files:\n');
+              sendInfo('Preserved files:');
+              sendOutput('');
 
               if (hasEnvFile) {
-                console.log('The .env file was NOT deleted and still contains:');
-                console.log('   • ANTHROPIC_API_KEY');
-                console.log('   • GEMINI_API_KEY');
-                console.log('   • OPENAI_API_KEY');
-                console.log('   • (and any other API keys you added)');
-                console.log('If these API keys are not used elsewhere in your project,');
-                console.log('you may want to manually delete the .env file or remove');
-                console.log('the unused keys.\n');
+                sendOutput('The .env file was NOT deleted and still contains:');
+                sendIndented('• ANTHROPIC_API_KEY', 1);
+                sendIndented('• GEMINI_API_KEY', 1);
+                sendIndented('• OPENAI_API_KEY', 1);
+                sendIndented('• (and any other API keys you added)', 1);
+                sendOutput('If these API keys are not used elsewhere in your project,');
+                sendOutput('you may want to manually delete the .env file or remove');
+                sendOutput('the unused keys.');
+                sendOutput('');
               }
 
               if (hasSrcFolder) {
-                console.log('✅ The src/ folder was NOT deleted.');
-                console.log('All your AVC-managed code has been preserved.\n');
+                sendSuccess('The src/ folder was NOT deleted.');
+                sendOutput('All your AVC-managed code has been preserved.');
+                sendOutput('');
               }
 
               if (hasWorktreesFolder) {
-                console.log('✅ The worktrees/ folder was NOT deleted.');
-                console.log('All your git worktrees have been preserved.\n');
+                sendSuccess('The worktrees/ folder was NOT deleted.');
+                sendOutput('All your git worktrees have been preserved.');
+                sendOutput('');
               }
             }
 
-            console.log('✅ AVC project structure has been completely removed.\n');
-            console.log('You can re-initialize anytime by running /init\n');
+            sendSuccess('AVC project structure has been completely removed.');
+            sendOutput('');
+            sendOutput('You can re-initialize anytime by running /init');
+            sendOutput('');
 
             resolve();
           } catch (error) {
-            console.log(`❌ Error during deletion: ${error.message}\n`);
-            console.log('The .avc folder may be partially deleted.');
-            console.log('You may need to manually remove it.\n');
+            sendError(`Error during deletion: ${error.message}`);
+            sendOutput('');
+            sendOutput('The .avc folder may be partially deleted.');
+            sendOutput('You may need to manually remove it.');
+            sendOutput('');
             resolve();
           }
         } else {
           // Cancellation
-          console.log('❌ Operation cancelled.\n');
-          console.log('No files were deleted.\n');
+          sendError('Operation cancelled.');
+          sendOutput('');
+          sendOutput('No files were deleted.');
+          sendOutput('');
           resolve();
         }
       });
@@ -1646,7 +1714,7 @@ if (import.meta.url === `file://${process.argv[1]}`) {
       initiator.remove();
       break;
     default:
-      console.log('Unknown command. Available commands: init, sponsor-call, status, models, remove');
+      sendError('Unknown command. Available commands: init, sponsor-call, status, models, remove');
       process.exit(1);
   }
 }
