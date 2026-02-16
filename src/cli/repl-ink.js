@@ -1088,7 +1088,7 @@ const DeploymentStrategySelector = ({ selectedIndex }) => {
             bold: true,
             inverse: isSelected,
             color: isSelected ? 'green' : 'white'
-          }, (isSelected ? '▶ ' : '  ') + strategy.icon + ' ' + strategy.label),
+          }, (isSelected ? '▶ ' : '  ') + strategy.label),
 
           // Description
           React.createElement(Box, { marginLeft: 3, marginTop: 1, flexDirection: 'column' },
@@ -2294,7 +2294,7 @@ https://agilevibecoding.org
           setQuestionnaireAnswers(savedProgress.collectedValues || {});
           setDeploymentStrategySelectorActive(true);
           setDeploymentStrategyIndex(savedProgress.deploymentStrategyIndex || 0);
-          setMode('selector');
+          setMode('prompt');
           sendCeremonyHeader('🎯 Sponsor Call Ceremony - Resuming from deployment strategy selection', 'https://agilevibecoding.org/ceremonies/sponsor-call');
           return;
         }
@@ -2628,7 +2628,7 @@ https://agilevibecoding.org
 
       // Show deployment strategy selector
       setQuestionnaireActive(false);
-      setMode('selector');
+      setMode('prompt');
       setDeploymentStrategySelectorActive(true);
       setDeploymentStrategyIndex(0);
       return;
@@ -5232,7 +5232,7 @@ https://agilevibecoding.org
   };
 
   const renderPrompt = () => {
-    if (mode !== 'prompt' || questionnaireActive || showPreview || removeConfirmActive || killConfirmActive || processViewerActive || cancelConfirmActive || isExecuting || modelConfigActive || architectureSelectorActive || cloudProviderSelectorActive || databaseChoiceActive || databaseQuestionsActive) return null;
+    if (mode !== 'prompt' || questionnaireActive || showPreview || removeConfirmActive || killConfirmActive || processViewerActive || cancelConfirmActive || isExecuting || modelConfigActive || architectureSelectorActive || cloudProviderSelectorActive || databaseChoiceActive || databaseQuestionsActive || deploymentStrategySelectorActive) return null;
 
     // Show loading indicator while app is initializing
     if (!isStableRender) {
