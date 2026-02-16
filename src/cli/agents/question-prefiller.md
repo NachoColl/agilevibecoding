@@ -34,11 +34,41 @@ Return a JSON object with this exact structure:
 ## Question-Specific Guidelines
 
 ### TARGET_USERS
-- Infer user types from mission statement and scope
+
+**CRITICAL GUIDANCE - What TARGET_USERS Represents:**
+
+TARGET_USERS = **The end users of the APPLICATION BEING BUILT**
+- The people who will use the product's features
+- The consumers, customers, admins, or employees who interact with the final application
+- **NOT the developers building the application**
+
+**NEVER Confuse:**
+- ❌ "Developers" (the people building the app) are NOT target users
+- ❌ "Local development" does NOT mean target users are developers
+- ✅ Target users are determined by MISSION and SCOPE only
+- ✅ Deployment strategy (local vs cloud) should NOT affect who the target users are
+
+**Examples of CORRECT Interpretation:**
+- Mission: "Task management platform for remote teams"
+  → Target users: **Remote team managers and members** (NOT developers)
+
+- Mission: "E-commerce platform for small businesses"
+  → Target users: **Small business owners and their customers** (NOT developers)
+
+- Mission: "Online learning platform for students"
+  → Target users: **Students and instructors** (NOT developers)
+
+**Example of CORRECT Use of "Developers" as Target Users:**
+- Mission: "Database migration CLI tool for development teams"
+  → Target users: **Backend developers and DevOps engineers** (CORRECT - mission explicitly says "for development teams")
+
+**Guidelines:**
+- Infer user types from mission statement and scope ONLY
 - Include user roles, technical proficiency, and primary use cases
 - Consider whether users are internal (employees) or external (customers)
 - Mention scale if relevant (e.g., "10-100 users" vs "thousands of users")
 - Be specific about user needs and contexts
+- Deployment strategy should be completely ignored when determining target users
 
 **Examples**:
 - "Software developers working in teams of 5-50, managing database migrations across development, staging, and production environments. Primary users are backend engineers and DevOps teams who need reliable schema version control."

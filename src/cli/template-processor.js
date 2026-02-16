@@ -2677,21 +2677,42 @@ ${initialScope}
         if (deploymentStrategy === 'local-mvp') {
           prompt += `
 
-IMPORTANT: User has chosen to start with local development and migrate to cloud later.
-- DEPLOYMENT_TARGET must emphasize local development environment (Docker Compose, localhost)
-- TECHNICAL_CONSIDERATIONS must include local stack details (SQLite/local PostgreSQL, containerization)
-- Mention migration readiness: "Ready to migrate to [cloud options] when scaling to production"
-- Focus on: Zero cost, rapid development, easy debugging, production parity with Docker
+CRITICAL: Deployment strategy affects ONLY deployment and technical choices, NOT target users.
+
+**TARGET_USERS:**
+- Infer from mission statement and scope ONLY
+- Ignore deployment strategy completely
+- Example: If mission is "task management for remote teams", target users are remote team members, NOT developers
+- The deployment choice (local vs cloud) does NOT change who the end users are
+
+**DEPLOYMENT_TARGET requirements:**
+- Emphasize local development environment (Docker Compose, localhost)
+- Mention zero cloud costs during MVP development phase
+- Include migration readiness: "Ready to migrate to [cloud options] when scaling to production"
+
+**TECHNICAL_CONSIDERATIONS requirements:**
+- Include local stack details (SQLite or local PostgreSQL/MongoDB in Docker, containerization)
+- Focus on: Zero cost, rapid iteration, easy debugging, production parity with Docker
 - DO NOT mention cloud services (RDS, Lambda, ECS, etc.) in technical details`;
         } else if (deploymentStrategy === 'cloud') {
           prompt += `
 
-IMPORTANT: User has chosen cloud deployment from day one.
-- DEPLOYMENT_TARGET must detail cloud infrastructure (managed services, auto-scaling, regions)
-- TECHNICAL_CONSIDERATIONS must include cloud-specific details (managed database, CDN, load balancers)
-- Emphasize production readiness: monitoring, backups, high availability
+CRITICAL: Deployment strategy affects ONLY deployment and technical choices, NOT target users.
+
+**TARGET_USERS:**
+- Infer from mission statement and scope ONLY
+- Ignore deployment strategy completely
+- The deployment choice (local vs cloud) does NOT change who the end users are
+
+**DEPLOYMENT_TARGET requirements:**
+- Detail cloud infrastructure (managed services, auto-scaling, regions)
+- Emphasize production-ready from day one
 - Include cost considerations and scaling strategy
-- Focus on: Managed services, auto-scaling, production features`;
+
+**TECHNICAL_CONSIDERATIONS requirements:**
+- Include cloud-specific details (managed database, CDN, load balancers)
+- Emphasize: monitoring, backups, high availability, auto-scaling
+- Focus on: Managed services, production features`;
         }
       }
 
