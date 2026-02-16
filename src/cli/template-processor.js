@@ -2254,12 +2254,13 @@ Return your response as JSON following the exact structure specified in your ins
    * @param {Object|null} databaseRecommendation - Optional database recommendation context
    * @returns {Promise<Array>} Array of architecture recommendations
    */
-  async getArchitectureRecommendations(missionStatement, initialScope, databaseContext = null) {
+  async getArchitectureRecommendations(missionStatement, initialScope, databaseContext = null, deploymentStrategy = null) {
     debug('getArchitectureRecommendations called', {
       missionStatement,
       initialScope,
       hasDatabaseContext: !!databaseContext,
-      userChoice: databaseContext?.userChoice
+      userChoice: databaseContext?.userChoice,
+      deploymentStrategy
     });
 
     try {
@@ -2318,9 +2319,82 @@ ${initialScope}`;
         }
       }
 
+      // Add deployment strategy context if provided
+      if (deploymentStrategy === 'local-mvp') {
+        prompt += `
+
+**Deployment Strategy:** Local MVP First
+
+CRITICAL FILTERING REQUIREMENT:
+- Return ONLY local development architectures (no cloud-specific services)
+- Every architecture MUST include a migrationPath object with cloud migration details
+- NO Lambda, ECS, AKS, GKE, or other cloud-managed services
+- Focus on: Docker Compose, localhost setups, local databases
+
+Required architectures to consider:
+1. Docker Compose full-stack (PostgreSQL/MongoDB, backend, frontend)
+2. Lightweight localhost setup (SQLite/JSON, Express/Flask, React dev server)
+3. Framework-specific local development (Django, Rails, Next.js dev)
+
+Each architecture must include:
+- Clear "zero cloud costs" messaging
+- Production parity explanation (Docker vs simple localhost)
+- Specific migration path to 2-3 cloud architectures
+- Estimated migration effort (days) and complexity level
+
+Example architecture structure:
+{
+  "name": "Local Docker Compose Full-Stack",
+  "description": "...runs entirely on your machine with zero cloud costs...Ready to migrate to AWS ECS, Azure Container Apps, or GCP Cloud Run when ready for production...",
+  "requiresCloudProvider": false,
+  "bestFor": "MVP development with production-like local environment",
+  "migrationPath": {
+    "readyForCloud": true,
+    "suggestedCloudArchitectures": ["AWS ECS", "Azure Container Apps", "GCP Cloud Run"],
+    "estimatedMigrationEffort": "2-3 days",
+    "migrationComplexity": "Medium",
+    "keyMigrationSteps": ["Set up managed database", "Create container registry", "Deploy to cloud service"]
+  }
+}`;
+      } else if (deploymentStrategy === 'cloud') {
+        prompt += `
+
+**Deployment Strategy:** Cloud Deployment
+
+CRITICAL FILTERING REQUIREMENT:
+- Return ONLY cloud-native architectures (AWS/Azure/GCP managed services or PaaS)
+- NO local development options (Docker Compose, localhost setups)
+- Focus on: Serverless, containers, managed services, PaaS platforms
+
+Required considerations:
+- Serverless options (Lambda, Cloud Functions, Cloud Run)
+- Container orchestration (ECS, AKS, GKE)
+- PaaS platforms (Vercel, Railway, Render for simpler projects)
+- Managed databases (RDS, DynamoDB, Atlas, Cosmos DB)
+
+Each architecture must include:
+- Specific cloud services and managed offerings
+- Estimated monthly costs (low/medium/high traffic scenarios)
+- Auto-scaling and managed infrastructure benefits
+- Production-ready from day one messaging
+
+Example architecture structure:
+{
+  "name": "Serverless Backend + SPA on AWS",
+  "description": "AWS Lambda for backend API, API Gateway for routing, DynamoDB for database, S3 + CloudFront for frontend. Scales automatically, pay only for usage...",
+  "requiresCloudProvider": true,
+  "bestFor": "Scalable APIs with variable traffic, cost optimization",
+  "estimatedMonthlyCost": {
+    "low": "$10-30 (< 10K requests/day)",
+    "medium": "$50-150 (10K-100K requests/day)",
+    "high": "$200-500 (100K+ requests/day)"
+  }
+}`;
+      }
+
       prompt += `
 
-Analyze this project and recommend 3-5 deployment architectures that best fit these requirements.${databaseContext ? ' Consider the database context when recommending deployment patterns and cloud services.' : ''}
+Analyze this project and recommend 3-5 deployment architectures that best fit these requirements.${databaseContext ? ' Consider the database context when recommending deployment patterns and cloud services.' : ''}${deploymentStrategy ? ` IMPORTANT: Follow the deployment strategy filtering requirements above - return ONLY ${deploymentStrategy === 'local-mvp' ? 'local' : 'cloud'} architectures.` : ''}
 
 Return your response as JSON following the exact structure specified in your instructions.`;
 

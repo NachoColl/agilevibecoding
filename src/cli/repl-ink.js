@@ -2730,7 +2730,8 @@ https://agilevibecoding.org
       const architectures = await processor.getArchitectureRecommendations(
         questionnaireAnswers.MISSION_STATEMENT,
         questionnaireAnswers.INITIAL_SCOPE,
-        databaseContext
+        databaseContext,
+        deploymentStrategy // Pass deployment strategy for filtering
       );
 
       // Clear executing state
