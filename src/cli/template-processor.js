@@ -283,7 +283,7 @@ class TemplateProcessor {
     }
 
     const feedbackText = `
-⚠️ **LEARN FROM PREVIOUS MISTAKES**
+WARNING: **LEARN FROM PREVIOUS MISTAKES**
 
 In your last run, verification found these issues that you MUST avoid:
 
@@ -2196,7 +2196,7 @@ Return your response as JSON following the exact structure specified in your ins
         // Show top 3 issues
         const topIssues = allIssues.slice(0, 3);
         topIssues.forEach(issue => {
-          const icon = issue.severity === 'critical' ? '❌' : issue.severity === 'major' ? '⚠️' : 'ℹ️';
+          const icon = issue.severity === 'critical' ? '[CRITICAL]' : issue.severity === 'major' ? '[MAJOR]' : '[INFO]';
           const section = issue.section || issue.category;
           const desc = issue.description || issue.issue;
           console.log(`   ${icon} ${section}: ${desc.substring(0, 80)}${desc.length > 80 ? '...' : ''}`);

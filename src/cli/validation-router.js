@@ -305,7 +305,7 @@ class ValidationRouter {
     try {
       agentInstructions = fs.readFileSync(agentPath, 'utf8');
     } catch (error) {
-      console.warn(`⚠️  Could not load validator-selector agent: ${error.message}`);
+      console.warn(`Could not load validator-selector agent: ${error.message}`);
       return [];
     }
 
@@ -318,7 +318,7 @@ class ValidationRouter {
 
       // Validate response structure
       if (!response.validators || !Array.isArray(response.validators)) {
-        console.warn(`⚠️  Invalid LLM response: missing validators array`);
+        console.warn(`Invalid LLM response: missing validators array`);
         return [];
       }
 
@@ -327,7 +327,7 @@ class ValidationRouter {
 
       if (validValidators.length < response.validators.length) {
         const invalid = response.validators.filter(v => !this.isValidValidatorName(v, type));
-        console.warn(`⚠️  LLM returned invalid validator names: ${invalid.join(', ')}`);
+        console.warn(`LLM returned invalid validator names: ${invalid.join(', ')}`);
       }
 
       // Log selection reasoning
@@ -337,7 +337,7 @@ class ValidationRouter {
 
       return validValidators;
     } catch (error) {
-      console.warn(`⚠️  LLM validator selection failed: ${error.message}`);
+      console.warn(`LLM validator selection failed: ${error.message}`);
       return [];
     }
   }

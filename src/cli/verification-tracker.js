@@ -475,7 +475,7 @@ class VerificationTracker {
     const summary = this.getCeremonySummary();
 
     console.log('');
-    console.log('📊 Verification Summary');
+    console.log('Verification Summary');
     console.log('');
     console.log(`Total verification sessions: ${summary.summary.totalVerificationSessions}`);
     console.log(`Total rules checked: ${summary.summary.totalRulesChecked}`);

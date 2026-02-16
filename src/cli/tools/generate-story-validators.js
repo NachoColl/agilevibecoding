@@ -293,20 +293,20 @@ function generateStoryValidators() {
     const mdPath = path.join(AGENTS_PATH, mdFilename);
     const mdContent = generateStoryValidatorMd(domain);
     fs.writeFileSync(mdPath, mdContent, 'utf8');
-    console.log(`✅ Created ${mdFilename}`);
+    console.log(`Created ${mdFilename}`);
     created++;
 
     // Generate .json file
     const jsonPath = path.join(AGENTS_PATH, jsonFilename);
     const jsonContent = JSON.stringify(generateStoryVerificationJson(domain), null, 2);
     fs.writeFileSync(jsonPath, jsonContent, 'utf8');
-    console.log(`✅ Created ${jsonFilename}`);
+    console.log(`Created ${jsonFilename}`);
     created++;
   });
 
-  console.log(`\n📊 Summary:`);
+  console.log(`\nSummary:`);
   console.log(`   Created: ${created} files (${created / 2} validators)`);
-  console.log(`\n✅ All story validators generated!`);
+  console.log(`\nAll story validators generated!`);
   console.log(`\nNext steps:`);
   console.log(`   1. Review generated validators in ${AGENTS_PATH}`);
   console.log(`   2. Integrate into sprint-planning-processor.js`);

@@ -111,7 +111,7 @@ class EpicStoryValidator {
     let validators;
     if (epic.metadata?.selectedValidators) {
       validators = epic.metadata.selectedValidators;
-      console.log(`   ✓ Using cached validator selection (${validators.length} validators)`);
+      console.log(`   Using cached validator selection (${validators.length} validators)`);
     } else {
       // Get applicable validators for this epic (with LLM fallback if enabled)
       if (this.useSmartSelection) {
@@ -163,7 +163,7 @@ class EpicStoryValidator {
     let validators;
     if (story.metadata?.selectedValidators) {
       validators = story.metadata.selectedValidators;
-      console.log(`   ✓ Using cached validator selection (${validators.length} validators)`);
+      console.log(`   Using cached validator selection (${validators.length} validators)`);
     } else {
       // Get applicable validators for this story (with LLM fallback if enabled)
       if (this.useSmartSelection) {

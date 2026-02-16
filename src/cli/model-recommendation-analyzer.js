@@ -275,20 +275,20 @@ export class ModelRecommendationAnalyzer {
 
     // Consensus insights
     if (consensus.level === 'full') {
-      insights.push(`✓ Full consensus: All providers agree on ${consensus.majority} tier`);
+      insights.push(`[OK] Full consensus: All providers agree on ${consensus.majority} tier`);
     } else if (consensus.level === 'partial') {
-      insights.push(`⚠ Partial consensus: ${consensus.agreement} providers agree on ${consensus.majority} tier`);
+      insights.push(`[WARN] Partial consensus: ${consensus.agreement} providers agree on ${consensus.majority} tier`);
     } else if (consensus.level === 'none') {
-      insights.push(`✗ No consensus: Providers recommend different model tiers`);
+      insights.push(`[INFO] No consensus: Providers recommend different model tiers`);
     }
 
     // Default comparison insights
     if (comparison.alignment === 'perfect') {
-      insights.push(`✓ All provider recommendations match current default`);
+      insights.push(`[OK] All provider recommendations match current default`);
     } else if (comparison.upgradeCount > 0) {
-      insights.push(`⬆ ${comparison.upgradeCount} provider(s) recommend upgrading from current default`);
+      insights.push(`[UP] ${comparison.upgradeCount} provider(s) recommend upgrading from current default`);
     } else if (comparison.downgradeCount > 0) {
-      insights.push(`⬇ ${comparison.downgradeCount} provider(s) recommend downgrading from current default`);
+      insights.push(`[DOWN] ${comparison.downgradeCount} provider(s) recommend downgrading from current default`);
     }
 
     // Cost insights
@@ -304,9 +304,9 @@ export class ModelRecommendationAnalyzer {
     const confidenceLevels = Object.values(modelsByProvider).map(r => r.confidence);
     const highConfidence = confidenceLevels.filter(c => c === 'High').length;
     if (highConfidence === confidenceLevels.length) {
-      insights.push(`✓ All providers express high confidence in recommendations`);
+      insights.push(`[OK] All providers express high confidence in recommendations`);
     } else if (highConfidence === 0) {
-      insights.push(`⚠ Low provider confidence - recommendations may need review`);
+      insights.push(`[WARN] Low provider confidence - recommendations may need review`);
     }
 
     return insights;

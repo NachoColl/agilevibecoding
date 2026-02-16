@@ -626,24 +626,24 @@ Return your response as JSON following the exact structure specified in your ins
    * Display validation summary
    */
   displayValidationSummary(type, name, validation) {
-    const statusEmoji = {
-      'excellent': '✅',
-      'acceptable': '⚠️ ',
-      'needs-improvement': '❌'
+    const statusPrefix = {
+      'excellent': 'SUCCESS:',
+      'acceptable': 'WARNING:',
+      'needs-improvement': 'ERROR:'
     };
 
-    const emoji = statusEmoji[validation.overallStatus] || '?';
-    console.log(`${emoji} ${type}: ${name}`);
-    console.log(`   Overall Score: ${validation.averageScore}/100`);
-    console.log(`   Validators: ${validation.validatorCount} agents`);
-    console.log(`   Issues: ${validation.criticalIssues.length} critical, ${validation.majorIssues.length} major, ${validation.minorIssues.length} minor`);
+    const prefix = statusPrefix[validation.overallStatus] || '';
+    sendOutput(`${prefix} ${type}: ${name}\n`);
+    sendIndented(`Overall Score: ${validation.averageScore}/100`, 1);
+    sendIndented(`Validators: ${validation.validatorCount} agents`, 1);
+    sendIndented(`Issues: ${validation.criticalIssues.length} critical, ${validation.majorIssues.length} major, ${validation.minorIssues.length} minor`, 1);
 
     // Show strengths if excellent or acceptable
     if (validation.overallStatus !== 'needs-improvement' && validation.strengths.length > 0) {
-      console.log(`   Strengths: ${validation.strengths.slice(0, 2).join(', ')}`);
+      sendIndented(`Strengths: ${validation.strengths.slice(0, 2).join(', ')}`, 1);
     }
 
-    console.log('');
+    sendOutput('\n');
   }
 
   /**
