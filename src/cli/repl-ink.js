@@ -132,9 +132,9 @@ const LoadingSpinner = ({ message, substep }) => {
         message
       )
     ),
-    // Line 2: Substep (yellow, indented, only if exists)
-    substep ? React.createElement(Box, { marginLeft: 2 },
-      React.createElement(Text, { color: 'yellow' }, `└─ ${substep}`)
+    // Line 2: Substep (yellow, fully left-aligned)
+    substep ? React.createElement(Box, null,
+      React.createElement(Text, { color: 'yellow' }, substep)
     ) : null
   );
 };
