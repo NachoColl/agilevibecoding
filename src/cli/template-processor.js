@@ -2251,10 +2251,16 @@ Return your response as JSON following the exact structure specified in your ins
    * Get architecture recommendations based on mission statement and initial scope
    * @param {string} missionStatement - The project's mission statement
    * @param {string} initialScope - The initial scope/features
+   * @param {Object|null} databaseRecommendation - Optional database recommendation context
    * @returns {Promise<Array>} Array of architecture recommendations
    */
-  async getArchitectureRecommendations(missionStatement, initialScope) {
-    debug('getArchitectureRecommendations called', { missionStatement, initialScope });
+  async getArchitectureRecommendations(missionStatement, initialScope, databaseContext = null) {
+    debug('getArchitectureRecommendations called', {
+      missionStatement,
+      initialScope,
+      hasDatabaseContext: !!databaseContext,
+      userChoice: databaseContext?.userChoice
+    });
 
     try {
       // Get stage-specific provider for architecture recommendation
@@ -2272,15 +2278,49 @@ Return your response as JSON following the exact structure specified in your ins
       );
 
       // Build prompt
-      const prompt = `Given the following project definition:
+      let prompt = `Given the following project definition:
 
 **Mission Statement:**
 ${missionStatement}
 
 **Initial Scope (Features to Implement):**
-${initialScope}
+${initialScope}`;
 
-Analyze this project and recommend 3-5 deployment architectures that best fit these requirements.
+      // Add database context if available (new comparison format)
+      if (databaseContext?.comparison) {
+        prompt += `
+
+**Database Context:**`;
+
+        if (databaseContext.userChoice) {
+          const chosenOption = databaseContext.userChoice === 'sql' ? databaseContext.comparison.sqlOption : databaseContext.comparison.nosqlOption;
+          prompt += `
+- User's Choice: ${databaseContext.userChoice.toUpperCase()} (${chosenOption.database})
+- Specific Version: ${chosenOption.specificVersion || chosenOption.database}`;
+
+          if (chosenOption.estimatedCosts) {
+            prompt += `
+- Estimated Monthly Cost: ${chosenOption.estimatedCosts.monthly}`;
+          }
+        } else {
+          // No user choice yet, provide both options
+          prompt += `
+- SQL Option: ${databaseContext.comparison.sqlOption.database} (~${databaseContext.comparison.sqlOption.estimatedCosts?.monthly || 'TBD'}/mo)
+- NoSQL Option: ${databaseContext.comparison.nosqlOption.database} (~${databaseContext.comparison.nosqlOption.estimatedCosts?.monthly || 'TBD'}/mo)
+- Note: User has not chosen yet, provide architectures compatible with both`;
+        }
+
+        if (databaseContext.keyMetrics) {
+          prompt += `
+- Read/Write Ratio: ${databaseContext.keyMetrics.estimatedReadWriteRatio || 'Not specified'}
+- Expected Throughput: ${databaseContext.keyMetrics.expectedThroughput || 'Not specified'}
+- Data Complexity: ${databaseContext.keyMetrics.dataComplexity || 'Not specified'}`;
+        }
+      }
+
+      prompt += `
+
+Analyze this project and recommend 3-5 deployment architectures that best fit these requirements.${databaseContext ? ' Consider the database context when recommending deployment patterns and cloud services.' : ''}
 
 Return your response as JSON following the exact structure specified in your instructions.`;
 
@@ -2317,14 +2357,170 @@ Return your response as JSON following the exact structure specified in your ins
   }
 
   /**
+   * Get database recommendation based on mission statement and initial scope (quick analysis)
+   * @param {string} missionStatement - The project's mission statement
+   * @param {string} initialScope - The initial scope/features
+   * @returns {Promise<Object>} Database recommendation object
+   */
+  async getDatabaseRecommendation(missionStatement, initialScope) {
+    debug('getDatabaseRecommendation called', { missionStatement, initialScope });
+
+    try {
+      // Get stage-specific provider for database recommendation
+      const provider = await this.getProviderForStageInstance('database-recommendation');
+
+      if (!provider || typeof provider.generateJSON !== 'function') {
+        throw new Error('Database recommendation provider not available');
+      }
+
+      // Read agent instructions
+      debug('Loading database-recommender.md agent');
+      const databaseRecommenderAgent = fs.readFileSync(
+        path.join(this.agentsPath, 'database-recommender.md'),
+        'utf8'
+      );
+
+      // Build prompt
+      const prompt = `Given the following project definition:
+
+**Mission Statement:**
+${missionStatement}
+
+**Initial Scope (Features to Implement):**
+${initialScope}
+
+Analyze this project and determine if it needs a database, and if so, recommend the most appropriate database solution.
+
+Return your response as JSON following the exact structure specified in your instructions.`;
+
+      debug('Calling LLM for database recommendation');
+      const result = await this.retryWithBackoff(
+        () => provider.generateJSON(prompt, databaseRecommenderAgent),
+        'database recommendation'
+      );
+
+      debug('Database recommendation received', {
+        hasDatabaseNeeds: result.hasDatabaseNeeds,
+        confidence: result.confidence,
+        hasComparison: !!result.comparison
+      });
+
+      // Validate response structure
+      if (typeof result.hasDatabaseNeeds !== 'boolean' || !result.confidence) {
+        throw new Error('Invalid database recommendation response: missing required fields');
+      }
+
+      // If database is needed, validate comparison structure
+      if (result.hasDatabaseNeeds && result.comparison) {
+        if (!result.comparison.sqlOption || !result.comparison.nosqlOption) {
+          throw new Error('Invalid database recommendation: missing sqlOption or nosqlOption in comparison');
+        }
+      }
+
+      return result;
+    } catch (error) {
+      console.error('[ERROR] getDatabaseRecommendation failed:', error.message);
+      debug('getDatabaseRecommendation error', { error: error.message, stack: error.stack });
+      throw error;
+    }
+  }
+
+  /**
+   * Get detailed database recommendation with user inputs
+   * @param {string} missionStatement - The project's mission statement
+   * @param {string} initialScope - The initial scope/features
+   * @param {Object} userAnswers - User's detailed answers
+   * @param {string} userAnswers.readWriteRatio - e.g., "70/30"
+   * @param {string} userAnswers.dailyRequests - e.g., "10000"
+   * @param {string} userAnswers.costSensitivity - "Low" | "Medium" | "High"
+   * @param {string} userAnswers.dataRelationships - "Simple" | "Moderate" | "Complex"
+   * @returns {Promise<Object>} Detailed database recommendation
+   */
+  async getDatabaseDetailedRecommendation(missionStatement, initialScope, userAnswers) {
+    debug('getDatabaseDetailedRecommendation called', {
+      missionStatement,
+      initialScope,
+      userAnswers
+    });
+
+    try {
+      // Get stage-specific provider for detailed database recommendation
+      const provider = await this.getProviderForStageInstance('database-deep-dive');
+
+      if (!provider || typeof provider.generateJSON !== 'function') {
+        throw new Error('Database deep-dive provider not available');
+      }
+
+      // Read agent instructions
+      debug('Loading database-deep-dive.md agent');
+      const databaseDeepDiveAgent = fs.readFileSync(
+        path.join(this.agentsPath, 'database-deep-dive.md'),
+        'utf8'
+      );
+
+      // Build prompt
+      const prompt = `Given the following project definition and user requirements:
+
+**Mission Statement:**
+${missionStatement}
+
+**Initial Scope (Features to Implement):**
+${initialScope}
+
+**User Requirements:**
+- Read/Write Ratio: ${userAnswers.readWriteRatio}
+- Expected Daily Requests: ${userAnswers.dailyRequests}
+- Cost Sensitivity: ${userAnswers.costSensitivity}
+- Data Relationships: ${userAnswers.dataRelationships}
+
+Provide a detailed database architecture recommendation including specific configurations, sizing, and cost estimates.
+
+Return your response as JSON following the exact structure specified in your instructions.`;
+
+      debug('Calling LLM for detailed database recommendation');
+      const result = await this.retryWithBackoff(
+        () => provider.generateJSON(prompt, databaseDeepDiveAgent),
+        'detailed database recommendation'
+      );
+
+      debug('Detailed database recommendation received', {
+        hasComparison: !!result.comparison,
+        recommendation: result.recommendation
+      });
+
+      // Validate response structure (new comparison format)
+      if (!result.comparison || !result.comparison.sqlOption || !result.comparison.nosqlOption) {
+        throw new Error('Invalid detailed database recommendation response: missing comparison with sqlOption and nosqlOption');
+      }
+
+      // Validate sqlOption has required fields
+      if (!result.comparison.sqlOption.database || !result.comparison.sqlOption.architecture || !result.comparison.sqlOption.estimatedCosts) {
+        throw new Error('Invalid sqlOption in detailed database recommendation: missing required fields');
+      }
+
+      // Validate nosqlOption has required fields
+      if (!result.comparison.nosqlOption.database || !result.comparison.nosqlOption.architecture || !result.comparison.nosqlOption.estimatedCosts) {
+        throw new Error('Invalid nosqlOption in detailed database recommendation: missing required fields');
+      }
+
+      return result;
+    } catch (error) {
+      console.error('[ERROR] getDatabaseDetailedRecommendation failed:', error.message);
+      debug('getDatabaseDetailedRecommendation error', { error: error.message, stack: error.stack });
+      throw error;
+    }
+  }
+
+  /**
    * Pre-fill questionnaire answers based on architecture selection
    * @param {string} missionStatement - The project's mission statement
    * @param {string} initialScope - The initial scope/features
    * @param {Object} architecture - Selected architecture object
    * @param {string|null} cloudProvider - Selected cloud provider (AWS/Azure/GCP) or null
+   * @param {Object|null} databaseRecommendation - Optional database recommendation context
    * @returns {Promise<Object>} Object with pre-filled answers
    */
-  async prefillQuestions(missionStatement, initialScope, architecture, cloudProvider = null) {
+  async prefillQuestions(missionStatement, initialScope, architecture, cloudProvider = null, databaseRecommendation = null) {
     debug('prefillQuestions called', {
       missionStatement,
       initialScope,
@@ -2363,6 +2559,91 @@ ${initialScope}
 
       if (cloudProvider) {
         prompt += `\n- Cloud Provider: ${cloudProvider}`;
+      }
+
+      // Add database context if available (supports both old and new format)
+      if (databaseRecommendation) {
+        prompt += `
+
+**Database Recommendation:**`;
+
+        // New format with comparison
+        if (databaseRecommendation.comparison) {
+          const { sqlOption, nosqlOption } = databaseRecommendation.comparison;
+          const userChoice = databaseRecommendation.userChoice;
+
+          if (userChoice === 'sql') {
+            prompt += `
+- Chosen Database: ${sqlOption.database} (SQL)`;
+            if (sqlOption.specificVersion) {
+              prompt += `
+- Specific Version: ${sqlOption.specificVersion}`;
+            }
+            if (sqlOption.architecture) {
+              prompt += `
+- Architecture: ${sqlOption.architecture.primaryInstance || ''}`;
+              if (sqlOption.architecture.readReplicas) {
+                prompt += ` with ${sqlOption.architecture.readReplicas} read replica(s)`;
+              }
+            }
+            if (sqlOption.estimatedCosts) {
+              prompt += `
+- Estimated Cost: ${sqlOption.estimatedCosts.monthly}`;
+            }
+          } else if (userChoice === 'nosql') {
+            prompt += `
+- Chosen Database: ${nosqlOption.database} (NoSQL)`;
+            if (nosqlOption.specificVersion) {
+              prompt += `
+- Specific Version: ${nosqlOption.specificVersion}`;
+            }
+            if (nosqlOption.architecture) {
+              prompt += `
+- Architecture: ${nosqlOption.architecture.capacity || nosqlOption.architecture.primaryInstance || ''}`;
+              if (nosqlOption.architecture.indexes) {
+                prompt += `, ${nosqlOption.architecture.indexes} indexes`;
+              }
+            }
+            if (nosqlOption.estimatedCosts) {
+              prompt += `
+- Estimated Cost: ${nosqlOption.estimatedCosts.monthly}`;
+            }
+          } else {
+            // No user choice yet, show both options
+            prompt += `
+- SQL Option: ${sqlOption.database} (~${sqlOption.estimatedCosts?.monthly || 'TBD'})
+- NoSQL Option: ${nosqlOption.database} (~${nosqlOption.estimatedCosts?.monthly || 'TBD'})`;
+          }
+
+          if (databaseRecommendation.keyMetrics) {
+            prompt += `
+- Read/Write Ratio: ${databaseRecommendation.keyMetrics.readWriteRatio || databaseRecommendation.keyMetrics.estimatedReadWriteRatio || 'Not specified'}`;
+          }
+        }
+        // Legacy format (backward compatibility)
+        else {
+          prompt += `
+- Primary Database: ${databaseRecommendation.primaryDatabase || databaseRecommendation.recommendation?.primaryDatabase || 'Not specified'}
+- Type: ${databaseRecommendation.type || databaseRecommendation.recommendation?.type || 'Not specified'}`;
+
+          if (databaseRecommendation.specificVersion) {
+            prompt += `
+- Specific Version: ${databaseRecommendation.specificVersion}`;
+          }
+
+          if (databaseRecommendation.architecture) {
+            prompt += `
+- Architecture: ${databaseRecommendation.architecture.primaryInstance || ''}`;
+            if (databaseRecommendation.architecture.readReplicas) {
+              prompt += ` with ${databaseRecommendation.architecture.readReplicas} read replica(s)`;
+            }
+          }
+
+          if (databaseRecommendation.estimatedCosts) {
+            prompt += `
+- Estimated Cost: ${databaseRecommendation.estimatedCosts.monthly || ''}`;
+          }
+        }
       }
 
       prompt += `

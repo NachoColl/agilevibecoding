@@ -9,6 +9,7 @@ You will receive:
 - **Initial Scope**: Key features, capabilities, and planned functionality
 - **Selected Architecture**: The deployment architecture chosen by the user (including name and description)
 - **Cloud Provider** (optional): AWS, Azure, or GCP (only if architecture requires it)
+- **Database Recommendation** (optional): Database analysis results including type, specific technology, and architecture details
 
 ## Your Task
 Generate comprehensive, specific answers for these four questions:
@@ -126,8 +127,21 @@ Return a JSON object with this exact structure:
 - Configuration management (dotfiles, config files)
 - Update mechanisms and version management
 
-**Example**:
+**Database Context Integration**:
+When database recommendation is provided, incorporate specific database details:
+- **Database and version**: Use the exact database and version recommended (e.g., "PostgreSQL 16", "MongoDB 6.0", "DynamoDB")
+- **Managed service**: Reference cloud-specific managed services (e.g., "RDS Aurora PostgreSQL", "MongoDB Atlas M20", "Azure Cosmos DB")
+- **Architecture details**: Include instance sizing, read replicas, caching layers if provided in detailed recommendation
+- **Connection pooling**: Mention connection management strategy (e.g., "PgBouncer for connection pooling")
+- **ORM/driver**: Reference appropriate ORM (e.g., "Prisma with PostgreSQL", "Mongoose with MongoDB", "AWS SDK for DynamoDB")
+- **Backup strategy**: Include backup and PITR if specified in database recommendation
+- **Cost context**: Reference estimated database costs if cost sensitivity is a factor
+
+**Example** (without database context):
 "Built with Next.js 14 using App Router for full-stack development, TypeScript for type safety, Prisma ORM with PostgreSQL 16 for data persistence, and Tailwind CSS for styling. Server Actions handle form submissions and API logic, eliminating need for separate API routes. React Query for client-side data caching, Vercel edge caching for static content, and Vercel KV (Redis) for session management. CI/CD via Vercel's Git integration with automatic preview deployments for pull requests. Comprehensive testing with Vitest and Playwright for E2E tests."
+
+**Example** (with database context - PostgreSQL with read replicas):
+"Built with Next.js 14 using App Router for full-stack development, TypeScript for type safety, and Tailwind CSS for styling. Database layer uses PostgreSQL 16 (RDS Aurora Serverless v2) with Prisma ORM, configured with 1 read replica for read-heavy workload distribution (70/30 read/write ratio). Connection pooling via RDS Proxy handles up to 150 concurrent connections. ElastiCache Redis r6g.small caches user sessions and frequently-accessed data with cache-aside pattern. Server Actions handle form submissions, React Query manages client-side state. Automated daily backups with 7-day retention plus point-in-time recovery. Monitoring via CloudWatch with alerts on slow queries (>500ms) and high CPU (>80%). CI/CD via Vercel's Git integration with automatic preview deployments. Testing with Vitest (unit) and Playwright (E2E)."
 
 ### SECURITY_AND_COMPLIANCE_REQUIREMENTS
 - **Authentication**: How users prove identity (OAuth, email/password, SSO, etc.)

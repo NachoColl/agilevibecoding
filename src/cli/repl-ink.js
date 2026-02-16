@@ -15,6 +15,7 @@ import { UpdateInstaller } from './update-installer.js';
 import { CommandLogger } from './command-logger.js';
 import ConsoleOutputManager from './console-output-manager.js';
 import { BackgroundProcessManager } from './process-manager.js';
+import { registerCallbacks, startCommand, endCommand, cancelCommand, sendCeremonyHeader, sendProgress, sendSubstep, sendOutput, sendError, sendWarning, sendSuccess, sendInfo, sendDebug, clearProgress } from './messaging-api.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -1089,6 +1090,171 @@ const CloudProviderSelector = ({ architectureName, selectedIndex }) => {
   );
 };
 
+/**
+ * Database Recommendation Display Component
+ * Displays SQL vs NoSQL comparison with pros/cons
+ */
+const DatabaseRecommendationDisplay = ({ comparison, keyMetrics }) => {
+  if (!comparison) return null;
+
+  return React.createElement(Box, { flexDirection: 'column', marginY: 1 },
+    React.createElement(Box, { borderStyle: 'round', borderColor: 'cyan', paddingX: 2, paddingY: 1 },
+      React.createElement(Text, { bold: true, color: 'cyan' }, '🗄️  Database Options Comparison'),
+
+      // Key Metrics
+      keyMetrics && React.createElement(Box, { marginTop: 1, flexDirection: 'column' },
+        React.createElement(Text, { color: 'gray' }, '📊 Read/Write: ' + keyMetrics.estimatedReadWriteRatio),
+        React.createElement(Text, { color: 'gray' }, '⚡ Throughput: ' + keyMetrics.expectedThroughput),
+        React.createElement(Text, { color: 'gray' }, '🔗 Data complexity: ' + keyMetrics.dataComplexity)
+      ),
+
+      // SQL Option
+      React.createElement(Box, { marginTop: 2, flexDirection: 'column' },
+        React.createElement(Text, { bold: true, color: 'green' }, 'SQL: ' + comparison.sqlOption.database),
+        React.createElement(Box, { marginLeft: 2, marginTop: 1, flexDirection: 'column' },
+          React.createElement(Text, { color: 'white' }, '✅ Pros:'),
+          ...comparison.sqlOption.pros.slice(0, 3).map((pro, i) =>
+            React.createElement(Text, { key: `sql-pro-${i}`, color: 'gray' }, '  • ' + pro)
+          ),
+          React.createElement(Text, { color: 'white', marginTop: 1 }, '❌ Cons:'),
+          ...comparison.sqlOption.cons.slice(0, 3).map((con, i) =>
+            React.createElement(Text, { key: `sql-con-${i}`, color: 'gray' }, '  • ' + con)
+          ),
+          comparison.sqlOption.estimatedCosts && React.createElement(Text, { color: 'yellow', marginTop: 1 },
+            '💰 ~' + comparison.sqlOption.estimatedCosts.monthly + '/mo'
+          )
+        )
+      ),
+
+      // NoSQL Option
+      React.createElement(Box, { marginTop: 2, flexDirection: 'column' },
+        React.createElement(Text, { bold: true, color: 'blue' }, 'NoSQL: ' + comparison.nosqlOption.database),
+        React.createElement(Box, { marginLeft: 2, marginTop: 1, flexDirection: 'column' },
+          React.createElement(Text, { color: 'white' }, '✅ Pros:'),
+          ...comparison.nosqlOption.pros.slice(0, 3).map((pro, i) =>
+            React.createElement(Text, { key: `nosql-pro-${i}`, color: 'gray' }, '  • ' + pro)
+          ),
+          React.createElement(Text, { color: 'white', marginTop: 1 }, '❌ Cons:'),
+          ...comparison.nosqlOption.cons.slice(0, 3).map((con, i) =>
+            React.createElement(Text, { key: `nosql-con-${i}`, color: 'gray' }, '  • ' + con)
+          ),
+          comparison.nosqlOption.estimatedCosts && React.createElement(Text, { color: 'yellow', marginTop: 1 },
+            '💰 ~' + comparison.nosqlOption.estimatedCosts.monthly + '/mo'
+          )
+        )
+      )
+    )
+  );
+};
+
+/**
+ * Database Choice Selector Component
+ * 4 options: Let AI choose, Choose SQL, Choose NoSQL, Skip
+ */
+const DatabaseChoiceSelector = ({ comparison, selectedIndex, recommendedChoice }) => {
+  if (!comparison) return null;
+
+  const sqlCost = comparison.sqlOption.estimatedCosts?.monthly || 'varies';
+  const nosqlCost = comparison.nosqlOption.estimatedCosts?.monthly || 'varies';
+
+  // Determine which option AI recommends
+  const recommendedDb = recommendedChoice === 'sql' ? comparison.sqlOption.database : comparison.nosqlOption.database;
+  const recommendedType = recommendedChoice === 'sql' ? 'SQL' : 'NoSQL';
+
+  const choices = [
+    {
+      label: '🤖 Let AI choose (' + recommendedType + ': ' + recommendedDb + ')',
+      description: 'AI recommends this based on your project requirements'
+    },
+    {
+      label: '🟢 Choose SQL (' + comparison.sqlOption.database + ')',
+      description: '~' + sqlCost + '/mo - ' + (comparison.sqlOption.bestFor || 'Best for complex relationships').substring(0, 60)
+    },
+    {
+      label: '🔵 Choose NoSQL (' + comparison.nosqlOption.database + ')',
+      description: '~' + nosqlCost + '/mo - ' + (comparison.nosqlOption.bestFor || 'Best for simple access patterns').substring(0, 60)
+    },
+    {
+      label: '⏭️  Skip',
+      description: 'No database analysis (proceed with general architecture)'
+    }
+  ];
+
+  return React.createElement(Box, { flexDirection: 'column', marginTop: 1 },
+    React.createElement(Text, { bold: true }, 'Choose your database approach:'),
+    React.createElement(Box, { marginTop: 1, flexDirection: 'column' },
+      ...choices.map((choice, i) =>
+        React.createElement(Box, { key: i, marginLeft: 2, flexDirection: 'column' },
+          React.createElement(Text, {
+            bold: i === selectedIndex,
+            inverse: i === selectedIndex,
+            color: i === selectedIndex ? 'green' : 'white'
+          }, (i === selectedIndex ? '▶ ' : '  ') + choice.label),
+          React.createElement(Text, { color: 'gray' }, ' - ' + choice.description)
+        )
+      )
+    ),
+    React.createElement(Box, { marginTop: 1 },
+      React.createElement(Text, { color: 'gray' }, '↑/↓: Navigate | Enter: Select')
+    )
+  );
+};
+
+/**
+ * Database Deep-Dive Questions Component
+ */
+const DatabaseQuestionSelector = ({ questionIndex, answers, currentInput }) => {
+  const questions = [
+    {
+      key: 'readWriteRatio',
+      label: 'Read vs Write Ratio',
+      hint: 'e.g., "70/30" for read-heavy, "30/70" for write-heavy',
+      example: '50/50'
+    },
+    {
+      key: 'dailyRequests',
+      label: 'Expected Daily Requests',
+      hint: 'Approximate number (e.g., "5000", "100K", "1M+")',
+      example: '10000'
+    },
+    {
+      key: 'costSensitivity',
+      label: 'Cost Sensitivity',
+      hint: 'Low (optimize for performance) | Medium (balanced) | High (minimize cost)',
+      example: 'Medium'
+    },
+    {
+      key: 'dataRelationships',
+      label: 'Data Relationship Complexity',
+      hint: 'Simple (flat data) | Moderate (some joins) | Complex (many relationships)',
+      example: 'Moderate'
+    }
+  ];
+
+  const current = questions[questionIndex];
+  const currentAnswer = currentInput || answers[current.key] || '';
+
+  return React.createElement(Box, { flexDirection: 'column' },
+    React.createElement(Box, { marginTop: 1 },
+      React.createElement(Text, { color: 'cyan' }, 'Question ' + (questionIndex + 1) + ' of ' + questions.length)
+    ),
+    React.createElement(Box, { marginTop: 1 },
+      React.createElement(Text, { bold: true }, current.label)
+    ),
+    React.createElement(Box, { marginLeft: 2, marginTop: 1 },
+      React.createElement(Text, { color: 'gray' }, current.hint)
+    ),
+    React.createElement(Box, { marginTop: 1, marginLeft: 2 },
+      React.createElement(Text, { color: 'green' }, '> '),
+      React.createElement(Text, null, currentAnswer),
+      React.createElement(Text, { inverse: true, color: 'white' }, '█')
+    ),
+    React.createElement(Box, { marginTop: 1 },
+      React.createElement(Text, { color: 'gray' }, 'Enter: Submit | Esc: Cancel customization')
+    )
+  );
+};
+
 const CeremonySelector = ({ ceremonies, selectedIndex, onIndexChange }) => {
   return React.createElement(Box, { flexDirection: 'column', borderStyle: 'round', borderColor: 'cyan', paddingX: 1 },
     React.createElement(Text, { bold: true }, 'Select Ceremony to Configure'),
@@ -1341,6 +1507,24 @@ const App = () => {
   const [selectedArchitectureIndex, setSelectedArchitectureIndex] = useState(0);
   const [selectedArchitecture, setSelectedArchitecture] = useState(null);
 
+  // Database analysis state
+  const [databaseComparison, setDatabaseComparison] = useState(null); // { sqlOption, nosqlOption, keyMetrics }
+  const [recommendedChoice, setRecommendedChoice] = useState(null); // 'sql' | 'nosql' | null - AI's recommendation
+  const [databaseChoiceActive, setDatabaseChoiceActive] = useState(false);
+  const [databaseChoiceIndex, setDatabaseChoiceIndex] = useState(0); // 0: Let AI choose, 1: SQL, 2: NoSQL, 3: Skip
+  const [selectedDatabaseType, setSelectedDatabaseType] = useState(null); // 'sql' | 'nosql' | null
+
+  // Database deep-dive questionnaire state
+  const [databaseQuestionsActive, setDatabaseQuestionsActive] = useState(false);
+  const [databaseQuestionIndex, setDatabaseQuestionIndex] = useState(0);
+  const [databaseQuestionInput, setDatabaseQuestionInput] = useState('');
+  const [databaseAnswers, setDatabaseAnswers] = useState({
+    readWriteRatio: '50/50',
+    dailyRequests: '',
+    costSensitivity: 'Medium',
+    dataRelationships: 'Moderate'
+  });
+
   // Cloud provider selection state
   const [cloudProviderSelectorActive, setCloudProviderSelectorActive] = useState(false);
   const [cloudProviderIndex, setCloudProviderIndex] = useState(0);
@@ -1393,6 +1577,15 @@ const App = () => {
     }, 200); // 200ms ensures React Ink is fully stable and logo has rendered
 
     return () => clearTimeout(timer);
+  }, []);
+
+  // Register messaging callbacks for centralized message management
+  useEffect(() => {
+    registerCallbacks({
+      setOutput,
+      setExecutingMessage,
+      setExecutingSubstep
+    });
   }, []);
 
   // Start update checker on mount
@@ -1693,19 +1886,19 @@ const App = () => {
 
           case '/init':
           case '/i':
-            setExecutingMessage('Initializing project structure...');
+            sendProgress('Initializing project structure...');
             await runInit();
             break;
 
           case '/sponsor-call':
           case '/sc':
-            setExecutingMessage('Running Sponsor Call ceremony...');
+            sendProgress('Running Sponsor Call ceremony...');
             await runSponsorCall();
             break;
 
           case '/sprint-planning':
           case '/sp':
-            setExecutingMessage('Expanding project structure...');
+            sendProgress('Expanding project structure...');
             await runSprintPlanning();
             break;
 
@@ -1713,51 +1906,47 @@ const App = () => {
             // Parse story ID from command
             const storyIdMatch = input.match(/^\/seed\s+(\S+)/);
             if (!storyIdMatch) {
-              setOutput(prev => prev +
-                '\n❌ Story ID required\n' +
-                'Usage: /seed <story-id>\n' +
-                'Example: /seed context-0001-0001\n\n'
-              );
+              sendError('Story ID required\n\nUsage: /seed <story-id>\nExample: /seed context-0001-0001\n');
               break;
             }
             const storyId = storyIdMatch[1];
-            setExecutingMessage(`Seeding story ${storyId}...`);
+            sendProgress(`Seeding story ${storyId}...`);
             await runSeed(storyId);
             break;
 
           case '/status':
           case '/s':
-            setExecutingMessage('Checking project status...');
+            sendProgress('Checking project status...');
             await runStatus();
             break;
 
           case '/models':
           case '/m':
-            setExecutingMessage('Loading model configuration...');
+            sendProgress('Loading model configuration...');
             await runModels();
             break;
 
           case '/tokens':
           case '/tk':
-            setExecutingMessage('Analyzing token usage...');
+            sendProgress('Analyzing token usage...');
             await runTokens();
             break;
 
           case '/remove':
           case '/rm':
-            setExecutingMessage('Preparing to remove AVC structure...');
+            sendProgress('Preparing to remove AVC structure...');
             await runRemove();
             break;
 
           case '/documentation':
           case '/d':
-            setExecutingMessage('Building documentation...');
+            sendProgress('Building documentation...');
             await runBuildDocumentation();
             break;
 
           case '/kanban':
           case '/k':
-            setExecutingMessage('Starting kanban board server...');
+            sendProgress('Starting kanban board server...');
             await runKanban();
             break;
 
@@ -1773,12 +1962,12 @@ const App = () => {
             const runningOnRestart = restartManager.getRunningProcesses();
 
             if (runningOnRestart.length > 0) {
-              setOutput(prev => prev + '\n🛑 Stopping background processes...\n');
+              sendOutput('\n🛑 Stopping background processes...\n');
               const stopped = restartManager.stopAll();
-              setOutput(prev => prev + `Stopped ${stopped} process(es)\n\n`);
+              sendOutput(`Stopped ${stopped} process(es)\n\n`);
             }
 
-            setOutput(prev => prev + '🔄 Restarting AVC...\n');
+            sendOutput('🔄 Restarting AVC...\n');
             setTimeout(() => {
               exit();
               try {
@@ -1790,13 +1979,13 @@ const App = () => {
 
           default:
             if (command.startsWith('/')) {
-              setOutput(prev => prev + `\n❌ Unknown command: ${command}\nType /help to see available commands\nTip: Try /h for help, /v for version, /q to exit\n`);
+              sendError(`Unknown command: ${command}\n\nType /help to see available commands\nTip: Try /h for help, /v for version, /q to exit`);
             } else {
-              setOutput(prev => prev + `\n💡 Commands must start with /\nExample: /init, /status, /help\nTip: Type / and press Enter to see all commands\n`);
+              sendInfo(`💡 Commands must start with /\n\nExample: /init, /status, /help\nTip: Type / and press Enter to see all commands`);
             }
         }
       } catch (error) {
-        setOutput(prev => prev + `\n❌ Error: ${error.message}\n`);
+        sendError(`Error: ${error.message}`);
       } finally {
         // For /sponsor-call, keep logger active during questionnaire
         // For other commands, stop logger immediately
@@ -1833,10 +2022,9 @@ const App = () => {
     } catch (outerError) {
       // Handle any unexpected errors
       console.error('Unexpected error in executeCommand:', outerError);
-      setOutput(prev => prev + `\n❌ Unexpected error: ${outerError.message}\n   Please try again or type /help for assistance\n`);
+      sendError(`Unexpected error: ${outerError.message}\n\n   Please try again or type /help for assistance`);
       setIsExecuting(false);
-      setExecutingMessage('');
-      setExecutingSubstep('');
+      clearProgress();
       setMode('prompt');
       setInput('');
     }
@@ -1955,19 +2143,19 @@ https://agilevibecoding.org
   };
 
   const runSponsorCall = async () => {
+    // Start new execution context - cancels previous run and clears output
+    startCommand('sponsor-call');
+
     const initiator = new ProjectInitiator();
 
     // Check if project is initialized
     if (!initiator.isAvcProject()) {
-      setOutput(prev => prev +
-        '\n❌ Project not initialized\n\n' +
-        'Please run /init first to create the project structure.\n\n'
-      );
+      sendError('Project not initialized\n\nPlease run /init first to create the project structure.\n');
       return;
     }
 
     // Validate API keys BEFORE starting questionnaire
-    setExecutingMessage('Validating API keys...');
+    sendProgress('Validating API keys...');
     setIsExecuting(true);
 
     const validationResult = await initiator.validateProviderApiKey();
@@ -1975,10 +2163,7 @@ https://agilevibecoding.org
     setIsExecuting(false);
 
     if (!validationResult.valid) {
-      setOutput(prev => prev +
-        '\n❌ API Key Validation Failed\n\n' +
-        `   ${validationResult.message}\n\n`
-      );
+      sendError(`API Key Validation Failed\n\n   ${validationResult.message}\n`);
       setMode('prompt');
       return; // Exit early - don't show questionnaire
     }
@@ -1997,10 +2182,7 @@ https://agilevibecoding.org
       // Previous run was interrupted during LLM generation
       history.cleanupAbruptTermination('sponsor-call');
 
-      setOutput(prev => prev +
-        '\n⚠️  Previous sponsor call was interrupted during document generation.\n' +
-        'Starting fresh...\n\n'
-      );
+      sendWarning('Previous sponsor call was interrupted during document generation.\nStarting fresh...\n');
 
       // Delete stale progress file
       if (fs.existsSync(progressPath)) {
@@ -2013,27 +2195,46 @@ https://agilevibecoding.org
       const savedProgress = initiator.readProgress(progressPath);
 
       if (savedProgress) {
+        // Resume from database choice stage
+        if (savedProgress.stage === 'database-choice') {
+          setQuestionnaireAnswers(savedProgress.collectedValues || {});
+          setDatabaseRecommendation(savedProgress.databaseRecommendation || null);
+          setDatabaseChoiceActive(true);
+          setDatabaseChoiceIndex(0);
+          setMode('prompt');
+          sendCeremonyHeader('🎯 Sponsor Call Ceremony - Resuming from database analysis', 'https://agilevibecoding.org/ceremonies/sponsor-call');
+          return;
+        }
+
+        // Resume from database questions stage
+        if (savedProgress.stage === 'database-questions') {
+          setQuestionnaireAnswers(savedProgress.collectedValues || {});
+          setDatabaseRecommendation(savedProgress.databaseRecommendation || null);
+          setDatabaseAnswers(savedProgress.databaseAnswers || {});
+          setDatabaseQuestionIndex(savedProgress.databaseQuestionIndex || 0);
+          setDatabaseQuestionsActive(true);
+          setMode('prompt');
+          sendCeremonyHeader('🎯 Sponsor Call Ceremony - Resuming from database deep-dive questions', 'https://agilevibecoding.org/ceremonies/sponsor-call');
+          return;
+        }
+
         // Resume from architecture selection stage
         if (savedProgress.stage === 'architecture-selection') {
           setQuestionnaireAnswers(savedProgress.collectedValues || {});
+          setDatabaseRecommendation(savedProgress.databaseRecommendation || null);
           setArchitectureOptions(savedProgress.architectureSelection?.options || []);
           setArchitectureSelectorActive(true);
-          setOutput(prev => prev +
-            '\n🎯 Sponsor Call Ceremony - Resuming from architecture selection\n' +
-            '📖 https://agilevibecoding.org/ceremonies/sponsor-call\n'
-          );
+          sendCeremonyHeader('🎯 Sponsor Call Ceremony - Resuming from architecture selection', 'https://agilevibecoding.org/ceremonies/sponsor-call');
           return;
         }
 
         // Resume from cloud provider selection stage
         if (savedProgress.stage === 'cloud-provider-selection') {
           setQuestionnaireAnswers(savedProgress.collectedValues || {});
+          setDatabaseRecommendation(savedProgress.databaseRecommendation || null);
           setSelectedArchitecture(savedProgress.architectureSelection?.selected || null);
           setCloudProviderSelectorActive(true);
-          setOutput(prev => prev +
-            '\n🎯 Sponsor Call Ceremony - Resuming from cloud provider selection\n' +
-            '📖 https://agilevibecoding.org/ceremonies/sponsor-call\n'
-          );
+          sendCeremonyHeader('🎯 Sponsor Call Ceremony - Resuming from cloud provider selection', 'https://agilevibecoding.org/ceremonies/sponsor-call');
           return;
         }
 
@@ -2047,10 +2248,7 @@ https://agilevibecoding.org
           // Resume from saved progress - show preview to allow editing any question
           setQuestionnaireAnswers(savedProgress.collectedValues || {});
           setShowPreview(true);
-          setOutput(prev => prev +
-            '\n🎯 Sponsor Call Ceremony - Resuming from saved progress\n' +
-            '📖 https://agilevibecoding.org/ceremonies/sponsor-call\n'
-          );
+          sendCeremonyHeader('🎯 Sponsor Call Ceremony - Resuming from saved progress', 'https://agilevibecoding.org/ceremonies/sponsor-call');
           return;
         }
       }
@@ -2072,10 +2270,7 @@ https://agilevibecoding.org
     setEmptyLineCount(0);
     setEditMode(false);
     setShowPreview(false);
-    setOutput(prev => prev +
-      '\n🎯 Sponsor Call Ceremony\n' +
-      '📖 https://agilevibecoding.org/ceremonies/sponsor-call\n'
-    );
+    sendCeremonyHeader('🎯 Sponsor Call Ceremony', 'https://agilevibecoding.org/ceremonies/sponsor-call');
   };
 
   const runSponsorCallWithAnswers = async (answers) => {
@@ -2157,7 +2352,7 @@ https://agilevibecoding.org
 
       // Check for error result
       if (result && result.error) {
-        setOutput(prev => prev + `\n❌ ${result.message}\n\n`);
+        sendError(`${result.message}\n`);
         return;
       }
 
@@ -2200,10 +2395,12 @@ https://agilevibecoding.org
       summary += '2. Run /sprint-planning to create Epics and Stories\n';
 
       // Single output update with complete summary
-      setOutput(prev => prev + summary);
+      sendOutput(summary);
 
     } finally {
       outputManager.stop();
+      // End execution context - clears progress indicators
+      endCommand();
     }
   };
 
@@ -2310,7 +2507,7 @@ https://agilevibecoding.org
     setQuestionnaireActive(false);
     setMode('executing');
     setIsExecuting(true);
-    setExecutingMessage('Generating initial project documentation with AI...');
+    sendProgress('Generating initial project documentation with AI...');
 
     try {
       // Archive answers to history BEFORE calling LLM
@@ -2332,7 +2529,7 @@ https://agilevibecoding.org
       setSponsorCallExecutionId(null);
     } catch (error) {
       // Show error but don't reset mode prematurely
-      setOutput(prev => prev + `\n❌ Error: ${error.message}\n`);
+      sendError(`Error: ${error.message}`);
     } finally {
       // Stop active logger after questionnaire completes
       if (activeLogger) {
@@ -2357,8 +2554,8 @@ https://agilevibecoding.org
     // Set executing state FIRST to show spinner immediately
     setMode('executing');
     setIsExecuting(true);
-    setExecutingMessage('🏗️  Analyzing your project...');
-    setExecutingSubstep('Preparing architecture analysis');
+    sendProgress('🗄️  Analyzing database requirements...');
+    sendSubstep('Preparing database analysis');
 
     // Then hide questionnaire
     setQuestionnaireActive(false);
@@ -2366,16 +2563,86 @@ https://agilevibecoding.org
     try {
       const processor = new TemplateProcessor('sponsor-call', null, true);
 
-      // Update substep before API call
-      setExecutingSubstep('Calling AI to recommend deployment architectures (this may take 10-30 seconds)');
+      // PHASE 1: Database Analysis
+      sendSubstep('Calling AI to analyze database needs (10-15 seconds)');
 
-      const architectures = await processor.getArchitectureRecommendations(
+      const dbRec = await processor.getDatabaseRecommendation(
         questionnaireAnswers.MISSION_STATEMENT,
         questionnaireAnswers.INITIAL_SCOPE
       );
 
+      // Check if database is needed and has comparison (new format)
+      if (dbRec.hasDatabaseNeeds && dbRec.confidence !== 'low' && dbRec.comparison) {
+        // Store comparison and AI recommendation in new format
+        setDatabaseComparison(dbRec.comparison);
+        setRecommendedChoice(dbRec.recommendedChoice || 'sql'); // Default to SQL if not specified
+
+        // Clear executing state
+        setIsExecuting(false);
+        clearProgress();
+
+        // Show database comparison with AI recommendation
+        const aiRec = dbRec.recommendedChoice === 'sql' ? 'SQL' : 'NoSQL';
+        const aiDb = dbRec.recommendedChoice === 'sql' ? dbRec.comparison.sqlOption.database : dbRec.comparison.nosqlOption.database;
+        sendOutput('\n📊 Database options comparison generated\n');
+        sendOutput(`SQL: ${dbRec.comparison.sqlOption.database} vs NoSQL: ${dbRec.comparison.nosqlOption.database}\n`);
+        sendOutput(`🤖 AI recommends: ${aiRec} (${aiDb})\n\n`);
+
+        // Show database choice selector
+        setDatabaseChoiceActive(true);
+        setDatabaseChoiceIndex(0);
+        setMode('prompt');
+
+        // Save progress
+        autoSaveProgress();
+      } else {
+        // No database needs or low confidence, skip to architecture
+        sendInfo('📝 No database requirements detected, proceeding with architecture analysis...');
+        await proceedToArchitectureRecommendation();
+      }
+    } catch (error) {
+      // Graceful degradation - skip database analysis on error
+      console.error('Database analysis failed:', error.message);
+
+      sendWarning(`Database analysis failed (${error.message})`);
+      sendOutput('Proceeding with architecture analysis...\n');
+
+      // Continue with architecture selection
+      await proceedToArchitectureRecommendation();
+    }
+  };
+
+  /**
+   * Proceed to architecture recommendation (after database analysis or skip)
+   */
+  const proceedToArchitectureRecommendation = async () => {
+    setMode('executing');
+    setIsExecuting(true);
+    sendProgress('🏗️  Analyzing deployment architecture...');
+    sendSubstep('Preparing architecture analysis');
+
+    try {
+      const processor = new TemplateProcessor('sponsor-call', null, true);
+
+      // Update substep before API call
+      sendSubstep('Calling AI to recommend deployment architectures (this may take 10-30 seconds)');
+
+      // Build database context for architecture recommendations (new format)
+      const databaseContext = databaseComparison ? {
+        comparison: databaseComparison,
+        userChoice: selectedDatabaseType,
+        keyMetrics: databaseComparison.keyMetrics || {}
+      } : (databaseRecommendation?.recommendation || databaseRecommendation || null);
+
+      const architectures = await processor.getArchitectureRecommendations(
+        questionnaireAnswers.MISSION_STATEMENT,
+        questionnaireAnswers.INITIAL_SCOPE,
+        databaseContext
+      );
+
       // Clear executing state
       setIsExecuting(false);
+      clearProgress();
 
       // Show architecture selector
       setArchitectureOptions(architectures);
@@ -2391,10 +2658,10 @@ https://agilevibecoding.org
 
       // Clear executing state
       setIsExecuting(false);
-      setExecutingSubstep('');
+      clearProgress();
 
-      setOutput(prev => prev + `\n❌ Failed to generate architecture recommendations: ${error.message}\n`);
-      setOutput(prev => prev + 'Continuing with manual questionnaire...\n\n');
+      sendError(`Failed to generate architecture recommendations: ${error.message}`);
+      sendOutput('Continuing with manual questionnaire...\n\n');
 
       // Continue with regular questionnaire flow
       setQuestionnaireActive(true);
@@ -2406,26 +2673,96 @@ https://agilevibecoding.org
   };
 
   /**
+   * Run detailed database analysis with user inputs (DISABLED - removed Customize option)
+   */
+  // const runDetailedDatabaseAnalysis = async (userAnswers) => {
+  //   setMode('executing');
+  //   setIsExecuting(true);
+  //   setExecutingMessage('🔍 Generating enhanced database comparison...');
+  //   setExecutingSubstep('Analyzing your requirements');
+  //
+  //   try {
+  //     const processor = new TemplateProcessor('sponsor-call', null, true);
+  //
+  //     setExecutingSubstep('Calling AI for detailed database analysis (this may take 15-20 seconds)');
+  //
+  //     const detailedRec = await processor.getDatabaseDetailedRecommendation(
+  //       questionnaireAnswers.MISSION_STATEMENT,
+  //       questionnaireAnswers.INITIAL_SCOPE,
+  //       userAnswers
+  //     );
+  //
+  //     // Update database comparison with detailed analysis (new format)
+  //     setDatabaseComparison(detailedRec.comparison);
+  //
+  //     // Clear executing state
+  //     setIsExecuting(false);
+  //     setExecutingSubstep('');
+  //
+  //     // Show updated comparison
+  //     setOutput(prev => prev + '\n📊 Enhanced Database Comparison:\n\n');
+  //     setOutput(prev => prev + `SQL: ${detailedRec.comparison.sqlOption.specificVersion || detailedRec.comparison.sqlOption.database}\n`);
+  //     setOutput(prev => prev + `  Cost: ~${detailedRec.comparison.sqlOption.estimatedCosts?.monthly || 'varies'}\n\n`);
+  //     setOutput(prev => prev + `NoSQL: ${detailedRec.comparison.nosqlOption.specificVersion || detailedRec.comparison.nosqlOption.database}\n`);
+  //     setOutput(prev => prev + `  Cost: ~${detailedRec.comparison.nosqlOption.estimatedCosts?.monthly || 'varies'}\n\n`);
+  //
+  //     if (detailedRec.recommendation) {
+  //       setOutput(prev => prev + `Recommendation: ${detailedRec.recommendation}\n\n`);
+  //     }
+  //
+  //     // Save progress
+  //     autoSaveProgress();
+  //
+  //     // Return to choice selector with enhanced data
+  //     setDatabaseChoiceActive(true);
+  //     setDatabaseChoiceIndex(0);
+  //     setMode('selector');
+  //   } catch (error) {
+  //     console.error('Detailed database analysis failed:', error.message);
+  //
+  //     // Clear executing state
+  //     setIsExecuting(false);
+  //     setExecutingSubstep('');
+  //
+  //     setOutput(prev => prev + `\n⚠️  Detailed analysis failed: ${error.message}\n`);
+  //     setOutput(prev => prev + 'Using quick comparison instead...\n');
+  //
+  //     // Fall back to quick comparison and return to selector
+  //     setDatabaseChoiceActive(true);
+  //     setDatabaseChoiceIndex(0);
+  //     setMode('selector');
+  //   }
+  // };
+
+  /**
    * Proceed to question pre-filling after architecture selection
    */
   const proceedToQuestionPrefilling = async (architecture, cloudProvider = null) => {
     // Set executing state FIRST to show spinner immediately
     setMode('executing');
     setIsExecuting(true);
-    setExecutingMessage('✨ Generating intelligent recommendations...');
-    setExecutingSubstep('Preparing question pre-filling analysis');
+    sendProgress('✨ Generating intelligent recommendations...');
+    sendSubstep('Preparing question pre-filling analysis');
 
     try {
       const processor = new TemplateProcessor('sponsor-call', null, true);
 
       // Update substep before API call
-      setExecutingSubstep('Calling AI to generate contextual answers (this may take 10-30 seconds)');
+      sendSubstep('Calling AI to generate contextual answers (this may take 10-30 seconds)');
+
+      // Build database context for prefillQuestions (supports both old and new format)
+      const databaseContext = databaseComparison ? {
+        comparison: databaseComparison,
+        userChoice: selectedDatabaseType,
+        keyMetrics: databaseComparison.keyMetrics || {}
+      } : (databaseRecommendation?.recommendation || databaseRecommendation || null);
 
       const prefilled = await processor.prefillQuestions(
         questionnaireAnswers.MISSION_STATEMENT,
         questionnaireAnswers.INITIAL_SCOPE,
         architecture,
-        cloudProvider
+        cloudProvider,
+        databaseContext
       );
 
       // Merge pre-filled with existing answers (don't overwrite user answers)
@@ -2453,14 +2790,14 @@ https://agilevibecoding.org
 
       // Clear executing state
       setIsExecuting(false);
-      setExecutingSubstep('');
+      clearProgress();
 
       // Show preview
       setShowPreview(true);
       setMode('prompt');
 
-      setOutput(prev => prev + '\n✨ AI has suggested answers for the remaining questions.\n');
-      setOutput(prev => prev + 'Review them below and edit any that need changes.\n\n');
+      sendOutput('\n✨ AI has suggested answers for the remaining questions.\n');
+      sendOutput('Review them below and edit any that need changes.\n\n');
 
     } catch (error) {
       // Graceful degradation
@@ -2468,10 +2805,10 @@ https://agilevibecoding.org
 
       // Clear executing state
       setIsExecuting(false);
-      setExecutingSubstep('');
+      clearProgress();
 
-      setOutput(prev => prev + `\n❌ Failed to generate recommendations: ${error.message}\n`);
-      setOutput(prev => prev + 'Please answer the remaining questions manually.\n\n');
+      sendError(`Failed to generate recommendations: ${error.message}`);
+      sendOutput('Please answer the remaining questions manually.\n\n');
 
       // Continue with manual questionnaire
       setQuestionnaireActive(true);
@@ -2483,14 +2820,18 @@ https://agilevibecoding.org
   };
 
   const autoSaveProgress = () => {
-    if (!questionnaireActive && !architectureSelectorActive && !cloudProviderSelectorActive) return;
+    if (!questionnaireActive && !architectureSelectorActive && !cloudProviderSelectorActive && !databaseChoiceActive && !databaseQuestionsActive) return;
 
     try {
       const initiator = new ProjectInitiator();
 
       // Determine current stage
       let stage = 'questionnaire';
-      if (architectureSelectorActive) {
+      if (databaseChoiceActive) {
+        stage = 'database-choice';
+      } else if (databaseQuestionsActive) {
+        stage = 'database-questions';
+      } else if (architectureSelectorActive) {
         stage = 'architecture-selection';
       } else if (cloudProviderSelectorActive) {
         stage = 'cloud-provider-selection';
@@ -2504,6 +2845,10 @@ https://agilevibecoding.org
         currentQuestionIndex,
         currentAnswer: currentAnswer.join('\n'),
         lastUpdate: new Date().toISOString(),
+        // Database analysis state
+        databaseRecommendation,
+        databaseAnswers,
+        databaseQuestionIndex,
         // Architecture selection state
         architectureSelection: selectedArchitecture ? {
           options: architectureOptions,
@@ -2782,13 +3127,13 @@ https://agilevibecoding.org
     }
 
     // Build documentation first
-    setOutput(prev => prev + '\n📚 Building documentation...\n');
+    sendOutput('\n📚 Building documentation...\n');
 
     try {
       await builder.build();
-      setOutput(prev => prev + '✓ Documentation built successfully\n\n');
+      sendSuccess('Documentation built successfully\n');
     } catch (error) {
-      setOutput(prev => prev + `\n❌ Error: ${error.message}\n\n`);
+      sendError(`Error: ${error.message}\n`);
       return;
     }
 
@@ -2869,8 +3214,7 @@ https://agilevibecoding.org
 
             if (!killed) {
               // Failed to kill (permission denied, etc.)
-              setOutput(prev => prev +
-                `❌ Failed to kill process ${processInfo.pid}\n\n` +
+              sendError(`Failed to kill process ${processInfo.pid}\n\n` +
                 `   Unable to stop the process (permission denied or process protected).\n` +
                 `   Please manually stop the process or change the port.\n\n` +
                 `   To change the port, edit .avc/avc.json:\n` +
@@ -2880,12 +3224,11 @@ https://agilevibecoding.org
                 `         "port": 4174\n` +
                 `       }\n` +
                 `     }\n` +
-                `   }\n\n`
-              );
+                `   }\n`);
               return;
             }
 
-            setOutput(prev => prev + '✓ Process killed successfully\n\n');
+            sendSuccess('Process killed successfully\n');
 
             // Remove from process manager if it was a managed process
             manager.removeProcessByPid(processInfo.pid);
@@ -2894,8 +3237,7 @@ https://agilevibecoding.org
             await new Promise(resolve => setTimeout(resolve, 1000));
           } else {
             // It's NOT AVC kanban - show warning
-            setOutput(prev => prev +
-              `\n⚠️  Port ${port} is in use by another process:\n` +
+            sendWarning(`Port ${port} is in use by another process:\n` +
               `   Command: ${processInfo.command}\n` +
               `   PID: ${processInfo.pid}\n\n` +
               `   Please stop this process manually or change the kanban port.\n\n` +
@@ -2906,28 +3248,27 @@ https://agilevibecoding.org
               `         "port": 4174\n` +
               `       }\n` +
               `     }\n` +
-              `   }\n\n`
-            );
+              `   }\n`);
             return;
           }
         } else {
           // Port is in use but couldn't find the process (rare case)
-          setOutput(prev => prev + `\n❌ Port ${port} is in use but process could not be identified\n\n`);
-          setOutput(prev => prev + `   To change the port, edit .avc/avc.json:\n`);
-          setOutput(prev => prev + `   {\n`);
-          setOutput(prev => prev + `     "settings": {\n`);
-          setOutput(prev => prev + `       "kanban": {\n`);
-          setOutput(prev => prev + `         "port": 4174\n`);
-          setOutput(prev => prev + `       }\n`);
-          setOutput(prev => prev + `     }\n`);
-          setOutput(prev => prev + `   }\n\n`);
+          sendError(`Port ${port} is in use but process could not be identified\n\n` +
+            `   To change the port, edit .avc/avc.json:\n` +
+            `   {\n` +
+            `     "settings": {\n` +
+            `       "kanban": {\n` +
+            `         "port": 4174\n` +
+            `       }\n` +
+            `     }\n` +
+            `   }\n`);
           return;
         }
       }
     }
 
     // Start kanban server in background
-    setOutput(prev => prev + '\n📊 Starting AVC Kanban Board server...\n');
+    sendOutput('\n📊 Starting AVC Kanban Board server...\n');
 
     const kanbanServerPath = path.join(__dirname, '..', 'kanban', 'server', 'start.js');
 
@@ -2938,15 +3279,13 @@ https://agilevibecoding.org
       cwd: process.cwd()
     });
 
-    setOutput(prev => prev +
-      '✓ Kanban server started successfully\n\n' +
+    sendSuccess('Kanban server started successfully\n\n' +
       `   Backend API: http://localhost:${port}\n` +
       `   Health check: http://localhost:${port}/api/health\n` +
       `   Work items: http://localhost:${port}/api/work-items\n\n` +
       `   View process output: /processes\n` +
       `   Stop server: /processes (then select and stop)\n\n` +
-      `   💡 Frontend UI coming in next release!\n\n`
-    );
+      `   💡 Frontend UI coming in next release!\n`);
   };
 
   // Handle keyboard input in prompt mode
@@ -2962,12 +3301,12 @@ https://agilevibecoding.org
       const runningOnCtrlR = ctrlRManager.getRunningProcesses();
 
       if (runningOnCtrlR.length > 0) {
-        setOutput(prev => prev + '\n🛑 Stopping background processes...\n');
+        sendOutput('\n🛑 Stopping background processes...\n');
         const stopped = ctrlRManager.stopAll();
-        setOutput(prev => prev + `   Stopped ${stopped} process(es)\n\n`);
+        sendOutput(`   Stopped ${stopped} process(es)\n\n`);
       }
 
-      setOutput(prev => prev + '🔄 Restarting AVC...\n');
+      sendOutput('🔄 Restarting AVC...\n');
       setTimeout(() => {
         exit();
         try {
@@ -3508,7 +3847,7 @@ https://agilevibecoding.org
         setCloudProviderIndex(0);
       } else {
         // Proceed directly to question pre-filling
-        setOutput(prev => prev + `\n✓ Selected: ${selected.name}\n`);
+        sendSuccess(`Selected: ${selected.name}`);
         await proceedToQuestionPrefilling(selected, null);
       }
       return;
@@ -3555,7 +3894,7 @@ https://agilevibecoding.org
       setCloudProviderSelectorActive(false);
 
       // Show confirmation
-      setOutput(prev => prev + `\n✓ Cloud Provider: ${provider}\n`);
+      sendSuccess(`Cloud Provider: ${provider}`);
 
       // Proceed to question pre-filling
       await proceedToQuestionPrefilling(selectedArchitecture, provider);
@@ -3568,13 +3907,110 @@ https://agilevibecoding.org
       setSelectedCloudProvider(null);
 
       // Show skip message
-      setOutput(prev => prev + '\n⊘ Skipped cloud provider selection\n');
+      sendInfo('⊘ Skipped cloud provider selection');
 
       // Proceed with architecture only (no specific cloud provider)
       await proceedToQuestionPrefilling(selectedArchitecture, null);
       return;
     }
   }, { isActive: cloudProviderSelectorActive });
+
+  // Database choice selector input handler (4 options: Let AI choose, SQL, NoSQL, Skip)
+  useInput(async (inputChar, key) => {
+    if (!databaseChoiceActive) return;
+
+    // Arrow up
+    if (key.upArrow) {
+      setDatabaseChoiceIndex(prev => Math.max(0, prev - 1));
+      return;
+    }
+
+    // Arrow down
+    if (key.downArrow) {
+      setDatabaseChoiceIndex(prev => Math.min(3, prev + 1)); // 4 options: 0-3
+      return;
+    }
+
+    // Enter - make choice
+    if (key.return) {
+      const choices = ['ai-choose', 'sql', 'nosql', 'skip'];
+      const choice = choices[databaseChoiceIndex];
+
+      setDatabaseChoiceActive(false);
+
+      if (choice === 'ai-choose') {
+        // Let AI choose based on recommendation
+        const aiChoice = recommendedChoice || 'sql'; // Default to SQL if no recommendation
+        setSelectedDatabaseType(aiChoice);
+        const chosenDb = aiChoice === 'sql' ? databaseComparison.sqlOption.database : databaseComparison.nosqlOption.database;
+        const chosenType = aiChoice === 'sql' ? 'SQL' : 'NoSQL';
+        sendOutput('\n🤖 AI chose: ' + chosenType + ' (' + chosenDb + ')\n');
+        await proceedToArchitectureRecommendation();
+      } else if (choice === 'sql') {
+        // User manually chose SQL option
+        setSelectedDatabaseType('sql');
+        sendOutput('\n🟢 Chosen: SQL (' + databaseComparison.sqlOption.database + ')\n');
+        await proceedToArchitectureRecommendation();
+      } else if (choice === 'nosql') {
+        // User manually chose NoSQL option
+        setSelectedDatabaseType('nosql');
+        sendOutput('\n🔵 Chosen: NoSQL (' + databaseComparison.nosqlOption.database + ')\n');
+        await proceedToArchitectureRecommendation();
+      } else if (choice === 'skip') {
+        // Clear database comparison, proceed without
+        sendInfo('⊘ Skipped database analysis');
+        setDatabaseComparison(null);
+        setRecommendedChoice(null);
+        setSelectedDatabaseType(null);
+        await proceedToArchitectureRecommendation();
+      }
+      return;
+    }
+  }, { isActive: databaseChoiceActive });
+
+  // Database questions input handler (DISABLED - removed Customize option in favor of "Let AI choose")
+  // useInput(async (inputChar, key) => {
+  //   if (!databaseQuestionsActive) return;
+  //
+  //   if (key.escape) {
+  //     // Cancel customization, revert to quick recommendation
+  //     setDatabaseQuestionsActive(false);
+  //     setDatabaseChoiceActive(true);
+  //     setDatabaseQuestionInput('');
+  //     setMode('prompt');
+  //     setOutput(prev => prev + '\n⊘ Cancelled customization\n');
+  //     return;
+  //   }
+  //
+  //   if (key.return) {
+  //     const questions = ['readWriteRatio', 'dailyRequests', 'costSensitivity', 'dataRelationships'];
+  //     const currentKey = questions[databaseQuestionIndex];
+  //
+  //     // Save answer
+  //     const newAnswers = {
+  //       ...databaseAnswers,
+  //       [currentKey]: databaseQuestionInput
+  //     };
+  //     setDatabaseAnswers(newAnswers);
+  //     setDatabaseQuestionInput('');
+  //
+  //     // Move to next question or finish
+  //     if (databaseQuestionIndex < 3) {
+  //       setDatabaseQuestionIndex(prev => prev + 1);
+  //     } else {
+  //       // All questions answered, call detailed analysis
+  //       setDatabaseQuestionsActive(false);
+  //       await runDetailedDatabaseAnalysis(newAnswers);
+  //     }
+  //     return;
+  //   }
+  //
+  //   if (key.backspace || key.delete) {
+  //     setDatabaseQuestionInput(prev => prev.slice(0, -1));
+  //   } else if (inputChar && !key.ctrl && !key.meta) {
+  //     setDatabaseQuestionInput(prev => prev + inputChar);
+  //   }
+  // }, { isActive: databaseQuestionsActive });
 
   // Preview mode input handler
   useInput((inputChar, key) => {
@@ -3643,7 +4079,7 @@ https://agilevibecoding.org
         initiator.writeProgress(progress, initiator.sponsorCallProgressPath);
       } catch (error) {
         // Show error if save fails
-        setOutput(prev => prev + `\n❌ Failed to save progress: ${error.message}\n`);
+        sendError(`Failed to save progress: ${error.message}`);
         return;
       }
 
@@ -3654,10 +4090,13 @@ https://agilevibecoding.org
         setActiveLogger(null);
       }
 
+      // Cancel execution context
+      cancelCommand();
+
       setCancelConfirmActive(false);
       setMode('prompt');
       setInput('');
-      setOutput(prev => prev + '\n✅ Progress saved. Run /sponsor-call again to resume.\n');
+      sendSuccess('Progress saved. Run /sponsor-call again to resume.');
       return;
     }
 
@@ -3698,6 +4137,9 @@ https://agilevibecoding.org
         setActiveLogger(null);
       }
 
+      // Cancel execution context
+      cancelCommand();
+
       // Reset all state
       setCancelConfirmActive(false);
       setCurrentQuestionIndex(0);
@@ -3705,7 +4147,7 @@ https://agilevibecoding.org
       setCurrentAnswer([]);
       setMode('prompt');
       setInput('');
-      setOutput(prev => prev + '\n❌ Questionnaire cancelled. All progress deleted.\n');
+      sendError('Questionnaire cancelled. All progress deleted.');
       return;
     }
 
@@ -4364,6 +4806,34 @@ https://agilevibecoding.org
       );
     }
 
+    // Show database choice selector if active (new comparison format)
+    if (databaseChoiceActive && databaseComparison) {
+      return React.createElement(Box, { flexDirection: 'column', marginY: 1 },
+        React.createElement(Text, null, output),
+        React.createElement(DatabaseRecommendationDisplay, {
+          comparison: databaseComparison,
+          keyMetrics: databaseComparison.keyMetrics || {}
+        }),
+        React.createElement(DatabaseChoiceSelector, {
+          comparison: databaseComparison,
+          selectedIndex: databaseChoiceIndex,
+          recommendedChoice: recommendedChoice
+        })
+      );
+    }
+
+    // Show database questions if active (DISABLED - removed Customize option)
+    // if (databaseQuestionsActive) {
+    //   return React.createElement(Box, { flexDirection: 'column', marginY: 1 },
+    //     React.createElement(Text, null, output),
+    //     React.createElement(DatabaseQuestionSelector, {
+    //       questionIndex: databaseQuestionIndex,
+    //       answers: databaseAnswers,
+    //       currentInput: databaseQuestionInput
+    //     })
+    //   );
+    // }
+
     // Show architecture selector if active
     if (architectureSelectorActive) {
       return React.createElement(Box, { flexDirection: 'column', marginY: 1 },
@@ -4536,7 +5006,7 @@ https://agilevibecoding.org
   };
 
   const renderPrompt = () => {
-    if (mode !== 'prompt' || questionnaireActive || showPreview || removeConfirmActive || killConfirmActive || processViewerActive || cancelConfirmActive || isExecuting || modelConfigActive || architectureSelectorActive || cloudProviderSelectorActive) return null;
+    if (mode !== 'prompt' || questionnaireActive || showPreview || removeConfirmActive || killConfirmActive || processViewerActive || cancelConfirmActive || isExecuting || modelConfigActive || architectureSelectorActive || cloudProviderSelectorActive || databaseChoiceActive || databaseQuestionsActive) return null;
 
     // Show loading indicator while app is initializing
     if (!isStableRender) {
