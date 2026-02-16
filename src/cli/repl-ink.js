@@ -1097,50 +1097,60 @@ const CloudProviderSelector = ({ architectureName, selectedIndex }) => {
 const DatabaseRecommendationDisplay = ({ comparison, keyMetrics }) => {
   if (!comparison) return null;
 
+  // Build SQL examples list (include AI's recommendation + common alternatives)
+  const sqlExamples = [comparison.sqlOption.database, 'PostgreSQL', 'MySQL', 'SQLite']
+    .filter((db, idx, arr) => arr.indexOf(db) === idx) // Remove duplicates
+    .slice(0, 3)
+    .join(', ');
+
+  // Build NoSQL examples list (include AI's recommendation + common alternatives)
+  const nosqlExamples = [comparison.nosqlOption.database, 'MongoDB', 'DynamoDB', 'Firestore']
+    .filter((db, idx, arr) => arr.indexOf(db) === idx) // Remove duplicates
+    .slice(0, 3)
+    .join(', ');
+
   return React.createElement(Box, { flexDirection: 'column', marginY: 1 },
-    React.createElement(Box, { borderStyle: 'round', borderColor: 'cyan', paddingX: 2, paddingY: 1 },
-      React.createElement(Text, { bold: true, color: 'cyan' }, '🗄️  Database Options Comparison'),
+    React.createElement(Text, { bold: true, color: 'cyan' }, '\n🗄️  Database Options Comparison\n'),
 
-      // Key Metrics
-      keyMetrics && React.createElement(Box, { marginTop: 1, flexDirection: 'column' },
-        React.createElement(Text, { color: 'gray' }, '📊 Read/Write: ' + keyMetrics.estimatedReadWriteRatio),
-        React.createElement(Text, { color: 'gray' }, '⚡ Throughput: ' + keyMetrics.expectedThroughput),
-        React.createElement(Text, { color: 'gray' }, '🔗 Data complexity: ' + keyMetrics.dataComplexity)
-      ),
+    // Key Metrics (only show defined values)
+    keyMetrics && React.createElement(Box, { marginTop: 1, flexDirection: 'column' },
+      keyMetrics.estimatedReadWriteRatio && React.createElement(Text, { color: 'gray' }, '📊 Read/Write: ' + keyMetrics.estimatedReadWriteRatio),
+      keyMetrics.expectedThroughput && React.createElement(Text, { color: 'gray' }, '⚡ Throughput: ' + keyMetrics.expectedThroughput),
+      keyMetrics.dataComplexity && React.createElement(Text, { color: 'gray' }, '🔗 Data complexity: ' + keyMetrics.dataComplexity)
+    ),
 
-      // SQL Option
-      React.createElement(Box, { marginTop: 2, flexDirection: 'column' },
-        React.createElement(Text, { bold: true, color: 'green' }, 'SQL: ' + comparison.sqlOption.database),
-        React.createElement(Box, { marginLeft: 2, marginTop: 1, flexDirection: 'column' },
-          React.createElement(Text, { color: 'white' }, '✅ Pros:'),
-          ...comparison.sqlOption.pros.slice(0, 3).map((pro, i) =>
-            React.createElement(Text, { key: `sql-pro-${i}`, color: 'gray' }, '  • ' + pro)
-          ),
-          React.createElement(Text, { color: 'white', marginTop: 1 }, '❌ Cons:'),
-          ...comparison.sqlOption.cons.slice(0, 3).map((con, i) =>
-            React.createElement(Text, { key: `sql-con-${i}`, color: 'gray' }, '  • ' + con)
-          ),
-          comparison.sqlOption.estimatedCosts && React.createElement(Text, { color: 'yellow', marginTop: 1 },
-            '💰 ~' + comparison.sqlOption.estimatedCosts.monthly + '/mo'
-          )
+    // SQL Option
+    React.createElement(Box, { marginTop: 2, flexDirection: 'column' },
+      React.createElement(Text, { bold: true, color: 'green' }, 'SQL (e.g., ' + sqlExamples + ')'),
+      React.createElement(Box, { marginTop: 1, flexDirection: 'column' },
+        React.createElement(Text, { color: 'white' }, '✅ Pros:'),
+        ...comparison.sqlOption.pros.slice(0, 3).map((pro, i) =>
+          React.createElement(Text, { key: `sql-pro-${i}`, color: 'gray' }, '  • ' + pro)
+        ),
+        React.createElement(Text, { color: 'white', marginTop: 1 }, '❌ Cons:'),
+        ...comparison.sqlOption.cons.slice(0, 3).map((con, i) =>
+          React.createElement(Text, { key: `sql-con-${i}`, color: 'gray' }, '  • ' + con)
+        ),
+        comparison.sqlOption.estimatedCosts && React.createElement(Text, { color: 'yellow', marginTop: 1 },
+          '💰 ~' + comparison.sqlOption.estimatedCosts.monthly + '/mo'
         )
-      ),
+      )
+    ),
 
-      // NoSQL Option
-      React.createElement(Box, { marginTop: 2, flexDirection: 'column' },
-        React.createElement(Text, { bold: true, color: 'blue' }, 'NoSQL: ' + comparison.nosqlOption.database),
-        React.createElement(Box, { marginLeft: 2, marginTop: 1, flexDirection: 'column' },
-          React.createElement(Text, { color: 'white' }, '✅ Pros:'),
-          ...comparison.nosqlOption.pros.slice(0, 3).map((pro, i) =>
-            React.createElement(Text, { key: `nosql-pro-${i}`, color: 'gray' }, '  • ' + pro)
-          ),
-          React.createElement(Text, { color: 'white', marginTop: 1 }, '❌ Cons:'),
-          ...comparison.nosqlOption.cons.slice(0, 3).map((con, i) =>
-            React.createElement(Text, { key: `nosql-con-${i}`, color: 'gray' }, '  • ' + con)
-          ),
-          comparison.nosqlOption.estimatedCosts && React.createElement(Text, { color: 'yellow', marginTop: 1 },
-            '💰 ~' + comparison.nosqlOption.estimatedCosts.monthly + '/mo'
-          )
+    // NoSQL Option
+    React.createElement(Box, { marginTop: 2, flexDirection: 'column' },
+      React.createElement(Text, { bold: true, color: 'blue' }, 'NoSQL (e.g., ' + nosqlExamples + ')'),
+      React.createElement(Box, { marginTop: 1, flexDirection: 'column' },
+        React.createElement(Text, { color: 'white' }, '✅ Pros:'),
+        ...comparison.nosqlOption.pros.slice(0, 3).map((pro, i) =>
+          React.createElement(Text, { key: `nosql-pro-${i}`, color: 'gray' }, '  • ' + pro)
+        ),
+        React.createElement(Text, { color: 'white', marginTop: 1 }, '❌ Cons:'),
+        ...comparison.nosqlOption.cons.slice(0, 3).map((con, i) =>
+          React.createElement(Text, { key: `nosql-con-${i}`, color: 'gray' }, '  • ' + con)
+        ),
+        comparison.nosqlOption.estimatedCosts && React.createElement(Text, { color: 'yellow', marginTop: 1 },
+          '💰 ~' + comparison.nosqlOption.estimatedCosts.monthly + '/mo'
         )
       )
     )
@@ -1163,15 +1173,15 @@ const DatabaseChoiceSelector = ({ comparison, selectedIndex, recommendedChoice }
 
   const choices = [
     {
-      label: '🤖 Let AI choose (' + recommendedType + ': ' + recommendedDb + ')',
+      label: '🤖 Let AI choose (' + recommendedType + ' recommended: ' + recommendedDb + ')',
       description: 'AI recommends this based on your project requirements'
     },
     {
-      label: '🟢 Choose SQL (' + comparison.sqlOption.database + ')',
+      label: '🟢 Choose SQL (e.g., PostgreSQL, MySQL, SQLite)',
       description: '~' + sqlCost + '/mo - ' + (comparison.sqlOption.bestFor || 'Best for complex relationships').substring(0, 60)
     },
     {
-      label: '🔵 Choose NoSQL (' + comparison.nosqlOption.database + ')',
+      label: '🔵 Choose NoSQL (e.g., MongoDB, DynamoDB, Firestore)',
       description: '~' + nosqlCost + '/mo - ' + (comparison.nosqlOption.bestFor || 'Best for simple access patterns').substring(0, 60)
     },
     {
