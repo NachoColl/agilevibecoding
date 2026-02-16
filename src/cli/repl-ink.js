@@ -2627,7 +2627,8 @@ https://agilevibecoding.org
     // If so, show deployment strategy selector before proceeding
     if (currentQuestionIndex === 1 && currentAnswers.MISSION_STATEMENT && currentAnswers.INITIAL_SCOPE) {
       // Auto-save progress before showing strategy selector
-      autoSaveProgress();
+      // Pass currentAnswers to handle React state timing issues
+      autoSaveProgress(currentAnswers);
 
       // Show deployment strategy selector
       setQuestionnaireActive(false);
@@ -2971,7 +2972,7 @@ https://agilevibecoding.org
     }
   };
 
-  const autoSaveProgress = () => {
+  const autoSaveProgress = (answersOverride = null) => {
     if (!questionnaireActive && !architectureSelectorActive && !cloudProviderSelectorActive && !databaseChoiceActive && !databaseQuestionsActive && !deploymentStrategySelectorActive) return;
 
     try {
@@ -2987,20 +2988,31 @@ https://agilevibecoding.org
         stage = 'architecture-selection';
       } else if (cloudProviderSelectorActive) {
         stage = 'cloud-provider-selection';
+      } else if (deploymentStrategySelectorActive) {
+        stage = 'deployment-strategy';
       }
+
+      // Use override if provided (for React state timing issues)
+      const answersToSave = answersOverride || questionnaireAnswers;
 
       const progress = {
         stage,
         totalQuestions: questionnaireQuestions.length,
-        answeredQuestions: Object.keys(questionnaireAnswers).length,
-        collectedValues: questionnaireAnswers,
+        answeredQuestions: Object.keys(answersToSave).length,
+        collectedValues: answersToSave,
         currentQuestionIndex,
         currentAnswer: currentAnswer.join('\n'),
         lastUpdate: new Date().toISOString(),
+        // Deployment strategy state
+        deploymentStrategy,
+        deploymentStrategyIndex,
         // Database analysis state
         databaseRecommendation,
         databaseAnswers,
         databaseQuestionIndex,
+        selectedDatabaseType,
+        databaseComparison,
+        recommendedChoice,
         // Architecture selection state
         architectureSelection: selectedArchitecture ? {
           options: architectureOptions,
@@ -3994,6 +4006,11 @@ https://agilevibecoding.org
       // Check deployment strategy first
       if (deploymentStrategy === 'local-mvp') {
         // Local MVP strategy: NEVER show cloud provider, even if architecture flags it
+        // Set executing state IMMEDIATELY to prevent questionnaire from flashing
+        setMode('executing');
+        setIsExecuting(true);
+        setQuestionnaireActive(false);
+
         sendSuccess(`Selected: ${selected.name}`);
         await proceedToQuestionPrefilling(selected, null); // No cloud provider
       } else if (selected.requiresCloudProvider) {
@@ -4004,6 +4021,11 @@ https://agilevibecoding.org
         setCloudProviderIndex(0);
       } else {
         // Cloud deployment with PaaS architecture or no strategy: Skip provider
+        // Set executing state IMMEDIATELY to prevent questionnaire from flashing
+        setMode('executing');
+        setIsExecuting(true);
+        setQuestionnaireActive(false);
+
         sendSuccess(`Selected: ${selected.name}`);
         await proceedToQuestionPrefilling(selected, null);
       }
@@ -4122,6 +4144,11 @@ https://agilevibecoding.org
       setSelectedCloudProvider(provider);
       setCloudProviderSelectorActive(false);
 
+      // Set executing state IMMEDIATELY to prevent questionnaire from flashing
+      setMode('executing');
+      setIsExecuting(true);
+      setQuestionnaireActive(false);
+
       // Show confirmation
       sendSuccess(`Cloud Provider: ${provider}`);
 
@@ -4134,6 +4161,11 @@ https://agilevibecoding.org
     if (key.escape) {
       setCloudProviderSelectorActive(false);
       setSelectedCloudProvider(null);
+
+      // Set executing state IMMEDIATELY to prevent questionnaire from flashing
+      setMode('executing');
+      setIsExecuting(true);
+      setQuestionnaireActive(false);
 
       // Show skip message
       sendInfo('⊘ Skipped cloud provider selection');
@@ -4166,6 +4198,11 @@ https://agilevibecoding.org
       const choice = choices[databaseChoiceIndex];
 
       setDatabaseChoiceActive(false);
+
+      // Set executing state IMMEDIATELY to prevent questionnaire from flashing
+      setMode('executing');
+      setIsExecuting(true);
+      setQuestionnaireActive(false);
 
       if (choice === 'ai-choose') {
         // Let AI choose based on recommendation
