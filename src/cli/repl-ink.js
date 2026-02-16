@@ -4050,6 +4050,11 @@ https://agilevibecoding.org
       setDeploymentStrategy(selected);
       setDeploymentStrategySelectorActive(false);
 
+      // Set executing state IMMEDIATELY to prevent questionnaire from flashing
+      setMode('executing');
+      setIsExecuting(true);
+      setQuestionnaireActive(false);
+
       // Show confirmation
       const strategyName = selected === 'local-mvp' ? 'Local MVP First' : 'Cloud Deployment';
       sendSuccess(`Deployment Strategy: ${strategyName}`);
@@ -4079,6 +4084,11 @@ https://agilevibecoding.org
     if (key.escape) {
       setDeploymentStrategySelectorActive(false);
       setDeploymentStrategy(null); // No strategy preference
+
+      // Set executing state IMMEDIATELY to prevent questionnaire from flashing
+      setMode('executing');
+      setIsExecuting(true);
+      setQuestionnaireActive(false);
 
       sendInfo('Skipped deployment strategy. All architecture options will be shown.');
 
