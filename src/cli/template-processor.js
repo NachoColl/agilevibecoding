@@ -2625,12 +2625,13 @@ Return your response as JSON following the exact structure specified in your ins
    * @param {Object|null} databaseRecommendation - Optional database recommendation context
    * @returns {Promise<Object>} Object with pre-filled answers
    */
-  async prefillQuestions(missionStatement, initialScope, architecture, cloudProvider = null, databaseRecommendation = null) {
+  async prefillQuestions(missionStatement, initialScope, architecture, cloudProvider = null, databaseRecommendation = null, deploymentStrategy = null) {
     debug('prefillQuestions called', {
       missionStatement,
       initialScope,
       architectureName: architecture.name,
-      cloudProvider
+      cloudProvider,
+      deploymentStrategy
     });
 
     try {
@@ -2664,6 +2665,34 @@ ${initialScope}
 
       if (cloudProvider) {
         prompt += `\n- Cloud Provider: ${cloudProvider}`;
+      }
+
+      // Add deployment strategy context if provided
+      if (deploymentStrategy) {
+        const strategyName = deploymentStrategy === 'local-mvp' ? 'Local MVP First' : 'Cloud Deployment';
+        prompt += `
+
+**Deployment Strategy:** ${strategyName}`;
+
+        if (deploymentStrategy === 'local-mvp') {
+          prompt += `
+
+IMPORTANT: User has chosen to start with local development and migrate to cloud later.
+- DEPLOYMENT_TARGET must emphasize local development environment (Docker Compose, localhost)
+- TECHNICAL_CONSIDERATIONS must include local stack details (SQLite/local PostgreSQL, containerization)
+- Mention migration readiness: "Ready to migrate to [cloud options] when scaling to production"
+- Focus on: Zero cost, rapid development, easy debugging, production parity with Docker
+- DO NOT mention cloud services (RDS, Lambda, ECS, etc.) in technical details`;
+        } else if (deploymentStrategy === 'cloud') {
+          prompt += `
+
+IMPORTANT: User has chosen cloud deployment from day one.
+- DEPLOYMENT_TARGET must detail cloud infrastructure (managed services, auto-scaling, regions)
+- TECHNICAL_CONSIDERATIONS must include cloud-specific details (managed database, CDN, load balancers)
+- Emphasize production readiness: monitoring, backups, high availability
+- Include cost considerations and scaling strategy
+- Focus on: Managed services, auto-scaling, production features`;
+        }
       }
 
       // Add database context if available (supports both old and new format)

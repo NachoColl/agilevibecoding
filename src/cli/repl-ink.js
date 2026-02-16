@@ -2856,7 +2856,8 @@ https://agilevibecoding.org
         questionnaireAnswers.INITIAL_SCOPE,
         architecture,
         cloudProvider,
-        databaseContext
+        databaseContext,
+        deploymentStrategy // Pass deployment strategy for context
       );
 
       // Merge pre-filled with existing answers (don't overwrite user answers)
