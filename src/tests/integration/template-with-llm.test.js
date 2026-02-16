@@ -1,5 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { mockEnv } from '../helpers/test-helpers.js';
+import { outputBuffer } from '../../cli/output-buffer.js';
+import { messageManager } from '../../cli/message-manager.js';
 
 describe('TemplateProcessor with LLM Integration', () => {
   let TemplateProcessor;
@@ -10,6 +12,9 @@ describe('TemplateProcessor with LLM Integration', () => {
     // Dynamically import modules
     TemplateProcessor = (await import('../../cli/template-processor.js')).TemplateProcessor;
     LLMProvider = (await import('../../cli/llm-provider.js')).LLMProvider;
+
+    // Clear output buffer
+    outputBuffer.clear();
 
     // Mock console
     vi.spyOn(console, 'log').mockImplementation(() => {});
@@ -89,8 +94,6 @@ describe('TemplateProcessor with LLM Integration', () => {
     });
 
     it('logs warning when provider initialization fails', async () => {
-      const logSpy = vi.spyOn(console, 'log');
-
       delete process.env.ANTHROPIC_API_KEY;
 
       const processor = new TemplateProcessor('sponsor-call');
@@ -100,15 +103,21 @@ describe('TemplateProcessor with LLM Integration', () => {
         new Error('ANTHROPIC_API_KEY not set')
       );
 
+      // Start messaging context so warnings are captured
+      messageManager.startExecution('test');
+
       try {
         await processor.initializeLLMProvider();
       } catch (error) {
         // Expected to throw
       }
 
-      expect(logSpy).toHaveBeenCalledWith(
-        expect.stringContaining('Could not initialize')
-      );
+      // Check output buffer for warning (now uses messaging API with WARNING: prefix)
+      const output = outputBuffer.getLines().join('\n');
+      expect(output).toContain('WARNING: Could not initialize');
+
+      // Clean up
+      messageManager.endExecution();
     });
   });
 

@@ -1,6 +1,8 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { ProjectInitiator } from '../../cli/init.js';
 import { TemplateProcessor } from '../../cli/template-processor.js';
+import { outputBuffer } from '../../cli/output-buffer.js';
+import { messageManager } from '../../cli/message-manager.js';
 import fs from 'fs';
 import path from 'path';
 
@@ -12,6 +14,9 @@ describe('Questionnaire Feature', () => {
     // Create temporary test directory
     testDir = path.join(process.cwd(), 'test-questionnaire-' + Date.now());
     fs.mkdirSync(testDir, { recursive: true });
+
+    // Clear output buffer
+    outputBuffer.clear();
 
     // Set up test environment
     process.env.ANTHROPIC_API_KEY = 'test-key-12345';
@@ -42,15 +47,17 @@ describe('Questionnaire Feature', () => {
         SECURITY_AND_COMPLIANCE_REQUIREMENTS: 'Test security'
       };
 
-      // Spy on console.log to capture output
-      const logSpy = vi.spyOn(console, 'log');
+      // Start messaging context
+      messageManager.startExecution('test');
 
       await initiator.sponsorCallWithAnswers(answers);
 
-      // Should log error about not initialized
-      expect(logSpy).toHaveBeenCalledWith(expect.stringContaining('Project not initialized'));
+      // Check output buffer for error message (messaging API with ERROR: prefix)
+      const output = outputBuffer.getLines().join('\n');
+      expect(output).toContain('ERROR: Project not initialized');
 
-      logSpy.mockRestore();
+      // Clean up
+      messageManager.endExecution();
     });
 
     it('should accept all answers provided', async () => {
@@ -76,14 +83,17 @@ describe('Questionnaire Feature', () => {
         }
       }));
 
-      const logSpy = vi.spyOn(console, 'log');
+      // Start messaging context
+      messageManager.startExecution('test');
 
       await initiator.sponsorCallWithAnswers(answers);
 
-      // Should complete validation successfully
-      expect(logSpy).toHaveBeenCalledWith(expect.stringContaining('documentation passed validation'));
+      // Check output buffer for success message
+      const output = outputBuffer.getLines().join('\n');
+      expect(output).toContain('documentation passed validation');
 
-      logSpy.mockRestore();
+      // Clean up
+      messageManager.endExecution();
     });
 
     it('should handle partial answers (some skipped)', async () => {
@@ -99,14 +109,17 @@ describe('Questionnaire Feature', () => {
         SECURITY_AND_COMPLIANCE_REQUIREMENTS: 'HTTPS, JWT'
       };
 
-      const logSpy = vi.spyOn(console, 'log');
+      // Start messaging context
+      messageManager.startExecution('test');
 
       await initiator.sponsorCallWithAnswers(answers);
 
       // Should still complete validation successfully with partial answers
-      expect(logSpy).toHaveBeenCalledWith(expect.stringContaining('documentation passed validation'));
+      const output = outputBuffer.getLines().join('\n');
+      expect(output).toContain('documentation passed validation');
 
-      logSpy.mockRestore();
+      // Clean up
+      messageManager.endExecution();
     });
 
     it('should create progress file during processing', async () => {
@@ -136,14 +149,17 @@ describe('Questionnaire Feature', () => {
 
       const answers = {};
 
-      const logSpy = vi.spyOn(console, 'log');
+      // Start messaging context
+      messageManager.startExecution('test');
 
       await initiator.sponsorCallWithAnswers(answers);
 
       // Should still process with empty answers and pass validation (LLM will generate suggestions)
-      expect(logSpy).toHaveBeenCalledWith(expect.stringContaining('documentation passed validation'));
+      const output = outputBuffer.getLines().join('\n');
+      expect(output).toContain('documentation passed validation');
 
-      logSpy.mockRestore();
+      // Clean up
+      messageManager.endExecution();
     });
   });
 
@@ -302,14 +318,17 @@ Users: {{TARGET_USERS}}`;
         SECURITY_AND_COMPLIANCE_REQUIREMENTS: null
       };
 
-      const logSpy = vi.spyOn(console, 'log');
+      // Start messaging context
+      messageManager.startExecution('test');
 
       await initiator.sponsorCallWithAnswers(answers);
 
       // Should still proceed and pass validation
-      expect(logSpy).toHaveBeenCalledWith(expect.stringContaining('documentation passed validation'));
+      const output = outputBuffer.getLines().join('\n');
+      expect(output).toContain('documentation passed validation');
 
-      logSpy.mockRestore();
+      // Clean up
+      messageManager.endExecution();
     });
 
     it('should handle empty string answers', async () => {
@@ -324,14 +343,17 @@ Users: {{TARGET_USERS}}`;
         SECURITY_AND_COMPLIANCE_REQUIREMENTS: ''
       };
 
-      const logSpy = vi.spyOn(console, 'log');
+      // Start messaging context
+      messageManager.startExecution('test');
 
       await initiator.sponsorCallWithAnswers(answers);
 
       // Should handle mix of empty and non-empty answers and pass validation
-      expect(logSpy).toHaveBeenCalledWith(expect.stringContaining('documentation passed validation'));
+      const output = outputBuffer.getLines().join('\n');
+      expect(output).toContain('documentation passed validation');
 
-      logSpy.mockRestore();
+      // Clean up
+      messageManager.endExecution();
     });
 
     it('should handle very long answers', async () => {
@@ -384,14 +406,17 @@ Users: {{TARGET_USERS}}`;
         SECURITY_AND_COMPLIANCE_REQUIREMENTS: 'Security'
       };
 
-      const logSpy = vi.spyOn(console, 'log');
+      // Start messaging context
+      messageManager.startExecution('test');
 
       await initiator.sponsorCallWithAnswers(answers);
 
       // Should log error about not initialized
-      expect(logSpy).toHaveBeenCalledWith(expect.stringContaining('Project not initialized'));
+      const output = outputBuffer.getLines().join('\n');
+      expect(output).toContain('ERROR: Project not initialized');
 
-      logSpy.mockRestore();
+      // Clean up
+      messageManager.endExecution();
     });
 
     it('should handle corrupted progress file', () => {

@@ -1,5 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { ProjectInitiator } from '../../cli/init.js';
+import { outputBuffer } from '../../cli/output-buffer.js';
+import { messageManager } from '../../cli/message-manager.js';
 import fs from 'fs';
 import path from 'path';
 
@@ -11,6 +13,9 @@ describe('Remove Command', () => {
     // Create temporary test directory
     testDir = path.join(process.cwd(), 'test-remove-' + Date.now());
     fs.mkdirSync(testDir, { recursive: true });
+
+    // Clear output buffer
+    outputBuffer.clear();
 
     // Create initiator
     initiator = new ProjectInitiator(testDir);
@@ -34,18 +39,21 @@ describe('Remove Command', () => {
       // Set REPL mode
       process.env.AVC_REPL_MODE = 'true';
 
-      const logSpy = vi.spyOn(console, 'log');
+      // Start messaging context
+      messageManager.startExecution('test');
 
       await initiator.remove();
 
       // Should note that this is unexpected (REPL should handle confirmation)
-      expect(logSpy).toHaveBeenCalledWith(expect.stringContaining('Unexpected'));
-      expect(logSpy).toHaveBeenCalledWith(expect.stringContaining('Interactive confirmation should be handled by REPL'));
+      const output = outputBuffer.getLines().join('\n');
+      expect(output).toContain('Unexpected');
+      expect(output).toContain('Interactive confirmation should be handled by REPL');
 
       // .avc folder should still exist (not deleted without confirmation)
       expect(fs.existsSync(initiator.avcDir)).toBe(true);
 
-      logSpy.mockRestore();
+      // Clean up
+      messageManager.endExecution();
     });
 
     it('should work normally when not in REPL mode', async () => {
@@ -55,7 +63,8 @@ describe('Remove Command', () => {
       // Not in REPL mode
       delete process.env.AVC_REPL_MODE;
 
-      const logSpy = vi.spyOn(console, 'log');
+      // Start messaging context
+      messageManager.startExecution('test');
 
       // This would normally prompt for confirmation
       // We can't easily test the interactive part, but we can verify it tries
@@ -65,10 +74,12 @@ describe('Remove Command', () => {
       await new Promise(resolve => setTimeout(resolve, 100));
 
       // Should show confirmation prompt (not REPL limitation message)
-      expect(logSpy).not.toHaveBeenCalledWith(expect.stringContaining('REPL Mode Limitation'));
-      expect(logSpy).toHaveBeenCalledWith(expect.stringContaining('To confirm deletion, type exactly: delete all'));
+      const output = outputBuffer.getLines().join('\n');
+      expect(output).not.toContain('REPL Mode Limitation');
+      expect(output).toContain('To confirm deletion, type exactly: delete all');
 
-      logSpy.mockRestore();
+      // Clean up
+      messageManager.endExecution();
 
       // Note: We can't complete this test without handling stdin
       // The promise will hang, so we just verify the initial behavior
@@ -77,15 +88,18 @@ describe('Remove Command', () => {
 
   describe('Not Initialized', () => {
     it('should handle remove when project not initialized', async () => {
-      const logSpy = vi.spyOn(console, 'log');
+      // Start messaging context
+      messageManager.startExecution('test');
 
       await initiator.remove();
 
       // Should inform user that project is not initialized
-      expect(logSpy).toHaveBeenCalledWith(expect.stringContaining('No AVC project found'));
-      expect(logSpy).toHaveBeenCalledWith(expect.stringContaining('Nothing to remove'));
+      const output = outputBuffer.getLines().join('\n');
+      expect(output).toContain('No AVC project found');
+      expect(output).toContain('Nothing to remove');
 
-      logSpy.mockRestore();
+      // Clean up
+      messageManager.endExecution();
     });
   });
 
@@ -102,14 +116,17 @@ describe('Remove Command', () => {
       // Set REPL mode to avoid hanging on confirmation
       process.env.AVC_REPL_MODE = 'true';
 
-      const logSpy = vi.spyOn(console, 'log');
+      // Start messaging context
+      messageManager.startExecution('test');
 
       await initiator.remove();
 
       // Should list the .avc contents
-      expect(logSpy).toHaveBeenCalledWith(expect.stringContaining('.avc/ folder contents:'));
+      const output = outputBuffer.getLines().join('\n');
+      expect(output).toContain('.avc/ folder contents:');
 
-      logSpy.mockRestore();
+      // Clean up
+      messageManager.endExecution();
     });
 
     it('should get AVC contents correctly', () => {
@@ -159,14 +176,17 @@ describe('Remove Command', () => {
       // Set REPL mode
       process.env.AVC_REPL_MODE = 'true';
 
-      const logSpy = vi.spyOn(console, 'log');
+      // Start messaging context
+      messageManager.startExecution('test');
 
       await initiator.remove();
 
       // Should note that .env will not be deleted
-      expect(logSpy).toHaveBeenCalledWith(expect.stringContaining('.env file will NOT be deleted'));
+      const output = outputBuffer.getLines().join('\n');
+      expect(output).toContain('.env file will NOT be deleted');
 
-      logSpy.mockRestore();
+      // Clean up
+      messageManager.endExecution();
     });
   });
 

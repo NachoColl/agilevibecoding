@@ -2,6 +2,8 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import fs from 'fs';
 import path from 'path';
 import { mockEnv } from '../helpers/test-helpers.js';
+import { outputBuffer } from '../../cli/output-buffer.js';
+import { messageManager } from '../../cli/message-manager.js';
 
 describe('Sponsor Call Ceremony - End-to-End', () => {
   let ProjectInitiator;
@@ -15,6 +17,9 @@ describe('Sponsor Call Ceremony - End-to-End', () => {
 
     testProjectPath = path.join('/tmp', `avc-test-sponsor-${Date.now()}`);
     fs.mkdirSync(testProjectPath, { recursive: true });
+
+    // Clear output buffer
+    outputBuffer.clear();
 
     // Mock console
     vi.spyOn(console, 'log').mockImplementation(() => {});
@@ -51,15 +56,22 @@ describe('Sponsor Call Ceremony - End-to-End', () => {
         throw new Error('process.exit called'); // Prevent actual exit in tests
       });
 
+      // Start messaging context so messages are captured
+      messageManager.startExecution('sponsor-call');
+
       // Should not call process.exit - should return gracefully
       await initiator.sponsorCall();
 
       // The bug: process.exit(1) was called
       // The fix: should just return
       expect(exitSpy).not.toHaveBeenCalled();
-      expect(console.log).toHaveBeenCalledWith(
-        expect.stringContaining('❌ Project not initialized')
-      );
+
+      // Check output buffer for error message (now uses messaging API with ERROR: prefix)
+      const output = outputBuffer.getLines().join('\n');
+      expect(output).toContain('ERROR: Project not initialized');
+
+      // Clean up
+      messageManager.endExecution();
     });
 
     it('should handle API key validation failure gracefully', async () => {
@@ -79,13 +91,20 @@ describe('Sponsor Call Ceremony - End-to-End', () => {
         throw new Error('process.exit called');
       });
 
+      // Start messaging context so messages are captured
+      messageManager.startExecution('sponsor-call');
+
       await initiator.sponsorCall();
 
       // Should not exit - should return gracefully
       expect(exitSpy).not.toHaveBeenCalled();
-      expect(console.log).toHaveBeenCalledWith(
-        expect.stringContaining('❌ API Key Validation Failed')
-      );
+
+      // Check output buffer for error message (now uses messaging API with ERROR: prefix)
+      const output = outputBuffer.getLines().join('\n');
+      expect(output).toContain('ERROR: API Key Validation Failed');
+
+      // Clean up
+      messageManager.endExecution();
     });
   });
 });
