@@ -1043,6 +1043,80 @@ const ArchitectureSelector = ({ architectures, selectedIndex }) => {
 };
 
 /**
+ * Deployment Strategy Selector Component
+ * Explicit choice: Local MVP First or Cloud Deployment
+ */
+const DeploymentStrategySelector = ({ selectedIndex }) => {
+  const strategies = [
+    {
+      id: 'local-mvp',
+      icon: '🏠',
+      label: 'Local MVP First',
+      description: 'Build and validate your MVP on your local machine',
+      details: [
+        'Zero cloud costs during development phase',
+        'Run on localhost or Docker Compose',
+        'Migrate to cloud when ready for production'
+      ],
+      bestFor: 'Validating ideas, learning, budget-conscious projects'
+    },
+    {
+      id: 'cloud',
+      icon: '☁️',
+      label: 'Cloud Deployment',
+      description: 'Deploy to production cloud infrastructure from day one',
+      details: [
+        'AWS, Azure, or Google Cloud Platform',
+        'Scalable managed services, production-ready',
+        'Immediate global availability'
+      ],
+      bestFor: 'Enterprise projects, immediate scale requirements'
+    }
+  ];
+
+  return React.createElement(Box, { flexDirection: 'column', marginY: 1 },
+    React.createElement(Text, { bold: true, color: 'cyan' }, '\n🚀 Deployment Strategy\n'),
+    React.createElement(Text, null, 'Choose how you want to deploy your application:\n'),
+
+    React.createElement(Box, { flexDirection: 'column', marginTop: 1 },
+      ...strategies.map((strategy, i) => {
+        const isSelected = i === selectedIndex;
+
+        return React.createElement(Box, { key: strategy.id, flexDirection: 'column', marginTop: i > 0 ? 2 : 0 },
+          // Label
+          React.createElement(Text, {
+            bold: true,
+            inverse: isSelected,
+            color: isSelected ? 'green' : 'white'
+          }, (isSelected ? '▶ ' : '  ') + strategy.icon + ' ' + strategy.label),
+
+          // Description
+          React.createElement(Box, { marginLeft: 3, marginTop: 1, flexDirection: 'column' },
+            React.createElement(Text, { color: 'gray' }, strategy.description),
+
+            // Details
+            React.createElement(Box, { marginTop: 1, flexDirection: 'column' },
+              ...strategy.details.map((detail, j) =>
+                React.createElement(Text, { key: j, color: 'gray' }, '  • ' + detail)
+              )
+            ),
+
+            // Best for
+            React.createElement(Text, { color: 'yellow', marginTop: 1 },
+              'Best for: ' + strategy.bestFor
+            )
+          )
+        );
+      })
+    ),
+
+    React.createElement(Box, { marginTop: 2 },
+      React.createElement(Text, { color: 'gray' }, '↑/↓: Navigate | Enter: Select | Esc: Skip (show all options)')
+    )
+  );
+};
+
+/**
  * Cloud Provider Selector Component
  */
 const CloudProviderSelector = ({ architectureName, selectedIndex }) => {
@@ -1539,6 +1613,11 @@ const App = () => {
   const [cloudProviderSelectorActive, setCloudProviderSelectorActive] = useState(false);
   const [cloudProviderIndex, setCloudProviderIndex] = useState(0);
   const [selectedCloudProvider, setSelectedCloudProvider] = useState(null);
+
+  // Deployment strategy selection state
+  const [deploymentStrategy, setDeploymentStrategy] = useState(null); // 'local-mvp' | 'cloud' | null
+  const [deploymentStrategySelectorActive, setDeploymentStrategySelectorActive] = useState(false);
+  const [deploymentStrategyIndex, setDeploymentStrategyIndex] = useState(0); // 0: Local MVP, 1: Cloud
 
   // Pre-fill tracking
   const [aiPrefilledQuestions, setAiPrefilledQuestions] = useState(new Set());
@@ -2488,13 +2567,16 @@ https://agilevibecoding.org
     };
 
     // Check if we just answered INITIAL_SCOPE (index 1)
-    // If so, trigger architecture selection before moving to next question
+    // If so, show deployment strategy selector before proceeding
     if (currentQuestionIndex === 1 && currentAnswers.MISSION_STATEMENT && currentAnswers.INITIAL_SCOPE) {
-      // Auto-save progress before architecture selection
+      // Auto-save progress before showing strategy selector
       autoSaveProgress();
 
-      // Trigger architecture selection
-      await triggerArchitectureSelection();
+      // Show deployment strategy selector
+      setQuestionnaireActive(false);
+      setMode('selector');
+      setDeploymentStrategySelectorActive(true);
+      setDeploymentStrategyIndex(0);
       return;
     }
 
@@ -2830,7 +2912,7 @@ https://agilevibecoding.org
   };
 
   const autoSaveProgress = () => {
-    if (!questionnaireActive && !architectureSelectorActive && !cloudProviderSelectorActive && !databaseChoiceActive && !databaseQuestionsActive) return;
+    if (!questionnaireActive && !architectureSelectorActive && !cloudProviderSelectorActive && !databaseChoiceActive && !databaseQuestionsActive && !deploymentStrategySelectorActive) return;
 
     try {
       const initiator = new ProjectInitiator();
@@ -3879,6 +3961,68 @@ https://agilevibecoding.org
     }
   }, { isActive: architectureSelectorActive });
 
+  // Deployment strategy selector input handler
+  useInput(async (inputChar, key) => {
+    if (!deploymentStrategySelectorActive) return;
+
+    // Arrow up
+    if (key.upArrow) {
+      setDeploymentStrategyIndex(prev => Math.max(0, prev - 1));
+      return;
+    }
+
+    // Arrow down
+    if (key.downArrow) {
+      setDeploymentStrategyIndex(prev => Math.min(1, prev + 1));
+      return;
+    }
+
+    // Enter - select strategy
+    if (key.return) {
+      const strategies = ['local-mvp', 'cloud'];
+      const selected = strategies[deploymentStrategyIndex];
+
+      setDeploymentStrategy(selected);
+      setDeploymentStrategySelectorActive(false);
+
+      // Show confirmation
+      const strategyName = selected === 'local-mvp' ? 'Local MVP First' : 'Cloud Deployment';
+      sendSuccess(`Deployment Strategy: ${strategyName}`);
+
+      if (selected === 'local-mvp') {
+        sendInfo('\n🏠 You\'ve chosen to start with a local development environment.\n');
+        sendOutput('What this means:\n');
+        sendOutput('• Zero cloud costs during MVP development\n');
+        sendOutput('• Run everything on your machine or with Docker\n');
+        sendOutput('• Database: SQLite or containerized PostgreSQL/MongoDB\n');
+        sendOutput('• When ready: Migrate to cloud with our step-by-step guide\n');
+      } else {
+        sendInfo('\n☁️  You\'ve chosen cloud deployment from day one.\n');
+        sendOutput('What this means:\n');
+        sendOutput('• Production-ready infrastructure from the start\n');
+        sendOutput('• Managed databases, auto-scaling, monitoring\n');
+        sendOutput('• Cloud provider selection (AWS/Azure/GCP)\n');
+        sendOutput('• Monthly costs: Estimated $50-200+ based on scale\n');
+      }
+
+      // Proceed to database analysis and architecture recommendation
+      await triggerArchitectureSelection();
+      return;
+    }
+
+    // Escape - skip strategy selection (show all options)
+    if (key.escape) {
+      setDeploymentStrategySelectorActive(false);
+      setDeploymentStrategy(null); // No strategy preference
+
+      sendInfo('Skipped deployment strategy. All architecture options will be shown.');
+
+      // Proceed to database analysis without strategy filter
+      await triggerArchitectureSelection();
+      return;
+    }
+  }, { isActive: deploymentStrategySelectorActive });
+
   // Cloud provider selector input handler
   useInput(async (inputChar, key) => {
     if (!cloudProviderSelectorActive) return;
@@ -4851,6 +4995,16 @@ https://agilevibecoding.org
         React.createElement(ArchitectureSelector, {
           architectures: architectureOptions,
           selectedIndex: selectedArchitectureIndex
+        })
+      );
+    }
+
+    // Show deployment strategy selector if active
+    if (deploymentStrategySelectorActive) {
+      return React.createElement(Box, { flexDirection: 'column', marginY: 1 },
+        React.createElement(Text, null, output),
+        React.createElement(DeploymentStrategySelector, {
+          selectedIndex: deploymentStrategyIndex
         })
       );
     }
