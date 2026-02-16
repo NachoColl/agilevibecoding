@@ -40,7 +40,7 @@ export class DocumentationBuilder {
       const config = JSON.parse(fs.readFileSync(configPath, 'utf8'));
       return config.settings?.documentation?.port || 4173;
     } catch (error) {
-      console.warn(`⚠️  Could not read port from avc.json: ${error.message}`);
+      console.warn(`Could not read port from avc.json: ${error.message}`);
       return 4173;
     }
   }

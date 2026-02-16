@@ -40,7 +40,7 @@ export class KanbanServerManager {
       const config = JSON.parse(fs.readFileSync(configPath, 'utf8'));
       return config.settings?.kanban?.port || 4174;
     } catch (error) {
-      console.warn(`⚠️  Could not read port from avc.json: ${error.message}`);
+      console.warn(`Could not read port from avc.json: ${error.message}`);
       return 4174;
     }
   }
@@ -221,7 +221,7 @@ export class KanbanServerManager {
     try {
       return JSON.parse(fs.readFileSync(configPath, 'utf8'));
     } catch (error) {
-      console.warn(`⚠️  Could not read avc.json: ${error.message}`);
+      console.warn(`Could not read avc.json: ${error.message}`);
       return { settings: {} };
     }
   }

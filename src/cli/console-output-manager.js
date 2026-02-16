@@ -59,7 +59,7 @@ class ConsoleOutputManager {
       const message = args.join(' ');
 
       // Display errors in UI with error prefix
-      outputBuffer.append(`❌ ${message}\n`);
+      outputBuffer.append(`ERROR: ${message}\n`);
 
       // Also forward to CommandLogger for file logging
       this.originalError(...args);
@@ -70,7 +70,7 @@ class ConsoleOutputManager {
       const message = args.join(' ');
 
       // Display warnings in UI with warning prefix
-      outputBuffer.append(`⚠️  ${message}\n`);
+      outputBuffer.append(`WARNING: ${message}\n`);
 
       // Also forward to CommandLogger for file logging
       this.originalWarn(...args);

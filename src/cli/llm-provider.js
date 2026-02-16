@@ -132,7 +132,7 @@ export class LLMProvider {
 
         // Don't retry if we've exhausted all attempts
         if (attempt === this.retryConfig.maxRetries) {
-          console.error(`\n⚠️  ${operationName} failed after ${this.retryConfig.maxRetries + 1} attempts`);
+          console.error(`\n${operationName} failed after ${this.retryConfig.maxRetries + 1} attempts`);
           throw error;
         }
 

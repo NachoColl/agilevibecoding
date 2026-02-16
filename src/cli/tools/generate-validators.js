@@ -636,7 +636,7 @@ function generateValidators() {
     const jsonFilename = `validator-epic-${config.name}.json`;
 
     if (existingEpicValidators.includes(config.name)) {
-      console.log(`⏭️  Skipping ${mdFilename} (already exists)`);
+      console.log(`Skipping ${mdFilename} (already exists)`);
       skipped += 2;
       return;
     }
@@ -645,18 +645,18 @@ function generateValidators() {
     const mdPath = path.join(AGENTS_PATH, mdFilename);
     const mdContent = generateEpicValidatorMd(config.name, config);
     fs.writeFileSync(mdPath, mdContent, 'utf8');
-    console.log(`✅ Created ${mdFilename}`);
+    console.log(`Created ${mdFilename}`);
     created++;
 
     // Generate .json file
     const jsonPath = path.join(AGENTS_PATH, jsonFilename);
     const jsonContent = JSON.stringify(generateVerificationJson(config.name, 'epic'), null, 2);
     fs.writeFileSync(jsonPath, jsonContent, 'utf8');
-    console.log(`✅ Created ${jsonFilename}`);
+    console.log(`Created ${jsonFilename}`);
     created++;
   });
 
-  console.log(`\n📊 Summary:`);
+  console.log(`\nSummary:`);
   console.log(`   Created: ${created} files`);
   console.log(`   Skipped: ${skipped} files (already exist)`);
   console.log(`\nNext steps:`);

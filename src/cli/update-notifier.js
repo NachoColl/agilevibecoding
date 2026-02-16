@@ -28,7 +28,7 @@ export const UpdateNotification = ({ onDismiss }) => {
     },
       React.createElement(Box, { flexDirection: 'column' },
         React.createElement(Text, { bold: true, color: 'blue' },
-          `⬇️  Downloading update v${state.latestVersion}...`
+          `Downloading update v${state.latestVersion}...`
         ),
         React.createElement(Text, { dimColor: true },
           'This happens in the background. Continue working!'
@@ -48,7 +48,7 @@ export const UpdateNotification = ({ onDismiss }) => {
     },
       React.createElement(Box, { flexDirection: 'column' },
         React.createElement(Text, { bold: true, color: 'green' },
-          `✅ Update v${state.downloadedVersion} ready!`
+          `Update v${state.downloadedVersion} ready!`
         ),
         React.createElement(Text, null,
           'Restart to use the new version'
@@ -95,7 +95,7 @@ export const UpdateNotification = ({ onDismiss }) => {
     },
       React.createElement(Box, { flexDirection: 'column' },
         React.createElement(Text, { bold: true, color: 'red' },
-          '❌ Update failed'
+          'Update failed'
         ),
         React.createElement(Text, null,
           state.errorMessage || 'Unknown error'
@@ -126,7 +126,7 @@ export const UpdateNotification = ({ onDismiss }) => {
     },
       React.createElement(Box, { flexDirection: 'column' },
         React.createElement(Text, { bold: true, color: 'yellow' },
-          `📦 Update available: v${state.latestVersion}`
+          `Update available: v${state.latestVersion}`
         ),
         React.createElement(Text, null,
           'Installing in background...'
