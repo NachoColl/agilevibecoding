@@ -1173,7 +1173,7 @@ const DatabaseChoiceSelector = ({ comparison, selectedIndex, recommendedChoice }
 
   const choices = [
     {
-      label: '🤖 Let AI choose (' + recommendedType + ' recommended: ' + recommendedDb + ')',
+      label: '🤖 Let AI choose ' + recommendedType + ' (' + recommendedDb + ' as primary option)',
       description: 'AI recommends this based on your project requirements'
     },
     {
