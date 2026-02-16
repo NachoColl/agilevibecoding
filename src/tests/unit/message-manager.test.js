@@ -161,11 +161,11 @@ describe('MessageManager', () => {
       messageManager.startExecution('test');
     });
 
-    it('should send error with emoji prefix', () => {
+    it('should send error with ERROR: prefix', () => {
       messageManager.send(MessageType.ERROR, 'Something failed');
 
       const lines = outputBuffer.getLines();
-      expect(lines).toEqual(['❌ Something failed', '']);
+      expect(lines).toEqual(['ERROR: Something failed', '']);
     });
   });
 
@@ -174,11 +174,11 @@ describe('MessageManager', () => {
       messageManager.startExecution('test');
     });
 
-    it('should send warning with emoji prefix', () => {
+    it('should send warning with WARNING: prefix', () => {
       messageManager.send(MessageType.WARNING, 'Be careful');
 
       const lines = outputBuffer.getLines();
-      expect(lines).toEqual(['⚠️  Be careful', '']);
+      expect(lines).toEqual(['WARNING: Be careful', '']);
     });
   });
 
@@ -187,11 +187,11 @@ describe('MessageManager', () => {
       messageManager.startExecution('test');
     });
 
-    it('should send success with emoji prefix', () => {
+    it('should send success with SUCCESS: prefix', () => {
       messageManager.send(MessageType.SUCCESS, 'Operation completed');
 
       const lines = outputBuffer.getLines();
-      expect(lines).toEqual(['✓ Operation completed', '']);
+      expect(lines).toEqual(['SUCCESS: Operation completed', '']);
     });
   });
 
@@ -200,11 +200,11 @@ describe('MessageManager', () => {
       messageManager.startExecution('test');
     });
 
-    it('should send info with emoji prefix', () => {
+    it('should send info with INFO: prefix', () => {
       messageManager.send(MessageType.INFO, 'Using Claude provider');
 
       const lines = outputBuffer.getLines();
-      expect(lines).toEqual(['ℹ️  Using Claude provider', '']);
+      expect(lines).toEqual(['INFO: Using Claude provider', '']);
     });
   });
 

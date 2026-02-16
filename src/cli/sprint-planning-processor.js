@@ -5,6 +5,7 @@ import { TokenTracker } from './token-tracker.js';
 import { EpicStoryValidator } from './epic-story-validator.js';
 import { VerificationTracker } from './verification-tracker.js';
 import { fileURLToPath } from 'url';
+import { getCeremonyHeader } from './message-constants.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -1137,7 +1138,8 @@ ${projectContext}
       this.debug('Timestamp:', new Date().toISOString());
       this.debug('Execution ID:', executionId);
 
-      console.log('\n📊 Sprint Planning Ceremony\n');
+      const header = getCeremonyHeader('sprint-planning');
+      console.log(`\n${header.title}\n`);
 
       // Stage 1: Validate
       this.validatePrerequisites();

@@ -235,7 +235,7 @@ class MessageManager {
    * @private
    */
   _handleError(content) {
-    const formattedContent = `❌ ${content}`;
+    const formattedContent = `ERROR: ${content}`;
     outputBuffer.append(formattedContent + '\n');
   }
 
@@ -244,7 +244,7 @@ class MessageManager {
    * @private
    */
   _handleWarning(content) {
-    const formattedContent = `⚠️  ${content}`;
+    const formattedContent = `WARNING: ${content}`;
     outputBuffer.append(formattedContent + '\n');
   }
 
@@ -253,7 +253,7 @@ class MessageManager {
    * @private
    */
   _handleSuccess(content) {
-    const formattedContent = `✓ ${content}`;
+    const formattedContent = `SUCCESS: ${content}`;
     outputBuffer.append(formattedContent + '\n');
   }
 
@@ -262,7 +262,7 @@ class MessageManager {
    * @private
    */
   _handleInfo(content) {
-    const formattedContent = `ℹ️  ${content}`;
+    const formattedContent = `INFO: ${content}`;
     outputBuffer.append(formattedContent + '\n');
   }
 

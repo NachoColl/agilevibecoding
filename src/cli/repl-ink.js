@@ -18,6 +18,7 @@ import { BackgroundProcessManager } from './process-manager.js';
 import { registerCallbacks, startCommand, endCommand, cancelCommand, sendCeremonyHeader, sendProgress, sendSubstep, sendOutput, sendError, sendWarning, sendSuccess, sendInfo, sendDebug, clearProgress } from './messaging-api.js';
 import { outputBuffer } from './output-buffer.js';
 import { StaticOutput } from './components/static-output.js';
+import { getProjectNotInitializedMessage, getCeremonyHeader } from './message-constants.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -2190,10 +2191,7 @@ https://agilevibecoding.org
     const initiator = new ProjectInitiator();
 
     if (!initiator.isAvcProject()) {
-      outputBuffer.append(
-        '\n❌ Project not initialized\n\n' +
-        'Please run /init first to create the project structure.\n\n'
-      );
+      sendError(getProjectNotInitializedMessage());
       return;
     }
 
@@ -2222,10 +2220,7 @@ https://agilevibecoding.org
     const initiator = new ProjectInitiator();
 
     if (!initiator.isAvcProject()) {
-      outputBuffer.append(
-        '\n❌ Project not initialized\n\n' +
-        'Please run /init first to create the project structure.\n\n'
-      );
+      sendError(getProjectNotInitializedMessage());
       return;
     }
 
@@ -2249,13 +2244,14 @@ https://agilevibecoding.org
     startCommand('sponsor-call');
 
     // Send ceremony header FIRST - before any other messages
-    sendCeremonyHeader('🎯 Sponsor Call Ceremony', 'https://agilevibecoding.org/ceremonies/sponsor-call');
+    const header = getCeremonyHeader('sponsor-call');
+    sendCeremonyHeader(header.title, header.url);
 
     const initiator = new ProjectInitiator();
 
     // Check if project is initialized
     if (!initiator.isAvcProject()) {
-      sendError('Project not initialized\n\nPlease run /init first to create the project structure.\n');
+      sendError(getProjectNotInitializedMessage());
       return;
     }
 

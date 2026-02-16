@@ -3,6 +3,7 @@ import path from 'path';
 import { LLMProvider } from './llm-provider.js';
 import { TokenTracker } from './token-tracker.js';
 import { fileURLToPath } from 'url';
+import { getCeremonyHeader } from './message-constants.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -502,7 +503,8 @@ Return your response as JSON following the exact structure specified in your ins
   // Main execution method
   async execute() {
     try {
-      console.log('\n🌱 Seed Ceremony\n');
+      const header = getCeremonyHeader('seed');
+      console.log(`\n${header.title}\n`);
       console.log(`Story: ${this.storyId}\n`);
 
       // Stage 1: Validate

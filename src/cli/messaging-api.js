@@ -57,14 +57,14 @@ export function cancelCommand() {
 /**
  * Send a ceremony header (title + documentation URL)
  *
- * @param {string} title - Ceremony title
+ * @param {string} title - Ceremony title (without emoji)
  * @param {string} url - Documentation URL
  *
  * @example
- * sendCeremonyHeader('🎯 Sponsor Call', 'https://agilevibecoding.org/ceremonies/sponsor-call');
+ * sendCeremonyHeader('Sponsor Call Ceremony', 'https://agilevibecoding.org/ceremonies/sponsor-call');
  */
 export function sendCeremonyHeader(title, url) {
-  const content = `${title}\n📖 ${url}`;
+  const content = `${title}\nDocumentation: ${url}`;
   messageManager.send(MessageType.CEREMONY_HEADER, content);
 }
 
@@ -221,7 +221,7 @@ export function registerCallbacks(callbacks) {
 }
 
 /**
- * Helper: Send formatted section header
+ * Helper: Send formatted section header (cyan bold)
  *
  * @param {string} title - Section title
  *
@@ -229,7 +229,7 @@ export function registerCallbacks(callbacks) {
  * sendSectionHeader('Database Options Comparison');
  */
 export function sendSectionHeader(title) {
-  sendOutput(`\n${title}\n${'='.repeat(title.length)}\n\n`);
+  sendOutput(`\n${title}\n\n`);
 }
 
 /**
@@ -244,7 +244,22 @@ export function sendSectionHeader(title) {
  */
 export function sendListItem(item, indent = 0) {
   const spacing = '  '.repeat(indent);
-  sendOutput(`${spacing}• ${item}\n`);
+  sendOutput(`${spacing}- ${item}\n`);
+}
+
+/**
+ * Helper: Send indented content
+ *
+ * @param {string} content - Content to indent
+ * @param {number} level - Indentation level (0-3, each level = 2 spaces)
+ *
+ * @example
+ * sendIndented('Details about the option', 1);
+ * sendIndented('Nested information', 2);
+ */
+export function sendIndented(content, level = 0) {
+  const spacing = '  '.repeat(level);
+  sendOutput(`${spacing}${content}\n`);
 }
 
 /**

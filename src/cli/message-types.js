@@ -38,19 +38,19 @@ export const MessageType = {
 
   /**
    * Error message - displays errors to user
-   * Automatically formatted with ❌ emoji
+   * Automatically formatted with ERROR: prefix in red bold
    */
   ERROR: 'ERROR',
 
   /**
    * Warning message - displays warnings to user
-   * Automatically formatted with ⚠️ emoji
+   * Automatically formatted with WARNING: prefix in yellow bold
    */
   WARNING: 'WARNING',
 
   /**
    * Success message - displays success confirmation
-   * Automatically formatted with ✓ emoji
+   * Automatically formatted with SUCCESS: prefix in green bold
    */
   SUCCESS: 'SUCCESS',
 
@@ -62,7 +62,7 @@ export const MessageType = {
 
   /**
    * Info message - informational content
-   * Automatically formatted with ℹ️ emoji
+   * Automatically formatted with INFO: prefix in cyan
    */
   INFO: 'INFO'
 };
@@ -79,18 +79,18 @@ export function isValidMessageType(type) {
 /**
  * Get default formatting for a message type
  * @param {string} type - Message type
- * @returns {object} Format configuration
+ * @returns {object} Format configuration with prefix, color, and bold flag
  */
 export function getMessageFormat(type) {
   const formats = {
-    [MessageType.ERROR]: { prefix: '❌ ', color: 'red' },
-    [MessageType.WARNING]: { prefix: '⚠️  ', color: 'yellow' },
-    [MessageType.SUCCESS]: { prefix: '✓ ', color: 'green' },
-    [MessageType.INFO]: { prefix: 'ℹ️  ', color: 'cyan' },
-    [MessageType.CEREMONY_HEADER]: { prefix: '', color: 'cyan' },
-    [MessageType.USER_OUTPUT]: { prefix: '', color: 'white' },
-    [MessageType.DEBUG]: { prefix: '[DEBUG] ', color: 'gray' }
+    [MessageType.ERROR]: { prefix: 'ERROR: ', color: 'red', bold: true },
+    [MessageType.WARNING]: { prefix: 'WARNING: ', color: 'yellow', bold: true },
+    [MessageType.SUCCESS]: { prefix: 'SUCCESS: ', color: 'green', bold: true },
+    [MessageType.INFO]: { prefix: 'INFO: ', color: 'cyan', bold: false },
+    [MessageType.CEREMONY_HEADER]: { prefix: '', color: 'cyan', bold: true },
+    [MessageType.USER_OUTPUT]: { prefix: '', color: 'white', bold: false },
+    [MessageType.DEBUG]: { prefix: '[DEBUG] ', color: 'gray', bold: false }
   };
 
-  return formats[type] || { prefix: '', color: 'white' };
+  return formats[type] || { prefix: '', color: 'white', bold: false };
 }

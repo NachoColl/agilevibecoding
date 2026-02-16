@@ -63,50 +63,58 @@ describe('isValidMessageType', () => {
 describe('getMessageFormat', () => {
   it('should return correct format for ERROR type', () => {
     const format = getMessageFormat(MessageType.ERROR);
-    expect(format.prefix).toBe('❌ ');
+    expect(format.prefix).toBe('ERROR: ');
     expect(format.color).toBe('red');
+    expect(format.bold).toBe(true);
   });
 
   it('should return correct format for WARNING type', () => {
     const format = getMessageFormat(MessageType.WARNING);
-    expect(format.prefix).toBe('⚠️  ');
+    expect(format.prefix).toBe('WARNING: ');
     expect(format.color).toBe('yellow');
+    expect(format.bold).toBe(true);
   });
 
   it('should return correct format for SUCCESS type', () => {
     const format = getMessageFormat(MessageType.SUCCESS);
-    expect(format.prefix).toBe('✓ ');
+    expect(format.prefix).toBe('SUCCESS: ');
     expect(format.color).toBe('green');
+    expect(format.bold).toBe(true);
   });
 
   it('should return correct format for INFO type', () => {
     const format = getMessageFormat(MessageType.INFO);
-    expect(format.prefix).toBe('ℹ️  ');
+    expect(format.prefix).toBe('INFO: ');
     expect(format.color).toBe('cyan');
+    expect(format.bold).toBe(false);
   });
 
   it('should return correct format for CEREMONY_HEADER type', () => {
     const format = getMessageFormat(MessageType.CEREMONY_HEADER);
     expect(format.prefix).toBe('');
     expect(format.color).toBe('cyan');
+    expect(format.bold).toBe(true);
   });
 
   it('should return correct format for USER_OUTPUT type', () => {
     const format = getMessageFormat(MessageType.USER_OUTPUT);
     expect(format.prefix).toBe('');
     expect(format.color).toBe('white');
+    expect(format.bold).toBe(false);
   });
 
   it('should return correct format for DEBUG type', () => {
     const format = getMessageFormat(MessageType.DEBUG);
     expect(format.prefix).toBe('[DEBUG] ');
     expect(format.color).toBe('gray');
+    expect(format.bold).toBe(false);
   });
 
   it('should return default format for unknown type', () => {
     const format = getMessageFormat('UNKNOWN');
     expect(format.prefix).toBe('');
     expect(format.color).toBe('white');
+    expect(format.bold).toBe(false);
   });
 
   it('should return default format for types without explicit format', () => {

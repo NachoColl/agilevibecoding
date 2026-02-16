@@ -7,6 +7,7 @@ import { fileURLToPath } from 'url';
 import { execSync } from 'child_process';
 import { TemplateProcessor } from './template-processor.js';
 import { ModelConfigurator } from './init-model-config.js';
+import { MESSAGES, getCeremonyHeader } from './message-constants.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -1030,8 +1031,8 @@ If you're new to Agile Vibe Coding, visit the [AVC Documentation](https://agilev
 
     // Check if project is initialized
     if (!this.isAvcProject()) {
-      console.log('❌ Project not initialized\n');
-      console.log('Please run /init first to create the project structure.\n');
+      console.log(`ERROR: ${MESSAGES.PROJECT_NOT_INITIALIZED.error}\n`);
+      console.log(`${MESSAGES.PROJECT_NOT_INITIALIZED.help}\n`);
       return;
     }
 
@@ -1098,8 +1099,8 @@ If you're new to Agile Vibe Coding, visit the [AVC Documentation](https://agilev
 
     // Check if project is initialized
     if (!this.isAvcProject()) {
-      console.log('❌ Project not initialized\n');
-      console.log('Please run /init first to create the project structure.\n');
+      console.log(`ERROR: ${MESSAGES.PROJECT_NOT_INITIALIZED.error}\n`);
+      console.log(`${MESSAGES.PROJECT_NOT_INITIALIZED.help}\n`);
       return;
     }
 
@@ -1304,7 +1305,8 @@ If you're new to Agile Vibe Coding, visit the [AVC Documentation](https://agilev
    * Requires API keys to be configured in .env file
    */
   async sponsorCall() {
-    console.log('\n🎯 Sponsor Call Ceremony\n');
+    const header = getCeremonyHeader('sponsor-call');
+    console.log(`\n${header.title}\n`);
     console.log(`Project directory: ${this.projectRoot}\n`);
 
     // Check if running in REPL mode
@@ -1318,8 +1320,8 @@ If you're new to Agile Vibe Coding, visit the [AVC Documentation](https://agilev
 
     // Check if project is initialized
     if (!this.isAvcProject()) {
-      console.log('❌ Project not initialized\n');
-      console.log('Please run /init first to create the project structure.\n');
+      console.log(`ERROR: ${MESSAGES.PROJECT_NOT_INITIALIZED.error}\n`);
+      console.log(`${MESSAGES.PROJECT_NOT_INITIALIZED.help}\n`);
       return; // Don't exit in REPL mode
     }
 
