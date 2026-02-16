@@ -2827,6 +2827,85 @@ Return your response as JSON following the exact structure specified in your ins
       throw error;
     }
   }
+
+  /**
+   * Generate migration guide for local-to-cloud deployment
+   * @param {Object} architecture - Selected local architecture
+   * @param {string} databaseType - Database type ('sql' or 'nosql')
+   * @param {Object} questionnaire - Full questionnaire answers
+   * @returns {Promise<string>} Migration guide markdown
+   */
+  async generateMigrationGuide(architecture, databaseType, questionnaire) {
+    debug('generateMigrationGuide called', {
+      architectureName: architecture.name,
+      databaseType
+    });
+
+    try {
+      // Get stage-specific provider for migration guide generation
+      const provider = await this.getProviderForStageInstance('migration-guide-generation');
+
+      if (!provider || typeof provider.generateText !== 'function') {
+        throw new Error('Migration guide generation provider not available');
+      }
+
+      // Read agent instructions
+      debug('Loading migration-guide-generator.md agent');
+      const migrationGuideAgent = fs.readFileSync(
+        path.join(this.agentsPath, 'migration-guide-generator.md'),
+        'utf8'
+      );
+
+      // Build comprehensive prompt
+      const prompt = `Generate a comprehensive cloud migration guide for the following local development setup:
+
+**Local Architecture:**
+- Name: ${architecture.name}
+- Description: ${architecture.description}
+- Best For: ${architecture.bestFor}
+
+**Database:**
+- Type: ${databaseType ? (databaseType.toUpperCase()) : 'Not specified'}
+
+**Project Context:**
+- Mission: ${questionnaire.MISSION_STATEMENT}
+- Scope: ${questionnaire.INITIAL_SCOPE}
+- Technical Stack: ${questionnaire.TECHNICAL_CONSIDERATIONS || 'To be determined'}
+
+**Target Users:** ${questionnaire.TARGET_USERS || 'General users'}
+
+Generate a complete DEPLOYMENT_MIGRATION.md document following the structure specified in your instructions.
+
+Include:
+1. Current local stack summary
+2. When to migrate decision criteria
+3. 3-4 cloud migration options with costs and complexity
+4. Database-specific migration guide
+5. Environment variable changes
+6. CI/CD pipeline recommendation
+7. Monitoring and observability setup
+8. Cost comparison table
+9. Comprehensive migration checklist
+10. Common issues and solutions
+11. Support resources
+
+Make it actionable with specific CLI commands, code examples, and cost estimates.`;
+
+      debug('Calling LLM for migration guide generation');
+      const result = await this.retryWithBackoff(
+        () => provider.generateText(prompt, migrationGuideAgent),
+        'migration guide generation'
+      );
+
+      debug('Migration guide generated', { length: result.length });
+
+      return result;
+    } catch (error) {
+      console.error('[ERROR] generateMigrationGuide failed:', error.message);
+      debug('generateMigrationGuide error', { error: error.message, stack: error.stack });
+      throw error;
+    }
+  }
 }
 
 export { TemplateProcessor };

@@ -2445,6 +2445,27 @@ https://agilevibecoding.org
         return;
       }
 
+      // Generate migration guide if local MVP strategy was chosen
+      if (deploymentStrategy === 'local-mvp' && selectedArchitecture && result) {
+        try {
+          sendProgress('Generating cloud migration guide...');
+
+          const processor = new TemplateProcessor('sponsor-call', progressCallback, false);
+          const migrationGuide = await processor.generateMigrationGuide(
+            selectedArchitecture,
+            selectedDatabaseType,
+            answers
+          );
+
+          const migrationPath = path.join('.avc', 'DEPLOYMENT_MIGRATION.md');
+          fs.writeFileSync(migrationPath, migrationGuide);
+
+          sendSuccess('Created: DEPLOYMENT_MIGRATION.md (cloud migration guide)');
+        } catch (error) {
+          sendWarning('Could not generate migration guide: ' + error.message);
+        }
+      }
+
       // Build complete summary message
       let summary = '\n✅ Sponsor Call Completed\n\n';
 
