@@ -733,11 +733,8 @@ Please carefully follow the output format requirements to avoid these issues.
 
     // In non-interactive mode, skip readline prompts and use defaults/AI
     if (this.nonInteractive) {
-      sendSectionHeader(variable.displayName);
-      if (variable.guidance) {
-        sendIndented(variable.guidance, 1);
-      }
-      sendProgress('Generating AI response...');
+      // No section header output — silent AI generation to avoid polluting terminal output
+      sendProgress(`Generating AI suggestion for ${variable.displayName}...`);
       value = null; // Force AI generation
     } else {
       // Interactive mode - use readline prompts
@@ -1055,7 +1052,7 @@ Return the enhanced markdown document.`;
         // Use pre-filled answers, but check defaults or AI for skipped (null) answers
         for (const variable of variables) {
           if (collectedValues[variable.name] === null) {
-            sendSectionHeader(variable.displayName);
+            // No section header — silent fill to avoid polluting terminal output during ceremony
 
             // First, check if there's a default for this question
             const defaults = this.readDefaults();

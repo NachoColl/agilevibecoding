@@ -1032,10 +1032,10 @@ const ArchitectureSelector = ({ architectures, selectedIndex }) => {
             (isSelected ? '> ' : '  ') + icon + ' ' + arch.name
           ),
           React.createElement(Text, { dimColor: true, marginLeft: 4 },
-            arch.description.substring(0, 100) + (arch.description.length > 100 ? '...' : '')
+            arch.description
           ),
           React.createElement(Text, { italic: true, dimColor: true, marginLeft: 4 },
-            'Best for: ' + arch.bestFor.substring(0, 80) + (arch.bestFor.length > 80 ? '...' : '')
+            'Best for: ' + arch.bestFor
           )
         );
       })
@@ -5207,8 +5207,8 @@ https://agilevibecoding.org
       );
     }
 
-    // Show questionnaire if active
-    if (questionnaireActive) {
+    // Show questionnaire if active (guard: never show questionnaire while executing to prevent Q1 flash)
+    if (questionnaireActive && !isExecuting) {
       const currentQuestion = questionnaireQuestions[currentQuestionIndex];
 
       return React.createElement(Box, { flexDirection: 'column', flexShrink: 0 },
