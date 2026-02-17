@@ -1020,8 +1020,7 @@ const ModelConfigPrompt = () => {
 const ArchitectureSelector = ({ architectures, selectedIndex }) => {
   return React.createElement(Box, { flexDirection: 'column', borderStyle: 'round', borderColor: 'cyan', paddingX: 1 },
     React.createElement(Text, { bold: true }, 'Recommended Deployment Architectures'),
-    React.createElement(Text, {}, '
-'),
+    React.createElement(Text, {}, '\n'),
     React.createElement(Text, { dimColor: true }, 'Based on your mission and scope, here are recommended approaches:'),
     React.createElement(Box, { flexDirection: 'column', marginTop: 1 },
       ...architectures.map((arch, idx) => {
@@ -1041,8 +1040,7 @@ const ArchitectureSelector = ({ architectures, selectedIndex }) => {
         );
       })
     ),
-    React.createElement(Text, {}, '
-'),
+    React.createElement(Text, {}, '\n'),
     React.createElement(Text, { dimColor: true }, '↑/↓: Navigate | Enter: Select | Esc: Skip (use manual answers)')
   );
 };
@@ -1151,8 +1149,7 @@ const CloudProviderSelector = ({ architectureName, selectedIndex }) => {
 
   return React.createElement(Box, { flexDirection: 'column', borderStyle: 'round', borderColor: 'cyan', paddingX: 1 },
     React.createElement(Text, { bold: true }, 'Select Cloud Provider for "' + architectureName + '"'),
-    React.createElement(Text, {}, '
-'),
+    React.createElement(Text, {}, '\n'),
     React.createElement(Text, { dimColor: true }, 'Your selected architecture requires a cloud provider. Choose one:'),
     React.createElement(Box, { flexDirection: 'column', marginTop: 1 },
       ...providers.map((provider, idx) => {
@@ -1168,8 +1165,7 @@ const CloudProviderSelector = ({ architectureName, selectedIndex }) => {
         );
       })
     ),
-    React.createElement(Text, {}, '
-'),
+    React.createElement(Text, {}, '\n'),
     React.createElement(Text, { dimColor: true }, '↑/↓: Navigate | Enter: Select | Esc: Skip')
   );
 };
@@ -1221,16 +1217,14 @@ const DatabaseRecommendationDisplay = ({ comparison, keyMetrics }) => {
 
     // Key Metrics (only show defined values)
     ...(keyMetrics ? [
-      React.createElement(Text, { key: 'km-gap' }, '
-'),
+      React.createElement(Text, { key: 'km-gap' }, '\n'),
       keyMetrics.estimatedReadWriteRatio && React.createElement(Text, { key: 'km-rw', color: 'gray' }, 'Read/Write: ' + keyMetrics.estimatedReadWriteRatio),
       keyMetrics.expectedThroughput && React.createElement(Text, { key: 'km-tp', color: 'gray' }, 'Throughput: ' + keyMetrics.expectedThroughput),
       keyMetrics.dataComplexity && React.createElement(Text, { key: 'km-dc', color: 'gray' }, 'Data complexity: ' + keyMetrics.dataComplexity)
     ].filter(Boolean) : []),
 
     // SQL Option
-    React.createElement(Text, { key: 'sql-gap' }, '
-'),
+    React.createElement(Text, { key: 'sql-gap' }, '\n'),
     React.createElement(Text, { bold: true, color: 'green' }, 'SQL (e.g., ' + sqlExamples + ')'),
     React.createElement(Text, { color: 'white' }, 'Pros:'),
     ...comparison.sqlOption.pros.slice(0, 3).map((pro, i) =>
@@ -1241,14 +1235,12 @@ const DatabaseRecommendationDisplay = ({ comparison, keyMetrics }) => {
       React.createElement(Text, { key: `sql-con-${i}`, color: 'gray' }, '  • ' + con)
     ),
     ...(sqlCostMarks ? [
-      React.createElement(Text, { key: 'sql-cost-gap' }, '
-'),
+      React.createElement(Text, { key: 'sql-cost-gap' }, '\n'),
       React.createElement(Text, { key: 'sql-cost', color: 'yellow' }, 'Cost: ' + sqlCostMarks)
     ] : []),
 
     // NoSQL Option
-    React.createElement(Text, { key: 'nosql-gap' }, '
-'),
+    React.createElement(Text, { key: 'nosql-gap' }, '\n'),
     React.createElement(Text, { bold: true, color: 'blue' }, 'NoSQL (e.g., ' + nosqlExamples + ')'),
     React.createElement(Text, { color: 'white' }, 'Pros:'),
     ...comparison.nosqlOption.pros.slice(0, 3).map((pro, i) =>
@@ -1259,8 +1251,7 @@ const DatabaseRecommendationDisplay = ({ comparison, keyMetrics }) => {
       React.createElement(Text, { key: `nosql-con-${i}`, color: 'gray' }, '  • ' + con)
     ),
     ...(nosqlCostMarks ? [
-      React.createElement(Text, { key: 'nosql-cost-gap' }, '
-'),
+      React.createElement(Text, { key: 'nosql-cost-gap' }, '\n'),
       React.createElement(Text, { key: 'nosql-cost', color: 'yellow' }, 'Cost: ' + nosqlCostMarks)
     ] : [])
   );
@@ -1391,8 +1382,7 @@ const CeremonySelector = ({ ceremonies, selectedIndex, onIndexChange }) => {
         )
       )
     ),
-    React.createElement(Text, {}, '
-'),
+    React.createElement(Text, {}, '\n'),
     React.createElement(Text, { dimColor: true, marginTop: 1 }, '(Press Enter to select, Esc to finish)')
   );
 };
@@ -1403,8 +1393,7 @@ const CeremonySelector = ({ ceremonies, selectedIndex, onIndexChange }) => {
 const StageSelector = ({ ceremonyName, stages, selectedIndex, availableProviders }) => {
   return React.createElement(Box, { flexDirection: 'column', borderStyle: 'round', borderColor: 'cyan', paddingX: 1 },
     React.createElement(Text, { bold: true }, ceremonyName),
-    React.createElement(Text, {}, '
-'),
+    React.createElement(Text, {}, '\n'),
     React.createElement(Text, { dimColor: true }, 'Select Stage to Configure:'),
     React.createElement(Box, { flexDirection: 'column', marginTop: 1 },
       ...stages.map((stage, idx) => {
@@ -1450,8 +1439,7 @@ const ConfigurationOverview = ({ overview, selectedIndex }) => {
   // Build children array properly
   const children = [
     React.createElement(Text, { bold: true }, `Model Configuration - ${overview.ceremony}`),
-    React.createElement(Text, {}, '
-')
+    React.createElement(Text, {}, '\n')
   ];
 
   // Add item elements
@@ -1487,8 +1475,7 @@ const ConfigurationOverview = ({ overview, selectedIndex }) => {
       );
     }
 
-    itemChildren.push(React.createElement(Text, {}, '
-'));
+    itemChildren.push(React.createElement(Text, {}, '\n'));
 
     children.push(React.createElement(Box, { key: `item-${idx}`, flexDirection: 'column' }, ...itemChildren));
   });
@@ -1507,8 +1494,7 @@ const ConfigurationOverview = ({ overview, selectedIndex }) => {
 const ValidationTypeSelector = ({ ceremonyName, stageName, validationTypes, selectedIndex }) => {
   return React.createElement(Box, { flexDirection: 'column', borderStyle: 'round', borderColor: 'cyan', paddingX: 1 },
     React.createElement(Text, { bold: true }, `${ceremonyName} > ${stageName}`),
-    React.createElement(Text, {}, '
-'),
+    React.createElement(Text, {}, '\n'),
     React.createElement(Text, { dimColor: true }, 'Select Validation Type:'),
     React.createElement(Box, { flexDirection: 'column', marginTop: 1 },
       ...validationTypes.map((type, idx) =>
@@ -1522,8 +1508,7 @@ const ValidationTypeSelector = ({ ceremonyName, stageName, validationTypes, sele
         )
       )
     ),
-    React.createElement(Text, {}, '
-'),
+    React.createElement(Text, {}, '\n'),
     React.createElement(Text, { dimColor: true, marginTop: 1 }, '(Press Enter to select, Esc to go back)')
   );
 };
@@ -1535,8 +1520,7 @@ const ModelSelector = ({ stageName, currentModel, models, selectedIndex }) => {
   return React.createElement(Box, { flexDirection: 'column', borderStyle: 'round', borderColor: 'cyan', paddingX: 1 },
     React.createElement(Text, { bold: true }, 'Stage: ' + stageName),
     React.createElement(Text, { dimColor: true }, 'Current: ' + currentModel),
-    React.createElement(Text, {}, '
-'),
+    React.createElement(Text, {}, '\n'),
     React.createElement(Text, { dimColor: true }, 'Available Models:'),
     React.createElement(Box, { flexDirection: 'column', marginTop: 1 },
       ...models.map((model, idx) => {
@@ -1555,8 +1539,7 @@ const ModelSelector = ({ stageName, currentModel, models, selectedIndex }) => {
         );
       })
     ),
-    React.createElement(Text, {}, '
-'),
+    React.createElement(Text, {}, '\n'),
     React.createElement(Text, { dimColor: true }, '(Press Enter to select, Esc to cancel)'),
     React.createElement(Text, { dimColor: true }, 'Models without API keys can be selected; add the key to .env before running ceremonies'),
   );
