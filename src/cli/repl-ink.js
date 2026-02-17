@@ -1305,7 +1305,7 @@ const DatabaseChoiceSelector = ({ comparison, selectedIndex, recommendedChoice }
       )
     ),
     React.createElement(Box, { marginTop: 1 },
-      React.createElement(Text, { color: 'gray' }, '↑/↓: Navigate | Enter: Select')
+      React.createElement(Text, { color: 'gray' }, '↑/↓: Navigate | Enter: Select | Esc: Go back')
     )
   );
 };
@@ -4351,6 +4351,17 @@ https://agilevibecoding.org
     // Arrow down
     if (key.downArrow) {
       setDatabaseChoiceIndex(prev => Math.min(3, prev + 1)); // 4 options: 0-3
+      return;
+    }
+
+    // Escape - go back to deployment strategy selector
+    if (key.escape) {
+      setDatabaseChoiceActive(false);
+      setDatabaseComparison(null);
+      setRecommendedChoice(null);
+      setDeploymentStrategySelectorActive(true);
+      setDeploymentStrategyIndex(0);
+      setMode('prompt');
       return;
     }
 
