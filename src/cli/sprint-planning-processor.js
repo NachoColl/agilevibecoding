@@ -74,6 +74,40 @@ class SprintPlanningProcessor {
   }
 
   /**
+   * Sub-section separator for grouping related log entries within a stage
+   */
+  debugSection(title) {
+    const line = '-'.repeat(60);
+    this.debug(`\n${line}`);
+    this.debug(`-- ${title}`);
+    this.debug(line);
+  }
+
+  /**
+   * Log a full hierarchy tree for snapshot comparison across runs
+   * @param {string} label - Label for this snapshot (e.g. "PRE-RUN" or "POST-RUN")
+   * @param {Array} epics - Array of {id, name, stories:[{id, name}]} objects
+   */
+  debugHierarchySnapshot(label, epics) {
+    this.debugSection(`${label} HIERARCHY SNAPSHOT`);
+    if (!epics || epics.length === 0) {
+      this.debug(`${label}: (empty - no epics found)`);
+      return;
+    }
+    this.debug(`${label}: ${epics.length} epics`);
+    for (const epic of epics) {
+      const storyCount = epic.stories ? epic.stories.length : 0;
+      this.debug(`  [${epic.id}] ${epic.name} (${storyCount} stories)`);
+      for (const story of epic.stories || []) {
+        this.debug(`    [${story.id}] ${story.name}`);
+      }
+    }
+    // Flat totals for quick comparison
+    const totalStories = epics.reduce((sum, e) => sum + (e.stories?.length || 0), 0);
+    this.debug(`${label} TOTALS: ${epics.length} epics, ${totalStories} stories`);
+  }
+
+  /**
    * API call logging with timing
    */
   async debugApiCall(operation, fn) {
@@ -243,15 +277,16 @@ class SprintPlanningProcessor {
     const existingStories = new Map(); // name -> id
     const maxEpicNum = { value: 0 };
     const maxStoryNums = new Map();  // epicId -> maxNum
+    const preRunSnapshot = [];       // Rich snapshot for cross-run comparison
 
     if (!fs.existsSync(this.projectPath)) {
       this.debug('Project path does not exist yet (first run)');
-      return { existingEpics, existingStories, maxEpicNum, maxStoryNums };
+      return { existingEpics, existingStories, maxEpicNum, maxStoryNums, preRunSnapshot };
     }
 
     this.debug(`Scanning directory: ${this.projectPath}`);
-    const dirs = fs.readdirSync(this.projectPath);
-    this.debug(`Found ${dirs.length} top-level directories to scan`);
+    const dirs = fs.readdirSync(this.projectPath).sort();
+    this.debug(`Found ${dirs.length} top-level entries to scan`);
 
     // Scan top-level directories (epics)
     for (const dir of dirs) {
@@ -263,8 +298,19 @@ class SprintPlanningProcessor {
         const work = JSON.parse(fs.readFileSync(epicWorkJsonPath, 'utf8'));
 
         if (work.type === 'epic') {
-          this.debug(`Found existing Epic: ${work.id} "${work.name}"`);
+          this.debug(`Found existing Epic: ${work.id} "${work.name}" [status=${work.status}, created=${work.metadata?.created || 'unknown'}]`);
           existingEpics.set(work.name.toLowerCase(), work.id);
+
+          const epicEntry = {
+            id: work.id,
+            name: work.name,
+            domain: work.domain || '',
+            status: work.status || 'unknown',
+            created: work.metadata?.created || null,
+            ceremony: work.metadata?.ceremony || null,
+            description: (work.description || '').substring(0, 120),
+            stories: []
+          };
 
           // Track max epic number (context-0001 → 1)
           const match = work.id.match(/^context-(\d+)$/);
@@ -278,7 +324,7 @@ class SprintPlanningProcessor {
           const epicSubdirs = fs.readdirSync(epicDir).filter(subdir => {
             const subdirPath = path.join(epicDir, subdir);
             return fs.statSync(subdirPath).isDirectory();
-          });
+          }).sort();
 
           this.debug(`Scanning ${epicSubdirs.length} subdirectories under epic ${work.id}`);
 
@@ -291,8 +337,15 @@ class SprintPlanningProcessor {
               const storyWork = JSON.parse(fs.readFileSync(storyWorkJsonPath, 'utf8'));
 
               if (storyWork.type === 'story') {
-                this.debug(`Found existing Story: ${storyWork.id} "${storyWork.name}"`);
+                this.debug(`  Found existing Story: ${storyWork.id} "${storyWork.name}" [status=${storyWork.status}, created=${storyWork.metadata?.created || 'unknown'}]`);
                 existingStories.set(storyWork.name.toLowerCase(), storyWork.id);
+                epicEntry.stories.push({
+                  id: storyWork.id,
+                  name: storyWork.name,
+                  status: storyWork.status || 'unknown',
+                  created: storyWork.metadata?.created || null,
+                  userType: storyWork.userType || ''
+                });
 
                 // Track max story number per epic (context-0001-0003 → epic 0001, story 3)
                 const storyMatch = storyWork.id.match(/^context-(\d+)-(\d+)$/);
@@ -312,6 +365,8 @@ class SprintPlanningProcessor {
               this.debug(`Could not parse ${storyWorkJsonPath}: ${error.message}`);
             }
           }
+
+          preRunSnapshot.push(epicEntry);
         }
       } catch (error) {
         this.debug(`Could not parse ${epicWorkJsonPath}: ${error.message}`);
@@ -319,16 +374,19 @@ class SprintPlanningProcessor {
       }
     }
 
-    this.debug('Existing hierarchy summary', {
+    // Log complete pre-run state for cross-run comparison
+    this.debugSection('PRE-RUN STATE - Full Existing Hierarchy');
+    this.debug('Pre-run counts', {
       epics: existingEpics.size,
       stories: existingStories.size,
       maxEpicNum: maxEpicNum.value,
-      maxStoryNums: Object.fromEntries(maxStoryNums),
-      epicNames: Array.from(existingEpics.keys()),
-      storyNames: Array.from(existingStories.keys()).slice(0, 10)  // First 10 for brevity
+      maxStoryNums: Object.fromEntries(maxStoryNums)
     });
+    this.debugHierarchySnapshot('PRE-RUN', preRunSnapshot);
+    this.debug('All existing epic names (for duplicate detection)', Array.from(existingEpics.keys()));
+    this.debug('All existing story names (for duplicate detection)', Array.from(existingStories.keys()));
 
-    return { existingEpics, existingStories, maxEpicNum, maxStoryNums };
+    return { existingEpics, existingStories, maxEpicNum, maxStoryNums, preRunSnapshot };
   }
 
   // STAGE 3: Collect new scope (optional expansion)
@@ -339,12 +397,17 @@ class SprintPlanningProcessor {
     const docContent = fs.readFileSync(this.projectDocPath, 'utf8');
     this.debug(`Doc content loaded (${docContent.length} chars)`);
 
+    // Log full doc.md content for cross-run comparison
+    this.debugSection('PROJECT DOC.MD CONTENT (full text used as scope source)');
+    this.debug('doc.md full content:\n' + docContent);
+
     // Try to extract scope from known section headers
     const scopeFromSection = this.tryExtractScopeFromSections(docContent);
 
     if (scopeFromSection) {
       this.debug(`✓ Scope extracted from section (${scopeFromSection.length} chars)`);
-      this.debug(`Scope preview: "${scopeFromSection.substring(0, 100)}..."`);
+      this.debugSection('SCOPE TEXT SENT TO LLM (extracted from doc section)');
+      this.debug('Full scope text:\n' + scopeFromSection);
       return scopeFromSection;
     }
 
@@ -359,7 +422,8 @@ class SprintPlanningProcessor {
     sendIndented('- "## Scope"', 1);
     sendIndented('- "## Features"', 1);
 
-    this.debug(`Using full doc content (${docContent.length} chars)`);
+    this.debugSection('SCOPE TEXT SENT TO LLM (full doc.md - no scope section found)');
+    this.debug(`Using full doc content (${docContent.length} chars) as scope`);
     return docContent;
   }
 
@@ -1044,6 +1108,23 @@ ${projectContext}
       }
     }
 
+    // Log all files written this run for cross-run comparison
+    this.debugSection('FILES WRITTEN THIS RUN');
+    const filesWritten = [];
+    for (const epic of hierarchy.epics) {
+      const epicDir = path.join(this.projectPath, epic.id);
+      filesWritten.push(`${epic.id}/work.json`);
+      filesWritten.push(`${epic.id}/context.md`);
+      filesWritten.push(`${epic.id}/doc.md`);
+      for (const story of epic.stories || []) {
+        filesWritten.push(`${epic.id}/${story.id}/work.json`);
+        filesWritten.push(`${epic.id}/${story.id}/context.md`);
+        filesWritten.push(`${epic.id}/${story.id}/doc.md`);
+      }
+    }
+    this.debug('Files written this run', filesWritten);
+    this.debug(`Total files written: ${filesWritten.length} (${epicCount} epics x 3 + ${storyCount} stories x 3)`);
+
     // Display clean summary of created epics and stories
     if (hierarchy.epics.length > 0) {
       sendSectionHeader('Created Epics and Stories');
@@ -1112,6 +1193,62 @@ ${projectContext}
     return { totalEpics, totalStories };
   }
 
+  /**
+   * Read the full on-disk hierarchy after writing files.
+   * Returns the same shape as preRunSnapshot for direct comparison.
+   */
+  readPostRunSnapshot() {
+    if (!fs.existsSync(this.projectPath)) return [];
+
+    const snapshot = [];
+    const dirs = fs.readdirSync(this.projectPath).sort();
+
+    for (const dir of dirs) {
+      const epicWorkJsonPath = path.join(this.projectPath, dir, 'work.json');
+      if (!fs.existsSync(epicWorkJsonPath)) continue;
+
+      try {
+        const work = JSON.parse(fs.readFileSync(epicWorkJsonPath, 'utf8'));
+        if (work.type !== 'epic') continue;
+
+        const epicEntry = {
+          id: work.id,
+          name: work.name,
+          domain: work.domain || '',
+          status: work.status || 'unknown',
+          created: work.metadata?.created || null,
+          ceremony: work.metadata?.ceremony || null,
+          stories: []
+        };
+
+        const epicDir = path.join(this.projectPath, dir);
+        const epicSubdirs = fs.readdirSync(epicDir).filter(subdir =>
+          fs.statSync(path.join(epicDir, subdir)).isDirectory()
+        ).sort();
+
+        for (const storyDir of epicSubdirs) {
+          const storyWorkJsonPath = path.join(epicDir, storyDir, 'work.json');
+          if (!fs.existsSync(storyWorkJsonPath)) continue;
+          try {
+            const storyWork = JSON.parse(fs.readFileSync(storyWorkJsonPath, 'utf8'));
+            if (storyWork.type === 'story') {
+              epicEntry.stories.push({
+                id: storyWork.id,
+                name: storyWork.name,
+                status: storyWork.status || 'unknown',
+                created: storyWork.metadata?.created || null
+              });
+            }
+          } catch (e) { /* ignore */ }
+        }
+
+        snapshot.push(epicEntry);
+      } catch (e) { /* ignore */ }
+    }
+
+    return snapshot;
+  }
+
   // Main execution method
   async execute() {
     // Initialize ceremony history
@@ -1125,12 +1262,21 @@ ${projectContext}
     try {
       // Log ceremony execution metadata
       const runId = Date.now();
+      const runTimestamp = new Date().toISOString();
       this.debug('='.repeat(80));
-      this.debug('CEREMONY EXECUTION START');
+      this.debug('SPRINT PLANNING CEREMONY - EXECUTION START');
       this.debug('='.repeat(80));
-      this.debug('Run ID:', runId);
-      this.debug('Timestamp:', new Date().toISOString());
+      this.debug('Run ID (ms epoch):', runId);
+      this.debug('Timestamp:', runTimestamp);
       this.debug('Execution ID:', executionId);
+      this.debug('Config', {
+        provider: this._providerName,
+        model: this._modelName,
+        stagesConfig: this.stagesConfig ? JSON.stringify(this.stagesConfig) : 'using defaults',
+        projectPath: this.projectPath,
+        cwd: process.cwd(),
+        nodeVersion: process.version
+      });
 
       const header = getCeremonyHeader('sprint-planning');
       sendCeremonyHeader(header.title, header.url);
@@ -1141,14 +1287,7 @@ ${projectContext}
 
       // Stage 2: Read existing hierarchy
       sendProgress('Analyzing existing project structure...');
-      const { existingEpics, existingStories, maxEpicNum, maxStoryNums } = this.readExistingHierarchy();
-
-      // Log pre-existing hierarchy counts
-      this.debug('Pre-existing hierarchy:', {
-        epics: existingEpics.size,
-        stories: existingStories.size,
-        maxEpicNum: maxEpicNum.value
-      });
+      const { existingEpics, existingStories, maxEpicNum, maxStoryNums, preRunSnapshot } = this.readExistingHierarchy();
 
       if (existingEpics.size > 0) {
         this.debug(`Found ${existingEpics.size} existing Epics, ${existingStories.size} existing Stories`);
@@ -1161,10 +1300,11 @@ ${projectContext}
       sendProgress('Collecting project scope...');
       const scope = await this.collectNewScope();
 
-      // Read project context
+      // Read project context and log full content for cross-run comparison
       this.debug(`Reading project context: ${this.projectContextPath}`);
       const projectContext = fs.readFileSync(this.projectContextPath, 'utf8');
-      this.debug(`Context loaded (${projectContext.length} chars)`);
+      this.debugSection('PROJECT CONTEXT.MD CONTENT (passed to LLM for all stages)');
+      this.debug('context.md full content:\n' + projectContext);
 
       // Clear screen before decomposition phase
       process.stdout.write('\x1bc');
@@ -1174,6 +1314,15 @@ ${projectContext}
       sendProgress('Decomposing scope into Epics and Stories...');
       let hierarchy = await this.decomposeIntoEpicsStories(scope, existingEpics, existingStories, projectContext);
 
+      // Log raw LLM output before any validation/modification
+      this.debugSection('POST-DECOMPOSE: Raw LLM Output (before validation)');
+      this.debugHierarchySnapshot('POST-DECOMPOSE', hierarchy.epics.map(e => ({
+        id: e.id || '(no-id)',
+        name: e.name,
+        stories: (e.stories || []).map(s => ({ id: s.id || '(no-id)', name: s.name }))
+      })));
+      this.debug('LLM validation field', hierarchy.validation || null);
+
       // Clear screen before validation phase
       process.stdout.write('\x1bc');
       outputBuffer.clear();
@@ -1182,8 +1331,16 @@ ${projectContext}
       sendProgress('Validating Epics and Stories with domain experts...');
       hierarchy = await this.validateHierarchy(hierarchy, projectContext);
 
+      // Log hierarchy after validation (may have been modified)
+      this.debugSection('POST-VALIDATION: Hierarchy after domain-expert validation');
+      this.debugHierarchySnapshot('POST-VALIDATION', hierarchy.epics.map(e => ({
+        id: e.id || '(no-id)',
+        name: e.name,
+        stories: (e.stories || []).map(s => ({ id: s.id || '(no-id)', name: s.name }))
+      })));
+
       // Analyze duplicate detection (before renumbering)
-      this.analyzeDuplicates(hierarchy, existingEpics, existingStories);
+      const duplicateAnalysis = this.analyzeDuplicates(hierarchy, existingEpics, existingStories);
 
       // Stage 6: Renumber IDs
       sendProgress('Renumbering hierarchy IDs...');
@@ -1202,8 +1359,9 @@ ${projectContext}
 
       const { totalEpics, totalStories } = this.countTotalHierarchy();
 
-      this.debug('Total hierarchy counts', { epics: totalEpics, stories: totalStories });
-      this.debug('Created this run', { epics: epicCount, stories: storyCount });
+      // Capture and log post-run hierarchy snapshot for comparison
+      const postRunSnapshot = this.readPostRunSnapshot();
+      this.debugHierarchySnapshot('POST-RUN', postRunSnapshot);
 
       sendSuccess('Project hierarchy expanded!');
       sendSectionHeader('Created');
@@ -1215,15 +1373,16 @@ ${projectContext}
       sendIndented('- 0 Tasks (run /seed to create tasks for stories)', 1);
 
       // Track token usage
+      let tokenUsageSummary = null;
       if (this.llmProvider) {
         const usage = this.llmProvider.getTokenUsage();
-
-        this.debug('Total API calls', usage.totalCalls);
-        this.debug('Total tokens', {
-          input: usage.inputTokens,
-          output: usage.outputTokens,
-          total: usage.totalTokens
-        });
+        tokenUsageSummary = {
+          inputTokens: usage.inputTokens,
+          outputTokens: usage.outputTokens,
+          totalTokens: usage.totalTokens,
+          totalCalls: usage.totalCalls
+        };
+        this.debug('Token usage', tokenUsageSummary);
 
         this.tokenTracker.addExecution(this.ceremonyName, {
           input: usage.inputTokens,
@@ -1236,21 +1395,41 @@ ${projectContext}
       sendIndented('1. Review Epic/Story structure in .avc/project/', 1);
       sendIndented('2. Run /seed <story-id> to decompose a Story into Tasks/Subtasks', 1);
 
-      // Log ceremony execution end
+      // Log ceremony execution end with full comparison summary
       const runDuration = Date.now() - runId;
       this.debug('\n' + '='.repeat(80));
-      this.debug('CEREMONY EXECUTION END');
+      this.debug('SPRINT PLANNING CEREMONY - EXECUTION END');
       this.debug('='.repeat(80));
       this.debug('Run ID:', runId);
+      this.debug('Started:', runTimestamp);
+      this.debug('Ended:', new Date().toISOString());
       this.debug('Duration:', `${Math.round(runDuration / 1000)} seconds`);
-      this.debug('Post-execution hierarchy:', {
+
+      this.debugSection('RUN COMPARISON SUMMARY (compare this block across runs)');
+      this.debug('PRE-RUN state', {
+        epics: existingEpics.size,
+        stories: existingStories.size,
+        epicNames: Array.from(existingEpics.keys())
+      });
+      this.debug('THIS RUN added', {
+        epics: epicCount,
+        stories: storyCount,
+        epicNames: hierarchy.epics.map(e => e.name),
+        storyNames: hierarchy.epics.flatMap(e => (e.stories || []).map(s => s.name))
+      });
+      this.debug('POST-RUN state', {
         epics: totalEpics,
         stories: totalStories
       });
-      this.debug('Changes:', {
-        newEpics: epicCount,
-        newStories: storyCount
+      this.debug('Duplicate detection results', {
+        epicsSkippedAsDuplicates: duplicateAnalysis.skippedEpics.length,
+        storiesSkippedAsDuplicates: duplicateAnalysis.skippedStories.length,
+        skippedEpicNames: duplicateAnalysis.skippedEpics.map(s => s.name),
+        skippedStoryNames: duplicateAnalysis.skippedStories.map(s => s.name)
       });
+      if (tokenUsageSummary) {
+        this.debug('Token usage this run', tokenUsageSummary);
+      }
       this.debug('='.repeat(80) + '\n');
 
       // Complete ceremony history tracking
