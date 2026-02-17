@@ -1007,7 +1007,7 @@ const BottomRightStatus = React.memo(({ backgroundProcesses }) => {
  */
 const ModelConfigPrompt = () => {
   return React.createElement(Box, { flexDirection: 'column', marginY: 1 },
-    React.createElement(Text, { bold: true, color: 'cyan' }, '\nConfigure models now? (y/n) ')
+    React.createElement(Text, { bold: true, color: 'cyan' }, 'Configure models now? (y/n) ')
   );
 };
 
@@ -1078,7 +1078,7 @@ const DeploymentStrategySelector = ({ selectedIndex }) => {
   ];
 
   return React.createElement(Box, { flexDirection: 'column', marginY: 1 },
-    React.createElement(Text, { bold: true, color: 'cyan' }, '\nDeployment Strategy\n'),
+    React.createElement(Text, { bold: true, color: 'cyan' }, 'Deployment Strategy\n'),
     React.createElement(Text, null, 'Choose how you want to deploy your application:\n'),
 
     React.createElement(Box, { flexDirection: 'column', marginTop: 1 },
@@ -1181,10 +1181,10 @@ const toCostMarks = (costStr) => {
   const match = s.match(/\$?([\d,]+)/);
   if (match) {
     const val = parseInt(match[1].replace(',', ''), 10);
-    if (val === 0)    return '$';
-    if (val <= 20)    return '$$';
-    if (val <= 100)   return '$$$';
-    if (val <= 500)   return '$$$$';
+    if (val === 0) return '$';
+    if (val <= 20) return '$$';
+    if (val <= 100) return '$$$';
+    if (val <= 500) return '$$$$';
     return '$$$$$';
   }
   return '$$$'; // unknown → mid-range
@@ -1209,7 +1209,7 @@ const DatabaseRecommendationDisplay = ({ comparison, keyMetrics }) => {
     .slice(0, 3)
     .join(', ');
 
-  const sqlCostMarks   = toCostMarks(comparison.sqlOption.estimatedCosts?.monthly);
+  const sqlCostMarks = toCostMarks(comparison.sqlOption.estimatedCosts?.monthly);
   const nosqlCostMarks = toCostMarks(comparison.nosqlOption.estimatedCosts?.monthly);
 
   return React.createElement(Box, { flexDirection: 'column' },
@@ -1264,7 +1264,7 @@ const DatabaseRecommendationDisplay = ({ comparison, keyMetrics }) => {
 const DatabaseChoiceSelector = ({ comparison, selectedIndex, recommendedChoice }) => {
   if (!comparison) return null;
 
-  const sqlCostMarks   = toCostMarks(comparison.sqlOption.estimatedCosts?.monthly)   || '$$$';
+  const sqlCostMarks = toCostMarks(comparison.sqlOption.estimatedCosts?.monthly) || '$$$';
   const nosqlCostMarks = toCostMarks(comparison.nosqlOption.estimatedCosts?.monthly) || '$$$';
 
   // Determine which option AI recommends
@@ -1960,7 +1960,7 @@ const App = () => {
       setIsExecuting(true);
 
       // Add command to output history (don't clear previous output)
-      outputBuffer.append( `\n> ${command}\n`);
+      outputBuffer.append(`\n> ${command}\n`);
 
       // Create command logger
       const commandName = command.replace('/', '').toLowerCase();
@@ -1999,12 +1999,12 @@ const App = () => {
         switch (command.toLowerCase()) {
           case '/help':
             setExecutingMessage('Loading help...');
-            outputBuffer.append( showHelp());
+            outputBuffer.append(showHelp());
             break;
 
           case '/version':
             setExecutingMessage('Loading version info...');
-            outputBuffer.append( showVersion());
+            outputBuffer.append(showVersion());
             break;
 
           case '/exit':
@@ -2013,12 +2013,12 @@ const App = () => {
             const running = manager.getRunningProcesses();
 
             if (running.length > 0) {
-              outputBuffer.append( '\nStopping background processes...\n');
+              outputBuffer.append('\nStopping background processes...\n');
               const stopped = manager.stopAll();
-              outputBuffer.append( `Stopped ${stopped} process(es)\n\n`);
+              outputBuffer.append(`Stopped ${stopped} process(es)\n\n`);
             }
 
-            outputBuffer.append( '\nThanks for using AVC!\n');
+            outputBuffer.append('\nThanks for using AVC!\n');
             setTimeout(() => {
               exit();
               process.exit(0);
@@ -2322,6 +2322,9 @@ https://agilevibecoding.org
 
     const validationResult = await initiator.validateProviderApiKey();
 
+    // Guard: stale questionnaireActive=true from a previous run could flash Q1
+    // when isExecuting goes false before the new questionnaire state is set
+    setQuestionnaireActive(false);
     setIsExecuting(false);
 
     if (!validationResult.valid) {
@@ -2818,14 +2821,17 @@ https://agilevibecoding.org
         setDatabaseComparison(dbRec.comparison);
         setRecommendedChoice(dbRec.recommendedChoice || 'sql'); // Default to SQL if not specified
 
-        // Clear executing state
-        setIsExecuting(false);
-        clearProgress();
-
-        // Activate selector (no setTimeout needed with StaticOutput)
+        // Activate selector BEFORE clearing isExecuting to prevent Q1 flash:
+        // if isExecuting goes false before databaseChoiceActive is true, an intermediate
+        // render with questionnaireActive=true (stale state) would briefly show Q1.
         setDatabaseChoiceActive(true);
         setDatabaseChoiceIndex(0);
         setMode('prompt');
+        setQuestionnaireActive(false);
+
+        // Clear executing state (selector is already active, so no gap)
+        setIsExecuting(false);
+        clearProgress();
 
         // Save progress
         autoSaveProgress();
@@ -2876,15 +2882,16 @@ https://agilevibecoding.org
         deploymentStrategy // Pass deployment strategy for filtering
       );
 
-      // Clear executing state
-      setIsExecuting(false);
-      clearProgress();
-
-      // Show architecture selector
+      // Activate selector BEFORE clearing isExecuting (same race-condition fix as database choice)
       setArchitectureOptions(architectures);
       setSelectedArchitectureIndex(0);
       setArchitectureSelectorActive(true);
       setMode('prompt');
+      setQuestionnaireActive(false);
+
+      // Clear executing state (selector already active, no gap)
+      setIsExecuting(false);
+      clearProgress();
 
       // Save progress
       autoSaveProgress();
@@ -3027,6 +3034,9 @@ https://agilevibecoding.org
 
       // Save progress
       autoSaveProgress();
+
+      // Ensure questionnaire is hidden before clearing executing state
+      setQuestionnaireActive(false);
 
       // Clear executing state
       setIsExecuting(false);
@@ -3187,7 +3197,7 @@ https://agilevibecoding.org
     // Check if project is initialized
     if (!initiator.isAvcProject()) {
       fileLog('WARNING', 'runRemove: no AVC project found, aborting');
-      outputBuffer.append( '\nNo AVC project found in this directory.\n\nNothing to remove.\n');
+      outputBuffer.append('\nNo AVC project found in this directory.\n\nNothing to remove.\n');
       return;
     }
 
@@ -3266,7 +3276,7 @@ https://agilevibecoding.org
       logs.push('You may need to manually remove it.\n');
     }
 
-    outputBuffer.append( logs.join('\n'));
+    outputBuffer.append(logs.join('\n'));
 
     // Return to prompt mode
     setIsExecuting(false);
@@ -3289,8 +3299,8 @@ https://agilevibecoding.org
 
     if (!hasDocumentation) {
       fileLog('WARNING', 'documentation not found, aborting');
-      outputBuffer.append( '\nDocumentation not found\n\n');
-      outputBuffer.append( 'Please run /init first to create documentation structure.\n\n');
+      outputBuffer.append('\nDocumentation not found\n\n');
+      outputBuffer.append('Please run /init first to create documentation structure.\n\n');
       return;
     }
 
@@ -3313,7 +3323,7 @@ https://agilevibecoding.org
       if (portInUse) {
         // Managed process exists and port is in use - restart it
         fileLog('INFO', 'managed process running, restarting', { processId: existingDocServer.id });
-        outputBuffer.append( '\nDocumentation server already running, restarting...\n\n');
+        outputBuffer.append('\nDocumentation server already running, restarting...\n\n');
         manager.stopProcess(existingDocServer.id);
 
         // Clean up stopped/finished processes
@@ -3324,7 +3334,7 @@ https://agilevibecoding.org
       } else {
         // Managed process exists but port is not in use - it died, clean up
         fileLog('WARNING', 'managed process died (port not in use), cleaning up', { processId: existingDocServer.id });
-        outputBuffer.append( '\nPrevious documentation server died, starting new one...\n\n');
+        outputBuffer.append('\nPrevious documentation server died, starting new one...\n\n');
         manager.stopProcess(existingDocServer.id);
 
         // Clean up stopped/finished processes
@@ -3347,9 +3357,9 @@ https://agilevibecoding.org
 
           if (isOurDocs) {
             // It's confirmed to be AVC documentation server - safe to kill
-            outputBuffer.append( '\nAVC documentation server already running (external process)\n');
-            outputBuffer.append( `Process: ${processInfo.command} (PID: ${processInfo.pid})\n`);
-            outputBuffer.append( 'Killing external process and restarting...\n\n');
+            outputBuffer.append('\nAVC documentation server already running (external process)\n');
+            outputBuffer.append(`Process: ${processInfo.command} (PID: ${processInfo.pid})\n`);
+            outputBuffer.append('Killing external process and restarting...\n\n');
 
             // Try to kill the process
             const killed = await builder.killProcess(processInfo.pid);
@@ -3374,7 +3384,7 @@ https://agilevibecoding.org
               return;
             }
 
-            outputBuffer.append( 'Process killed successfully\n\n');
+            outputBuffer.append('Process killed successfully\n\n');
 
             // Remove from process manager if it was a managed process
             manager.removeProcessByPid(processInfo.pid);
@@ -3396,15 +3406,15 @@ https://agilevibecoding.org
         } else {
           // Port is in use but couldn't find the process (rare case)
           fileLog('ERROR', 'port in use but process unidentifiable', { port });
-          outputBuffer.append( `\nPort ${port} is in use but process could not be identified\n\n`);
-          outputBuffer.append( `   To change the port, edit .avc/avc.json:\n`);
-          outputBuffer.append( `   {\n`);
-          outputBuffer.append( `     "settings": {\n`);
-          outputBuffer.append( `       "documentation": {\n`);
-          outputBuffer.append( `         "port": 5173\n`);
-          outputBuffer.append( `       }\n`);
-          outputBuffer.append( `     }\n`);
-          outputBuffer.append( `   }\n\n`);
+          outputBuffer.append(`\nPort ${port} is in use but process could not be identified\n\n`);
+          outputBuffer.append(`   To change the port, edit .avc/avc.json:\n`);
+          outputBuffer.append(`   {\n`);
+          outputBuffer.append(`     "settings": {\n`);
+          outputBuffer.append(`       "documentation": {\n`);
+          outputBuffer.append(`         "port": 5173\n`);
+          outputBuffer.append(`       }\n`);
+          outputBuffer.append(`     }\n`);
+          outputBuffer.append(`   }\n\n`);
           return;
         }
       }
@@ -3464,8 +3474,8 @@ https://agilevibecoding.org
 
     if (!hasWorkItems) {
       kLog('WARNING', 'no work items found - aborting');
-      outputBuffer.append( '\nNo work items found\n\n');
-      outputBuffer.append( 'Please run /sponsor-call or /sprint-planning first to create work items.\n\n');
+      outputBuffer.append('\nNo work items found\n\n');
+      outputBuffer.append('Please run /sponsor-call or /sprint-planning first to create work items.\n\n');
       return;
     }
 
@@ -3488,7 +3498,7 @@ https://agilevibecoding.org
       if (portInUse) {
         // Managed process exists and port is in use - restart it
         kLog('INFO', 'managed process running, restarting', { processId: existingKanbanServer.id });
-        outputBuffer.append( '\nKanban server already running, restarting...\n\n');
+        outputBuffer.append('\nKanban server already running, restarting...\n\n');
         manager.stopProcess(existingKanbanServer.id);
 
         // Clean up stopped/finished processes
@@ -3499,7 +3509,7 @@ https://agilevibecoding.org
       } else {
         // Managed process exists but port is not in use - it died, clean up
         kLog('WARNING', 'managed process died (port not in use), cleaning up', { processId: existingKanbanServer.id });
-        outputBuffer.append( '\nPrevious kanban server died, starting new one...\n\n');
+        outputBuffer.append('\nPrevious kanban server died, starting new one...\n\n');
         manager.stopProcess(existingKanbanServer.id);
 
         // Clean up stopped/finished processes
@@ -3522,9 +3532,9 @@ https://agilevibecoding.org
 
           if (isOurKanban) {
             // It's confirmed to be AVC kanban server - safe to kill
-            outputBuffer.append( '\nAVC kanban server already running (external process)\n');
-            outputBuffer.append( `Process: ${processInfo.command} (PID: ${processInfo.pid})\n`);
-            outputBuffer.append( 'Killing external process and restarting...\n\n');
+            outputBuffer.append('\nAVC kanban server already running (external process)\n');
+            outputBuffer.append(`Process: ${processInfo.command} (PID: ${processInfo.pid})\n`);
+            outputBuffer.append('Killing external process and restarting...\n\n');
 
             // Try to kill the process
             const killed = await kanbanManager.killProcess(processInfo.pid);
@@ -4665,7 +4675,7 @@ https://agilevibecoding.org
       }
       message += `\nTokens consumed: ${executionState.tokensUsed.input.toLocaleString()} input, ${executionState.tokensUsed.output.toLocaleString()} output (${executionState.tokensUsed.total.toLocaleString()} total)\n`;
 
-      outputBuffer.append( message);
+      outputBuffer.append(message);
       return;
     }
 
@@ -4698,7 +4708,7 @@ https://agilevibecoding.org
         setRemoveConfirmActive(false);
         setRemoveConfirmInput('');
         setMode('prompt');
-        outputBuffer.append( '\nOperation cancelled.\n\nNo files were deleted.\n');
+        outputBuffer.append('\nOperation cancelled.\n\nNo files were deleted.\n');
       }
       return;
     }
@@ -4763,7 +4773,7 @@ https://agilevibecoding.org
           return;
         }
 
-        outputBuffer.append( `\nProcess ${processToKill.pid} killed successfully\n\n`);
+        outputBuffer.append(`\nProcess ${processToKill.pid} killed successfully\n\n`);
 
         // Remove from process manager if it was managed
         const manager = getProcessManager();
@@ -4773,12 +4783,12 @@ https://agilevibecoding.org
         await new Promise(resolve => setTimeout(resolve, 1000));
 
         // Now proceed with building and starting documentation
-        outputBuffer.append( 'Building documentation...\n');
+        outputBuffer.append('Building documentation...\n');
         setExecutingMessage('Building documentation...');
 
         try {
           await builder.build();
-          outputBuffer.append( 'Documentation built successfully\n\n');
+          outputBuffer.append('Documentation built successfully\n\n');
 
           setExecutingMessage('Starting documentation server...');
 
@@ -4798,7 +4808,7 @@ https://agilevibecoding.org
             `   View process output: /processes\n\n`
           );
         } catch (error) {
-          outputBuffer.append( `\nError: ${error.message}\n\n`);
+          outputBuffer.append(`\nError: ${error.message}\n\n`);
         } finally {
           setIsExecuting(false);
           setMode('prompt');
@@ -4825,7 +4835,7 @@ https://agilevibecoding.org
         setKillConfirmActive(false);
         setKillConfirmInput('');
         setMode('prompt');
-        outputBuffer.append( '\nInvalid response. Operation cancelled.\n\n');
+        outputBuffer.append('\nInvalid response. Operation cancelled.\n\n');
       }
       return;
     }
@@ -4841,7 +4851,7 @@ https://agilevibecoding.org
       setKillConfirmActive(false);
       setKillConfirmInput('');
       setMode('prompt');
-      outputBuffer.append( '\nOperation cancelled.\n\n');
+      outputBuffer.append('\nOperation cancelled.\n\n');
       return;
     }
 
@@ -4857,7 +4867,7 @@ https://agilevibecoding.org
 
     // Handle Escape (cancel)
     if (key.escape) {
-      outputBuffer.append( '\nYou can configure models later by editing .avc/avc.json\n');
+      outputBuffer.append('\nYou can configure models later by editing .avc/avc.json\n');
       setModelConfigActive(false);
       setInput(''); // Clear input buffer
       setMode('prompt');
@@ -4870,9 +4880,9 @@ https://agilevibecoding.org
       if (char === 'y') {
         setModelConfigMode('ceremony');
         setCeremonySelectIndex(0);
-        outputBuffer.append( '\n');
+        outputBuffer.append('\n');
       } else if (char === 'n') {
-        outputBuffer.append( '\nYou can configure models later by editing .avc/avc.json\n');
+        outputBuffer.append('\nYou can configure models later by editing .avc/avc.json\n');
         setModelConfigActive(false);
         setInput(''); // Clear input buffer
         setMode('prompt');
@@ -4920,7 +4930,7 @@ https://agilevibecoding.org
       // Save configuration and exit
       if (configurationChanges.length > 0) {
         modelConfigurator.saveConfig();
-        outputBuffer.append( '\nConfiguration saved successfully!\n');
+        outputBuffer.append('\nConfiguration saved successfully!\n');
       }
       setModelConfigActive(false);
       setInput(''); // Clear input buffer
@@ -5094,7 +5104,7 @@ https://agilevibecoding.org
         newModel: selectedModel.id
       }]);
 
-      outputBuffer.append( `\nUpdated ${stageName}: ${selectedStage.model} → ${selectedModel.id}\n`);
+      outputBuffer.append(`\nUpdated ${stageName}: ${selectedStage.model} → ${selectedModel.id}\n`);
 
       // Clear validation type and go back to appropriate selection
       setSelectedValidationType(null);
@@ -5150,7 +5160,7 @@ https://agilevibecoding.org
   const handleProcessStop = (processId) => {
     const manager = getProcessManager();
     manager.stopProcess(processId);
-    outputBuffer.append( `\nProcess stopped\n`);
+    outputBuffer.append(`\nProcess stopped\n`);
     // Stay on details view to see final output
   };
 
