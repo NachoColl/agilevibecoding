@@ -1212,53 +1212,48 @@ const DatabaseRecommendationDisplay = ({ comparison, keyMetrics }) => {
   const sqlCostMarks   = toCostMarks(comparison.sqlOption.estimatedCosts?.monthly);
   const nosqlCostMarks = toCostMarks(comparison.nosqlOption.estimatedCosts?.monthly);
 
-  return React.createElement(Box, { flexDirection: 'column', marginY: 1 },
+  return React.createElement(Box, { flexDirection: 'column' },
     React.createElement(Text, { bold: true, color: 'cyan' }, 'Database Options Comparison'),
 
     // Key Metrics (only show defined values)
-    keyMetrics && React.createElement(Box, { marginTop: 1, flexDirection: 'column' },
-      keyMetrics.estimatedReadWriteRatio && React.createElement(Text, { color: 'gray' }, 'Read/Write: ' + keyMetrics.estimatedReadWriteRatio),
-      keyMetrics.expectedThroughput && React.createElement(Text, { color: 'gray' }, 'Throughput: ' + keyMetrics.expectedThroughput),
-      keyMetrics.dataComplexity && React.createElement(Text, { color: 'gray' }, 'Data complexity: ' + keyMetrics.dataComplexity)
-    ),
+    ...(keyMetrics ? [
+      React.createElement(Text, { key: 'km-gap' }, ''),
+      keyMetrics.estimatedReadWriteRatio && React.createElement(Text, { key: 'km-rw', color: 'gray' }, 'Read/Write: ' + keyMetrics.estimatedReadWriteRatio),
+      keyMetrics.expectedThroughput && React.createElement(Text, { key: 'km-tp', color: 'gray' }, 'Throughput: ' + keyMetrics.expectedThroughput),
+      keyMetrics.dataComplexity && React.createElement(Text, { key: 'km-dc', color: 'gray' }, 'Data complexity: ' + keyMetrics.dataComplexity)
+    ].filter(Boolean) : []),
 
     // SQL Option
-    React.createElement(Box, { marginTop: 2, flexDirection: 'column' },
-      React.createElement(Text, { bold: true, color: 'green' }, 'SQL (e.g., ' + sqlExamples + ')'),
-      React.createElement(Box, { marginTop: 1, flexDirection: 'column' },
-        React.createElement(Text, { color: 'white' }, 'Pros:'),
-        ...comparison.sqlOption.pros.slice(0, 3).map((pro, i) =>
-          React.createElement(Text, { key: `sql-pro-${i}`, color: 'gray' }, '  • ' + pro)
-        ),
-        React.createElement(Text, { color: 'white', marginTop: 1 }, 'Cons:'),
-        ...comparison.sqlOption.cons.slice(0, 3).map((con, i) =>
-          React.createElement(Text, { key: `sql-con-${i}`, color: 'gray' }, '  • ' + con)
-        ),
-        sqlCostMarks && React.createElement(Text, {}, ''),
-        sqlCostMarks && React.createElement(Text, { color: 'yellow' },
-          'Cost: ' + sqlCostMarks
-        )
-      )
+    React.createElement(Text, { key: 'sql-gap' }, ''),
+    React.createElement(Text, { bold: true, color: 'green' }, 'SQL (e.g., ' + sqlExamples + ')'),
+    React.createElement(Text, { color: 'white' }, 'Pros:'),
+    ...comparison.sqlOption.pros.slice(0, 3).map((pro, i) =>
+      React.createElement(Text, { key: `sql-pro-${i}`, color: 'gray' }, '  • ' + pro)
     ),
+    React.createElement(Text, { color: 'white' }, 'Cons:'),
+    ...comparison.sqlOption.cons.slice(0, 3).map((con, i) =>
+      React.createElement(Text, { key: `sql-con-${i}`, color: 'gray' }, '  • ' + con)
+    ),
+    ...(sqlCostMarks ? [
+      React.createElement(Text, { key: 'sql-cost-gap' }, ''),
+      React.createElement(Text, { key: 'sql-cost', color: 'yellow' }, 'Cost: ' + sqlCostMarks)
+    ] : []),
 
     // NoSQL Option
-    React.createElement(Box, { marginTop: 2, flexDirection: 'column' },
-      React.createElement(Text, { bold: true, color: 'blue' }, 'NoSQL (e.g., ' + nosqlExamples + ')'),
-      React.createElement(Box, { marginTop: 1, flexDirection: 'column' },
-        React.createElement(Text, { color: 'white' }, 'Pros:'),
-        ...comparison.nosqlOption.pros.slice(0, 3).map((pro, i) =>
-          React.createElement(Text, { key: `nosql-pro-${i}`, color: 'gray' }, '  • ' + pro)
-        ),
-        React.createElement(Text, { color: 'white', marginTop: 1 }, 'Cons:'),
-        ...comparison.nosqlOption.cons.slice(0, 3).map((con, i) =>
-          React.createElement(Text, { key: `nosql-con-${i}`, color: 'gray' }, '  • ' + con)
-        ),
-        nosqlCostMarks && React.createElement(Text, {}, ''),
-        nosqlCostMarks && React.createElement(Text, { color: 'yellow' },
-          'Cost: ' + nosqlCostMarks
-        )
-      )
-    )
+    React.createElement(Text, { key: 'nosql-gap' }, ''),
+    React.createElement(Text, { bold: true, color: 'blue' }, 'NoSQL (e.g., ' + nosqlExamples + ')'),
+    React.createElement(Text, { color: 'white' }, 'Pros:'),
+    ...comparison.nosqlOption.pros.slice(0, 3).map((pro, i) =>
+      React.createElement(Text, { key: `nosql-pro-${i}`, color: 'gray' }, '  • ' + pro)
+    ),
+    React.createElement(Text, { color: 'white' }, 'Cons:'),
+    ...comparison.nosqlOption.cons.slice(0, 3).map((con, i) =>
+      React.createElement(Text, { key: `nosql-con-${i}`, color: 'gray' }, '  • ' + con)
+    ),
+    ...(nosqlCostMarks ? [
+      React.createElement(Text, { key: 'nosql-cost-gap' }, ''),
+      React.createElement(Text, { key: 'nosql-cost', color: 'yellow' }, 'Cost: ' + nosqlCostMarks)
+    ] : [])
   );
 };
 
