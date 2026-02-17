@@ -1168,6 +1168,9 @@ If you're new to Agile Vibe Coding, visit the [AVC Documentation](https://agilev
       // Generate project document with pre-filled answers
       const result = await this.generateProjectDocument(progress, progressPath, true, progressCallback);
 
+      // Notify progress during cleanup
+      if (progressCallback) progressCallback(null, 'Recording ceremony results...');
+
       // Get token usage from template processor
       const tokenUsage = this.getLastTokenUsage();
 

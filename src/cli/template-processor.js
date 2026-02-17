@@ -1157,6 +1157,7 @@ Return the enhanced markdown document.`;
 
     // 10. Write documentation to file
     await this.writeDocument(finalDocument);
+    this.reportSubstep('Wrapping up...');
 
     // 11. Track token usage (only for sponsor-call)
     let tokenUsage = null;
