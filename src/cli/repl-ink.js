@@ -1915,8 +1915,14 @@ const App = () => {
     return aliases[cmd.toLowerCase()] || cmd;
   };
 
+  // Guards fileLog: true only while a CommandLogger+ConsoleOutputManager is active.
+  // Without this guard, console.log('[DEBUG]...') would leak to the terminal when
+  // no .avc folder exists (and therefore no logger was created).
+  let _fileLogActive = false;
+
   // File-only logger: [DEBUG] prefix causes ConsoleOutputManager to route to file, not terminal
   const fileLog = (level, message, data = null) => {
+    if (!_fileLogActive) return;
     const ts = new Date().toISOString();
     if (data !== null) {
       console.log(`[DEBUG] [${level}] [${ts}] ${message}`, JSON.stringify(data, null, 2));
@@ -1985,6 +1991,7 @@ const App = () => {
         if (command.toLowerCase() === '/init' || avcExists) {
           logger = new CommandLogger(commandName, process.cwd(), true); // inkMode = true
           logger.start();
+          _fileLogActive = true;
         }
       }
 
@@ -2171,6 +2178,7 @@ const App = () => {
           } else {
             // Stop logger for all other commands
             logger.stop();
+            _fileLogActive = false;
 
             // Cleanup old logs (keep last 10 per command)
             CommandLogger.cleanupOldLogs();
@@ -2767,6 +2775,7 @@ https://agilevibecoding.org
       // Stop active logger after questionnaire completes
       if (activeLogger) {
         activeLogger.stop();
+        _fileLogActive = false;
         CommandLogger.cleanupOldLogs();
         setActiveLogger(null);
       }

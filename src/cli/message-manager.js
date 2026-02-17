@@ -227,7 +227,9 @@ class MessageManager {
    * @private
    */
   _handleUserOutput(content) {
-    outputBuffer.append(content);
+    // Empty string means "blank line" — outputBuffer ignores falsy values,
+    // so convert '' to '\n' to produce the intended visual gap.
+    outputBuffer.append(content === '' ? '\n' : content);
   }
 
   /**
