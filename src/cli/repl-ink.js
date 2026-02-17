@@ -1171,6 +1171,26 @@ const CloudProviderSelector = ({ architectureName, selectedIndex }) => {
 };
 
 /**
+ * Convert a cost string (e.g. "$50/mo", "Free tier", "varies") to a
+ * 1-5 "$" scale where $ = cheapest and $$$$$ = most expensive.
+ */
+const toCostMarks = (costStr) => {
+  if (!costStr) return null;
+  const s = String(costStr).toLowerCase();
+  if (/free|open.?source|\$0\b/.test(s)) return '$';
+  const match = s.match(/\$?([\d,]+)/);
+  if (match) {
+    const val = parseInt(match[1].replace(',', ''), 10);
+    if (val === 0)    return '$';
+    if (val <= 20)    return '$$';
+    if (val <= 100)   return '$$$';
+    if (val <= 500)   return '$$$$';
+    return '$$$$$';
+  }
+  return '$$$'; // unknown → mid-range
+};
+
+/**
  * Database Recommendation Display Component
  * Displays SQL vs NoSQL comparison with pros/cons
  */
@@ -1189,8 +1209,11 @@ const DatabaseRecommendationDisplay = ({ comparison, keyMetrics }) => {
     .slice(0, 3)
     .join(', ');
 
+  const sqlCostMarks   = toCostMarks(comparison.sqlOption.estimatedCosts?.monthly);
+  const nosqlCostMarks = toCostMarks(comparison.nosqlOption.estimatedCosts?.monthly);
+
   return React.createElement(Box, { flexDirection: 'column', marginY: 1 },
-    React.createElement(Text, { bold: true, color: 'cyan' }, '\nDatabase Options Comparison\n'),
+    React.createElement(Text, { bold: true, color: 'cyan' }, 'Database Options Comparison'),
 
     // Key Metrics (only show defined values)
     keyMetrics && React.createElement(Box, { marginTop: 1, flexDirection: 'column' },
@@ -1211,8 +1234,9 @@ const DatabaseRecommendationDisplay = ({ comparison, keyMetrics }) => {
         ...comparison.sqlOption.cons.slice(0, 3).map((con, i) =>
           React.createElement(Text, { key: `sql-con-${i}`, color: 'gray' }, '  • ' + con)
         ),
-        comparison.sqlOption.estimatedCosts && React.createElement(Text, { color: 'yellow', marginTop: 1 },
-          'Cost: ~' + comparison.sqlOption.estimatedCosts.monthly + '/mo'
+        sqlCostMarks && React.createElement(Text, {}, ''),
+        sqlCostMarks && React.createElement(Text, { color: 'yellow' },
+          'Cost: ' + sqlCostMarks
         )
       )
     ),
@@ -1229,8 +1253,9 @@ const DatabaseRecommendationDisplay = ({ comparison, keyMetrics }) => {
         ...comparison.nosqlOption.cons.slice(0, 3).map((con, i) =>
           React.createElement(Text, { key: `nosql-con-${i}`, color: 'gray' }, '  • ' + con)
         ),
-        comparison.nosqlOption.estimatedCosts && React.createElement(Text, { color: 'yellow', marginTop: 1 },
-          'Cost: ~' + comparison.nosqlOption.estimatedCosts.monthly + '/mo'
+        nosqlCostMarks && React.createElement(Text, {}, ''),
+        nosqlCostMarks && React.createElement(Text, { color: 'yellow' },
+          'Cost: ' + nosqlCostMarks
         )
       )
     )
@@ -1244,8 +1269,8 @@ const DatabaseRecommendationDisplay = ({ comparison, keyMetrics }) => {
 const DatabaseChoiceSelector = ({ comparison, selectedIndex, recommendedChoice }) => {
   if (!comparison) return null;
 
-  const sqlCost = comparison.sqlOption.estimatedCosts?.monthly || 'varies';
-  const nosqlCost = comparison.nosqlOption.estimatedCosts?.monthly || 'varies';
+  const sqlCostMarks   = toCostMarks(comparison.sqlOption.estimatedCosts?.monthly)   || '$$$';
+  const nosqlCostMarks = toCostMarks(comparison.nosqlOption.estimatedCosts?.monthly) || '$$$';
 
   // Determine which option AI recommends
   const recommendedDb = recommendedChoice === 'sql' ? comparison.sqlOption.database : comparison.nosqlOption.database;
@@ -1258,11 +1283,11 @@ const DatabaseChoiceSelector = ({ comparison, selectedIndex, recommendedChoice }
     },
     {
       label: 'Choose SQL (e.g., PostgreSQL, MySQL, SQLite)',
-      description: '~' + sqlCost + '/mo - ' + (comparison.sqlOption.bestFor || 'Best for complex relationships').substring(0, 60)
+      description: sqlCostMarks + ' - ' + (comparison.sqlOption.bestFor || 'Best for complex relationships').substring(0, 60)
     },
     {
       label: 'Choose NoSQL (e.g., MongoDB, DynamoDB, Firestore)',
-      description: '~' + nosqlCost + '/mo - ' + (comparison.nosqlOption.bestFor || 'Best for simple access patterns').substring(0, 60)
+      description: nosqlCostMarks + ' - ' + (comparison.nosqlOption.bestFor || 'Best for simple access patterns').substring(0, 60)
     },
     {
       label: 'Skip',
