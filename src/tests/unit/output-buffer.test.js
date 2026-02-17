@@ -19,10 +19,11 @@ describe('OutputBuffer', () => {
       expect(buffer.getLines()).toEqual(['Line 1', 'Line 2', 'Line 3']);
     });
 
-    it('merges continuation lines', () => {
+    it('each append is a separate item (no merging)', () => {
       buffer.append('Start');
       buffer.append(' continuation');
-      expect(buffer.getLines()).toEqual(['Start continuation']);
+      // Each append creates a separate item — no line merging
+      expect(buffer.getLines()).toEqual(['Start', ' continuation']);
     });
 
     it('handles newline at start', () => {
@@ -51,18 +52,45 @@ describe('OutputBuffer', () => {
   });
 
   describe('clear()', () => {
-    it('clears all lines', () => {
+    it('adds a blank separator item (Static content cannot be erased)', () => {
       buffer.append('Line 1\nLine 2');
-      expect(buffer.getLineCount()).toBe(2);
+      expect(buffer.getItemCount()).toBe(1);
 
       buffer.clear();
-      expect(buffer.getLines()).toEqual([]);
-      expect(buffer.getLineCount()).toBe(0);
+      // clear() adds a separator, not erases
+      expect(buffer.getItemCount()).toBe(2);
+      expect(buffer.getLines()).toEqual(['Line 1', 'Line 2', '']);
     });
 
-    it('allows appending after clear', () => {
+    it('does nothing when buffer is already empty', () => {
+      expect(buffer.getItemCount()).toBe(0);
+      buffer.clear();
+      expect(buffer.getItemCount()).toBe(0);
+    });
+
+    it('preserves previous content after clear + append', () => {
       buffer.append('Line 1');
       buffer.clear();
+      buffer.append('Line 2');
+      // All content is preserved (with separator between)
+      expect(buffer.getLines()).toEqual(['Line 1', '', 'Line 2']);
+    });
+  });
+
+  describe('reset()', () => {
+    it('removes all items', () => {
+      buffer.append('Line 1\nLine 2');
+      expect(buffer.getItemCount()).toBeGreaterThan(0);
+
+      buffer.reset();
+      expect(buffer.getItems()).toEqual([]);
+      expect(buffer.getItemCount()).toBe(0);
+      expect(buffer.getLines()).toEqual([]);
+    });
+
+    it('allows clean appending after reset', () => {
+      buffer.append('Line 1');
+      buffer.reset();
       buffer.append('Line 2');
       expect(buffer.getLines()).toEqual(['Line 2']);
     });
@@ -102,20 +130,39 @@ describe('OutputBuffer', () => {
     });
   });
 
-  describe('subscribe()', () => {
-    it('notifies listeners on append', () => {
-      let notified = false;
-      let receivedLines = null;
+  describe('getItems()', () => {
+    it('returns items with stable ids', () => {
+      buffer.append('Hello');
+      buffer.append('World');
+      const items = buffer.getItems();
+      expect(items).toHaveLength(2);
+      expect(items[0]).toEqual({ id: 1, content: 'Hello' });
+      expect(items[1]).toEqual({ id: 2, content: 'World' });
+    });
 
-      buffer.subscribe((lines) => {
+    it('returns copy (mutations dont affect buffer)', () => {
+      buffer.append('Hello');
+      const items = buffer.getItems();
+      items.push({ id: 99, content: 'injected' });
+      expect(buffer.getItemCount()).toBe(1);
+    });
+  });
+
+  describe('subscribe()', () => {
+    it('notifies listeners on append with items array', () => {
+      let notified = false;
+      let receivedItems = null;
+
+      buffer.subscribe((items) => {
         notified = true;
-        receivedLines = lines;
+        receivedItems = items;
       });
 
       buffer.append('Test');
 
       expect(notified).toBe(true);
-      expect(receivedLines).toEqual(['Test']);
+      expect(receivedItems).toHaveLength(1);
+      expect(receivedItems[0].content).toBe('Test');
     });
 
     it('notifies listeners on clear', () => {
@@ -186,44 +233,42 @@ describe('OutputBuffer', () => {
 
   describe('complex scenarios', () => {
     it('handles realistic console output', () => {
-      buffer.append('🎯 Sponsor Call Ceremony\n');
-      buffer.append('📖 https://agilevibecoding.org/ceremonies/sponsor-call\n');
+      buffer.append('Sponsor Call Ceremony\n');
+      buffer.append('Documentation: https://agilevibecoding.org/ceremonies/sponsor-call\n');
       buffer.append('\n');
-      buffer.append('✓ Deployment Strategy: Local MVP First\n');
+      buffer.append('Deployment Strategy: Local MVP First\n');
 
-      // Note: Trailing \n creates empty last line, which merges with next append
-      // append('\n') creates two empty lines: one from merge, one from split
+      // Each append() is one item; getLines() flatMaps all content split by \n
+      // A trailing \n produces an extra empty string at the end of each item's lines
       expect(buffer.getLines()).toEqual([
-        '🎯 Sponsor Call Ceremony',
-        '📖 https://agilevibecoding.org/ceremonies/sponsor-call',
+        'Sponsor Call Ceremony',
+        '',
+        'Documentation: https://agilevibecoding.org/ceremonies/sponsor-call',
         '',
         '',
-        '✓ Deployment Strategy: Local MVP First',
+        '',
+        'Deployment Strategy: Local MVP First',
         ''
       ]);
     });
 
-    it('handles incremental message building', () => {
+    it('handles multi-part progress output as separate items', () => {
+      // In the new architecture, incremental appends do NOT merge into one line
+      // Each append becomes its own item
       buffer.append('Processing...');
       buffer.append(' 25%');
       buffer.append('\n');
       buffer.append('Processing...');
       buffer.append(' 50%');
-      buffer.append('\n');
-      buffer.append('Processing...');
-      buffer.append(' 100%');
-      buffer.append('\n');
-      buffer.append('✓ Complete\n');
 
+      expect(buffer.getItems()).toHaveLength(5);
       expect(buffer.getLines()).toEqual([
-        'Processing... 25%',
+        'Processing...',
+        ' 25%',
         '',
-        'Processing... 50%',
         '',
-        'Processing... 100%',
-        '',
-        '✓ Complete',
-        ''
+        'Processing...',
+        ' 50%'
       ]);
     });
   });

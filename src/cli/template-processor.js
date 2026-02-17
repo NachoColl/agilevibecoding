@@ -816,6 +816,12 @@ Please carefully follow the output format requirements to avoid these issues.
    * Generate final document with LLM enhancement
    */
   async generateFinalDocument(templateWithValues, questionnaire = null) {
+    const t0 = Date.now();
+    debug('generateFinalDocument called', {
+      templateLength: templateWithValues?.length,
+      hasQuestionnaire: !!questionnaire,
+      ceremony: this.ceremonyName
+    });
     try {
       // Get stage-specific provider for documentation
       const provider = await this.getProviderForStageInstance('documentation');
@@ -894,6 +900,7 @@ The user has chosen LOCAL deployment ("${deploymentTarget}").
           }));
         }
 
+        debug('generateFinalDocument complete (agent path)', { duration: `${Date.now() - t0}ms`, resultLength: verificationResult.content?.length });
         return verificationResult.content;
       } else {
         // Fallback to legacy hardcoded prompt for backward compatibility
@@ -915,9 +922,11 @@ Return the enhanced markdown document.`;
           () => provider.generate(legacyPrompt, 4096),
           'document enhancement (legacy)'
         );
+        debug('generateFinalDocument complete (legacy path)', { duration: `${Date.now() - t0}ms`, resultLength: enhanced?.length });
         return enhanced;
       }
     } catch (error) {
+      debug('generateFinalDocument error - returning template as-is', { error: error.message, duration: `${Date.now() - t0}ms` });
       return templateWithValues;
     }
   }
@@ -996,13 +1005,15 @@ Return the enhanced markdown document.`;
    * Write document to file
    */
   async writeDocument(content) {
+    const fileSize = Math.ceil(Buffer.byteLength(content, 'utf8') / 1024);
+    debug('writeDocument called', { outputPath: this.outputPath, sizeKB: fileSize });
+
     // Create .avc/project/ directory
     if (!fs.existsSync(this.outputDir)) {
       fs.mkdirSync(this.outputDir, { recursive: true });
     }
 
     // Write doc.md
-    const fileSize = Math.ceil(Buffer.byteLength(content, 'utf8') / 1024); // Size in KB
     this.reportSubstep(`Writing doc.md (${fileSize} KB)`);
     fs.writeFileSync(this.outputPath, content, 'utf8');
 
@@ -1368,6 +1379,8 @@ Return the enhanced markdown document.`;
    * @param {Object} collectedValues - Values from questionnaire
    */
   async generateHierarchy(collectedValues) {
+    const t0 = Date.now();
+    debug('generateHierarchy called', { ceremony: this.ceremonyName, valuesCount: Object.keys(collectedValues).length });
     sendSectionHeader('Generating project hierarchy...\n');
 
     // Read agent instructions
@@ -1494,6 +1507,12 @@ Return the enhanced markdown document.`;
       }
 
       sendSuccess('Token history updated');
+      const mainUsageFinal = this.llmProvider.getTokenUsage();
+      debug('generateHierarchy complete', {
+        duration: `${Date.now() - t0}ms`,
+        epicCount: hierarchy?.epics?.length,
+        mainProvider: { provider: this._providerName, inputTokens: mainUsageFinal.inputTokens, outputTokens: mainUsageFinal.outputTokens, calls: mainUsageFinal.totalCalls }
+      });
     }
   }
 
@@ -1536,6 +1555,8 @@ Return your response as JSON following the exact structure specified in your ins
    * @returns {Promise<Object>} Context generation result with markdown content
    */
   async generateContext(level, id, data, agentInstructions) {
+    debug('generateContext called', { level, id });
+    const t0 = Date.now();
     const prompt = this.buildContextPrompt(level, id, data);
     const result = await this.llmProvider.generateJSON(prompt, agentInstructions);
 
@@ -1548,6 +1569,7 @@ Return your response as JSON following the exact structure specified in your ins
       sendWarning(`Warning: ${id} context exceeds token budget (${result.tokenCount} tokens)`);
     }
 
+    debug('generateContext complete', { level, id, tokenCount: result.tokenCount, withinBudget: result.withinBudget, duration: `${Date.now() - t0}ms` });
     return result;
   }
 
@@ -1561,6 +1583,8 @@ Return your response as JSON following the exact structure specified in your ins
    * @returns {Promise<Object>} Context generation result with markdown content
    */
   async generateContextWithProvider(provider, level, id, data, agentInstructions) {
+    debug('generateContextWithProvider called', { level, id });
+    const t0 = Date.now();
     const prompt = this.buildContextPrompt(level, id, data);
     const result = await provider.generateJSON(prompt, agentInstructions);
 
@@ -2880,6 +2904,7 @@ Return your response as JSON following the exact structure specified in your ins
 
     try {
       // Get stage-specific provider for migration guide generation
+      this.reportSubstep('Preparing migration guide generator...');
       const provider = await this.getProviderForStageInstance('migration-guide-generation');
 
       if (!provider || typeof provider.generateText !== 'function') {
@@ -2894,6 +2919,7 @@ Return your response as JSON following the exact structure specified in your ins
       );
 
       // Build comprehensive prompt
+      this.reportSubstep('Generating cloud migration guide (this may take 30-60 seconds)...');
       const prompt = `Generate a comprehensive cloud migration guide for the following local development setup:
 
 **Local Architecture:**
@@ -2935,6 +2961,7 @@ Make it actionable with specific CLI commands, code examples, and cost estimates
       );
 
       debug('Migration guide generated', { length: result.length });
+      this.reportSubstep('Writing DEPLOYMENT_MIGRATION.md...');
 
       return result;
     } catch (error) {

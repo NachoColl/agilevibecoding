@@ -1,33 +1,25 @@
 import React from 'react';
-import { Box, Text } from 'ink';
+import { Static, Text } from 'ink';
 
 /**
- * StaticOutput - Renders accumulated output buffer
+ * StaticOutput - Renders output items using Ink's built-in Static component.
  *
- * Uses React.memo to prevent re-rendering when lines haven't changed,
- * reducing visual noise during interactive selections.
+ * Ink's <Static> commits each item to the terminal once and never touches
+ * it again. Items are NOT part of Ink's height-tracking calculation, so
+ * they never cause ghost renders when the interactive section changes height.
+ *
+ * This is the key architectural difference from the previous Box/Text approach:
+ * - Before: all output lines participated in Ink's render/erase cycle (200+ lines)
+ * - After:  only the interactive section (1-20 lines) is tracked by Ink
  *
  * @param {Object} props
- * @param {string[]} props.lines - Array of output lines to render
- * @returns {React.Element|null} Output component or null if no lines
+ * @param {{id: number, content: string}[]} props.items - Items to render
+ * @returns {React.Element|null} Static output or null if no items
  */
-const StaticOutputComponent = ({ lines }) => {
-  if (!lines || lines.length === 0) return null;
+export const StaticOutput = ({ items }) => {
+  if (!items || items.length === 0) return null;
 
-  return React.createElement(Box, {
-    flexDirection: 'column',
-    flexShrink: 0,
-    marginBottom: 1
-  },
-    lines.map((line, index) =>
-      React.createElement(Text, { key: index }, line)
-    )
+  return React.createElement(Static, { items },
+    (item) => React.createElement(Text, { key: item.id }, item.content)
   );
 };
-
-// Wrap with React.memo to prevent re-renders when lines haven't changed
-export const StaticOutput = React.memo(StaticOutputComponent, (prevProps, nextProps) => {
-  // Only re-render if lines array content actually changed
-  if (prevProps.lines.length !== nextProps.lines.length) return false;
-  return prevProps.lines.every((line, i) => line === nextProps.lines[i]);
-});

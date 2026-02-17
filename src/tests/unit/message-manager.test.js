@@ -15,8 +15,8 @@ describe('MessageManager', () => {
     // Reset manager state
     messageManager.reset();
 
-    // Clear output buffer
-    outputBuffer.clear();
+    // Fully reset output buffer for test isolation (not just a separator)
+    outputBuffer.reset();
 
     // Create mock callbacks
     executingMessageCallback = vi.fn();
@@ -47,15 +47,16 @@ describe('MessageManager', () => {
       expect(messageManager.getCurrentContext()).toBe(context);
     });
 
-    it('should clear output when starting new execution', () => {
+    it('should add separator when starting new execution', () => {
       // Add some content first
       outputBuffer.append('some old content');
-      expect(outputBuffer.getLineCount()).toBeGreaterThan(0);
+      expect(outputBuffer.getItemCount()).toBeGreaterThan(0);
 
-      // Starting new execution should clear output buffer
+      // Starting new execution adds a blank separator (Static content cannot be erased)
       messageManager.startExecution('test');
-      expect(outputBuffer.getLineCount()).toBe(0);
-      expect(outputBuffer.getLines()).toEqual([]);
+      const lines = outputBuffer.getLines();
+      expect(lines).toContain('some old content'); // Previous content preserved
+      expect(lines[lines.length - 1]).toBe('');    // Separator appended
     });
 
     it('should cancel previous context when starting new one', () => {
@@ -136,23 +137,23 @@ describe('MessageManager', () => {
     it('should not send message when no active context', () => {
       messageManager.endExecution();
 
-      // Clear buffer after ending execution
-      outputBuffer.clear();
+      // Reset buffer after ending execution for clean assertion
+      outputBuffer.reset();
 
       messageManager.send(MessageType.USER_OUTPUT, 'Should not appear');
 
       // Buffer should still be empty
-      expect(outputBuffer.getLineCount()).toBe(0);
+      expect(outputBuffer.getItemCount()).toBe(0);
     });
 
     it('should not send message after context cancelled', () => {
       messageManager.cancelExecution();
 
-      // Clear buffer after cancellation
-      outputBuffer.clear();
+      // Reset buffer after cancellation for clean assertion
+      outputBuffer.reset();
 
       messageManager.send(MessageType.USER_OUTPUT, 'Should not appear');
-      expect(outputBuffer.getLineCount()).toBe(0);
+      expect(outputBuffer.getItemCount()).toBe(0);
     });
   });
 
@@ -261,7 +262,7 @@ describe('MessageManager', () => {
         expect.stringMatching(/\[DEBUG\]\[.*\] Debug info/)
       );
       // Should not add to output buffer
-      expect(outputBuffer.getLineCount()).toBe(0);
+      expect(outputBuffer.getItemCount()).toBe(0);
     });
 
     it('should send debug with data', () => {

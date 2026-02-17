@@ -64,7 +64,7 @@ class MessageManager {
       this.contextHistory.shift();
     }
 
-    // Clear output buffer at start of new command
+    // Insert visual separator between commands in the Static output
     outputBuffer.clear();
 
     return this.currentContext;

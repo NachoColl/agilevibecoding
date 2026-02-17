@@ -1,67 +1,88 @@
 /**
- * OutputBuffer - Manages accumulated output as line array for Static rendering
+ * OutputBuffer - Manages accumulated output as item array for Static rendering
  *
- * Separates output buffer management from React state, preventing
- * text mixing during selector/UI transitions.
+ * Each append() call creates one item with a unique ID, compatible with
+ * Ink's <Static> component which requires stable keys and never erases items.
  *
- * This utility provides:
- * - Line-based output storage (vs single string)
- * - Subscription system for React state updates
- * - Physical separation from interactive UI via Ink's Static component
+ * Items accumulate across commands (like a natural terminal log).
+ * The clear() method inserts a blank separator line between commands
+ * instead of erasing — Static committed content cannot be removed.
  */
 export class OutputBuffer {
   constructor() {
-    this.lines = [];
+    this.items = [];
+    this.itemCounter = 0;
     this.listeners = [];
   }
 
   /**
-   * Append content to buffer (splits by newlines)
-   * @param {string} content - Content to append
+   * Append content as a new item
+   * @param {string} content - Content to append (may contain newlines)
    */
   append(content) {
     if (!content) return;
 
-    const newLines = content.split('\n');
-
-    // If last line exists and new content doesn't start with \n, merge
-    if (this.lines.length > 0 && !content.startsWith('\n')) {
-      this.lines[this.lines.length - 1] += newLines[0];
-      this.lines.push(...newLines.slice(1));
-    } else {
-      this.lines.push(...newLines);
-    }
-
+    this.items.push({ id: ++this.itemCounter, content });
     this.notifyListeners();
   }
 
   /**
-   * Clear all output (for new command execution)
+   * Insert a blank separator between commands.
+   * Items cannot be removed from Static rendering, so this adds a
+   * visual separator instead of erasing previous content.
    */
   clear() {
-    this.lines = [];
-    this.notifyListeners();
+    if (this.items.length > 0) {
+      this.items.push({ id: ++this.itemCounter, content: '' });
+      this.notifyListeners();
+    }
   }
 
   /**
-   * Get all lines (for Static rendering)
-   * @returns {string[]} Array of output lines
+   * Get all items (for Static rendering)
+   * @returns {{id: number, content: string}[]} Copy of items array
+   */
+  getItems() {
+    return [...this.items];
+  }
+
+  /**
+   * Get item count
+   * @returns {number} Number of items
+   */
+  getItemCount() {
+    return this.items.length;
+  }
+
+  /**
+   * Get all lines as flat string array (for test compatibility)
+   * @returns {string[]} All content split by newlines
    */
   getLines() {
-    return [...this.lines]; // Return copy to prevent mutations
+    return this.items.flatMap(item => item.content.split('\n'));
   }
 
   /**
-   * Get line count
-   * @returns {number} Number of lines
+   * Get line count (for backward compatibility)
+   * @returns {number} Total number of lines across all items
    */
   getLineCount() {
-    return this.lines.length;
+    return this.getLines().length;
+  }
+
+  /**
+   * Reset buffer completely - removes all items.
+   * Used in tests for isolation between test cases.
+   */
+  reset() {
+    this.items = [];
+    this.itemCounter = 0;
+    this.notifyListeners();
   }
 
   /**
    * Subscribe to buffer changes
-   * @param {Function} listener - Callback function (lines) => void
+   * @param {Function} listener - Callback function (items) => void
    * @returns {Function} Unsubscribe function
    */
   subscribe(listener) {
@@ -76,8 +97,8 @@ export class OutputBuffer {
    * @private
    */
   notifyListeners() {
-    const lines = this.getLines();
-    this.listeners.forEach(listener => listener(lines));
+    const items = this.getItems();
+    this.listeners.forEach(listener => listener(items));
   }
 }
 

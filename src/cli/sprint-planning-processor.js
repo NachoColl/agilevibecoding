@@ -606,7 +606,6 @@ Return your response as JSON following the exact structure specified in your ins
       validation: hierarchy.validation
     });
 
-    sendSuccess(`Generated ${hierarchy.epics.length} new Epics with ${hierarchy.validation?.storyCount || 0} new Stories`);
 
     return hierarchy;
   }
@@ -681,7 +680,6 @@ Return your response as JSON following the exact structure specified in your ins
       }
     }
 
-    sendSuccess('Validation complete');
     return hierarchy;
   }
 
@@ -1127,8 +1125,7 @@ ${projectContext}
 
     // Display clean summary of created epics and stories
     if (hierarchy.epics.length > 0) {
-      sendSectionHeader('Created Epics and Stories');
-      for (const epic of hierarchy.epics) {
+        for (const epic of hierarchy.epics) {
         sendOutput(`${epic.id}: ${epic.name}\n`);
         for (const story of epic.stories || []) {
           sendIndented(`${story.id}: ${story.name}`, 1);
@@ -1363,14 +1360,7 @@ ${projectContext}
       const postRunSnapshot = this.readPostRunSnapshot();
       this.debugHierarchySnapshot('POST-RUN', postRunSnapshot);
 
-      sendSuccess('Project hierarchy expanded!');
-      sendSectionHeader('Created');
-      sendIndented(`- ${epicCount} new Epics`, 1);
-      sendIndented(`- ${storyCount} new Stories`, 1);
-      sendSectionHeader('Total project structure');
-      sendIndented(`- ${totalEpics} Epics`, 1);
-      sendIndented(`- ${totalStories} Stories`, 1);
-      sendIndented('- 0 Tasks (run /seed to create tasks for stories)', 1);
+      sendOutput(`Created ${epicCount} Epics, ${storyCount} Stories. Total: ${totalEpics} Epics, ${totalStories} Stories.`);
 
       // Track token usage
       let tokenUsageSummary = null;
@@ -1391,9 +1381,7 @@ ${projectContext}
         this.debug('Token tracking saved to .avc/token-history.json');
       }
 
-      sendSectionHeader('Next steps');
-      sendIndented('1. Review Epic/Story structure in .avc/project/', 1);
-      sendIndented('2. Run /seed <story-id> to decompose a Story into Tasks/Subtasks', 1);
+      sendOutput('Run /seed <story-id> to decompose a Story into Tasks.');
 
       // Log ceremony execution end with full comparison summary
       const runDuration = Date.now() - runId;

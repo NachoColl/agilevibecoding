@@ -15,8 +15,8 @@ describe('Questionnaire Feature', () => {
     testDir = path.join(process.cwd(), 'test-questionnaire-' + Date.now());
     fs.mkdirSync(testDir, { recursive: true });
 
-    // Clear output buffer
-    outputBuffer.clear();
+    // Reset output buffer for test isolation
+    outputBuffer.reset();
 
     // Set up test environment
     process.env.ANTHROPIC_API_KEY = 'test-key-12345';

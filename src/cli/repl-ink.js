@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { render, Box, Text, useInput, useApp } from 'ink';
+import { render, Box, Text, Static, useInput, useApp } from 'ink';
 import SelectInput from 'ink-select-input';
 import Spinner from 'ink-spinner';
 import { execSync } from 'child_process';
@@ -1554,7 +1554,7 @@ const App = () => {
   const { exit } = useApp();
   const [mode, setMode] = useState('prompt'); // 'prompt' | 'selector' | 'executing'
   const [input, setInput] = useState('');
-  const [outputLines, setOutputLines] = useState([]);
+  const [outputItems, setOutputItems] = useState([]);
   const [commandHistory, setCommandHistory] = useState([]);
   const [historyIndex, setHistoryIndex] = useState(-1);
   const [isExecuting, setIsExecuting] = useState(false);
@@ -1705,8 +1705,8 @@ const App = () => {
 
   // Subscribe to OutputBuffer changes
   useEffect(() => {
-    const unsubscribe = outputBuffer.subscribe((lines) => {
-      setOutputLines(lines);
+    const unsubscribe = outputBuffer.subscribe((items) => {
+      setOutputItems(items);
     });
     return unsubscribe;
   }, []);
@@ -1915,6 +1915,16 @@ const App = () => {
     return aliases[cmd.toLowerCase()] || cmd;
   };
 
+  // File-only logger: [DEBUG] prefix causes ConsoleOutputManager to route to file, not terminal
+  const fileLog = (level, message, data = null) => {
+    const ts = new Date().toISOString();
+    if (data !== null) {
+      console.log(`[DEBUG] [${level}] [${ts}] ${message}`, JSON.stringify(data, null, 2));
+    } else {
+      console.log(`[DEBUG] [${level}] [${ts}] ${message}`);
+    }
+  };
+
   // Handle command execution
   const executeCommand = async (cmd) => {
     try {
@@ -1967,7 +1977,8 @@ const App = () => {
         '/models',
         '/tokens',
         '/remove',
-        '/documentation'
+        '/documentation',
+        '/kanban'
       ];
 
       if (loggedCommands.includes(command.toLowerCase())) {
@@ -2008,70 +2019,111 @@ const App = () => {
             return;
 
           case '/init':
-          case '/i':
+          case '/i': {
+            const t0 = Date.now();
+            fileLog('INFO', '/init handler called', { cwd: process.cwd(), avcExists });
             sendProgress('Initializing project structure...');
             await runInit();
+            fileLog('INFO', '/init complete', { duration: `${Date.now() - t0}ms` });
             break;
+          }
 
           case '/sponsor-call':
-          case '/sc':
+          case '/sc': {
+            const t0 = Date.now();
+            fileLog('INFO', '/sponsor-call handler called', { cwd: process.cwd(), avcExists });
             sendProgress('Running Sponsor Call ceremony...');
             await runSponsorCall();
+            fileLog('INFO', '/sponsor-call complete', { duration: `${Date.now() - t0}ms` });
             break;
+          }
 
           case '/sprint-planning':
-          case '/sp':
+          case '/sp': {
+            const t0 = Date.now();
+            fileLog('INFO', '/sprint-planning handler called', { cwd: process.cwd(), avcExists });
             sendProgress('Expanding project structure...');
             await runSprintPlanning();
+            fileLog('INFO', '/sprint-planning complete', { duration: `${Date.now() - t0}ms` });
             break;
+          }
 
-          case '/seed':
+          case '/seed': {
             // Parse story ID from command
             const storyIdMatch = input.match(/^\/seed\s+(\S+)/);
             if (!storyIdMatch) {
-              sendError('Story ID required\n\nUsage: /seed <story-id>\nExample: /seed context-0001-0001\n');
+              fileLog('ERROR', '/seed called without story ID', { input });
+              outputBuffer.append('\nERROR: Story ID required\n\n  Usage: /seed <story-id>\n  Example: /seed context-0001-0001\n\n');
               break;
             }
             const storyId = storyIdMatch[1];
+            const t0 = Date.now();
+            fileLog('INFO', '/seed handler called', { storyId, cwd: process.cwd() });
             sendProgress(`Seeding story ${storyId}...`);
             await runSeed(storyId);
+            fileLog('INFO', '/seed complete', { storyId, duration: `${Date.now() - t0}ms` });
             break;
+          }
 
           case '/status':
-          case '/s':
+          case '/s': {
+            const t0 = Date.now();
+            fileLog('INFO', '/status handler called', { cwd: process.cwd(), avcExists });
             sendProgress('Checking project status...');
             await runStatus();
+            fileLog('INFO', '/status complete', { duration: `${Date.now() - t0}ms` });
             break;
+          }
 
           case '/models':
-          case '/m':
+          case '/m': {
+            const t0 = Date.now();
+            fileLog('INFO', '/models handler called', { cwd: process.cwd(), avcExists });
             sendProgress('Loading model configuration...');
             await runModels();
+            fileLog('INFO', '/models complete', { duration: `${Date.now() - t0}ms` });
             break;
+          }
 
           case '/tokens':
-          case '/tk':
+          case '/tk': {
+            const t0 = Date.now();
+            fileLog('INFO', '/tokens handler called', { cwd: process.cwd(), avcExists });
             sendProgress('Analyzing token usage...');
             await runTokens();
+            fileLog('INFO', '/tokens complete', { duration: `${Date.now() - t0}ms` });
             break;
+          }
 
           case '/remove':
-          case '/rm':
+          case '/rm': {
+            const t0 = Date.now();
+            fileLog('INFO', '/remove handler called', { cwd: process.cwd(), avcExists });
             sendProgress('Preparing to remove AVC structure...');
             await runRemove();
+            fileLog('INFO', '/remove complete', { duration: `${Date.now() - t0}ms` });
             break;
+          }
 
           case '/documentation':
-          case '/d':
+          case '/d': {
+            const t0 = Date.now();
+            fileLog('INFO', '/documentation handler called', { cwd: process.cwd(), avcExists });
             sendProgress('Building documentation...');
             await runBuildDocumentation();
+            fileLog('INFO', '/documentation complete', { duration: `${Date.now() - t0}ms` });
             break;
+          }
 
           case '/kanban':
-          case '/k':
+          case '/k': {
+            const t0 = Date.now();
+            fileLog('INFO', '/kanban handler called', { cwd: process.cwd(), avcExists });
             sendProgress('Starting kanban board server...');
             await runKanban();
+            fileLog('INFO', '/kanban complete', { duration: `${Date.now() - t0}ms` });
             break;
+          }
 
           case '/processes':
           case '/p':
@@ -2193,7 +2245,7 @@ https://agilevibecoding.org
   const runInit = async () => {
     const initiator = new ProjectInitiator();
 
-    // Use ConsoleOutputManager for unified console handling
+    startCommand('init');
     const outputManager = new ConsoleOutputManager();
     outputManager.start();
 
@@ -2201,25 +2253,20 @@ https://agilevibecoding.org
       await initiator.init();
     } finally {
       outputManager.stop();
+      endCommand();
     }
-
-    // No longer activate model configuration after init
-    // Users can run /models command to configure models
   };
 
   const runSprintPlanning = async () => {
     const initiator = new ProjectInitiator();
 
-    if (!initiator.isAvcProject()) {
-      sendError(getProjectNotInitializedMessage());
-      return;
-    }
-
     startCommand('sprint-planning');
-    process.stdout.write('\x1bc');
-    outputBuffer.clear();
 
     try {
+      if (!initiator.isAvcProject()) {
+        sendError(getProjectNotInitializedMessage());
+        return;
+      }
       await initiator.sprintPlanning();
     } finally {
       endCommand();
@@ -2229,24 +2276,21 @@ https://agilevibecoding.org
   const runSeed = async (storyId) => {
     const initiator = new ProjectInitiator();
 
-    if (!initiator.isAvcProject()) {
-      sendError(getProjectNotInitializedMessage());
-      return;
-    }
-
-    // Use ConsoleOutputManager for unified console handling
+    startCommand('seed');
     const outputManager = new ConsoleOutputManager();
     outputManager.start();
 
     try {
+      if (!initiator.isAvcProject()) {
+        sendError(getProjectNotInitializedMessage());
+        return;
+      }
       await initiator.seed(storyId);
+      outputBuffer.append('https://agilevibecoding.org/ceremonies/seed\n');
     } finally {
       outputManager.stop();
+      endCommand();
     }
-
-    outputBuffer.append(
-      'https://agilevibecoding.org/ceremonies/seed\n'
-    );
   };
 
   const runSponsorCall = async () => {
@@ -2681,10 +2725,6 @@ https://agilevibecoding.org
     // Delay for React/Ink to flush rendering buffer (longer delay for Ink's double buffering)
     await new Promise(resolve => setTimeout(resolve, 250));
 
-    // Complete terminal reset (ESC c - most aggressive)
-    process.stdout.write('\x1bc');
-    outputBuffer.clear();
-
     // Now show preview
     setShowPreview(true);
     setMode('preview');
@@ -2699,10 +2739,6 @@ https://agilevibecoding.org
 
     // Delay for React/Ink to flush rendering buffer (longer delay for Ink's double buffering)
     await new Promise(resolve => setTimeout(resolve, 250));
-
-    // Complete terminal reset (ESC c - most aggressive)
-    process.stdout.write('\x1bc');
-    outputBuffer.clear();
 
     sendProgress('Generating initial project documentation with AI...');
 
@@ -3076,7 +3112,7 @@ https://agilevibecoding.org
   const runStatus = async () => {
     const initiator = new ProjectInitiator();
 
-    // Use ConsoleOutputManager for unified console handling
+    startCommand('status');
     const outputManager = new ConsoleOutputManager();
     outputManager.start();
 
@@ -3084,13 +3120,14 @@ https://agilevibecoding.org
       initiator.status();
     } finally {
       outputManager.stop();
+      endCommand();
     }
   };
 
   const runModels = async () => {
     const initiator = new ProjectInitiator();
 
-    // Use ConsoleOutputManager for unified console handling
+    startCommand('models');
     const outputManager = new ConsoleOutputManager();
     outputManager.start();
 
@@ -3099,6 +3136,7 @@ https://agilevibecoding.org
       result = await initiator.models();
     } finally {
       outputManager.stop();
+      endCommand();
     }
 
     // Check if models() returned configuration data
@@ -3121,7 +3159,7 @@ https://agilevibecoding.org
       return;
     }
 
-    // Use ConsoleOutputManager for unified console handling
+    startCommand('tokens');
     const outputManager = new ConsoleOutputManager();
     outputManager.start();
 
@@ -3129,20 +3167,24 @@ https://agilevibecoding.org
       await initiator.showTokenStats();
     } finally {
       outputManager.stop();
+      endCommand();
     }
   };
 
   const runRemove = async () => {
     const initiator = new ProjectInitiator();
+    fileLog('INFO', 'runRemove: checking for AVC project', { cwd: process.cwd() });
 
     // Check if project is initialized
     if (!initiator.isAvcProject()) {
+      fileLog('WARNING', 'runRemove: no AVC project found, aborting');
       outputBuffer.append( '\nNo AVC project found in this directory.\n\nNothing to remove.\n');
       return;
     }
 
     // Get AVC contents to display
     const contents = initiator.getAvcContents();
+    fileLog('INFO', 'runRemove: AVC project found, awaiting confirmation', { itemCount: contents.length, items: contents });
     setAvcContents(contents);
 
     // Activate remove confirmation mode
@@ -3151,6 +3193,9 @@ https://agilevibecoding.org
   };
 
   const confirmRemove = async () => {
+    // NOTE: confirmRemove runs from a useInput handler, OUTSIDE executeCommand lifecycle.
+    // No CommandLogger is active here — do NOT use fileLog (would leak to terminal).
+    // The .avc/logs/ folder is also about to be deleted, so file logging is moot.
     setRemoveConfirmActive(false);
     setMode('executing');
     setIsExecuting(true);
@@ -3223,28 +3268,42 @@ https://agilevibecoding.org
   };
 
   const runBuildDocumentation = async () => {
+    const ts0 = Date.now();
     const builder = new DocumentationBuilder();
     const manager = getProcessManager();
 
+    fileLog('INFO', 'runBuildDocumentation started', { cwd: process.cwd() });
+
     // Check if project is initialized
-    if (!builder.hasDocumentation()) {
+    const hasDocumentation = builder.hasDocumentation();
+    fileLog('INFO', 'documentation check', { hasDocumentation });
+
+    if (!hasDocumentation) {
+      fileLog('WARNING', 'documentation not found, aborting');
       outputBuffer.append( '\nDocumentation not found\n\n');
       outputBuffer.append( 'Please run /init first to create documentation structure.\n\n');
       return;
     }
 
     const port = builder.getPort();
+    fileLog('INFO', 'documentation port determined', { port });
 
     // Check if documentation server is already running (managed process)
     const runningProcesses = manager.getRunningProcesses();
     const existingDocServer = runningProcesses.find(p => p.name === 'Documentation Server');
+    fileLog('INFO', 'managed process check', {
+      runningProcessCount: runningProcesses.length,
+      existingDocServer: existingDocServer ? { id: existingDocServer.id, name: existingDocServer.name } : null
+    });
 
     if (existingDocServer) {
       // We have a managed process - check if it's actually running
       const portInUse = await builder.isPortInUse(port);
+      fileLog('INFO', 'managed process port check', { portInUse });
 
       if (portInUse) {
         // Managed process exists and port is in use - restart it
+        fileLog('INFO', 'managed process running, restarting', { processId: existingDocServer.id });
         outputBuffer.append( '\nDocumentation server already running, restarting...\n\n');
         manager.stopProcess(existingDocServer.id);
 
@@ -3255,6 +3314,7 @@ https://agilevibecoding.org
         await new Promise(resolve => setTimeout(resolve, 1000));
       } else {
         // Managed process exists but port is not in use - it died, clean up
+        fileLog('WARNING', 'managed process died (port not in use), cleaning up', { processId: existingDocServer.id });
         outputBuffer.append( '\nPrevious documentation server died, starting new one...\n\n');
         manager.stopProcess(existingDocServer.id);
 
@@ -3264,14 +3324,17 @@ https://agilevibecoding.org
     } else {
       // No managed process - check if port is in use by external process
       const portInUse = await builder.isPortInUse(port);
+      fileLog('INFO', 'no managed process, external port check', { portInUse });
 
       if (portInUse) {
         // Port is in use by external process - find and kill it
         const processInfo = await builder.findProcessUsingPort(port);
+        fileLog('INFO', 'process found on port', { processInfo });
 
         if (processInfo) {
           // Found the process using the port - check if it's AVC documentation
           const isOurDocs = await builder.isDocumentationServer(port);
+          fileLog('INFO', 'is-our-docs check', { isOurDocs, pid: processInfo.pid, command: processInfo.command });
 
           if (isOurDocs) {
             // It's confirmed to be AVC documentation server - safe to kill
@@ -3281,9 +3344,11 @@ https://agilevibecoding.org
 
             // Try to kill the process
             const killed = await builder.killProcess(processInfo.pid);
+            fileLog(killed ? 'INFO' : 'ERROR', 'kill external docs process', { pid: processInfo.pid, killed });
 
             if (!killed) {
               // Failed to kill (permission denied, etc.)
+              fileLog('ERROR', 'failed to kill process, aborting', { pid: processInfo.pid });
               outputBuffer.append(
                 `Failed to kill process ${processInfo.pid}\n\n` +
                 `   Unable to stop the process (permission denied or process protected).\n` +
@@ -3309,6 +3374,7 @@ https://agilevibecoding.org
             await new Promise(resolve => setTimeout(resolve, 1000));
           } else {
             // It's NOT AVC documentation - ask user if they want to kill it anyway
+            fileLog('WARNING', 'port in use by non-AVC process, prompting user for confirmation', { pid: processInfo.pid, command: processInfo.command, port });
             setProcessToKill({
               pid: processInfo.pid,
               command: processInfo.command,
@@ -3320,6 +3386,7 @@ https://agilevibecoding.org
           }
         } else {
           // Port is in use but couldn't find the process (rare case)
+          fileLog('ERROR', 'port in use but process unidentifiable', { port });
           outputBuffer.append( `\nPort ${port} is in use but process could not be identified\n\n`);
           outputBuffer.append( `   To change the port, edit .avc/avc.json:\n`);
           outputBuffer.append( `   {\n`);
@@ -3335,17 +3402,21 @@ https://agilevibecoding.org
     }
 
     // Build documentation first
+    fileLog('INFO', 'starting documentation build');
     sendOutput('\nBuilding documentation...\n');
 
     try {
       await builder.build();
+      fileLog('INFO', 'documentation build complete', { duration: `${Date.now() - ts0}ms` });
       sendSuccess('Documentation built successfully\n');
     } catch (error) {
+      fileLog('ERROR', 'documentation build failed', { error: error.message, stack: error.stack, duration: `${Date.now() - ts0}ms` });
       sendError(`Error: ${error.message}\n`);
       return;
     }
 
     // Start preview server in background
+    fileLog('INFO', 'starting documentation preview server', { port, docsDir: builder.docsDir });
     const processId = manager.startProcess({
       name: 'Documentation Server',
       command: 'npx',
@@ -3353,6 +3424,7 @@ https://agilevibecoding.org
       cwd: builder.docsDir
     });
 
+    fileLog('INFO', 'runBuildDocumentation complete', { processId, port, totalDuration: `${Date.now() - ts0}ms` });
     outputBuffer.append(
       'Starting documentation server in background...\n' +
       `   URL: http://localhost:${port}\n` +
@@ -3361,28 +3433,52 @@ https://agilevibecoding.org
   };
 
   const runKanban = async () => {
+    const ts0 = Date.now();
     const kanbanManager = new KanbanServerManager();
     const manager = getProcessManager();
 
+    // File-only logger for runKanban (uses same [DEBUG] prefix pattern)
+    const kLog = (level, message, data = null) => {
+      const ts = new Date().toISOString();
+      if (data !== null) {
+        console.log(`[DEBUG] [${level}] [${ts}] [kanban] ${message}`, JSON.stringify(data, null, 2));
+      } else {
+        console.log(`[DEBUG] [${level}] [${ts}] [kanban] ${message}`);
+      }
+    };
+
+    kLog('INFO', 'runKanban started', { cwd: process.cwd() });
+
     // Check if project is initialized
-    if (!kanbanManager.hasWorkItems()) {
+    const hasWorkItems = kanbanManager.hasWorkItems();
+    kLog('INFO', 'work items check', { hasWorkItems });
+
+    if (!hasWorkItems) {
+      kLog('WARNING', 'no work items found - aborting');
       outputBuffer.append( '\nNo work items found\n\n');
       outputBuffer.append( 'Please run /sponsor-call or /sprint-planning first to create work items.\n\n');
       return;
     }
 
     const port = kanbanManager.getPort();
+    kLog('INFO', 'kanban port determined', { port });
 
     // Check if kanban server is already running (managed process)
     const runningProcesses = manager.getRunningProcesses();
     const existingKanbanServer = runningProcesses.find(p => p.name === 'Kanban Board Server');
+    kLog('INFO', 'managed process check', {
+      runningProcessCount: runningProcesses.length,
+      existingKanbanServer: existingKanbanServer ? { id: existingKanbanServer.id, name: existingKanbanServer.name } : null
+    });
 
     if (existingKanbanServer) {
       // We have a managed process - check if it's actually running
       const portInUse = await kanbanManager.isPortInUse(port);
+      kLog('INFO', 'managed process port check', { portInUse });
 
       if (portInUse) {
         // Managed process exists and port is in use - restart it
+        kLog('INFO', 'managed process running, restarting', { processId: existingKanbanServer.id });
         outputBuffer.append( '\nKanban server already running, restarting...\n\n');
         manager.stopProcess(existingKanbanServer.id);
 
@@ -3393,6 +3489,7 @@ https://agilevibecoding.org
         await new Promise(resolve => setTimeout(resolve, 1000));
       } else {
         // Managed process exists but port is not in use - it died, clean up
+        kLog('WARNING', 'managed process died (port not in use), cleaning up', { processId: existingKanbanServer.id });
         outputBuffer.append( '\nPrevious kanban server died, starting new one...\n\n');
         manager.stopProcess(existingKanbanServer.id);
 
@@ -3402,14 +3499,17 @@ https://agilevibecoding.org
     } else {
       // No managed process - check if port is in use by external process
       const portInUse = await kanbanManager.isPortInUse(port);
+      kLog('INFO', 'no managed process, external port check', { portInUse });
 
       if (portInUse) {
         // Port is in use by external process - find and kill it
         const processInfo = await kanbanManager.findProcessUsingPort(port);
+        kLog('INFO', 'process found on port', { processInfo });
 
         if (processInfo) {
           // Found the process using the port - check if it's AVC kanban server
           const isOurKanban = await kanbanManager.isKanbanServer(port);
+          kLog('INFO', 'is-our-kanban check', { isOurKanban, pid: processInfo.pid, command: processInfo.command });
 
           if (isOurKanban) {
             // It's confirmed to be AVC kanban server - safe to kill
@@ -3419,9 +3519,11 @@ https://agilevibecoding.org
 
             // Try to kill the process
             const killed = await kanbanManager.killProcess(processInfo.pid);
+            kLog(killed ? 'INFO' : 'ERROR', 'kill external kanban process', { pid: processInfo.pid, killed });
 
             if (!killed) {
               // Failed to kill (permission denied, etc.)
+              kLog('ERROR', 'failed to kill process, aborting', { pid: processInfo.pid });
               sendError(`Failed to kill process ${processInfo.pid}\n\n` +
                 `   Unable to stop the process (permission denied or process protected).\n` +
                 `   Please manually stop the process or change the port.\n\n` +
@@ -3445,6 +3547,7 @@ https://agilevibecoding.org
             await new Promise(resolve => setTimeout(resolve, 1000));
           } else {
             // It's NOT AVC kanban - show warning
+            kLog('WARNING', 'port in use by non-AVC process, aborting', { pid: processInfo.pid, command: processInfo.command, port });
             sendWarning(`Port ${port} is in use by another process:\n` +
               `   Command: ${processInfo.command}\n` +
               `   PID: ${processInfo.pid}\n\n` +
@@ -3461,6 +3564,7 @@ https://agilevibecoding.org
           }
         } else {
           // Port is in use but couldn't find the process (rare case)
+          kLog('ERROR', 'port in use but process unidentifiable', { port });
           sendError(`Port ${port} is in use but process could not be identified\n\n` +
             `   To change the port, edit .avc/avc.json:\n` +
             `   {\n` +
@@ -3476,9 +3580,9 @@ https://agilevibecoding.org
     }
 
     // Start kanban server in background
-    sendOutput('\nStarting AVC Kanban Board server...\n');
-
     const kanbanServerPath = path.join(__dirname, '..', 'kanban', 'server', 'start.js');
+    kLog('INFO', 'starting kanban server process', { kanbanServerPath, port, cwd: process.cwd() });
+    sendOutput('\nStarting AVC Kanban Board server...\n');
 
     const processId = manager.startProcess({
       name: 'Kanban Board Server',
@@ -3487,6 +3591,7 @@ https://agilevibecoding.org
       cwd: process.cwd()
     });
 
+    kLog('INFO', 'kanban server process started', { processId, port, duration: `${Date.now() - ts0}ms` });
     sendSuccess('Kanban server started successfully\n\n' +
       `   Backend API: http://localhost:${port}\n` +
       `   Health check: http://localhost:${port}/api/health\n` +
@@ -4057,10 +4162,6 @@ https://agilevibecoding.org
         // Delay to let React/Ink process state changes
         await new Promise(resolve => setTimeout(resolve, 250));
 
-        // Complete terminal reset (ESC c - most aggressive)
-        process.stdout.write('\x1bc');
-        outputBuffer.clear();
-
         await proceedToQuestionPrefilling(selected, null); // No cloud provider
       } else if (selected.requiresCloudProvider) {
         // Cloud deployment with cloud architecture: Show provider selector
@@ -4074,10 +4175,6 @@ https://agilevibecoding.org
 
         // Delay to let React/Ink process state changes
         await new Promise(resolve => setTimeout(resolve, 250));
-
-        // Complete terminal reset (ESC c - most aggressive)
-        process.stdout.write('\x1bc');
-        outputBuffer.clear();
 
         await proceedToQuestionPrefilling(selected, null);
       }
@@ -4134,10 +4231,6 @@ https://agilevibecoding.org
         // Delay to let React/Ink process state changes
         await new Promise(resolve => setTimeout(resolve, 250));
 
-        // Complete terminal reset (ESC c - most aggressive)
-        process.stdout.write('\x1bc');
-        outputBuffer.clear();
-
         // Proceed to database analysis and architecture recommendation
         await triggerArchitectureSelection();
       } finally {
@@ -4160,10 +4253,6 @@ https://agilevibecoding.org
 
         // Delay to let React/Ink process state changes
         await new Promise(resolve => setTimeout(resolve, 250));
-
-        // Complete terminal reset (ESC c - most aggressive)
-        process.stdout.write('\x1bc');
-        outputBuffer.clear();
 
         // Proceed to database analysis without strategy filter
         await triggerArchitectureSelection();
@@ -4206,10 +4295,6 @@ https://agilevibecoding.org
       // Delay for React/Ink to process state changes
       await new Promise(resolve => setTimeout(resolve, 250));
 
-      // Complete terminal reset (ESC c - most aggressive)
-      process.stdout.write('\x1bc');
-      outputBuffer.clear();
-
       // Proceed to question pre-filling
       await proceedToQuestionPrefilling(selectedArchitecture, provider);
       return;
@@ -4227,10 +4312,6 @@ https://agilevibecoding.org
 
       // Delay for React/Ink to process state changes
       await new Promise(resolve => setTimeout(resolve, 250));
-
-      // Complete terminal reset (ESC c - most aggressive)
-      process.stdout.write('\x1bc');
-      outputBuffer.clear();
 
       // Proceed with architecture only (no specific cloud provider)
       await proceedToQuestionPrefilling(selectedArchitecture, null);
@@ -4267,10 +4348,6 @@ https://agilevibecoding.org
 
       // Small delay to let React/Ink process state changes
       await new Promise(resolve => setTimeout(resolve, 250));
-
-      // Complete terminal reset (ESC c - most aggressive)
-      process.stdout.write('\x1bc');
-      outputBuffer.clear();
 
       if (choice === 'ai-choose') {
         // Let AI choose based on recommendation
@@ -5119,7 +5196,7 @@ https://agilevibecoding.org
     // Show cancel questionnaire confirmation if active
     if (cancelConfirmActive) {
       return React.createElement(Box, { flexDirection: 'column', marginY: 1 },
-        React.createElement(StaticOutput, { lines: outputLines }),
+
         React.createElement(CancelQuestionnaireConfirmation)
       );
     }
@@ -5127,7 +5204,7 @@ https://agilevibecoding.org
     // Show cancel execution confirmation if active
     if (cancelExecutionActive) {
       return React.createElement(Box, { flexDirection: 'column', marginY: 1 },
-        React.createElement(StaticOutput, { lines: outputLines }),
+
         React.createElement(CancelExecutionConfirmation, {
           executionState: executionState
         })
@@ -5137,7 +5214,7 @@ https://agilevibecoding.org
     // Show database choice selector if active (new comparison format)
     if (databaseChoiceActive && databaseComparison) {
       return React.createElement(Box, { flexDirection: 'column', marginY: 1 },
-        React.createElement(StaticOutput, { lines: outputLines }),
+
         React.createElement(DatabaseRecommendationDisplay, {
           comparison: databaseComparison,
           keyMetrics: databaseComparison.keyMetrics || {}
@@ -5165,7 +5242,7 @@ https://agilevibecoding.org
     // Show architecture selector if active
     if (architectureSelectorActive) {
       return React.createElement(Box, { flexDirection: 'column', marginY: 1 },
-        React.createElement(StaticOutput, { lines: outputLines }),
+
         React.createElement(ArchitectureSelector, {
           architectures: architectureOptions,
           selectedIndex: selectedArchitectureIndex
@@ -5176,7 +5253,7 @@ https://agilevibecoding.org
     // Show deployment strategy selector if active
     if (deploymentStrategySelectorActive) {
       return React.createElement(Box, { flexDirection: 'column', marginY: 1 },
-        React.createElement(StaticOutput, { lines: outputLines }),
+
         React.createElement(DeploymentStrategySelector, {
           selectedIndex: deploymentStrategyIndex
         })
@@ -5186,7 +5263,7 @@ https://agilevibecoding.org
     // Show cloud provider selector if active
     if (cloudProviderSelectorActive) {
       return React.createElement(Box, { flexDirection: 'column', marginY: 1 },
-        React.createElement(StaticOutput, { lines: outputLines }),
+
         React.createElement(CloudProviderSelector, {
           architectureName: selectedArchitecture?.name || 'Selected Architecture',
           selectedIndex: cloudProviderIndex
@@ -5197,7 +5274,7 @@ https://agilevibecoding.org
     // Show preview if active
     if (showPreview) {
       return React.createElement(Box, { flexDirection: 'column', marginY: 1 },
-        React.createElement(StaticOutput, { lines: outputLines }),
+
         React.createElement(AnswersPreview, {
           answers: questionnaireAnswers,
           questions: questionnaireQuestions,
@@ -5212,7 +5289,6 @@ https://agilevibecoding.org
       const currentQuestion = questionnaireQuestions[currentQuestionIndex];
 
       return React.createElement(Box, { flexDirection: 'column', flexShrink: 0 },
-        React.createElement(StaticOutput, { lines: outputLines }),
         React.createElement(QuestionDisplay, {
           question: currentQuestion,
           index: currentQuestionIndex,
@@ -5234,22 +5310,14 @@ https://agilevibecoding.org
       );
     }
 
-    // Show spinner while executing - WITH real-time output above
+    // Show spinner while executing
     if (isExecuting) {
       return React.createElement(Box, { flexDirection: 'column', marginY: 1, flexShrink: 0 },
-        // Show output first (includes command echo)
-        React.createElement(StaticOutput, { lines: outputLines }),
-        // Show spinner below output
         React.createElement(LoadingSpinner, {
           message: executingMessage,
           substep: executingSubstep
         })
       );
-    }
-
-    // Show output if available (but not when in selector mode to avoid overlap)
-    if (outputLines.length > 0 && mode !== 'selector') {
-      return React.createElement(StaticOutput, { lines: outputLines });
     }
 
     return null;
@@ -5360,6 +5428,9 @@ https://agilevibecoding.org
   };
 
   return React.createElement(Box, { flexDirection: 'column', overflow: 'hidden' },
+    // Layer 1: committed output — Static commits items once, never tracked by Ink's height counter
+    React.createElement(StaticOutput, { items: outputItems }),
+    // Layer 2: interactive section — Ink only tracks this small (1-20 line) area
     !hasInteracted && mode !== 'selector' && React.createElement(Banner),
     renderOutput(),
     renderProcessViewer(),
