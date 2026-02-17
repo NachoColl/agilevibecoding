@@ -3,7 +3,7 @@ import { render, Box, Text, useInput, useApp } from 'ink';
 import SelectInput from 'ink-select-input';
 import Spinner from 'ink-spinner';
 import { execSync } from 'child_process';
-import { readFileSync, existsSync, unlinkSync } from 'fs';
+import { readFileSync, existsSync, unlinkSync, writeFileSync } from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { ProjectInitiator } from './init.js';
@@ -2503,7 +2503,7 @@ https://agilevibecoding.org
           );
 
           const migrationPath = path.join('.avc', 'DEPLOYMENT_MIGRATION.md');
-          fs.writeFileSync(migrationPath, migrationGuide);
+          writeFileSync(migrationPath, migrationGuide);
 
           sendSuccess('Created: DEPLOYMENT_MIGRATION.md (cloud migration guide)');
         } catch (error) {
