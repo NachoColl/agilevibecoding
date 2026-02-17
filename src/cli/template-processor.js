@@ -818,7 +818,7 @@ Please carefully follow the output format requirements to avoid these issues.
   /**
    * Generate final document with LLM enhancement
    */
-  async generateFinalDocument(templateWithValues) {
+  async generateFinalDocument(templateWithValues, questionnaire = null) {
     try {
       // Get stage-specific provider for documentation
       const provider = await this.getProviderForStageInstance('documentation');
@@ -831,9 +831,32 @@ Please carefully follow the output format requirements to avoid these issues.
         // Use agent instructions as system context
         let userPrompt = `Here is the project information with all variables filled in:
 
-${templateWithValues}
+${templateWithValues}`;
 
-Please review and enhance this document according to your role.`;
+        // Inject explicit user choices so the LLM cannot override them with defaults
+        if (questionnaire) {
+          const deploymentTarget = questionnaire.DEPLOYMENT_TARGET || '';
+          const isLocal = /local|localhost|dev\s*machine|on.?prem/i.test(deploymentTarget);
+
+          userPrompt += `\n\n**User's Stated Choices — MUST be respected exactly as provided:**
+- MISSION_STATEMENT: ${questionnaire.MISSION_STATEMENT || 'N/A'}
+- TARGET_USERS: ${questionnaire.TARGET_USERS || 'N/A'}
+- INITIAL_SCOPE: ${questionnaire.INITIAL_SCOPE || 'N/A'}
+- TECHNICAL_CONSIDERATIONS: ${questionnaire.TECHNICAL_CONSIDERATIONS || 'N/A'}
+- DEPLOYMENT_TARGET: ${deploymentTarget || 'N/A'}
+- SECURITY_AND_COMPLIANCE_REQUIREMENTS: ${questionnaire.SECURITY_AND_COMPLIANCE_REQUIREMENTS || 'N/A'}`;
+
+          if (isLocal) {
+            userPrompt += `\n\n**DEPLOYMENT CONSTRAINT — CRITICAL:**
+The user has chosen LOCAL deployment ("${deploymentTarget}").
+- The Deployment Environment section MUST describe local-first setup only (e.g. Docker Compose, localhost, local DB, npm run dev).
+- Do NOT add cloud providers (AWS, GCP, Azure), managed services, Kubernetes, Terraform, CI/CD pipelines, or any cloud infrastructure.
+- Do NOT suggest migration to cloud unless the user's INITIAL_SCOPE or TECHNICAL_CONSIDERATIONS explicitly requests it.
+- Infrastructure means: local processes, local database, local file system.`;
+          }
+        }
+
+        userPrompt += `\n\nPlease review and enhance this document according to your role.`;
 
         // Enhance prompt with verification feedback if available
         userPrompt = this.enhancePromptWithFeedback(userPrompt, 'project-documentation-creator');
@@ -1112,7 +1135,7 @@ Return the enhanced markdown document.`;
 
     // 6. Enhance document with LLM
     await this.reportProgressWithDelay('Stage 4/5: Creating project documentation...', 'Created project documentation');
-    let finalDocument = await this.generateFinalDocument(templateWithValues);
+    let finalDocument = await this.generateFinalDocument(templateWithValues, collectedValues);
 
     // 7. Validate and improve documentation (if validation enabled)
     if (this.ceremonyName === 'sponsor-call' && this.isValidationEnabled()) {
@@ -1815,12 +1838,28 @@ Return your response as JSON following the exact structure specified in your ins
     // Enhance prompt with verification feedback if available
     prompt = this.enhancePromptWithFeedback(prompt, 'validator-documentation');
 
+    const deploymentTarget = questionnaire.DEPLOYMENT_TARGET || '';
+    const isLocalDeployment = /local|localhost|dev\s*machine|on.?prem/i.test(deploymentTarget);
+
     prompt += `**Original Questionnaire Data:**\n`;
     prompt += `- MISSION_STATEMENT: ${questionnaire.MISSION_STATEMENT || 'N/A'}\n`;
     prompt += `- TARGET_USERS: ${questionnaire.TARGET_USERS || 'N/A'}\n`;
     prompt += `- INITIAL_SCOPE: ${questionnaire.INITIAL_SCOPE || 'N/A'}\n`;
     prompt += `- TECHNICAL_CONSIDERATIONS: ${questionnaire.TECHNICAL_CONSIDERATIONS || 'N/A'}\n`;
+    prompt += `- DEPLOYMENT_TARGET: ${deploymentTarget || 'N/A'}\n`;
     prompt += `- SECURITY_AND_COMPLIANCE_REQUIREMENTS: ${questionnaire.SECURITY_AND_COMPLIANCE_REQUIREMENTS || 'N/A'}\n\n`;
+
+    if (isLocalDeployment) {
+      prompt += `**DEPLOYMENT ALIGNMENT CHECK — CRITICAL:**\n`;
+      prompt += `The user chose LOCAL deployment ("${deploymentTarget}").\n`;
+      prompt += `Flag as a CRITICAL contentIssue (category: "consistency") any mention of:\n`;
+      prompt += `- Cloud providers: AWS, GCP, Google Cloud, Azure, DigitalOcean, Cloudflare, etc.\n`;
+      prompt += `- Container orchestration: Kubernetes, ECS, EKS, GKE, AKS, Fargate, etc.\n`;
+      prompt += `- Managed cloud services: RDS, S3, CloudFront, Lambda, Firebase, Supabase, etc.\n`;
+      prompt += `- CI/CD pipelines: GitHub Actions, GitLab CI, CircleCI, Jenkins, etc. (unless user explicitly mentioned them in TECHNICAL_CONSIDERATIONS)\n`;
+      prompt += `- Infrastructure as Code: Terraform, CloudFormation, Pulumi, etc.\n`;
+      prompt += `These contradict the user's stated local deployment target and must be removed or replaced with local equivalents.\n\n`;
+    }
 
     if (contextContent) {
       prompt += `**context.md Content (for cross-validation):**\n\`\`\`markdown\n${contextContent}\n\`\`\`\n\n`;
