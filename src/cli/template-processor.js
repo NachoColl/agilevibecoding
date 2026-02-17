@@ -7,7 +7,7 @@ import { LLMVerifier } from './llm-verifier.js';
 import { TokenTracker } from './token-tracker.js';
 import { VerificationTracker } from './verification-tracker.js';
 import { fileURLToPath } from 'url';
-import { sendError, sendWarning, sendSuccess, sendInfo, sendOutput, sendIndented, sendSectionHeader } from './messaging-api.js';
+import { sendError, sendWarning, sendSuccess, sendInfo, sendOutput, sendIndented, sendSectionHeader, sendProgress } from './messaging-api.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -735,9 +735,9 @@ Please carefully follow the output format requirements to avoid these issues.
     if (this.nonInteractive) {
       sendSectionHeader(variable.displayName);
       if (variable.guidance) {
-        console.log(`   ${variable.guidance}`);
+        sendIndented(variable.guidance, 1);
       }
-      console.log('Generating AI response...');
+      sendProgress('Generating AI response...');
       value = null; // Force AI generation
     } else {
       // Interactive mode - use readline prompts
@@ -927,7 +927,7 @@ Return the enhanced markdown document.`;
 
       // Write to .avc/documentation/index.md
       fs.writeFileSync(indexPath, content, 'utf8');
-      sendIndented(`Synced to .avc/documentation/index.md`);
+      debug('Synced to .avc/documentation/index.md');
       return true;
     } catch (error) {
       sendWarning(`Could not sync to VitePress: ${error.message}`);
@@ -1004,7 +1004,7 @@ Return the enhanced markdown document.`;
    */
   async processTemplate(initialProgress = null) {
     debug('Starting processTemplate', { hasInitialProgress: !!initialProgress, ceremony: this.ceremonyName });
-    sendSectionHeader('Project Setup Questionnaire\n');
+    debug('Project Setup Questionnaire');
 
     // 1. Read template
     debug('Reading template file', { templatePath: this.templatePath });
@@ -1027,7 +1027,7 @@ Return the enhanced markdown document.`;
 
       // Check if ALL answers are pre-filled (from REPL questionnaire)
       if (answeredCount === variables.length) {
-        sendSuccess(`Using ${answeredCount} pre-filled answers from questionnaire.\n`);
+        debug(`Using ${answeredCount} pre-filled answers from questionnaire`);
 
         // Use pre-filled answers, but check defaults or AI for skipped (null) answers
         for (const variable of variables) {
@@ -1045,14 +1045,14 @@ Return the enhanced markdown document.`;
                 : defaultValue;
             } else {
               // No default found, generate AI suggestion
-              console.log('Generating AI suggestion...');
+              sendProgress('Generating AI suggestion...');
               const aiValue = await this.generateSuggestions(variable.name, variable.isPlural, collectedValues);
               collectedValues[variable.name] = aiValue || '';
             }
           }
         }
       } else {
-        console.log(`Resuming with ${answeredCount}/${variables.length} questions already answered.\n`);
+        sendOutput(`Resuming with ${answeredCount}/${variables.length} questions already answered.\n`);
 
         // Continue with normal interactive flow for remaining questions
         for (const variable of variables) {
@@ -1254,9 +1254,7 @@ Return the enhanced markdown document.`;
         const { jsonPath, summaryPath } = this.verificationTracker.saveToFile();
 
         if (jsonPath && summaryPath) {
-          sendSectionHeader(`Verification tracking saved:`);
-          console.log(`   JSON: ${jsonPath}`);
-          console.log(`   Summary: ${summaryPath}`);
+          debug('Verification tracking saved', { json: jsonPath, summary: summaryPath });
         }
 
         // Clean up old verification logs (keep last 10)
@@ -2173,37 +2171,17 @@ Return your response as JSON following the exact structure specified in your ins
         });
       }
 
-      // Display results
-      sendSectionHeader(`Score: ${validation.overallScore}/100`);
-      console.log(`   Status: ${validation.validationStatus}`);
-
-      // Count issues by severity
+      // Log validation results to debug (not console)
       const issues = validation.issues || validation.contentIssues || [];
       const structuralIssues = validation.structuralIssues || [];
       const flowGaps = validation.applicationFlowGaps || [];
       const allIssues = [...issues, ...structuralIssues];
 
-      const criticalCount = allIssues.filter(i => i.severity === 'critical').length;
-      const majorCount = allIssues.filter(i => i.severity === 'major').length;
-      const minorCount = allIssues.filter(i => i.severity === 'minor').length;
-
-      if (allIssues.length > 0 || flowGaps.length > 0) {
-        console.log(`   Issues: ${criticalCount} critical, ${majorCount} major, ${minorCount} minor`);
-        if (flowGaps.length > 0) {
-          console.log(`   Flow gaps: ${flowGaps.length}`);
-        }
-
-        // Show top 3 issues
-        const topIssues = allIssues.slice(0, 3);
-        topIssues.forEach(issue => {
-          const icon = issue.severity === 'critical' ? '[CRITICAL]' : issue.severity === 'major' ? '[MAJOR]' : '[INFO]';
-          const section = issue.section || issue.category;
-          const desc = issue.description || issue.issue;
-          console.log(`   ${icon} ${section}: ${desc.substring(0, 80)}${desc.length > 80 ? '...' : ''}`);
-        });
-      } else {
-        sendIndented(`No issues found`);
-      }
+      debug(`Score: ${validation.overallScore}/100`, {
+        status: validation.validationStatus,
+        issues: allIssues.length,
+        flowGaps: flowGaps.length
+      });
 
       // Check if ready
       const isReady = type === 'documentation'
@@ -2211,18 +2189,18 @@ Return your response as JSON following the exact structure specified in your ins
         : validation.readyForUse;
 
       if (isReady && validation.overallScore >= threshold) {
-        sendIndented(`${type === 'context' ? 'context scope' : type} passed validation!\n`);
+        debug(`${type === 'context' ? 'context scope' : type} passed validation`);
         break;
       }
 
       // Check if max iterations reached
       if (iteration + 1 >= maxIterations) {
-        sendWarning(`Max iterations reached. Accepting current version.\n`);
+        debug('Max iterations reached. Accepting current version.');
         break;
       }
 
       // Improve
-      sendInfo(`Improving ${type === 'context' ? 'context scope' : type} based on feedback...\n`);
+      debug(`Improving ${type === 'context' ? 'context scope' : type} based on feedback`);
       const improvementType = type === 'documentation' ? 'Project Brief' : 'project context';
       this.reportSubstep(`Improving ${improvementType} based on validation...`);
       currentContent = type === 'documentation'

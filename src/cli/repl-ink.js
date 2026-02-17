@@ -2243,9 +2243,8 @@ https://agilevibecoding.org
     // Start new execution context - cancels previous run and clears output
     startCommand('sponsor-call');
 
-    // Send ceremony header FIRST - before any other messages
-    const header = getCeremonyHeader('sponsor-call');
-    sendCeremonyHeader(header.title, header.url);
+    // Ceremony header removed from console for minimal workflow experience
+    // (It will be included in the final generated document)
 
     const initiator = new ProjectInitiator();
 
@@ -2418,9 +2417,10 @@ https://agilevibecoding.org
       filesCreated: []
     });
 
-    // Use ConsoleOutputManager for unified console handling
-    const outputManager = new ConsoleOutputManager();
-    outputManager.start();
+    // ConsoleOutputManager disabled for sponsor-call - messaging API handles all output
+    // This prevents double output (console.log interception + messaging API)
+    // const outputManager = new ConsoleOutputManager();
+    // outputManager.start();
 
     // Progress callback to update spinner message, substep, and execution state
     // Uses batching to reduce re-renders
@@ -2553,7 +2553,7 @@ https://agilevibecoding.org
       sendOutput(summary);
 
     } finally {
-      outputManager.stop();
+      // outputManager.stop(); // Disabled - see line 2422
       // End execution context - clears progress indicators
       endCommand();
     }
@@ -2635,14 +2635,17 @@ https://agilevibecoding.org
     // Check if we just answered INITIAL_SCOPE (index 1)
     // If so, show deployment strategy selector before proceeding
     if (currentQuestionIndex === 1 && currentAnswers.MISSION_STATEMENT && currentAnswers.INITIAL_SCOPE) {
+      // CRITICAL: Update questionnaireAnswers state with both Q1 & Q2 explicitly
+      // This fixes React state timing issue where saveQuestionnaireAnswer's async updates
+      // haven't completed yet, causing Q1 & Q2 to be missing from state later
+      setQuestionnaireAnswers({
+        MISSION_STATEMENT: currentAnswers.MISSION_STATEMENT,
+        INITIAL_SCOPE: currentAnswers.INITIAL_SCOPE
+      });
+
       // Auto-save progress before showing strategy selector
       // Pass currentAnswers to handle React state timing issues
       autoSaveProgress(currentAnswers);
-
-      // Add answered questions to output buffer before showing selector
-      sendOutput('\nAnswered Questions:\n\n');
-      sendOutput(`Q1: Mission Statement\n${currentAnswers.MISSION_STATEMENT}\n\n`);
-      sendOutput(`Q2: Initial Scope\n${currentAnswers.INITIAL_SCOPE}\n\n`);
 
       // Show deployment strategy selector
       setQuestionnaireActive(false);
@@ -2656,21 +2659,41 @@ https://agilevibecoding.org
       setCurrentQuestionIndex(currentQuestionIndex + 1);
     } else {
       // All questions answered - show preview
-      submitQuestionnaire();
+      await submitQuestionnaire();
     }
   };
 
-  const submitQuestionnaire = () => {
-    // Show preview instead of immediate submission
+  const submitQuestionnaire = async () => {
+    // Set state changes FIRST
     setQuestionnaireActive(false);
+    setMode('executing');
+
+    // Delay for React/Ink to flush rendering buffer (longer delay for Ink's double buffering)
+    await new Promise(resolve => setTimeout(resolve, 250));
+
+    // Complete terminal reset (ESC c - most aggressive)
+    process.stdout.write('\x1bc');
+    outputBuffer.clear();
+
+    // Now show preview
     setShowPreview(true);
+    setMode('preview');
   };
 
   const confirmSubmission = async () => {
+    // Set state changes FIRST
     setShowPreview(false);
     setQuestionnaireActive(false);
     setMode('executing');
     setIsExecuting(true);
+
+    // Delay for React/Ink to flush rendering buffer (longer delay for Ink's double buffering)
+    await new Promise(resolve => setTimeout(resolve, 250));
+
+    // Complete terminal reset (ESC c - most aggressive)
+    process.stdout.write('\x1bc');
+    outputBuffer.clear();
+
     sendProgress('Generating initial project documentation with AI...');
 
     try {
@@ -2716,13 +2739,11 @@ https://agilevibecoding.org
    */
   const triggerArchitectureSelection = async () => {
     // Set executing state FIRST to show spinner immediately
+    setQuestionnaireActive(false);
     setMode('executing');
     setIsExecuting(true);
     sendProgress('Analyzing database requirements...');
     sendSubstep('Preparing database analysis');
-
-    // Then hide questionnaire
-    setQuestionnaireActive(false);
 
     try {
       const processor = new TemplateProcessor('sponsor-call', null, true);
@@ -2745,13 +2766,6 @@ https://agilevibecoding.org
         // Clear executing state
         setIsExecuting(false);
         clearProgress();
-
-        // Show database comparison with AI recommendation
-        const aiRec = dbRec.recommendedChoice === 'sql' ? 'SQL' : 'NoSQL';
-        const aiDb = dbRec.recommendedChoice === 'sql' ? dbRec.comparison.sqlOption.database : dbRec.comparison.nosqlOption.database;
-        sendOutput('\nDatabase options comparison generated\n');
-        sendOutput(`SQL: ${dbRec.comparison.sqlOption.database} vs NoSQL: ${dbRec.comparison.nosqlOption.database}\n`);
-        sendOutput(`AI recommends: ${aiRec} (${aiDb})\n\n`);
 
         // Activate selector (no setTimeout needed with StaticOutput)
         setDatabaseChoiceActive(true);
@@ -2781,6 +2795,7 @@ https://agilevibecoding.org
    * Proceed to architecture recommendation (after database analysis or skip)
    */
   const proceedToArchitectureRecommendation = async () => {
+    setQuestionnaireActive(false);
     setMode('executing');
     setIsExecuting(true);
     sendProgress('Analyzing deployment architecture...');
@@ -2907,6 +2922,7 @@ https://agilevibecoding.org
    */
   const proceedToQuestionPrefilling = async (architecture, cloudProvider = null) => {
     // Set executing state FIRST to show spinner immediately
+    setQuestionnaireActive(false);
     setMode('executing');
     setIsExecuting(true);
     sendProgress('Generating intelligent recommendations...');
@@ -2960,9 +2976,6 @@ https://agilevibecoding.org
       // Clear executing state
       setIsExecuting(false);
       clearProgress();
-
-      sendOutput('\nAI has suggested answers for the remaining questions.\n');
-      sendOutput('Review them below and edit any that need changes.\n\n');
 
       // Wait for output buffer to update before showing preview
       // This prevents visual glitches from React re-rendering before output updates
@@ -4026,28 +4039,36 @@ https://agilevibecoding.org
 
       // Check deployment strategy first
       if (deploymentStrategy === 'local-mvp') {
-        // Local MVP strategy: NEVER show cloud provider, even if architecture flags it
-        // Set executing state IMMEDIATELY to prevent questionnaire from flashing
+        // Local MVP strategy: Set executing state first
+        setQuestionnaireActive(false);
         setMode('executing');
         setIsExecuting(true);
-        setQuestionnaireActive(false);
 
-        sendSuccess(`Selected: ${selected.name}`);
+        // Delay to let React/Ink process state changes
+        await new Promise(resolve => setTimeout(resolve, 250));
+
+        // Complete terminal reset (ESC c - most aggressive)
+        process.stdout.write('\x1bc');
+        outputBuffer.clear();
+
         await proceedToQuestionPrefilling(selected, null); // No cloud provider
       } else if (selected.requiresCloudProvider) {
         // Cloud deployment with cloud architecture: Show provider selector
-        outputBuffer.append( `\nSelected: ${selected.name}\n`);
-        outputBuffer.append( 'This architecture requires a cloud provider.\n');
         setCloudProviderSelectorActive(true);
         setCloudProviderIndex(0);
       } else {
-        // Cloud deployment with PaaS architecture or no strategy: Skip provider
-        // Set executing state IMMEDIATELY to prevent questionnaire from flashing
+        // Cloud deployment with PaaS architecture: Set executing state first
+        setQuestionnaireActive(false);
         setMode('executing');
         setIsExecuting(true);
-        setQuestionnaireActive(false);
 
-        sendSuccess(`Selected: ${selected.name}`);
+        // Delay to let React/Ink process state changes
+        await new Promise(resolve => setTimeout(resolve, 250));
+
+        // Complete terminal reset (ESC c - most aggressive)
+        process.stdout.write('\x1bc');
+        outputBuffer.clear();
+
         await proceedToQuestionPrefilling(selected, null);
       }
       return;
@@ -4093,33 +4114,19 @@ https://agilevibecoding.org
         const strategies = ['local-mvp', 'cloud'];
         const selected = strategies[deploymentStrategyIndex];
 
+        // Disable selector and set executing state first
         setDeploymentStrategy(selected);
         setDeploymentStrategySelectorActive(false);
-
-        // Set executing state IMMEDIATELY to prevent questionnaire from flashing
+        setQuestionnaireActive(false);
         setMode('executing');
         setIsExecuting(true);
-        setQuestionnaireActive(false);
 
-        // Show confirmation
-        const strategyName = selected === 'local-mvp' ? 'Local MVP First' : 'Cloud Deployment';
-        sendSuccess(`Deployment Strategy: ${strategyName}`);
+        // Delay to let React/Ink process state changes
+        await new Promise(resolve => setTimeout(resolve, 250));
 
-        if (selected === 'local-mvp') {
-          sendInfo('\nYou\'ve chosen to start with a local development environment.\n');
-          sendOutput('What this means:\n');
-          sendOutput('• Zero cloud costs during MVP development\n');
-          sendOutput('• Run everything on your machine or with Docker\n');
-          sendOutput('• Database: SQLite or containerized PostgreSQL/MongoDB\n');
-          sendOutput('• When ready: Migrate to cloud with our step-by-step guide\n');
-        } else {
-          sendInfo('\nYou\'ve chosen cloud deployment from day one.\n');
-          sendOutput('What this means:\n');
-          sendOutput('• Production-ready infrastructure from the start\n');
-          sendOutput('• Managed databases, auto-scaling, monitoring\n');
-          sendOutput('• Cloud provider selection (AWS/Azure/GCP)\n');
-          sendOutput('• Monthly costs: Estimated $50-200+ based on scale\n');
-        }
+        // Complete terminal reset (ESC c - most aggressive)
+        process.stdout.write('\x1bc');
+        outputBuffer.clear();
 
         // Proceed to database analysis and architecture recommendation
         await triggerArchitectureSelection();
@@ -4134,15 +4141,19 @@ https://agilevibecoding.org
       setIsProcessingDeploymentStrategy(true);
 
       try {
+        // Disable selector and set executing state first
         setDeploymentStrategySelectorActive(false);
-        setDeploymentStrategy(null); // No strategy preference
-
-        // Set executing state IMMEDIATELY to prevent questionnaire from flashing
+        setDeploymentStrategy(null);
+        setQuestionnaireActive(false);
         setMode('executing');
         setIsExecuting(true);
-        setQuestionnaireActive(false);
 
-        sendInfo('Skipped deployment strategy. All architecture options will be shown.');
+        // Delay to let React/Ink process state changes
+        await new Promise(resolve => setTimeout(resolve, 250));
+
+        // Complete terminal reset (ESC c - most aggressive)
+        process.stdout.write('\x1bc');
+        outputBuffer.clear();
 
         // Proceed to database analysis without strategy filter
         await triggerArchitectureSelection();
@@ -4175,15 +4186,19 @@ https://agilevibecoding.org
     if (key.return) {
       const provider = providers[cloudProviderIndex];
       setSelectedCloudProvider(provider);
-      setCloudProviderSelectorActive(false);
 
-      // Set executing state IMMEDIATELY to prevent questionnaire from flashing
+      // Set state changes FIRST
+      setCloudProviderSelectorActive(false);
+      setQuestionnaireActive(false);
       setMode('executing');
       setIsExecuting(true);
-      setQuestionnaireActive(false);
 
-      // Show confirmation
-      sendSuccess(`Cloud Provider: ${provider}`);
+      // Delay for React/Ink to process state changes
+      await new Promise(resolve => setTimeout(resolve, 250));
+
+      // Complete terminal reset (ESC c - most aggressive)
+      process.stdout.write('\x1bc');
+      outputBuffer.clear();
 
       // Proceed to question pre-filling
       await proceedToQuestionPrefilling(selectedArchitecture, provider);
@@ -4192,16 +4207,20 @@ https://agilevibecoding.org
 
     // Escape - skip provider selection
     if (key.escape) {
-      setCloudProviderSelectorActive(false);
       setSelectedCloudProvider(null);
 
-      // Set executing state IMMEDIATELY to prevent questionnaire from flashing
+      // Set state changes FIRST
+      setCloudProviderSelectorActive(false);
+      setQuestionnaireActive(false);
       setMode('executing');
       setIsExecuting(true);
-      setQuestionnaireActive(false);
 
-      // Show skip message
-      sendInfo('Skipped cloud provider selection');
+      // Delay for React/Ink to process state changes
+      await new Promise(resolve => setTimeout(resolve, 250));
+
+      // Complete terminal reset (ESC c - most aggressive)
+      process.stdout.write('\x1bc');
+      outputBuffer.clear();
 
       // Proceed with architecture only (no specific cloud provider)
       await proceedToQuestionPrefilling(selectedArchitecture, null);
@@ -4230,34 +4249,34 @@ https://agilevibecoding.org
       const choices = ['ai-choose', 'sql', 'nosql', 'skip'];
       const choice = choices[databaseChoiceIndex];
 
+      // Disable selector first
       setDatabaseChoiceActive(false);
-
-      // Set executing state IMMEDIATELY to prevent questionnaire from flashing
+      setQuestionnaireActive(false);
       setMode('executing');
       setIsExecuting(true);
-      setQuestionnaireActive(false);
+
+      // Small delay to let React/Ink process state changes
+      await new Promise(resolve => setTimeout(resolve, 250));
+
+      // Complete terminal reset (ESC c - most aggressive)
+      process.stdout.write('\x1bc');
+      outputBuffer.clear();
 
       if (choice === 'ai-choose') {
         // Let AI choose based on recommendation
         const aiChoice = recommendedChoice || 'sql'; // Default to SQL if no recommendation
         setSelectedDatabaseType(aiChoice);
-        const chosenDb = aiChoice === 'sql' ? databaseComparison.sqlOption.database : databaseComparison.nosqlOption.database;
-        const chosenType = aiChoice === 'sql' ? 'SQL' : 'NoSQL';
-        sendOutput('\nAI chose: ' + chosenType + ' (' + chosenDb + ')\n');
         await proceedToArchitectureRecommendation();
       } else if (choice === 'sql') {
         // User manually chose SQL option
         setSelectedDatabaseType('sql');
-        sendOutput('\nChosen: SQL (' + databaseComparison.sqlOption.database + ')\n');
         await proceedToArchitectureRecommendation();
       } else if (choice === 'nosql') {
         // User manually chose NoSQL option
         setSelectedDatabaseType('nosql');
-        sendOutput('\nChosen: NoSQL (' + databaseComparison.nosqlOption.database + ')\n');
         await proceedToArchitectureRecommendation();
       } else if (choice === 'skip') {
         // Clear database comparison, proceed without
-        sendInfo('Skipped database analysis');
         setDatabaseComparison(null);
         setRecommendedChoice(null);
         setSelectedDatabaseType(null);

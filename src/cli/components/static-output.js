@@ -1,23 +1,17 @@
 import React from 'react';
-import { Box, Text, Static } from 'ink';
+import { Box, Text } from 'ink';
 
 /**
- * StaticOutput - Renders accumulated output buffer using Ink's Static component
+ * StaticOutput - Renders accumulated output buffer
  *
- * Ensures output is rendered once and never updates, preventing
- * text mixing with interactive UI components.
- *
- * Uses Ink's <Static> component which:
- * - Renders permanent/historical output
- * - Never re-renders when state changes
- * - Maintains physical separation from interactive UI
- * - Optimized for virtual scrolling
+ * Uses React.memo to prevent re-rendering when lines haven't changed,
+ * reducing visual noise during interactive selections.
  *
  * @param {Object} props
  * @param {string[]} props.lines - Array of output lines to render
- * @returns {React.Element|null} Static output component or null if no lines
+ * @returns {React.Element|null} Output component or null if no lines
  */
-export const StaticOutput = ({ lines }) => {
+const StaticOutputComponent = ({ lines }) => {
   if (!lines || lines.length === 0) return null;
 
   return React.createElement(Box, {
@@ -25,8 +19,15 @@ export const StaticOutput = ({ lines }) => {
     flexShrink: 0,
     marginBottom: 1
   },
-    React.createElement(Static, { items: lines },
-      (line, index) => React.createElement(Text, { key: index }, line)
+    lines.map((line, index) =>
+      React.createElement(Text, { key: index }, line)
     )
   );
 };
+
+// Wrap with React.memo to prevent re-renders when lines haven't changed
+export const StaticOutput = React.memo(StaticOutputComponent, (prevProps, nextProps) => {
+  // Only re-render if lines array content actually changed
+  if (prevProps.lines.length !== nextProps.lines.length) return false;
+  return prevProps.lines.every((line, i) => line === nextProps.lines[i]);
+});

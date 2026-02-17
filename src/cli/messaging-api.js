@@ -9,6 +9,12 @@ import { messageManager } from './message-manager.js';
 import { MessageType } from './message-types.js';
 
 /**
+ * Track sent ceremony headers to prevent duplication
+ * Cleared on each startCommand() call
+ */
+let ceremonySent = new Set();
+
+/**
  * Start a new command execution context
  * Should be called at the beginning of every command
  *
@@ -28,6 +34,8 @@ import { MessageType } from './message-types.js';
  * }
  */
 export function startCommand(commandName) {
+  // Clear ceremony header tracking for new command
+  ceremonySent.clear();
   return messageManager.startExecution(commandName);
 }
 
@@ -56,6 +64,7 @@ export function cancelCommand() {
 
 /**
  * Send a ceremony header (title + documentation URL)
+ * Automatically prevents duplicate headers within same command execution
  *
  * @param {string} title - Ceremony title (without emoji)
  * @param {string} url - Documentation URL
@@ -64,6 +73,14 @@ export function cancelCommand() {
  * sendCeremonyHeader('Sponsor Call Ceremony', 'https://agilevibecoding.org/ceremonies/sponsor-call');
  */
 export function sendCeremonyHeader(title, url) {
+  const key = `${title}|${url}`;
+
+  // Prevent duplicate ceremony headers
+  if (ceremonySent.has(key)) {
+    return;
+  }
+
+  ceremonySent.add(key);
   const content = `${title}\nDocumentation: ${url}`;
   messageManager.send(MessageType.CEREMONY_HEADER, content);
 }
