@@ -6,7 +6,8 @@ import { EpicStoryValidator } from './epic-story-validator.js';
 import { VerificationTracker } from './verification-tracker.js';
 import { fileURLToPath } from 'url';
 import { getCeremonyHeader } from './message-constants.js';
-import { sendError, sendWarning, sendSuccess, sendInfo, sendOutput, sendIndented, sendSectionHeader } from './messaging-api.js';
+import { sendError, sendWarning, sendSuccess, sendInfo, sendOutput, sendIndented, sendSectionHeader, sendCeremonyHeader, sendProgress, sendSubstep } from './messaging-api.js';
+import { outputBuffer } from './output-buffer.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -423,7 +424,7 @@ class SprintPlanningProcessor {
   async decomposeIntoEpicsStories(scope, existingEpics, existingStories, projectContext) {
     this.debugStage(4, 'Decompose into Epics + Stories');
 
-    sendSectionHeader('Stage 1/3: Decomposing scope into Epics and Stories');
+    this.debug('Stage 1/3: Decomposing scope into Epics and Stories');
 
     // Get stage-specific provider for decomposition
     const provider = await this.getProviderForStageInstance('decomposition');
@@ -549,7 +550,6 @@ Return your response as JSON following the exact structure specified in your ins
   // STAGE 5: Multi-Agent Validation
   async validateHierarchy(hierarchy, projectContext) {
     this.debugStage(5, 'Multi-Agent Validation');
-    sendInfo('Validating Epics and Stories with domain experts...');
 
     // Initialize default LLM provider if not already done (for fallback)
     if (!this.llmProvider) {
@@ -561,7 +561,6 @@ Return your response as JSON following the exact structure specified in your ins
 
     if (useSmartSelection) {
       this.debug('Smart validator selection enabled');
-      console.log('   🧠 Smart validator selection enabled\n');
     }
 
     const validator = new EpicStoryValidator(
@@ -652,26 +651,20 @@ Return your response as JSON following the exact structure specified in your ins
   displayValidationIssues(validation) {
     // Show critical issues
     if (validation.criticalIssues.length > 0) {
-      console.log(`   Critical Issues:`);
-      validation.criticalIssues.slice(0, 3).forEach(issue => {
-        console.log(`     • [${issue.domain}] ${issue.description}`);
-        if (issue.suggestion) {
-          console.log(`       Fix: ${issue.suggestion}`);
-        }
-      });
-      if (validation.criticalIssues.length > 3) {
-        console.log(`     ... and ${validation.criticalIssues.length - 3} more critical issues`);
-      }
-      console.log('');
+      this.debug('Critical Issues', validation.criticalIssues.slice(0, 3).map(issue => ({
+        domain: issue.domain,
+        description: issue.description,
+        suggestion: issue.suggestion
+      })));
     }
 
     // Show improvement priorities
     if (validation.improvementPriorities.length > 0) {
-      console.log(`   Improvement Priorities:`);
-      validation.improvementPriorities.slice(0, 3).forEach((priority, i) => {
-        console.log(`     ${i + 1}. ${priority.priority} (${priority.mentionedBy} validators)`);
-      });
-      console.log('');
+      this.debug('Improvement Priorities', validation.improvementPriorities.slice(0, 3).map((priority, i) => ({
+        rank: i + 1,
+        priority: priority.priority,
+        mentionedBy: priority.mentionedBy
+      })));
     }
   }
 
@@ -939,7 +932,7 @@ ${projectContext}
   async writeHierarchyFiles(hierarchy, projectContext) {
     this.debugStage(7, 'Generate Contexts & Write Files');
 
-    sendSectionHeader('Stage 2/3: Generating context files');
+    this.debug('Stage 2/3: Generating context files');
 
     // Read agent
     const agentPath = path.join(this.agentsPath, 'feature-context-generator.md');
@@ -947,7 +940,7 @@ ${projectContext}
     const featureContextGeneratorAgent = fs.readFileSync(agentPath, 'utf8');
     this.debug(`Agent loaded (${featureContextGeneratorAgent.length} bytes)`);
 
-    sendSectionHeader('Stage 3/3: Writing hierarchy files');
+    this.debug('Stage 3/3: Writing hierarchy files');
 
     let epicCount = 0;
     let storyCount = 0;
@@ -1053,13 +1046,13 @@ ${projectContext}
 
     // Display clean summary of created epics and stories
     if (hierarchy.epics.length > 0) {
-      console.log('\n📦 Created Epics and Stories:\n');
+      sendSectionHeader('Created Epics and Stories');
       for (const epic of hierarchy.epics) {
-        console.log(`${epic.name}`);
+        sendOutput(`${epic.id}: ${epic.name}\n`);
         for (const story of epic.stories || []) {
-          console.log(`   • ${story.name}`);
+          sendIndented(`${story.id}: ${story.name}`, 1);
         }
-        console.log(''); // Empty line between epics
+        sendOutput('\n');
       }
     }
 
@@ -1140,13 +1133,14 @@ ${projectContext}
       this.debug('Execution ID:', executionId);
 
       const header = getCeremonyHeader('sprint-planning');
-      console.log(`\n${header.title}\n`);
+      sendCeremonyHeader(header.title, header.url);
 
       // Stage 1: Validate
+      sendProgress('Validating prerequisites...');
       this.validatePrerequisites();
 
       // Stage 2: Read existing hierarchy
-      sendInfo('Analyzing existing project structure...');
+      sendProgress('Analyzing existing project structure...');
       const { existingEpics, existingStories, maxEpicNum, maxStoryNums } = this.readExistingHierarchy();
 
       // Log pre-existing hierarchy counts
@@ -1157,12 +1151,14 @@ ${projectContext}
       });
 
       if (existingEpics.size > 0) {
-        console.log(`Found ${existingEpics.size} existing Epics, ${existingStories.size} existing Stories\n`);
+        this.debug(`Found ${existingEpics.size} existing Epics, ${existingStories.size} existing Stories`);
+        sendInfo(`Found ${existingEpics.size} existing Epics, ${existingStories.size} existing Stories`);
       } else {
-        console.log('No existing Epics/Stories found (first expansion)\n');
+        this.debug('No existing Epics/Stories found (first expansion)');
       }
 
       // Stage 3: Collect scope
+      sendProgress('Collecting project scope...');
       const scope = await this.collectNewScope();
 
       // Read project context
@@ -1170,19 +1166,35 @@ ${projectContext}
       const projectContext = fs.readFileSync(this.projectContextPath, 'utf8');
       this.debug(`Context loaded (${projectContext.length} chars)`);
 
+      // Clear screen before decomposition phase
+      process.stdout.write('\x1bc');
+      outputBuffer.clear();
+
       // Stage 4: Decompose
+      sendProgress('Decomposing scope into Epics and Stories...');
       let hierarchy = await this.decomposeIntoEpicsStories(scope, existingEpics, existingStories, projectContext);
 
+      // Clear screen before validation phase
+      process.stdout.write('\x1bc');
+      outputBuffer.clear();
+
       // Stage 5: Multi-Agent Validation
+      sendProgress('Validating Epics and Stories with domain experts...');
       hierarchy = await this.validateHierarchy(hierarchy, projectContext);
 
       // Analyze duplicate detection (before renumbering)
       this.analyzeDuplicates(hierarchy, existingEpics, existingStories);
 
       // Stage 6: Renumber IDs
+      sendProgress('Renumbering hierarchy IDs...');
       hierarchy = this.renumberHierarchy(hierarchy, maxEpicNum, maxStoryNums);
 
+      // Clear screen before file writing phase
+      process.stdout.write('\x1bc');
+      outputBuffer.clear();
+
       // Stage 7-8: Generate contexts and write files
+      sendProgress('Generating context files and writing hierarchy...');
       const { epicCount, storyCount } = await this.writeHierarchyFiles(hierarchy, projectContext);
 
       // Stage 9: Summary & Cleanup
@@ -1202,7 +1214,7 @@ ${projectContext}
       sendIndented(`- ${totalStories} Stories`, 1);
       sendIndented('- 0 Tasks (run /seed to create tasks for stories)', 1);
 
-      // Display token usage
+      // Track token usage
       if (this.llmProvider) {
         const usage = this.llmProvider.getTokenUsage();
 
@@ -1213,18 +1225,11 @@ ${projectContext}
           total: usage.totalTokens
         });
 
-        sendSectionHeader('Token Usage');
-        sendIndented(`Input: ${usage.inputTokens.toLocaleString()} tokens`, 1);
-        sendIndented(`Output: ${usage.outputTokens.toLocaleString()} tokens`, 1);
-        sendIndented(`Total: ${usage.totalTokens.toLocaleString()} tokens`, 1);
-        sendIndented(`API Calls: ${usage.totalCalls}`, 1);
-
         this.tokenTracker.addExecution(this.ceremonyName, {
           input: usage.inputTokens,
           output: usage.outputTokens
         });
         this.debug('Token tracking saved to .avc/token-history.json');
-        sendSuccess('Token history updated');
       }
 
       sendSectionHeader('Next steps');

@@ -2195,25 +2195,15 @@ https://agilevibecoding.org
       return;
     }
 
-    // Start command logger (writes to .avc/logs/sprint-planning-{timestamp}.log)
-    const logger = new CommandLogger('sprint-planning', process.cwd(), true); // inkMode = true
-    logger.start();
-
-    // Use ConsoleOutputManager for unified console handling (filters [DEBUG] automatically)
-    const outputManager = new ConsoleOutputManager();
-    outputManager.start();
+    startCommand('sprint-planning');
+    process.stdout.write('\x1bc');
+    outputBuffer.clear();
 
     try {
       await initiator.sprintPlanning();
     } finally {
-      outputManager.stop();
-      logger.stop();
+      endCommand();
     }
-
-    outputBuffer.append(
-      `Debug log saved: ${logger.getLogPath()}\n` +
-      'https://agilevibecoding.org/ceremonies/sprint-planning\n'
-    );
   };
 
   const runSeed = async (storyId) => {
