@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef, useTransition } from 'react';
-import { render, Box, Text, Static, useInput, useApp, useStdout, useCursor, useIsScreenReaderEnabled } from 'ink';
+import { render, Box, Text, Static, useInput, useApp, useStdout, useIsScreenReaderEnabled } from 'ink';
 import SelectInput from 'ink-select-input';
 import Spinner from 'ink-spinner';
 import { execSync } from 'child_process';
@@ -205,15 +205,7 @@ const QuestionDisplay = ({ question, index, total, editMode }) => {
 
 // Multi-line input component with line numbers and character count
 // Memoized to prevent unnecessary re-renders when props haven't changed
-const MultiLineInput = React.memo(({ lines, showCharCount = true, cursorLine = null, cursorChar = null, cursorYOffset = 0 }) => {
-  const { setCursorPosition } = useCursor();
-
-  // Position real terminal cursor for IME support (Korean, Japanese, emoji, etc.)
-  // x = column at cursor character; y = offset from top of Ink area + line within input
-  if (cursorLine !== null && cursorChar !== null) {
-    setCursorPosition({ x: cursorChar, y: cursorYOffset + cursorLine });
-  }
-
+const MultiLineInput = React.memo(({ lines, showCharCount = true, cursorLine = null, cursorChar = null }) => {
   // All hooks must be called unconditionally (Rules of Hooks) — before any early return
 
   // Memoize character count calculation (only recalculate when lines change)
@@ -5334,8 +5326,7 @@ const App = () => {
           lines: currentAnswer,
           showCharCount: true,
           cursorLine: cursorLine,
-          cursorChar: cursorChar,
-          cursorYOffset: 8  // approximate lines rendered by QuestionDisplay above
+          cursorChar: cursorChar
         }),
         React.createElement(QuestionnaireProgress, {
           current: currentQuestionIndex,
