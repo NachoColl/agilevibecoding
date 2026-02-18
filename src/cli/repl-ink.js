@@ -3301,7 +3301,7 @@ const App = () => {
         sendWarning('Preserved worktrees/ — git worktrees, not deleted');
       }
 
-      sendNewline();
+      sendOutput('');
     } catch (error) {
       sendError(`Deletion failed: ${error.message}`);
       sendOutput('The .avc folder may be partially deleted — check manually.');
@@ -3740,7 +3740,7 @@ const App = () => {
         setMode('selector');
       }
     }
-  }, { isActive: mode === 'prompt' && !questionnaireActive && !modelConfigActive && isStableRender });
+  }, { isActive: mode === 'prompt' && !questionnaireActive && !modelConfigActive && !removeConfirmActive && isStableRender });
 
   // Handle keyboard input in selector mode
   useInput((inputChar, key) => {
