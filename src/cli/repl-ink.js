@@ -1090,42 +1090,22 @@ const DeploymentStrategySelector = ({ selectedIndex }) => {
 /**
  * Cloud Provider Selector Component
  */
-const CloudProviderSelector = ({ architectureName, selectedIndex }) => {
-  const providers = [
-    {
-      id: 'AWS',
-      name: 'Amazon Web Services',
-      description: 'Most comprehensive cloud platform with 200+ services and global reach',
-      icon: ''
-    },
-    {
-      id: 'Azure',
-      name: 'Microsoft Azure',
-      description: 'Strong .NET/Windows integration, excellent hybrid cloud capabilities',
-      icon: ''
-    },
-    {
-      id: 'GCP',
-      name: 'Google Cloud Platform',
-      description: 'Cutting-edge data/ML services, strong Kubernetes support',
-      icon: ''
-    }
-  ];
-
-  return React.createElement(Box, { flexDirection: 'column', borderStyle: 'bold', borderColor: 'cyan', paddingX: 1 },
-    React.createElement(Text, { bold: true }, 'Select Cloud Provider for "' + architectureName + '"'),
-    React.createElement(Text, { dimColor: true }, 'Your selected architecture requires a cloud provider. Choose one:'),
-    React.createElement(Box, { flexDirection: 'column', marginTop: 1, gap: 1, 'aria-role': 'list' },
-      ...providers.map((provider, idx) => {
-        const isSelected = idx === selectedIndex;
-
-        return React.createElement(Box, { key: provider.id, flexDirection: 'column', 'aria-role': 'listitem', 'aria-state': { selected: isSelected } },
-          React.createElement(Text, { color: isSelected ? 'green' : 'white', bold: isSelected, inverse: isSelected },
-            (isSelected ? '> ' : '  ') + provider.name + ' (' + provider.id + ')'
-          ),
-          React.createElement(Text, { dimColor: true, marginLeft: 4 },
-            provider.description
-          )
+const CloudProviderSelector = ({ selectedIndex }) => {
+  const labels = ['Amazon Web Services (AWS)', 'Microsoft Azure', 'Google Cloud Platform (GCP)'];
+  return React.createElement(Box, { flexDirection: 'column' },
+    React.createElement(Text, { bold: true, color: 'cyan' }, 'Select cloud provider:'),
+    React.createElement(Box, { flexDirection: 'column', marginTop: 1, 'aria-role': 'list' },
+      ...labels.map((label, i) => {
+        const isSelected = i === selectedIndex;
+        return React.createElement(Text, {
+          key: label,
+          color: isSelected ? 'green' : 'white',
+          bold: isSelected,
+          inverse: isSelected,
+          'aria-role': 'listitem',
+          'aria-state': { selected: isSelected }
+        },
+          (isSelected ? '> ' : '  ') + (i + 1) + '. ' + label
         );
       })
     ),
@@ -2556,6 +2536,7 @@ const App = () => {
         // Resume from deployment strategy selection
         if (savedProgress.stage === 'deployment-strategy') {
           setQuestionnaireAnswers(savedProgress.collectedValues || {});
+          appendDeploymentStrategyOptions();
           setDeploymentStrategySelectorActive(true);
           setDeploymentStrategyIndex(savedProgress.deploymentStrategyIndex || 0);
           setMode('prompt');
@@ -2602,7 +2583,9 @@ const App = () => {
           if (savedProgress.selectedDatabaseType) {
             setSelectedDatabaseType(savedProgress.selectedDatabaseType);
           }
-          setArchitectureOptions(savedProgress.architectureSelection?.options || []);
+          const resumeArchOptions = savedProgress.architectureSelection?.options || [];
+          setArchitectureOptions(resumeArchOptions);
+          appendArchitectureOptions(resumeArchOptions);
           setArchitectureSelectorActive(true);
           sendInfo('Resuming from architecture selection...');
           return;
@@ -2619,7 +2602,9 @@ const App = () => {
           if (savedProgress.selectedDatabaseType) {
             setSelectedDatabaseType(savedProgress.selectedDatabaseType);
           }
-          setSelectedArchitecture(savedProgress.architectureSelection?.selected || null);
+          const resumeCloudArch = savedProgress.architectureSelection?.selected || null;
+          setSelectedArchitecture(resumeCloudArch);
+          appendCloudProviderOptions(resumeCloudArch?.name || 'Cloud Architecture');
           setCloudProviderSelectorActive(true);
           sendInfo('Resuming from cloud provider selection...');
           return;
@@ -2903,6 +2888,7 @@ const App = () => {
       autoSaveProgress(currentAnswers);
 
       // Show deployment strategy selector
+      appendDeploymentStrategyOptions();
       setQuestionnaireActive(false);
       setMode('prompt');
       setDeploymentStrategySelectorActive(true);
@@ -3080,6 +3066,7 @@ const App = () => {
       );
 
       // Activate selector BEFORE clearing isExecuting (same race-condition fix as database choice)
+      appendArchitectureOptions(architectures);
       setArchitectureOptions(architectures);
       setSelectedArchitectureIndex(0);
       setArchitectureSelectorActive(true);
@@ -4328,6 +4315,7 @@ const App = () => {
         await proceedToQuestionPrefilling(selected, null); // No cloud provider
       } else if (selected.requiresCloudProvider) {
         // Cloud deployment with cloud architecture: Show provider selector
+        appendCloudProviderOptions(selected.name);
         setCloudProviderSelectorActive(true);
         setCloudProviderIndex(0);
       } else {
@@ -4524,6 +4512,7 @@ const App = () => {
       setDatabaseChoiceActive(false);
       setDatabaseComparison(null);
       setRecommendedChoice(null);
+      appendDeploymentStrategyOptions();
       setDeploymentStrategySelectorActive(true);
       setDeploymentStrategyIndex(0);
       setMode('prompt');
@@ -5441,7 +5430,6 @@ const App = () => {
     // Show cloud provider selector if active
     if (cloudProviderSelectorActive) {
       return React.createElement(CloudProviderSelector, {
-        architectureName: selectedArchitecture?.name || 'Selected Architecture',
         selectedIndex: cloudProviderIndex
       });
     }
