@@ -820,8 +820,8 @@ const ProcessDetailsViewer = ({ process, onBack, onStop }) => {
   const manager = getProcessManager();
   const uptime = manager.formatUptime(manager.getUptime(process.id));
 
-  // Get recent output (last 50 lines)
-  const recentOutput = process.output.slice(-50);
+  // Get recent output (last 10 lines to keep dynamic area small)
+  const recentOutput = process.output.slice(-10);
 
   const statusColor = process.status === 'running' ? 'green' :
     process.status === 'stopped' ? 'yellow' :
