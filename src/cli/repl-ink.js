@@ -2190,7 +2190,8 @@ const App = () => {
 
           default:
             if (command.startsWith('/')) {
-              outputBuffer.append(`ERROR: Unknown command: ${command}\n\nType /help to see available commands\nTip: Try /h for help, /v for version, /q to exit`, 'ERROR');
+              outputBuffer.append(`ERROR: Unknown command: ${command}`, 'ERROR');
+              outputBuffer.append(`Type /help to see available commands\nTip: Try /h for help, /v for version, /q to exit`);
             } else {
               outputBuffer.append(`INFO: Commands must start with /\n\nExample: /init, /status, /help\nTip: Type / and press Enter to see all commands`, 'INFO');
             }

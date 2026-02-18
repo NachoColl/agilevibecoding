@@ -35,9 +35,25 @@ export const StaticOutput = ({ items }) => {
       if (badge) {
         // Strip the "TYPE: " prefix from content — badge already shows the type visually
         const displayContent = item.content.replace(/^(ERROR|WARNING|SUCCESS|INFO): /, '');
-        return React.createElement(Box, { key: item.id, flexDirection: 'row', gap: 1 },
-          React.createElement(Text, { backgroundColor: badge.bg, color: badge.fg }, badge.label),
-          React.createElement(Text, null, displayContent)
+        const lines = displayContent.split('\n');
+
+        if (lines.length === 1) {
+          // Single-line: badge + text side by side
+          return React.createElement(Box, { key: item.id, flexDirection: 'row', gap: 1 },
+            React.createElement(Text, { backgroundColor: badge.bg, color: badge.fg }, badge.label),
+            React.createElement(Text, null, displayContent)
+          );
+        }
+
+        // Multi-line: badge on first line only, subsequent lines fully left-aligned
+        return React.createElement(Box, { key: item.id, flexDirection: 'column' },
+          React.createElement(Box, { flexDirection: 'row', gap: 1 },
+            React.createElement(Text, { backgroundColor: badge.bg, color: badge.fg }, badge.label),
+            React.createElement(Text, null, lines[0])
+          ),
+          ...lines.slice(1).map((line, i) =>
+            React.createElement(Text, { key: i }, line)
+          )
         );
       }
 
