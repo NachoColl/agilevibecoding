@@ -1381,7 +1381,7 @@ Return the enhanced markdown document.`;
   async generateHierarchy(collectedValues) {
     const t0 = Date.now();
     debug('generateHierarchy called', { ceremony: this.ceremonyName, valuesCount: Object.keys(collectedValues).length });
-    sendSectionHeader('Generating project hierarchy...\n');
+    sendSectionHeader('Generating project hierarchy...');
 
     // Read agent instructions
     const epicStoryDecomposerAgent = fs.readFileSync(
@@ -1410,10 +1410,10 @@ Return the enhanced markdown document.`;
       throw new Error('Invalid hierarchy response: missing epics array');
     }
 
-    sendSuccess(`Generated ${hierarchy.epics.length} Epics with ${hierarchy.validation?.storyCount || 0} Stories\n`);
+    sendSuccess(`Generated ${hierarchy.epics.length} Epics with ${hierarchy.validation?.storyCount || 0} Stories`);
 
     // 2. Generate context.md files for each level
-    sendSectionHeader('Stage 6/7: Generating context.md files...\n');
+    sendSectionHeader('Stage 6/7: Generating context.md files...');
 
     // Calculate total contexts to generate
     const totalStories = hierarchy.epics.reduce((sum, epic) => sum + (epic.stories?.length || 0), 0);
@@ -1450,17 +1450,17 @@ Return the enhanced markdown document.`;
       }
     }
 
-    sendSuccess('Context generation complete\n');
+    sendSuccess('Context generation complete');
 
     // 3. Write all files to disk
-    sendSectionHeader('Stage 7/7: Writing files to disk...\n');
+    sendSectionHeader('Stage 7/7: Writing files to disk...');
     await this.writeHierarchyToFiles(hierarchy, projectContext, collectedValues);
 
     // Display token usage statistics
     if (this.llmProvider) {
       const mainUsage = this.llmProvider.getTokenUsage();
 
-      sendSectionHeader('Token Usage:\n');
+      sendSectionHeader('Token Usage:');
 
       // Main provider usage
       console.log(`   Main Provider (${this._providerName}):`);
@@ -1666,7 +1666,7 @@ Return your response as JSON following the exact structure specified in your ins
       projectContext.contextMarkdown,
       'utf8'
     );
-    sendSuccess('project/context.md\n');
+    sendSuccess('project/context.md');
 
     // 2. Write Epic and Story files
     for (const epic of hierarchy.epics) {
@@ -1772,7 +1772,7 @@ Return your response as JSON following the exact structure specified in your ins
       console.log(''); // Empty line between epics
     }
 
-    sendSuccess(`Hierarchy written to ${projectPath}/\n`);
+    sendSuccess(`Hierarchy written to ${projectPath}/`);
     sendSectionHeader(`Summary:`);
     console.log(`   • 1 Project (doc.md + context.md)`);
     console.log(`   • ${hierarchy.epics.length} Epics (doc.md + context.md + work.json each)`);
@@ -1826,7 +1826,7 @@ Return your response as JSON following the exact structure specified in your ins
     try {
       provider = await this.getValidationProviderForTypeInstance('documentation');
     } catch (error) {
-      sendWarning('Skipping validation (validation provider not available)\n');
+      sendWarning('Skipping validation (validation provider not available)');
       return {
         validationStatus: 'acceptable',
         overallScore: 75,
@@ -1838,7 +1838,7 @@ Return your response as JSON following the exact structure specified in your ins
     }
 
     if (!provider || typeof provider.generateJSON !== 'function') {
-      sendWarning('Skipping validation (validation provider not available)\n');
+      sendWarning('Skipping validation (validation provider not available)');
       return {
         validationStatus: 'acceptable',
         overallScore: 75,
@@ -1946,7 +1946,7 @@ Return your response as JSON following the exact structure specified in your ins
     try {
       provider = await this.getValidationProviderForTypeInstance('context');
     } catch (error) {
-      sendWarning('Skipping validation (validation provider not available)\n');
+      sendWarning('Skipping validation (validation provider not available)');
       return {
         validationStatus: 'acceptable',
         overallScore: 75,
@@ -1959,7 +1959,7 @@ Return your response as JSON following the exact structure specified in your ins
     }
 
     if (!provider || typeof provider.generateJSON !== 'function') {
-      sendWarning('Skipping validation (validation provider not available)\n');
+      sendWarning('Skipping validation (validation provider not available)');
       return {
         validationStatus: 'acceptable',
         overallScore: 75,
@@ -2055,12 +2055,12 @@ Return your response as JSON following the exact structure specified in your ins
     try {
       provider = await this.getValidationProviderForTypeInstance('documentation');
     } catch (error) {
-      sendWarning('Skipping improvement (validation provider not available)\n');
+      sendWarning('Skipping improvement (validation provider not available)');
       return docContent;
     }
 
     if (!provider || typeof provider.generateText !== 'function') {
-      sendWarning('Skipping improvement (validation provider not available)\n');
+      sendWarning('Skipping improvement (validation provider not available)');
       return docContent;
     }
 
@@ -2139,12 +2139,12 @@ Return your response as JSON following the exact structure specified in your ins
     try {
       provider = await this.getValidationProviderForTypeInstance('context');
     } catch (error) {
-      sendWarning('Skipping improvement (validation provider not available)\n');
+      sendWarning('Skipping improvement (validation provider not available)');
       return contextContent;
     }
 
     if (!provider || typeof provider.generateText !== 'function') {
-      sendWarning('Skipping improvement (validation provider not available)\n');
+      sendWarning('Skipping improvement (validation provider not available)');
       return contextContent;
     }
 

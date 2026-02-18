@@ -2089,7 +2089,8 @@ const App = () => {
             const storyIdMatch = input.match(/^\/seed\s+(\S+)/);
             if (!storyIdMatch) {
               fileLog('ERROR', '/seed called without story ID', { input });
-              outputBuffer.append('\nERROR: Story ID required\n\n  Usage: /seed <story-id>\n  Example: /seed context-0001-0001\n\n');
+              outputBuffer.append('Story ID required', 'ERROR');
+              outputBuffer.append('Usage: /seed <story-id>\nExample: /seed context-0001-0001');
               break;
             }
             const storyId = storyIdMatch[1];
@@ -2190,14 +2191,15 @@ const App = () => {
 
           default:
             if (command.startsWith('/')) {
-              outputBuffer.append(`ERROR: Unknown command: ${command}`, 'ERROR');
+              outputBuffer.append(`Unknown command: ${command}`, 'ERROR');
               outputBuffer.append(`Type /help to see available commands\nTip: Try /h for help, /v for version, /q to exit`);
             } else {
-              outputBuffer.append(`INFO: Commands must start with /\n\nExample: /init, /status, /help\nTip: Type / and press Enter to see all commands`, 'INFO');
+              outputBuffer.append('Commands must start with /', 'INFO');
+              outputBuffer.append('Example: /init, /status, /help\nTip: Type / and press Enter to see all commands');
             }
         }
       } catch (error) {
-        outputBuffer.append(`ERROR: Error: ${error.message}`, 'ERROR');
+        outputBuffer.append(`Error: ${error.message}`, 'ERROR');
       } finally {
         // For /sponsor-call, keep logger active during questionnaire
         // For other commands, stop logger immediately
@@ -2234,8 +2236,8 @@ const App = () => {
       }, 100);
     } catch (outerError) {
       // Handle any unexpected errors
-      console.error('Unexpected error in executeCommand:', outerError);
-      sendError(`Unexpected error: ${outerError.message}\n\n   Please try again or type /help for assistance`);
+      outputBuffer.append(`Unexpected error: ${outerError.message}`, 'ERROR');
+      outputBuffer.append('Please try again or type /help for assistance');
       setIsExecuting(false);
       clearProgress();
       setMode('prompt');
@@ -2386,7 +2388,8 @@ const App = () => {
     setIsExecuting(false);
 
     if (!validationResult.valid) {
-      sendError(`API Key Validation Failed\n\n   ${validationResult.message}\n`);
+      sendError('API Key Validation Failed');
+      sendOutput(validationResult.message);
       setMode('prompt');
       return; // Exit early - don't show questionnaire
     }
@@ -2405,7 +2408,8 @@ const App = () => {
       // Previous run was interrupted during LLM generation
       history.cleanupAbruptTermination('sponsor-call');
 
-      sendWarning('Previous sponsor call was interrupted during document generation.\nStarting fresh...\n');
+      sendWarning('Previous sponsor call was interrupted during document generation.');
+      sendOutput('Starting fresh...');
 
       // Delete stale progress file
       if (fs.existsSync(progressPath)) {
@@ -2429,7 +2433,7 @@ const App = () => {
           setDeploymentStrategySelectorActive(true);
           setDeploymentStrategyIndex(savedProgress.deploymentStrategyIndex || 0);
           setMode('prompt');
-          sendInfo('Resuming from deployment strategy selection...\n');
+          sendInfo('Resuming from deployment strategy selection...');
           return;
         }
 
@@ -2444,7 +2448,7 @@ const App = () => {
           setDatabaseChoiceActive(true);
           setDatabaseChoiceIndex(0);
           setMode('prompt');
-          sendInfo('Resuming from database analysis...\n');
+          sendInfo('Resuming from database analysis...');
           return;
         }
 
@@ -2456,7 +2460,7 @@ const App = () => {
           setDatabaseQuestionIndex(savedProgress.databaseQuestionIndex || 0);
           setDatabaseQuestionsActive(true);
           setMode('prompt');
-          sendInfo('Resuming from database deep-dive questions...\n');
+          sendInfo('Resuming from database deep-dive questions...');
           return;
         }
 
@@ -2473,7 +2477,7 @@ const App = () => {
           }
           setArchitectureOptions(savedProgress.architectureSelection?.options || []);
           setArchitectureSelectorActive(true);
-          sendInfo('Resuming from architecture selection...\n');
+          sendInfo('Resuming from architecture selection...');
           return;
         }
 
@@ -2490,7 +2494,7 @@ const App = () => {
           }
           setSelectedArchitecture(savedProgress.architectureSelection?.selected || null);
           setCloudProviderSelectorActive(true);
-          sendInfo('Resuming from cloud provider selection...\n');
+          sendInfo('Resuming from cloud provider selection...');
           return;
         }
 
@@ -2504,7 +2508,7 @@ const App = () => {
           // Resume from saved progress - show preview to allow editing any question
           setQuestionnaireAnswers(savedProgress.collectedValues || {});
           setShowPreview(true);
-          sendInfo('Resuming from saved progress...\n');
+          sendInfo('Resuming from saved progress...');
           return;
         }
       }
@@ -2606,7 +2610,7 @@ const App = () => {
 
       // Check for error result
       if (result && result.error) {
-        sendError(`${result.message}\n`);
+        sendError(result.message);
         return;
       }
 
@@ -2896,8 +2900,6 @@ const App = () => {
       }
     } catch (error) {
       // Graceful degradation - skip database analysis on error
-      console.error('Database analysis failed:', error.message);
-
       sendWarning(`Database analysis failed (${error.message})`);
       sendOutput('Proceeding with architecture analysis...\n');
 
@@ -2952,8 +2954,6 @@ const App = () => {
       autoSaveProgress();
     } catch (error) {
       // Graceful degradation - skip architecture selection on error
-      console.error('Architecture recommendation failed:', error.message);
-
       // Clear executing state
       setExecutingMessage('');
       setExecutingSubstep('');
@@ -3111,8 +3111,6 @@ const App = () => {
 
     } catch (error) {
       // Graceful degradation
-      console.error('Question pre-filling failed:', error.message);
-
       // Clear executing state
       setExecutingMessage('');
       setExecutingSubstep('');
@@ -3302,7 +3300,7 @@ const App = () => {
         sendWarning('Preserved worktrees/ — git worktrees, not deleted');
       }
 
-      sendSuccess('\n');
+      sendNewline();
     } catch (error) {
       sendError(`Deletion failed: ${error.message}`);
       sendOutput('The .avc folder may be partially deleted — check manually.');
