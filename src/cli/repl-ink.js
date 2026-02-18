@@ -1615,6 +1615,23 @@ const ConfigurationOverview = ({ overview, selectedIndex }) => {
   return React.createElement(Box, { flexDirection: 'column', borderStyle: 'round', borderColor: 'cyan', paddingX: 1 }, ...children);
 };
 
+// Compact navigation hint shown in dynamic area when overview is in static buffer
+const ConfigurationOverviewNav = ({ overview, selectedIndex }) => {
+  if (!overview) return null;
+  const items = [{ ...overview.main }];
+  overview.stages.forEach(stage => {
+    items.push({ ...stage });
+    if (stage.validationTypes) stage.validationTypes.forEach(vt => items.push({ ...vt }));
+  });
+  const item = items[selectedIndex];
+  return React.createElement(Box, { flexDirection: 'column' },
+    React.createElement(Text, { color: 'green', bold: true },
+      `> ${item ? item.label : ''}  (${selectedIndex + 1}/${items.length})`
+    ),
+    React.createElement(Text, { dimColor: true }, '↑/↓: Navigate | Enter: Change model | Esc: Back')
+  );
+};
+
 /**
  * Validation Type Selector Component
  */
@@ -5086,6 +5103,7 @@ const App = () => {
       // Load configuration overview
       try {
         const overview = modelConfigurator.getConfigurationOverview(ceremony.name);
+        appendConfigurationOverview(overview);
         setConfigOverview(overview);
         setModelConfigMode('overview');
         setOverviewSelectIndex(0);
@@ -5284,6 +5302,7 @@ const App = () => {
       if (configOverview) {
         try {
           const updatedOverview = modelConfigurator.getConfigurationOverview(selectedCeremony.name);
+          appendConfigurationOverview(updatedOverview);
           setConfigOverview(updatedOverview);
           setModelConfigMode('overview');
         } catch (error) {
@@ -5523,7 +5542,7 @@ const App = () => {
     }
 
     if (modelConfigMode === 'overview' && configOverview) {
-      return React.createElement(ConfigurationOverview, {
+      return React.createElement(ConfigurationOverviewNav, {
         overview: configOverview,
         selectedIndex: overviewSelectIndex
       });
