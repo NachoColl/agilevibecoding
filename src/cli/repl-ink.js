@@ -213,14 +213,7 @@ const MultiLineInput = React.memo(({ lines, showCharCount = true, cursorLine = n
     setCursorPosition({ x: cursorChar, y: cursorYOffset + cursorLine });
   }
 
-  // Early return for empty lines (no memoization needed)
-  if (lines.length === 0) {
-    return React.createElement(Box, { flexDirection: 'column', flexShrink: 0 },
-      React.createElement(Text, { dimColor: true },
-        React.createElement(Text, { inverse: true }, ' ')
-      )
-    );
-  }
+  // All hooks must be called unconditionally (Rules of Hooks) — before any early return
 
   // Memoize character count calculation (only recalculate when lines change)
   const totalChars = useMemo(() =>
@@ -241,6 +234,15 @@ const MultiLineInput = React.memo(({ lines, showCharCount = true, cursorLine = n
       hiddenCount: hidden
     };
   }, [lines]);
+
+  // Early return for empty lines — all hooks already called above
+  if (lines.length === 0) {
+    return React.createElement(Box, { flexDirection: 'column', flexShrink: 0 },
+      React.createElement(Text, { dimColor: true },
+        React.createElement(Text, { inverse: true }, ' ')
+      )
+    );
+  }
 
   return React.createElement(Box, { flexDirection: 'column', flexShrink: 0 },
     hasMoreLines && React.createElement(Text, { dimColor: true },
