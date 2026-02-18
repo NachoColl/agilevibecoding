@@ -3885,7 +3885,7 @@ const App = () => {
         setMode('selector');
       }
     }
-  }, { isActive: mode === 'prompt' && !questionnaireActive && !modelConfigActive && !removeConfirmActive && isStableRender });
+  }, { isActive: mode === 'prompt' && !questionnaireActive && !modelConfigActive && !removeConfirmActive && !deploymentStrategySelectorActive && !architectureSelectorActive && !cloudProviderSelectorActive && !databaseChoiceActive && isStableRender });
 
   // Handle keyboard input in selector mode
   useInput((inputChar, key) => {
