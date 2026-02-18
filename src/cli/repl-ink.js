@@ -348,6 +348,13 @@ const AnswersPreview = ({ answers, questions, defaultSuggested, aiPrefilled }) =
   );
 };
 
+// Compact action hint shown in dynamic area when preview is displayed in static output
+const AnswersPreviewActions = () => {
+  return React.createElement(Box, { flexDirection: 'column', marginTop: 1 },
+    React.createElement(Text, { dimColor: true }, 'Type 1-6 to edit | Enter to submit | Esc to cancel')
+  );
+};
+
 // Cancel questionnaire confirmation component
 const CancelQuestionnaireConfirmation = () => {
   return React.createElement(Box, { flexDirection: 'column' },
@@ -1031,24 +1038,21 @@ const ModelConfigPrompt = () => {
  * Architecture Selector Component
  */
 const ArchitectureSelector = ({ architectures, selectedIndex }) => {
-  return React.createElement(Box, { flexDirection: 'column', borderStyle: 'bold', borderColor: 'cyan', paddingX: 1 },
-    React.createElement(Text, { bold: true }, 'Recommended Deployment Architectures'),
-    React.createElement(Text, { dimColor: true }, 'Based on your mission and scope, here are recommended approaches:'),
-    React.createElement(Box, { flexDirection: 'column', marginTop: 1, gap: 1, 'aria-role': 'list' },
+  return React.createElement(Box, { flexDirection: 'column' },
+    React.createElement(Text, { bold: true, color: 'cyan' }, 'Select architecture:'),
+    React.createElement(Box, { flexDirection: 'column', marginTop: 1, 'aria-role': 'list' },
       ...architectures.map((arch, idx) => {
-        const icon = arch.requiresCloudProvider ? '[Cloud]' : '[Local]';
+        const tag = arch.requiresCloudProvider ? '[Cloud]' : '[Local]';
         const isSelected = idx === selectedIndex;
-
-        return React.createElement(Box, { key: arch.name, flexDirection: 'column', 'aria-role': 'listitem', 'aria-state': { selected: isSelected } },
-          React.createElement(Text, { color: isSelected ? 'green' : 'white', bold: isSelected, inverse: isSelected },
-            (isSelected ? '> ' : '  ') + icon + ' ' + arch.name
-          ),
-          React.createElement(Text, { dimColor: true, marginLeft: 4 },
-            arch.description
-          ),
-          React.createElement(Text, { italic: true, dimColor: true, marginLeft: 4 },
-            'Best for: ' + arch.bestFor
-          )
+        return React.createElement(Text, {
+          key: arch.name,
+          color: isSelected ? 'green' : 'white',
+          bold: isSelected,
+          inverse: isSelected,
+          'aria-role': 'listitem',
+          'aria-state': { selected: isSelected }
+        },
+          (isSelected ? '> ' : '  ') + (idx + 1) + '. ' + tag + ' ' + arch.name
         );
       })
     ),
@@ -1061,75 +1065,25 @@ const ArchitectureSelector = ({ architectures, selectedIndex }) => {
  * Explicit choice: Local MVP First or Cloud Deployment
  */
 const DeploymentStrategySelector = ({ selectedIndex }) => {
-  const strategies = [
-    {
-      id: 'local-mvp',
-      icon: '',
-      label: 'Local MVP First',
-      description: 'Build and validate your MVP on your local machine',
-      details: [
-        'Zero cloud costs during development phase',
-        'Run on localhost or Docker Compose',
-        'Migrate to cloud when ready for production'
-      ],
-      bestFor: 'Validating ideas, learning, budget-conscious projects'
-    },
-    {
-      id: 'cloud',
-      icon: '',
-      label: 'Cloud Deployment',
-      description: 'Deploy to production cloud infrastructure from day one',
-      details: [
-        'AWS, Azure, or Google Cloud Platform',
-        'Scalable managed services, production-ready',
-        'Immediate global availability'
-      ],
-      bestFor: 'Enterprise projects, immediate scale requirements'
-    }
-  ];
-
-  return React.createElement(Box, { flexDirection: 'column', borderStyle: 'bold', borderColor: 'cyan', paddingX: 1, marginY: 1 },
-    React.createElement(Text, { bold: true, color: 'cyan' }, 'Deployment Strategy'),
-    React.createElement(Text, null, 'Choose how you want to deploy your application:'),
-
-    React.createElement(Box, { flexDirection: 'column', marginTop: 1, gap: 2, 'aria-role': 'list' },
-      ...strategies.map((strategy, i) => {
+  const labels = ['Local MVP First', 'Cloud Deployment'];
+  return React.createElement(Box, { flexDirection: 'column' },
+    React.createElement(Text, { bold: true, color: 'cyan' }, 'Select deployment strategy:'),
+    React.createElement(Box, { flexDirection: 'column', marginTop: 1, 'aria-role': 'list' },
+      ...labels.map((label, i) => {
         const isSelected = i === selectedIndex;
-
-        return React.createElement(Box, { key: strategy.id, flexDirection: 'column', 'aria-role': 'listitem', 'aria-state': { selected: isSelected } },
-          // Label with arrow
-          React.createElement(Box, { flexDirection: 'row' },
-            React.createElement(Text, { color: 'white' }, '> '),
-            React.createElement(Text, {
-              bold: true,
-              inverse: isSelected,
-              color: isSelected ? 'green' : 'white'
-            }, strategy.label)
-          ),
-
-          // Description
-          React.createElement(Box, { marginLeft: 3, marginTop: 1, flexDirection: 'column' },
-            React.createElement(Text, { color: 'gray' }, strategy.description),
-
-            // Details
-            React.createElement(Box, { marginTop: 1, flexDirection: 'column' },
-              ...strategy.details.map((detail, j) =>
-                React.createElement(Text, { key: `detail-${j}`, color: 'gray' }, '  • ' + detail)
-              )
-            ),
-
-            // Best for
-            React.createElement(Text, { color: 'yellow', marginTop: 1 },
-              '\nBest for: ' + strategy.bestFor
-            )
-          )
+        return React.createElement(Text, {
+          key: label,
+          color: isSelected ? 'green' : 'white',
+          bold: isSelected,
+          inverse: isSelected,
+          'aria-role': 'listitem',
+          'aria-state': { selected: isSelected }
+        },
+          (isSelected ? '> ' : '  ') + (i + 1) + '. ' + label
         );
       })
     ),
-
-    React.createElement(Box, { marginTop: 1 },
-      React.createElement(Text, { color: 'gray' }, '↑/↓: Navigate | 1-2: Quick select | Enter: Confirm | Esc: Skip')
-    )
+    React.createElement(Text, { dimColor: true }, '↑/↓: Navigate | 1-2: Quick select | Enter: Confirm | Esc: Skip')
   );
 };
 
@@ -1243,6 +1197,135 @@ const appendDatabaseComparison = (comparison) => {
   if (nosqlCost) outputBuffer.append(yellow(`  Cost: ${nosqlCost}`));
 
   outputBuffer.append('');
+};
+
+/**
+ * Write answers preview to static output buffer.
+ * Called before setShowPreview(true) so the dynamic area only needs
+ * the compact action-hint component (3 lines) instead of 20-60 lines.
+ */
+const appendAnswersPreview = (answers, questions, defaultSuggested, aiPrefilled) => {
+  const hasAiPrefilled = aiPrefilled && aiPrefilled.size > 0;
+
+  outputBuffer.append(boldCyan('Review Your Answers'));
+  if (hasAiPrefilled) {
+    outputBuffer.append(gray('AI = AI-suggested (you can edit) | User = User-entered'));
+  }
+  outputBuffer.append('');
+
+  questions.forEach((question, idx) => {
+    const answer = answers[question.key];
+    const isDefault = defaultSuggested && defaultSuggested.has(question.key);
+    const isAiPrefilled = aiPrefilled && aiPrefilled.has(question.key);
+
+    let prefix = '';
+    if (isDefault) prefix = gray('(default) ');
+    else if (isAiPrefilled) prefix = yellow('AI: ');
+    else if (answer) prefix = '';
+
+    outputBuffer.append(bold(`${idx + 1}. ${question.title}`));
+    if (answer) {
+      answer.split('\n').forEach(line => {
+        const color = isDefault ? gray : isAiPrefilled ? yellow : (s => s);
+        outputBuffer.append(`  ${prefix}${color(line)}`);
+      });
+    } else {
+      outputBuffer.append(gray('  (Skipped - will use AI suggestion)'));
+    }
+    outputBuffer.append('');
+  });
+};
+
+/**
+ * Write deployment strategy options to static output buffer before activating the selector.
+ */
+const appendDeploymentStrategyOptions = () => {
+  outputBuffer.append(boldCyan('Deployment Strategy'));
+  outputBuffer.append('Choose how you want to deploy your application:');
+  outputBuffer.append('');
+  outputBuffer.append(green('1. Local MVP First'));
+  outputBuffer.append(gray('   Build and validate your MVP on your local machine'));
+  outputBuffer.append(gray('   • Zero cloud costs during development phase'));
+  outputBuffer.append(gray('   • Run on localhost or Docker Compose'));
+  outputBuffer.append(gray('   • Migrate to cloud when ready for production'));
+  outputBuffer.append(yellow('   Best for: Validating ideas, learning, budget-conscious projects'));
+  outputBuffer.append('');
+  outputBuffer.append(green('2. Cloud Deployment'));
+  outputBuffer.append(gray('   Deploy to production cloud infrastructure from day one'));
+  outputBuffer.append(gray('   • AWS, Azure, or Google Cloud Platform'));
+  outputBuffer.append(gray('   • Scalable managed services, production-ready'));
+  outputBuffer.append(gray('   • Immediate global availability'));
+  outputBuffer.append(yellow('   Best for: Enterprise projects, immediate scale requirements'));
+  outputBuffer.append('');
+};
+
+/**
+ * Write architecture options to static output buffer before activating the selector.
+ */
+const appendArchitectureOptions = (architectures) => {
+  if (!architectures || architectures.length === 0) return;
+  outputBuffer.append(boldCyan('Recommended Deployment Architectures'));
+  outputBuffer.append(gray('Based on your mission and scope, here are recommended approaches:'));
+  outputBuffer.append('');
+  architectures.forEach((arch, idx) => {
+    const tag = arch.requiresCloudProvider ? '[Cloud]' : '[Local]';
+    outputBuffer.append(green(`${idx + 1}. ${tag} ${arch.name}`));
+    if (arch.description) outputBuffer.append(gray(`   ${arch.description}`));
+    if (arch.bestFor) outputBuffer.append(gray(`   Best for: ${arch.bestFor}`));
+    outputBuffer.append('');
+  });
+};
+
+/**
+ * Write cloud provider options to static output buffer before activating the selector.
+ */
+const appendCloudProviderOptions = (architectureName) => {
+  const providers = [
+    { id: 'AWS', name: 'Amazon Web Services', description: 'Most comprehensive cloud platform with 200+ services and global reach' },
+    { id: 'Azure', name: 'Microsoft Azure', description: 'Strong .NET/Windows integration, excellent hybrid cloud capabilities' },
+    { id: 'GCP', name: 'Google Cloud Platform', description: 'Cutting-edge data/ML services, strong Kubernetes support' }
+  ];
+  outputBuffer.append(boldCyan(`Cloud Provider for "${architectureName}"`));
+  outputBuffer.append(gray('Your selected architecture requires a cloud provider:'));
+  outputBuffer.append('');
+  providers.forEach((p, idx) => {
+    outputBuffer.append(green(`${idx + 1}. ${p.name} (${p.id})`));
+    outputBuffer.append(gray(`   ${p.description}`));
+    outputBuffer.append('');
+  });
+};
+
+/**
+ * Write model configuration overview to static output buffer before activating overview nav.
+ */
+const appendConfigurationOverview = (overview) => {
+  if (!overview) return;
+
+  const items = [];
+  items.push({ ...overview.main, type: 'main' });
+  overview.stages.forEach(stage => {
+    items.push({ ...stage, type: 'stage' });
+    if (stage.validationTypes) {
+      stage.validationTypes.forEach(vtype => {
+        items.push({ ...vtype, type: 'validation-type', parentStage: stage.id });
+      });
+    }
+  });
+
+  outputBuffer.append(boldCyan(`Model Configuration - ${overview.ceremony}`));
+  outputBuffer.append('');
+  items.forEach((item, idx) => {
+    const indent = '  '.repeat(item.level || 0);
+    outputBuffer.append(`${indent}${bold(item.label || 'Unknown')}`);
+    outputBuffer.append(gray(`${indent}  Provider: ${item.provider || 'N/A'} | Model: ${item.model || 'N/A'}`));
+    if (item.calls > 0) {
+      outputBuffer.append(gray(`${indent}  Calls: ~${item.calls} | Cost: ${item.formattedCost || 'N/A'}`));
+    }
+    if (item.validators && item.validators.length > 0) {
+      outputBuffer.append(gray(`${indent}  Validators: ${item.validators.slice(0, 3).join(', ')}${item.validators.length > 3 ? '...' : ''}`));
+    }
+    outputBuffer.append('');
+  });
 };
 
 /**
@@ -2550,7 +2633,11 @@ const App = () => {
           }
 
           // Resume from saved progress - show preview to allow editing any question
-          setQuestionnaireAnswers(savedProgress.collectedValues || {});
+          const resumeAnswers = savedProgress.collectedValues || {};
+          const resumeAiPrefilled = savedProgress.aiPrefilledQuestions && Array.isArray(savedProgress.aiPrefilledQuestions)
+            ? new Set(savedProgress.aiPrefilledQuestions) : new Set();
+          appendAnswersPreview(resumeAnswers, questionnaireQuestions, defaultSuggestedAnswers, resumeAiPrefilled);
+          setQuestionnaireAnswers(resumeAnswers);
           setShowPreview(true);
           sendInfo('Resuming from saved progress...');
           return;
@@ -2784,20 +2871,21 @@ const App = () => {
       }));
     }
 
+    // Build current answers including the just-answered value (to avoid React state timing issues)
+    const currentAnswers = {
+      ...questionnaireAnswers,
+      ...(justAnsweredKey && { [justAnsweredKey]: justAnsweredValue })
+    };
+
     // If editing from preview, return to preview after submitting the edit
     if (isEditingFromPreview) {
+      appendAnswersPreview(currentAnswers, questionnaireQuestions, defaultSuggestedAnswers, aiPrefilledQuestions);
       setIsEditingFromPreview(false);
       setEditingQuestionIndex(-1);
       setShowPreview(true);
       setQuestionnaireActive(false);
       return;
     }
-
-    // Build current answers including the just-answered value (to avoid React state timing issues)
-    const currentAnswers = {
-      ...questionnaireAnswers,
-      ...(justAnsweredKey && { [justAnsweredKey]: justAnsweredValue })
-    };
 
     // Check if we just answered INITIAL_SCOPE (index 1)
     // If so, show deployment strategy selector before proceeding
@@ -2826,17 +2914,21 @@ const App = () => {
       setCurrentQuestionIndex(currentQuestionIndex + 1);
     } else {
       // All questions answered - show preview
-      await submitQuestionnaire();
+      await submitQuestionnaire(currentAnswers);
     }
   };
 
-  const submitQuestionnaire = async () => {
+  const submitQuestionnaire = async (currentAnswers = null) => {
     // Set state changes FIRST
     setQuestionnaireActive(false);
     setMode('executing');
 
     // Delay for React/Ink to flush rendering buffer (longer delay for Ink's double buffering)
     await new Promise(resolve => setTimeout(resolve, 250));
+
+    // Write answers preview to static buffer before activating preview mode
+    const answersToShow = currentAnswers || questionnaireAnswers;
+    appendAnswersPreview(answersToShow, questionnaireQuestions, defaultSuggestedAnswers, aiPrefilledQuestions);
 
     // Now show preview
     setShowPreview(true);
@@ -4058,6 +4150,10 @@ const App = () => {
         }
 
         saveQuestionnaireAnswer(questionKey, finalAnswer || null);
+
+        // Build merged answers (React state hasn't updated yet) for static preview
+        const mergedAnswers = { ...questionnaireAnswers, [questionKey]: finalAnswer || null };
+        appendAnswersPreview(mergedAnswers, questionnaireQuestions, defaultSuggestedAnswers, aiPrefilledQuestions);
 
         setIsEditingFromPreview(false);
         setEditingQuestionIndex(-1);
@@ -5350,14 +5446,9 @@ const App = () => {
       });
     }
 
-    // Show preview if active
+    // Show preview if active (content already written to static buffer via appendAnswersPreview)
     if (showPreview) {
-      return React.createElement(AnswersPreview, {
-        answers: questionnaireAnswers,
-        questions: questionnaireQuestions,
-        defaultSuggested: defaultSuggestedAnswers,
-        aiPrefilled: aiPrefilledQuestions
-      });
+      return React.createElement(AnswersPreviewActions);
     }
 
     // Show questionnaire if active (guard: never show questionnaire while executing to prevent Q1 flash)
