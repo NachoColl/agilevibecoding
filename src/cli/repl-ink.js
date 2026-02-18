@@ -2173,7 +2173,7 @@ const App = () => {
             const runningOnRestart = restartManager.getRunningProcesses();
 
             if (runningOnRestart.length > 0) {
-              outputBuffer.append(`\n${gray('Stopping background processes...')}\n`);
+              outputBuffer.append(`${gray('Stopping background processes...')}\n`);
               const stopped = restartManager.stopAll();
               outputBuffer.append(`${green(`Stopped ${stopped} process(es)`)}\n\n`);
             }
@@ -2288,7 +2288,7 @@ const App = () => {
       },
     ];
 
-    outputBuffer.append(`\n${boldCyan('Available Commands')}\n\n`);
+    outputBuffer.append(`${boldCyan('Available Commands')}\n\n`);
     for (const group of groups) {
       outputBuffer.append(`${boldCyan(group.title)}\n`);
       for (const [cmd, desc] of group.cmds) {
@@ -2308,11 +2308,9 @@ const App = () => {
 
   const showVersion = () => {
     const version = getVersion();
-    outputBuffer.append('\n');
     outputBuffer.append(`${boldCyan('AVC')}  ${bold(version)}\n`);
     outputBuffer.append(`${gray('Node')}  ${process.version}\n`);
     outputBuffer.append(`${gray('Docs')}  ${cyan('https://agilevibecoding.org')}\n`);
-    outputBuffer.append('\n');
   };
 
   const runInit = async () => {
@@ -3243,7 +3241,7 @@ const App = () => {
     // Check if project is initialized
     if (!initiator.isAvcProject()) {
       fileLog('WARNING', 'runRemove: no AVC project found, aborting');
-      outputBuffer.append('\nNo AVC project found in this directory.\nNothing to remove.\n');
+      outputBuffer.append('No AVC project found in this directory.\nNothing to remove.\n');
       return;
     }
 
@@ -3632,7 +3630,7 @@ const App = () => {
       const runningOnCtrlR = ctrlRManager.getRunningProcesses();
 
       if (runningOnCtrlR.length > 0) {
-        outputBuffer.append(`\n${gray('Stopping background processes...')}\n`);
+        outputBuffer.append(`${gray('Stopping background processes...')}\n`);
         const stopped = ctrlRManager.stopAll();
         outputBuffer.append(`${green(`Stopped ${stopped} process(es)`)}\n\n`);
       }
@@ -4746,7 +4744,7 @@ const App = () => {
         setRemoveConfirmActive(false);
         setRemoveConfirmInput('');
         setMode('prompt');
-        outputBuffer.append('\nOperation cancelled.\n\nNo files were deleted.\n');
+        outputBuffer.append('Operation cancelled.\n\nNo files were deleted.\n');
       }
       return;
     }
@@ -4762,7 +4760,7 @@ const App = () => {
       setRemoveConfirmActive(false);
       setRemoveConfirmInput('');
       setMode('prompt');
-      outputBuffer.append('\nOperation cancelled.\n\nNo files were deleted.\n');
+      outputBuffer.append('Operation cancelled.\n\nNo files were deleted.\n');
       return;
     }
 
@@ -4796,7 +4794,7 @@ const App = () => {
           setIsExecuting(false);
           setMode('prompt');
           outputBuffer.append(
-            `\nFailed to kill process ${processToKill.pid}\n\n` +
+            `Failed to kill process ${processToKill.pid}\n\n` +
             `   Unable to stop the process (permission denied or process protected).\n` +
             `   Please manually stop the process or change the port.\n\n` +
             `   To change the port, edit .avc/avc.json:\n` +
@@ -4811,7 +4809,7 @@ const App = () => {
           return;
         }
 
-        outputBuffer.append(`\nProcess ${processToKill.pid} killed successfully\n\n`);
+        outputBuffer.append(`Process ${processToKill.pid} killed successfully\n\n`);
 
         // Remove from process manager if it was managed
         const manager = getProcessManager();
@@ -4846,7 +4844,7 @@ const App = () => {
             `   View process output: /processes\n\n`
           );
         } catch (error) {
-          outputBuffer.append(`\nError: ${error.message}\n\n`);
+          outputBuffer.append(`Error: ${error.message}\n\n`);
         } finally {
           setIsExecuting(false);
           setMode('prompt');
@@ -4858,7 +4856,7 @@ const App = () => {
         setKillConfirmInput('');
         setMode('prompt');
         outputBuffer.append(
-          '\nOperation cancelled.\n\n' +
+          'Operation cancelled.\n\n' +
           `   To change the port, edit .avc/avc.json:\n` +
           `   {\n` +
           `     "settings": {\n` +
@@ -4873,7 +4871,7 @@ const App = () => {
         setKillConfirmActive(false);
         setKillConfirmInput('');
         setMode('prompt');
-        outputBuffer.append('\nInvalid response. Operation cancelled.\n\n');
+        outputBuffer.append('Invalid response. Operation cancelled.\n\n');
       }
       return;
     }
@@ -4889,7 +4887,7 @@ const App = () => {
       setKillConfirmActive(false);
       setKillConfirmInput('');
       setMode('prompt');
-      outputBuffer.append('\nOperation cancelled.\n\n');
+      outputBuffer.append('Operation cancelled.\n\n');
       return;
     }
 
@@ -4905,7 +4903,7 @@ const App = () => {
 
     // Handle Escape (cancel)
     if (key.escape) {
-      outputBuffer.append('\nYou can configure models later by editing .avc/avc.json\n');
+      outputBuffer.append('You can configure models later by editing .avc/avc.json\n');
       setModelConfigActive(false);
       setInput(''); // Clear input buffer
       setMode('prompt');
@@ -4918,9 +4916,8 @@ const App = () => {
       if (char === 'y') {
         setModelConfigMode('ceremony');
         setCeremonySelectIndex(0);
-        outputBuffer.append('\n');
       } else if (char === 'n') {
-        outputBuffer.append('\nYou can configure models later by editing .avc/avc.json\n');
+        outputBuffer.append('You can configure models later by editing .avc/avc.json\n');
         setModelConfigActive(false);
         setInput(''); // Clear input buffer
         setMode('prompt');
@@ -4968,7 +4965,7 @@ const App = () => {
       // Save configuration and exit
       if (configurationChanges.length > 0) {
         modelConfigurator.saveConfig();
-        outputBuffer.append('\nConfiguration saved successfully!\n');
+        outputBuffer.append('Configuration saved successfully!\n');
       }
       setModelConfigActive(false);
       setInput(''); // Clear input buffer
@@ -5142,7 +5139,7 @@ const App = () => {
         newModel: selectedModel.id
       }]);
 
-      outputBuffer.append(`\nUpdated ${stageName}: ${selectedStage.model} → ${selectedModel.id}\n`);
+      outputBuffer.append(`Updated ${stageName}: ${selectedStage.model} → ${selectedModel.id}\n`);
 
       // Clear validation type and go back to appropriate selection
       setSelectedValidationType(null);
@@ -5198,7 +5195,7 @@ const App = () => {
   const handleProcessStop = (processId) => {
     const manager = getProcessManager();
     manager.stopProcess(processId);
-    outputBuffer.append(`\nProcess stopped\n`);
+    outputBuffer.append(`Process stopped\n`);
     // Stay on details view to see final output
   };
 
