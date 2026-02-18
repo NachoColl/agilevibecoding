@@ -1588,6 +1588,7 @@ const App = () => {
   const answersRef = useRef({});
   const [currentAnswer, setCurrentAnswer] = useState([]);
   const [emptyLineCount, setEmptyLineCount] = useState(0);
+  const [questionnaireInlineWarning, setQuestionnaireInlineWarning] = useState('');
   const [editMode, setEditMode] = useState(false);
   const [showPreview, setShowPreview] = useState(false);
   const [lastAutoSave, setLastAutoSave] = useState(null);
@@ -1770,6 +1771,11 @@ const App = () => {
 
     return () => clearInterval(interval);
   }, [questionnaireActive, questionnaireAnswers, currentQuestionIndex, currentAnswer]);
+
+  // Clear inline warning whenever the question changes
+  useEffect(() => {
+    setQuestionnaireInlineWarning('');
+  }, [currentQuestionIndex]);
 
   // Sync background processes state
   useEffect(() => {
@@ -3816,7 +3822,7 @@ const App = () => {
 
         // Mission Statement is mandatory - cannot be skipped
         if (currentQuestionIndex === 0) {
-          sendInfo('Mission Statement is mandatory - please provide an answer');
+          setQuestionnaireInlineWarning('Mission Statement is mandatory - please provide an answer');
           return;
         }
 
@@ -5322,6 +5328,7 @@ const App = () => {
           total: questionnaireQuestions.length,
           editMode: editingQuestionIndex !== -1
         }),
+        questionnaireInlineWarning && React.createElement(Text, { color: 'yellow' }, questionnaireInlineWarning),
         React.createElement(MultiLineInput, {
           lines: currentAnswer,
           showCharCount: true,
