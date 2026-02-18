@@ -2641,6 +2641,7 @@ const App = () => {
       if (result && result.activities && result.activities.length > 0) {
         sendOutput('');
         sendOutput(boldCyan('Activities performed'));
+        sendOutput('');
         result.activities.forEach(activity => {
           sendIndented(`• ${activity}`, 1);
         });

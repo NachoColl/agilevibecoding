@@ -1548,6 +1548,7 @@ If you're new to Agile Vibe Coding, visit the [AVC Documentation](https://agilev
     const avcContents = this.getAvcContents();
     if (avcContents.length > 0) {
       sendOutput('.avc/ folder contents:');
+      sendOutput('');
       avcContents.forEach(item => {
         sendIndented(`• ${item}`, 1);
       });
@@ -1628,6 +1629,7 @@ If you're new to Agile Vibe Coding, visit the [AVC Documentation](https://agilev
             sendSuccess('Successfully deleted:');
             sendOutput('');
             sendOutput('.avc/ folder and all contents:');
+            sendOutput('');
             deletedItems.forEach(item => {
               sendIndented(`• ${item}`, 3);
             });
@@ -1640,6 +1642,7 @@ If you're new to Agile Vibe Coding, visit the [AVC Documentation](https://agilev
 
               if (hasEnvFile) {
                 sendOutput('The .env file was NOT deleted and still contains:');
+                sendOutput('');
                 sendIndented('• ANTHROPIC_API_KEY', 1);
                 sendIndented('• GEMINI_API_KEY', 1);
                 sendIndented('• OPENAI_API_KEY', 1);
