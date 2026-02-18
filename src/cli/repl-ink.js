@@ -15,7 +15,7 @@ import { UpdateInstaller } from './update-installer.js';
 import { CommandLogger } from './command-logger.js';
 import { BackgroundProcessManager } from './process-manager.js';
 import { registerCallbacks, startCommand, endCommand, cancelCommand, sendCeremonyHeader, sendProgress, sendSubstep, sendOutput, sendIndented, sendError, sendWarning, sendSuccess, sendInfo, sendDebug, clearProgress } from './messaging-api.js';
-import { bold, gray, cyan, green, boldCyan } from './ansi-colors.js';
+import { bold, gray, cyan, green, yellow, boldCyan } from './ansi-colors.js';
 import { outputBuffer } from './output-buffer.js';
 import { StaticOutput } from './components/static-output.js';
 import { getProjectNotInitializedMessage, getCeremonyHeader } from './message-constants.js';
@@ -1197,6 +1197,52 @@ const toCostMarks = (costStr) => {
     return '$$$$$';
   }
   return '$$$'; // unknown → mid-range
+};
+
+/**
+ * Write database comparison to static output buffer.
+ * Called once when comparison is ready so Ink's dynamic area
+ * only needs to render the small DatabaseChoiceSelector.
+ */
+const appendDatabaseComparison = (comparison) => {
+  if (!comparison) return;
+
+  const metrics = comparison.keyMetrics || {};
+
+  const sqlExamples = [comparison.sqlOption.database, 'PostgreSQL', 'MySQL', 'SQLite']
+    .filter((db, idx, arr) => arr.indexOf(db) === idx)
+    .slice(0, 3)
+    .join(', ');
+  const nosqlExamples = [comparison.nosqlOption.database, 'MongoDB', 'DynamoDB', 'Firestore']
+    .filter((db, idx, arr) => arr.indexOf(db) === idx)
+    .slice(0, 3)
+    .join(', ');
+
+  outputBuffer.append(boldCyan('Database Options Comparison'));
+
+  if (metrics.estimatedReadWriteRatio || metrics.expectedThroughput || metrics.dataComplexity) {
+    const parts = [];
+    if (metrics.estimatedReadWriteRatio) parts.push(`R/W: ${metrics.estimatedReadWriteRatio}`);
+    if (metrics.expectedThroughput) parts.push(`Throughput: ${metrics.expectedThroughput}`);
+    if (metrics.dataComplexity) parts.push(`Complexity: ${metrics.dataComplexity}`);
+    outputBuffer.append(gray(parts.join('  ')));
+  }
+
+  outputBuffer.append('');
+  outputBuffer.append(green(`SQL (e.g., ${sqlExamples})`));
+  (comparison.sqlOption.pros || []).slice(0, 3).forEach(pro => outputBuffer.append(gray(`  + ${pro}`)));
+  (comparison.sqlOption.cons || []).slice(0, 3).forEach(con => outputBuffer.append(gray(`  - ${con}`)));
+  const sqlCost = toCostMarks(comparison.sqlOption.estimatedCosts?.monthly);
+  if (sqlCost) outputBuffer.append(yellow(`  Cost: ${sqlCost}`));
+
+  outputBuffer.append('');
+  outputBuffer.append(cyan(`NoSQL (e.g., ${nosqlExamples})`));
+  (comparison.nosqlOption.pros || []).slice(0, 3).forEach(pro => outputBuffer.append(gray(`  + ${pro}`)));
+  (comparison.nosqlOption.cons || []).slice(0, 3).forEach(con => outputBuffer.append(gray(`  - ${con}`)));
+  const nosqlCost = toCostMarks(comparison.nosqlOption.estimatedCosts?.monthly);
+  if (nosqlCost) outputBuffer.append(yellow(`  Cost: ${nosqlCost}`));
+
+  outputBuffer.append('');
 };
 
 /**
@@ -2441,6 +2487,7 @@ const App = () => {
           if (savedProgress.databaseComparison) {
             setDatabaseComparison(savedProgress.databaseComparison);
             setRecommendedChoice(savedProgress.recommendedChoice || 'sql');
+            appendDatabaseComparison(savedProgress.databaseComparison);
           }
           setDatabaseChoiceActive(true);
           setDatabaseChoiceIndex(0);
@@ -2876,6 +2923,10 @@ const App = () => {
         setDatabaseComparison(dbRec.comparison);
         setRecommendedChoice(dbRec.recommendedChoice || 'sql'); // Default to SQL if not specified
 
+        // Write comparison to static output before activating selector.
+        // This prevents Ink height-tracking issues with the large comparison panel.
+        appendDatabaseComparison(dbRec.comparison);
+
         // Activate selector BEFORE clearing isExecuting to prevent Q1 flash:
         // if isExecuting goes false before databaseChoiceActive is true, an intermediate
         // render with questionnaireActive=true (stale state) would briefly show Q1.
@@ -3084,10 +3135,10 @@ const App = () => {
       if (prefilled.SECURITY_AND_COMPLIANCE_REQUIREMENTS && !latestAnswers.SECURITY_AND_COMPLIANCE_REQUIREMENTS) prefilledSet.add('SECURITY_AND_COMPLIANCE_REQUIREMENTS');
 
       // Defer the heavy answer state merge — non-urgent, won't block UI
-      startAnswerTransition(() => {
-        setQuestionnaireAnswers(updatedAnswers);
-        setAiPrefilledQuestions(prefilledSet);
-      });
+      // Use direct (urgent) state update so preview renders with all answers immediately.
+      // startTransition would defer the update and the preview could show stale Q1+Q2 only.
+      setQuestionnaireAnswers(updatedAnswers);
+      setAiPrefilledQuestions(prefilledSet);
 
       // Save progress
       autoSaveProgress();
@@ -5255,19 +5306,13 @@ const App = () => {
       });
     }
 
-    // Show database choice selector if active (new comparison format)
+    // Show database choice selector if active (comparison already written to static buffer)
     if (databaseChoiceActive && databaseComparison) {
-      return React.createElement(Box, { flexDirection: 'column' },
-        React.createElement(DatabaseRecommendationDisplay, {
-          comparison: databaseComparison,
-          keyMetrics: databaseComparison.keyMetrics || {}
-        }),
-        React.createElement(DatabaseChoiceSelector, {
-          comparison: databaseComparison,
-          selectedIndex: databaseChoiceIndex,
-          recommendedChoice: recommendedChoice
-        })
-      );
+      return React.createElement(DatabaseChoiceSelector, {
+        comparison: databaseComparison,
+        selectedIndex: databaseChoiceIndex,
+        recommendedChoice: recommendedChoice
+      });
     }
 
     // Show database questions if active (DISABLED - removed Customize option)
