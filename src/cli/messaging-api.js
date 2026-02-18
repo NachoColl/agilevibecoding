@@ -7,6 +7,7 @@
 
 import { messageManager } from './message-manager.js';
 import { MessageType } from './message-types.js';
+import { boldCyan, gray, cyan } from './ansi-colors.js';
 
 /**
  * Track sent ceremony headers to prevent duplication
@@ -81,7 +82,7 @@ export function sendCeremonyHeader(title, url) {
   }
 
   ceremonySent.add(key);
-  const content = `${title}\nDocumentation: ${url}`;
+  const content = `${boldCyan(title)}\n${gray('Documentation:')} ${cyan(url)}`;
   messageManager.send(MessageType.CEREMONY_HEADER, content);
 }
 

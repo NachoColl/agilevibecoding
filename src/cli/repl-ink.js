@@ -14,7 +14,8 @@ import { UpdateChecker } from './update-checker.js';
 import { UpdateInstaller } from './update-installer.js';
 import { CommandLogger } from './command-logger.js';
 import { BackgroundProcessManager } from './process-manager.js';
-import { registerCallbacks, startCommand, endCommand, cancelCommand, sendCeremonyHeader, sendProgress, sendSubstep, sendOutput, sendError, sendWarning, sendSuccess, sendInfo, sendDebug, clearProgress } from './messaging-api.js';
+import { registerCallbacks, startCommand, endCommand, cancelCommand, sendCeremonyHeader, sendProgress, sendSubstep, sendOutput, sendIndented, sendError, sendWarning, sendSuccess, sendInfo, sendDebug, clearProgress } from './messaging-api.js';
+import { bold, gray, cyan, green, boldCyan } from './ansi-colors.js';
 import { outputBuffer } from './output-buffer.js';
 import { StaticOutput } from './components/static-output.js';
 import { getProjectNotInitializedMessage, getCeremonyHeader } from './message-constants.js';
@@ -895,7 +896,7 @@ const ProcessDetailsViewer = ({ process, onBack, onStop }) => {
 // Input display with cursor
 const InputWithCursor = ({ input }) => {
   return React.createElement(Box, { flexShrink: 0 },
-    React.createElement(Text, null, '> '),
+    React.createElement(Text, { color: 'green' }, '> '),
     React.createElement(Text, null, input),
     React.createElement(Text, { inverse: true }, ' ')
   );
@@ -2042,12 +2043,12 @@ const App = () => {
             const running = manager.getRunningProcesses();
 
             if (running.length > 0) {
-              outputBuffer.append('Stopping background processes...\n');
+              outputBuffer.append(`${gray('Stopping background processes...')}\n`);
               const stopped = manager.stopAll();
-              outputBuffer.append(`Stopped ${stopped} process(es)\n`);
+              outputBuffer.append(`${green(`Stopped ${stopped} process(es)`)}\n`);
             }
 
-            outputBuffer.append('Thanks for using AVC!\n');
+            outputBuffer.append(`${boldCyan('Thanks for using AVC!')}\n`);
             setTimeout(() => {
               exit();
               process.exit(0);
@@ -2174,12 +2175,12 @@ const App = () => {
             const runningOnRestart = restartManager.getRunningProcesses();
 
             if (runningOnRestart.length > 0) {
-              outputBuffer.append('\nStopping background processes...\n');
+              outputBuffer.append(`\n${gray('Stopping background processes...')}\n`);
               const stopped = restartManager.stopAll();
-              outputBuffer.append(`Stopped ${stopped} process(es)\n\n`);
+              outputBuffer.append(`${green(`Stopped ${stopped} process(es)`)}\n\n`);
             }
 
-            outputBuffer.append('Restarting AVC...\n');
+            outputBuffer.append(`${boldCyan('Restarting AVC...')}\n`);
             setTimeout(() => {
               exit();
               try {
@@ -2289,30 +2290,30 @@ const App = () => {
       },
     ];
 
-    outputBuffer.append('\nAvailable Commands\n\n');
+    outputBuffer.append(`\n${boldCyan('Available Commands')}\n\n`);
     for (const group of groups) {
-      outputBuffer.append(`${group.title}\n`);
+      outputBuffer.append(`${boldCyan(group.title)}\n`);
       for (const [cmd, desc] of group.cmds) {
-        outputBuffer.append(`  ${cmd.padEnd(26)} ${desc}\n`);
+        outputBuffer.append(`  ${cmd.padEnd(26)} ${gray(desc)}\n`);
       }
       outputBuffer.append('\n');
     }
     outputBuffer.append(
-      'Tips\n' +
-      '  Type / + Enter to open interactive command selector\n' +
-      '  Use number keys (1-N) to quickly select in menus\n' +
-      '  Use arrow keys to navigate command history\n' +
-      '  Press Tab to auto-complete commands\n' +
-      '  Press Ctrl+R to restart after updates\n\n'
+      `${boldCyan('Tips')}\n` +
+      `  ${gray('Type / + Enter to open interactive command selector')}\n` +
+      `  ${gray('Use number keys (1-N) to quickly select in menus')}\n` +
+      `  ${gray('Use arrow keys to navigate command history')}\n` +
+      `  ${gray('Press Tab to auto-complete commands')}\n` +
+      `  ${gray('Press Ctrl+R to restart after updates')}\n\n`
     );
   };
 
   const showVersion = () => {
     const version = getVersion();
     outputBuffer.append('\n');
-    outputBuffer.append(`AVC  ${version}\n`);
-    outputBuffer.append(`Node  ${process.version}\n`);
-    outputBuffer.append(`Docs  https://agilevibecoding.org\n`);
+    outputBuffer.append(`${boldCyan('AVC')}  ${bold(version)}\n`);
+    outputBuffer.append(`${gray('Node')}  ${process.version}\n`);
+    outputBuffer.append(`${gray('Docs')}  ${cyan('https://agilevibecoding.org')}\n`);
     outputBuffer.append('\n');
   };
 
@@ -2641,32 +2642,32 @@ const App = () => {
       // Activities performed
       if (result && result.activities && result.activities.length > 0) {
         sendOutput('');
-        sendOutput('Activities performed');
+        sendOutput(boldCyan('Activities performed'));
         result.activities.forEach(activity => {
-          sendOutput(`  • ${activity}`);
+          sendIndented(`• ${activity}`, 1);
         });
       }
 
       // Files created
       sendOutput('');
-      sendOutput('Files created');
+      sendOutput(boldCyan('Files created'));
       if (result && result.outputPath) {
-        sendOutput(`  ${result.outputPath}`);
+        sendIndented(gray(result.outputPath), 1);
       }
       if (result && result.contextPath) {
-        sendOutput(`  ${result.contextPath}`);
+        sendIndented(gray(result.contextPath), 1);
       }
 
       // Token usage
       if (result && result.tokenUsage) {
         const w = 8;
         sendOutput('');
-        sendOutput('Token usage');
-        sendOutput(`  ${'Input'.padEnd(w)}  ${result.tokenUsage.input.toLocaleString()}`);
-        sendOutput(`  ${'Output'.padEnd(w)}  ${result.tokenUsage.output.toLocaleString()}`);
-        sendOutput(`  ${'Total'.padEnd(w)}  ${result.tokenUsage.total.toLocaleString()}`);
+        sendOutput(boldCyan('Token usage'));
+        sendIndented(`${gray('Input'.padEnd(w))}  ${result.tokenUsage.input.toLocaleString()}`, 1);
+        sendIndented(`${gray('Output'.padEnd(w))}  ${result.tokenUsage.output.toLocaleString()}`, 1);
+        sendIndented(`${gray('Total'.padEnd(w))}  ${result.tokenUsage.total.toLocaleString()}`, 1);
         if (result.cost && result.cost.total > 0) {
-          sendOutput(`  ${'Cost'.padEnd(w)}  ~$${result.cost.total.toFixed(4)}`);
+          sendIndented(`${gray('Cost'.padEnd(w))}  ~$${result.cost.total.toFixed(4)}`, 1);
         }
       }
 
@@ -3459,8 +3460,9 @@ const App = () => {
 
     fileLog('INFO', 'runBuildDocumentation complete', { processId, port, totalDuration: `${Date.now() - ts0}ms` });
     sendSuccess('Documentation server started');
-    sendOutput(`  URL      http://localhost:${port}`);
-    sendOutput(`  PID      ${processId}`);
+    sendOutput('');
+    sendIndented(`URL      http://localhost:${port}`, 1);
+    sendIndented(`PID      ${processId}`, 1);
     sendInfo('Stop with /processes — select Documentation Server — S');
     } finally {
       endCommand();
@@ -3607,10 +3609,11 @@ const App = () => {
 
     kLog('INFO', 'kanban server process started', { processId, port, duration: `${Date.now() - ts0}ms` });
     sendSuccess('Kanban board started');
-    sendOutput(`  API      http://localhost:${port}`);
-    sendOutput(`  Health   http://localhost:${port}/api/health`);
-    sendOutput(`  Items    http://localhost:${port}/api/work-items`);
-    sendOutput(`  PID      ${processId}`);
+    sendOutput('');
+    sendIndented(`API      http://localhost:${port}`, 1);
+    sendIndented(`Health   http://localhost:${port}/api/health`, 1);
+    sendIndented(`Items    http://localhost:${port}/api/work-items`, 1);
+    sendIndented(`PID      ${processId}`, 1);
     sendInfo('Stop with /processes — select Kanban Board Server — S');
     } finally {
       endCommand();
@@ -3630,12 +3633,12 @@ const App = () => {
       const runningOnCtrlR = ctrlRManager.getRunningProcesses();
 
       if (runningOnCtrlR.length > 0) {
-        outputBuffer.append('\nStopping background processes...\n');
+        outputBuffer.append(`\n${gray('Stopping background processes...')}\n`);
         const stopped = ctrlRManager.stopAll();
-        outputBuffer.append(`   Stopped ${stopped} process(es)\n\n`);
+        outputBuffer.append(`${green(`Stopped ${stopped} process(es)`)}\n\n`);
       }
 
-      outputBuffer.append('Restarting AVC...\n');
+      outputBuffer.append(`${boldCyan('Restarting AVC...')}\n`);
       setTimeout(() => {
         exit();
         try {

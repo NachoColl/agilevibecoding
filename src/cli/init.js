@@ -9,6 +9,7 @@ import { TemplateProcessor } from './template-processor.js';
 import { ModelConfigurator } from './init-model-config.js';
 import { MESSAGES, getCeremonyHeader } from './message-constants.js';
 import { sendError, sendWarning, sendSuccess, sendInfo, sendOutput, sendIndented, sendSectionHeader } from './messaging-api.js';
+import { boldCyan, yellow, green, cyan } from './ansi-colors.js';
 
 /**
  * Write a structured entry to the active command log file only.
@@ -1060,16 +1061,6 @@ If you're new to Agile Vibe Coding, visit the [AVC Documentation](https://agilev
       configPath: this.avcConfigPath,
     });
 
-    // ANSI color codes for terminal output
-    const colors = {
-      cyan: '\x1b[36m',      // Ceremony names
-      yellow: '\x1b[33m',    // Stage names
-      green: '\x1b[32m',     // Models
-      blue: '\x1b[34m',      // URLs
-      reset: '\x1b[0m',      // Reset color
-      bold: '\x1b[1m'        // Bold text
-    };
-
     // Show current configuration
     const ceremonies = configurator.getCeremonies();
     fileLog('INFO', 'Ceremony model configs', {
@@ -1100,18 +1091,18 @@ If you're new to Agile Vibe Coding, visit the [AVC Documentation](https://agilev
         stages: stageDetails,
       });
 
-      sendOutput(`${colors.bold}${colors.cyan}${c.name}${colors.reset}`);
-      sendOutput(`${colors.yellow}default${colors.reset}: ${colors.green}${c.mainModel}${colors.reset} (${c.mainProvider})`);
+      sendOutput(boldCyan(c.name));
+      sendOutput(`${yellow('default')}: ${green(c.mainModel)} (${c.mainProvider})`);
       if (c.validationProvider) {
         const hasValidationKey = configurator.availableProviders.includes(c.validationProvider);
         const keyWarning = hasValidationKey ? '' : ' [no API key]';
-        sendOutput(`${colors.yellow}validation${colors.reset}: ${colors.green}${c.validationModel}${colors.reset} (${c.validationProvider})${keyWarning}`);
+        sendOutput(`${yellow('validation')}: ${green(c.validationModel)} (${c.validationProvider})${keyWarning}`);
       }
       Object.keys(c.stages).forEach(stageName => {
         const stage = c.stages[stageName];
         const hasStageKey = configurator.availableProviders.includes(stage.provider);
         const keyWarning = hasStageKey ? '' : ' [no API key]';
-        sendOutput(`${colors.yellow}${stageName}${colors.reset}: ${colors.green}${stage.model}${colors.reset} (${stage.provider})${keyWarning}`);
+        sendOutput(`${yellow(stageName)}: ${green(stage.model)} (${stage.provider})${keyWarning}`);
       });
       sendOutput('');
     });
@@ -1673,7 +1664,6 @@ If you're new to Agile Vibe Coding, visit the [AVC Documentation](https://agilev
             }
 
             sendSuccess('AVC project structure has been completely removed.');
-            sendOutput('');
             sendOutput('You can re-initialize anytime by running /init');
             sendOutput('');
 
@@ -1689,7 +1679,6 @@ If you're new to Agile Vibe Coding, visit the [AVC Documentation](https://agilev
         } else {
           // Cancellation
           sendError('Operation cancelled.');
-          sendOutput('');
           sendOutput('No files were deleted.');
           sendOutput('');
           resolve();
