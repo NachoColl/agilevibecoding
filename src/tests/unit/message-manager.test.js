@@ -166,7 +166,7 @@ describe('MessageManager', () => {
       messageManager.send(MessageType.ERROR, 'Something failed');
 
       const lines = outputBuffer.getLines();
-      expect(lines).toEqual(['ERROR: Something failed', '']);
+      expect(lines).toEqual(['ERROR: Something failed']);
     });
   });
 
@@ -179,7 +179,7 @@ describe('MessageManager', () => {
       messageManager.send(MessageType.WARNING, 'Be careful');
 
       const lines = outputBuffer.getLines();
-      expect(lines).toEqual(['WARNING: Be careful', '']);
+      expect(lines).toEqual(['WARNING: Be careful']);
     });
   });
 
@@ -192,7 +192,7 @@ describe('MessageManager', () => {
       messageManager.send(MessageType.SUCCESS, 'Operation completed');
 
       const lines = outputBuffer.getLines();
-      expect(lines).toEqual(['SUCCESS: Operation completed', '']);
+      expect(lines).toEqual(['SUCCESS: Operation completed']);
     });
   });
 
@@ -205,7 +205,7 @@ describe('MessageManager', () => {
       messageManager.send(MessageType.INFO, 'Using Claude provider');
 
       const lines = outputBuffer.getLines();
-      expect(lines).toEqual(['INFO: Using Claude provider', '']);
+      expect(lines).toEqual(['INFO: Using Claude provider']);
     });
   });
 
@@ -214,11 +214,11 @@ describe('MessageManager', () => {
       messageManager.startExecution('test');
     });
 
-    it('should send ceremony header with double newline', () => {
+    it('should send ceremony header content as-is', () => {
       messageManager.send(MessageType.CEREMONY_HEADER, '🎯 Test\n📖 https://example.com');
 
       const lines = outputBuffer.getLines();
-      expect(lines).toEqual(['🎯 Test', '📖 https://example.com', '', '']);
+      expect(lines).toEqual(['🎯 Test', '📖 https://example.com']);
     });
   });
 

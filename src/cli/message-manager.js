@@ -193,7 +193,7 @@ class MessageManager {
    * @private
    */
   _handleCeremonyHeader(content) {
-    outputBuffer.append(content + '\n\n');
+    outputBuffer.append(content);
   }
 
   /**
@@ -237,7 +237,7 @@ class MessageManager {
    * @private
    */
   _handleError(content) {
-    outputBuffer.append(`ERROR: ${content}\n`, 'ERROR');
+    outputBuffer.append(`ERROR: ${content}`, 'ERROR');
   }
 
   /**
@@ -245,7 +245,7 @@ class MessageManager {
    * @private
    */
   _handleWarning(content) {
-    outputBuffer.append(`WARNING: ${content}\n`, 'WARNING');
+    outputBuffer.append(`WARNING: ${content}`, 'WARNING');
   }
 
   /**
@@ -253,7 +253,7 @@ class MessageManager {
    * @private
    */
   _handleSuccess(content) {
-    outputBuffer.append(`SUCCESS: ${content}\n`, 'SUCCESS');
+    outputBuffer.append(`SUCCESS: ${content}`, 'SUCCESS');
   }
 
   /**
@@ -261,7 +261,7 @@ class MessageManager {
    * @private
    */
   _handleInfo(content) {
-    outputBuffer.append(`INFO: ${content}\n`, 'INFO');
+    outputBuffer.append(`INFO: ${content}`, 'INFO');
   }
 
   /**
