@@ -1766,6 +1766,7 @@ const App = () => {
   const [selectedArchitecture, setSelectedArchitecture] = useState(null);
 
   // Database analysis state
+  const [databaseRecommendation, setDatabaseRecommendation] = useState(null); // raw recommendation from AI
   const [databaseComparison, setDatabaseComparison] = useState(null); // { sqlOption, nosqlOption, keyMetrics }
   const [recommendedChoice, setRecommendedChoice] = useState(null); // 'sql' | 'nosql' | null - AI's recommendation
   const [databaseChoiceActive, setDatabaseChoiceActive] = useState(false);
