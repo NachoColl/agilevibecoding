@@ -973,6 +973,7 @@ If you're new to Agile Vibe Coding, visit the [AVC Documentation](https://agilev
       // Project already initialized
       fileLog('INFO', 'Project already initialized — skipping structure creation');
       sendOutput('Project already initialized. Run /sponsor-call to start.');
+      sendOutput('');
       return;
     }
 
@@ -1025,8 +1026,8 @@ If you're new to Agile Vibe Coding, visit the [AVC Documentation](https://agilev
    * Shows current model configuration and offers interactive editing
    */
   async models() {
-    sendSectionHeader('Model Configuration');
-    sendOutput('');
+    sendOutput('Model Configuration\n');
+    sendOutput('Ceremonies are structured workflows (sponsor-call, sprint-planning, seed) that guide your project through key decisions. Each ceremony runs multiple stages in sequence, and you can assign a different LLM model to each stage.\n');
 
     // Check if project is initialized
     if (!this.isAvcProject()) {
@@ -1099,18 +1100,20 @@ If you're new to Agile Vibe Coding, visit the [AVC Documentation](https://agilev
         stages: stageDetails,
       });
 
-      sendOutput(`${colors.bold}${c.name}${colors.reset}  main: ${colors.green}${c.mainModel}${colors.reset} (${c.mainProvider})`);
+      sendOutput(`${colors.bold}${colors.cyan}${c.name}${colors.reset}`);
+      sendOutput(`${colors.yellow}default${colors.reset}: ${colors.green}${c.mainModel}${colors.reset} (${c.mainProvider})`);
       if (c.validationProvider) {
         const hasValidationKey = configurator.availableProviders.includes(c.validationProvider);
         const keyWarning = hasValidationKey ? '' : ' [no API key]';
-        sendIndented(`validation: ${c.validationModel} (${c.validationProvider})${keyWarning}`, 1);
+        sendOutput(`${colors.yellow}validation${colors.reset}: ${colors.green}${c.validationModel}${colors.reset} (${c.validationProvider})${keyWarning}`);
       }
       Object.keys(c.stages).forEach(stageName => {
         const stage = c.stages[stageName];
         const hasStageKey = configurator.availableProviders.includes(stage.provider);
         const keyWarning = hasStageKey ? '' : ' [no API key]';
-        sendIndented(`${stageName}: ${stage.model} (${stage.provider})${keyWarning}`, 1);
+        sendOutput(`${colors.yellow}${stageName}${colors.reset}: ${colors.green}${stage.model}${colors.reset} (${stage.provider})${keyWarning}`);
       });
+      sendOutput('');
     });
 
     fileLog('INFO', 'configureModels() complete');
@@ -1539,7 +1542,6 @@ If you're new to Agile Vibe Coding, visit the [AVC Documentation](https://agilev
     // Check if project is initialized
     if (!this.isAvcProject()) {
       sendWarning('No AVC project found in this directory.');
-      sendOutput('');
       sendOutput('Nothing to remove.');
       sendOutput('');
       return;

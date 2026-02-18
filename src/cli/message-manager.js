@@ -237,8 +237,7 @@ class MessageManager {
    * @private
    */
   _handleError(content) {
-    const formattedContent = `ERROR: ${content}`;
-    outputBuffer.append(formattedContent + '\n');
+    outputBuffer.append(`ERROR: ${content}\n`, 'ERROR');
   }
 
   /**
@@ -246,8 +245,7 @@ class MessageManager {
    * @private
    */
   _handleWarning(content) {
-    const formattedContent = `WARNING: ${content}`;
-    outputBuffer.append(formattedContent + '\n');
+    outputBuffer.append(`WARNING: ${content}\n`, 'WARNING');
   }
 
   /**
@@ -255,8 +253,7 @@ class MessageManager {
    * @private
    */
   _handleSuccess(content) {
-    const formattedContent = `SUCCESS: ${content}`;
-    outputBuffer.append(formattedContent + '\n');
+    outputBuffer.append(`SUCCESS: ${content}\n`, 'SUCCESS');
   }
 
   /**
@@ -264,8 +261,7 @@ class MessageManager {
    * @private
    */
   _handleInfo(content) {
-    const formattedContent = `INFO: ${content}`;
-    outputBuffer.append(formattedContent + '\n');
+    outputBuffer.append(`INFO: ${content}\n`, 'INFO');
   }
 
   /**

@@ -18,11 +18,12 @@ export class OutputBuffer {
   /**
    * Append content as a new item
    * @param {string} content - Content to append (may contain newlines)
+   * @param {string|null} type - Optional message type: 'ERROR'|'WARNING'|'SUCCESS'|'INFO'|null
    */
-  append(content) {
+  append(content, type = null) {
     if (!content) return;
 
-    this.items.push({ id: ++this.itemCounter, content });
+    this.items.push({ id: ++this.itemCounter, content, type });
     this.notifyListeners();
   }
 

@@ -136,8 +136,8 @@ describe('OutputBuffer', () => {
       buffer.append('World');
       const items = buffer.getItems();
       expect(items).toHaveLength(2);
-      expect(items[0]).toEqual({ id: 1, content: 'Hello' });
-      expect(items[1]).toEqual({ id: 2, content: 'World' });
+      expect(items[0]).toMatchObject({ id: 1, content: 'Hello' });
+      expect(items[1]).toMatchObject({ id: 2, content: 'World' });
     });
 
     it('returns copy (mutations dont affect buffer)', () => {

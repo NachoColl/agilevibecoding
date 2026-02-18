@@ -1,5 +1,5 @@
-import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { render, Box, Text, Static, useInput, useApp } from 'ink';
+import React, { useState, useEffect, useMemo, useRef, useTransition } from 'react';
+import { render, Box, Text, Static, useInput, useApp, useStdout, useCursor, useIsScreenReaderEnabled } from 'ink';
 import SelectInput from 'ink-select-input';
 import Spinner from 'ink-spinner';
 import { execSync } from 'child_process';
@@ -13,7 +13,6 @@ import { KanbanServerManager } from './kanban-server-manager.js';
 import { UpdateChecker } from './update-checker.js';
 import { UpdateInstaller } from './update-installer.js';
 import { CommandLogger } from './command-logger.js';
-import ConsoleOutputManager from './console-output-manager.js';
 import { BackgroundProcessManager } from './process-manager.js';
 import { registerCallbacks, startCommand, endCommand, cancelCommand, sendCeremonyHeader, sendProgress, sendSubstep, sendOutput, sendError, sendWarning, sendSuccess, sendInfo, sendDebug, clearProgress } from './messaging-api.js';
 import { outputBuffer } from './output-buffer.js';
@@ -110,17 +109,8 @@ const Banner = () => {
 
 // Separator line component
 const Separator = () => {
-  const [width, setWidth] = useState(process.stdout.columns || 80);
-
-  useEffect(() => {
-    const handleResize = () => {
-      setWidth(process.stdout.columns || 80);
-    };
-
-    process.stdout.on('resize', handleResize);
-    return () => process.stdout.off('resize', handleResize);
-  }, []);
-
+  const { stdout } = useStdout();
+  const width = stdout.columns || 80;
   return React.createElement(Text, null, '─'.repeat(width));
 };
 
@@ -185,6 +175,17 @@ const questionnaireQuestions = [
 
 // Question display component
 const QuestionDisplay = ({ question, index, total, editMode }) => {
+  const isScreenReader = useIsScreenReaderEnabled();
+
+  if (isScreenReader) {
+    // Plain-text mode for screen readers — no ANSI art, arrows, or inverse text
+    return React.createElement(Box, { flexDirection: 'column', flexShrink: 0 },
+      React.createElement(Text, null,
+        `Question ${index + 1} of ${total}: ${question.title}${editMode ? ' (edit mode)' : ''}. ${question.guidance}. Press Enter twice to submit, Enter once on empty line to skip.`
+      )
+    );
+  }
+
   const helpText = `\nTip: You can paste multi-line text from other apps\n↵↵ Press Enter twice when done, or Enter once to skip\n^U Press Ctrl+U to clear all text\n`;
 
   return React.createElement(Box, { flexDirection: 'column', flexShrink: 0 },
@@ -203,7 +204,15 @@ const QuestionDisplay = ({ question, index, total, editMode }) => {
 
 // Multi-line input component with line numbers and character count
 // Memoized to prevent unnecessary re-renders when props haven't changed
-const MultiLineInput = React.memo(({ lines, showCharCount = true, cursorLine = null, cursorChar = null }) => {
+const MultiLineInput = React.memo(({ lines, showCharCount = true, cursorLine = null, cursorChar = null, cursorYOffset = 0 }) => {
+  const { setCursorPosition } = useCursor();
+
+  // Position real terminal cursor for IME support (Korean, Japanese, emoji, etc.)
+  // x = column at cursor character; y = offset from top of Ink area + line within input
+  if (cursorLine !== null && cursorChar !== null) {
+    setCursorPosition({ x: cursorChar, y: cursorYOffset + cursorLine });
+  }
+
   // Early return for empty lines (no memoization needed)
   if (lines.length === 0) {
     return React.createElement(Box, { flexDirection: 'column', flexShrink: 0 },
@@ -665,16 +674,22 @@ const CommandSelector = ({ onSelect, onCancel, filter }) => {
     group.commands.forEach((cmd) => {
       const isSelected = commandIndex === selectedIndex;
       groupElements.push(
-        React.createElement(Text, {
+        React.createElement(Box, {
           key: cmd.value,
-          color: isSelected ? 'green' : 'white'
-        }, `${isSelected ? '› ' : '  '}[${commandIndex + 1}] ${cmd.label}`)
+          'aria-role': 'listitem',
+          'aria-state': { selected: isSelected }
+        },
+          React.createElement(Text, {
+            color: isSelected ? 'green' : 'white',
+            inverse: isSelected
+          }, `${isSelected ? '› ' : '  '}[${commandIndex + 1}] ${cmd.label}`)
+        )
       );
       commandIndex++;
     });
   });
 
-  return React.createElement(Box, { flexDirection: 'column' },
+  return React.createElement(Box, { flexDirection: 'column', 'aria-role': 'list' },
     ...groupElements,
     React.createElement(Text, { dimColor: true }, '\n(Use arrows, number keys, or Esc to cancel)')
   );
@@ -741,19 +756,22 @@ const ProcessViewer = ({ processes, onSelect, onCancel }) => {
     React.createElement(Box, { flexDirection: 'column', marginTop: 1 },
       ...processList.map((process, idx) => {
         const isSelected = idx === selectedIndex;
-        const statusIcon = process.status === 'running' ? '(running)' :
-          process.status === 'stopped' ? '(stopped)' :
-            process.status === 'exited' ? '(exited)' : '(error)';
+        const statusColor = process.status === 'running' ? 'green' :
+          process.status === 'stopped' ? 'yellow' :
+            process.status === 'exited' ? 'blue' : 'red';
+        const statusDot = '●';
         const uptime = manager.formatUptime(manager.getUptime(process.id));
 
-        return React.createElement(Box, { key: process.id },
+        return React.createElement(Box, { key: process.id, gap: 1 },
           React.createElement(Text, {
             bold: isSelected,
             color: isSelected ? 'cyan' : undefined,
             inverse: isSelected
           },
-            `   ${isSelected ? '>' : ' '} ${statusIcon} ${process.name} - ${uptime}`
-          )
+            `  ${isSelected ? '›' : ' '} ${process.name}`
+          ),
+          React.createElement(Text, { color: statusColor }, statusDot),
+          React.createElement(Text, { dimColor: true }, uptime)
         );
       })
     ),
@@ -907,16 +925,8 @@ const BottomRightStatus = React.memo(({ backgroundProcesses }) => {
     }
   });
 
-  const [width, setWidth] = useState(process.stdout.columns || 80);
-
-  useEffect(() => {
-    const handleResize = () => {
-      setWidth(process.stdout.columns || 80);
-    };
-
-    process.stdout.on('resize', handleResize);
-    return () => process.stdout.off('resize', handleResize);
-  }, []);
+  const { stdout } = useStdout();
+  const width = stdout.columns || 80;
 
   // Option F: Defer polling to prevent initial layout shifts
   // Start polling after 500ms delay to allow initial render to stabilize
@@ -1018,17 +1028,16 @@ const ModelConfigPrompt = () => {
  * Architecture Selector Component
  */
 const ArchitectureSelector = ({ architectures, selectedIndex }) => {
-  return React.createElement(Box, { flexDirection: 'column', borderStyle: 'round', borderColor: 'cyan', paddingX: 1 },
+  return React.createElement(Box, { flexDirection: 'column', borderStyle: 'bold', borderColor: 'cyan', paddingX: 1 },
     React.createElement(Text, { bold: true }, 'Recommended Deployment Architectures'),
-    React.createElement(Text, {}, '\n'),
     React.createElement(Text, { dimColor: true }, 'Based on your mission and scope, here are recommended approaches:'),
-    React.createElement(Box, { flexDirection: 'column', marginTop: 1 },
+    React.createElement(Box, { flexDirection: 'column', marginTop: 1, gap: 1, 'aria-role': 'list' },
       ...architectures.map((arch, idx) => {
         const icon = arch.requiresCloudProvider ? '[Cloud]' : '[Local]';
         const isSelected = idx === selectedIndex;
 
-        return React.createElement(Box, { key: idx, flexDirection: 'column', marginBottom: 1 },
-          React.createElement(Text, { color: isSelected ? 'green' : 'white', bold: isSelected },
+        return React.createElement(Box, { key: idx, flexDirection: 'column', 'aria-role': 'listitem', 'aria-state': { selected: isSelected } },
+          React.createElement(Text, { color: isSelected ? 'green' : 'white', bold: isSelected, inverse: isSelected },
             (isSelected ? '> ' : '  ') + icon + ' ' + arch.name
           ),
           React.createElement(Text, { dimColor: true, marginLeft: 4 },
@@ -1040,8 +1049,7 @@ const ArchitectureSelector = ({ architectures, selectedIndex }) => {
         );
       })
     ),
-    React.createElement(Text, {}, '\n'),
-    React.createElement(Text, { dimColor: true }, '↑/↓: Navigate | Enter: Select | Esc: Skip (use manual answers)')
+    React.createElement(Text, { dimColor: true }, '↑/↓: Navigate | 1-N: Quick select | Enter: Confirm | Esc: Skip')
   );
 };
 
@@ -1077,15 +1085,15 @@ const DeploymentStrategySelector = ({ selectedIndex }) => {
     }
   ];
 
-  return React.createElement(Box, { flexDirection: 'column', marginY: 1 },
-    React.createElement(Text, { bold: true, color: 'cyan' }, 'Deployment Strategy\n'),
-    React.createElement(Text, null, 'Choose how you want to deploy your application:\n'),
+  return React.createElement(Box, { flexDirection: 'column', borderStyle: 'bold', borderColor: 'cyan', paddingX: 1, marginY: 1 },
+    React.createElement(Text, { bold: true, color: 'cyan' }, 'Deployment Strategy'),
+    React.createElement(Text, null, 'Choose how you want to deploy your application:'),
 
-    React.createElement(Box, { flexDirection: 'column', marginTop: 1 },
+    React.createElement(Box, { flexDirection: 'column', marginTop: 1, gap: 2, 'aria-role': 'list' },
       ...strategies.map((strategy, i) => {
         const isSelected = i === selectedIndex;
 
-        return React.createElement(Box, { key: strategy.id, flexDirection: 'column', marginTop: i > 0 ? 2 : 0 },
+        return React.createElement(Box, { key: strategy.id, flexDirection: 'column', 'aria-role': 'listitem', 'aria-state': { selected: isSelected } },
           // Label with arrow
           React.createElement(Box, { flexDirection: 'row' },
             React.createElement(Text, { color: 'white' }, '> '),
@@ -1116,8 +1124,8 @@ const DeploymentStrategySelector = ({ selectedIndex }) => {
       })
     ),
 
-    React.createElement(Box, { marginTop: 2 },
-      React.createElement(Text, { color: 'gray' }, '↑/↓: Navigate | Enter: Select | Esc: Skip (show all options)')
+    React.createElement(Box, { marginTop: 1 },
+      React.createElement(Text, { color: 'gray' }, '↑/↓: Navigate | 1-2: Quick select | Enter: Confirm | Esc: Skip')
     )
   );
 };
@@ -1147,16 +1155,15 @@ const CloudProviderSelector = ({ architectureName, selectedIndex }) => {
     }
   ];
 
-  return React.createElement(Box, { flexDirection: 'column', borderStyle: 'round', borderColor: 'cyan', paddingX: 1 },
+  return React.createElement(Box, { flexDirection: 'column', borderStyle: 'bold', borderColor: 'cyan', paddingX: 1 },
     React.createElement(Text, { bold: true }, 'Select Cloud Provider for "' + architectureName + '"'),
-    React.createElement(Text, {}, '\n'),
     React.createElement(Text, { dimColor: true }, 'Your selected architecture requires a cloud provider. Choose one:'),
-    React.createElement(Box, { flexDirection: 'column', marginTop: 1 },
+    React.createElement(Box, { flexDirection: 'column', marginTop: 1, gap: 1, 'aria-role': 'list' },
       ...providers.map((provider, idx) => {
         const isSelected = idx === selectedIndex;
 
-        return React.createElement(Box, { key: provider.id, flexDirection: 'column', marginBottom: 1 },
-          React.createElement(Text, { color: isSelected ? 'green' : 'white', bold: isSelected },
+        return React.createElement(Box, { key: provider.id, flexDirection: 'column', 'aria-role': 'listitem', 'aria-state': { selected: isSelected } },
+          React.createElement(Text, { color: isSelected ? 'green' : 'white', bold: isSelected, inverse: isSelected },
             (isSelected ? '> ' : '  ') + provider.name + ' (' + provider.id + ')'
           ),
           React.createElement(Text, { dimColor: true, marginLeft: 4 },
@@ -1165,8 +1172,7 @@ const CloudProviderSelector = ({ architectureName, selectedIndex }) => {
         );
       })
     ),
-    React.createElement(Text, {}, '\n'),
-    React.createElement(Text, { dimColor: true }, '↑/↓: Navigate | Enter: Select | Esc: Skip')
+    React.createElement(Text, { dimColor: true }, '↑/↓: Navigate | 1-3: Quick select | Enter: Confirm | Esc: Skip')
   );
 };
 
@@ -1212,48 +1218,57 @@ const DatabaseRecommendationDisplay = ({ comparison, keyMetrics }) => {
   const sqlCostMarks = toCostMarks(comparison.sqlOption.estimatedCosts?.monthly);
   const nosqlCostMarks = toCostMarks(comparison.nosqlOption.estimatedCosts?.monthly);
 
-  return React.createElement(Box, { flexDirection: 'column' },
+  return React.createElement(Box, { flexDirection: 'column', gap: 1 },
     React.createElement(Text, { bold: true, color: 'cyan' }, 'Database Options Comparison'),
 
-    // Key Metrics (only show defined values)
-    ...(keyMetrics ? [
-      React.createElement(Text, { key: 'km-gap' }, '\n'),
-      keyMetrics.estimatedReadWriteRatio && React.createElement(Text, { key: 'km-rw', color: 'gray' }, 'Read/Write: ' + keyMetrics.estimatedReadWriteRatio),
-      keyMetrics.expectedThroughput && React.createElement(Text, { key: 'km-tp', color: 'gray' }, 'Throughput: ' + keyMetrics.expectedThroughput),
-      keyMetrics.dataComplexity && React.createElement(Text, { key: 'km-dc', color: 'gray' }, 'Data complexity: ' + keyMetrics.dataComplexity)
-    ].filter(Boolean) : []),
-
-    // SQL Option
-    React.createElement(Text, { key: 'sql-gap' }, '\n'),
-    React.createElement(Text, { bold: true, color: 'green' }, 'SQL (e.g., ' + sqlExamples + ')'),
-    React.createElement(Text, { color: 'white' }, 'Pros:'),
-    ...comparison.sqlOption.pros.slice(0, 3).map((pro, i) =>
-      React.createElement(Text, { key: `sql-pro-${i}`, color: 'gray' }, '  • ' + pro)
-    ),
-    React.createElement(Text, { color: 'white' }, 'Cons:'),
-    ...comparison.sqlOption.cons.slice(0, 3).map((con, i) =>
-      React.createElement(Text, { key: `sql-con-${i}`, color: 'gray' }, '  • ' + con)
-    ),
-    ...(sqlCostMarks ? [
-      React.createElement(Text, { key: 'sql-cost-gap' }, '\n'),
-      React.createElement(Text, { key: 'sql-cost', color: 'yellow' }, 'Cost: ' + sqlCostMarks)
+    // Key Metrics row
+    ...(keyMetrics && (keyMetrics.estimatedReadWriteRatio || keyMetrics.expectedThroughput || keyMetrics.dataComplexity) ? [
+      React.createElement(Box, { key: 'metrics', flexDirection: 'row', gap: 3 },
+        keyMetrics.estimatedReadWriteRatio && React.createElement(Text, { key: 'rw', color: 'gray' }, 'R/W: ' + keyMetrics.estimatedReadWriteRatio),
+        keyMetrics.expectedThroughput && React.createElement(Text, { key: 'tp', color: 'gray' }, 'Throughput: ' + keyMetrics.expectedThroughput),
+        keyMetrics.dataComplexity && React.createElement(Text, { key: 'dc', color: 'gray' }, 'Complexity: ' + keyMetrics.dataComplexity)
+      )
     ] : []),
 
-    // NoSQL Option
-    React.createElement(Text, { key: 'nosql-gap' }, '\n'),
-    React.createElement(Text, { bold: true, color: 'blue' }, 'NoSQL (e.g., ' + nosqlExamples + ')'),
-    React.createElement(Text, { color: 'white' }, 'Pros:'),
-    ...comparison.nosqlOption.pros.slice(0, 3).map((pro, i) =>
-      React.createElement(Text, { key: `nosql-pro-${i}`, color: 'gray' }, '  • ' + pro)
-    ),
-    React.createElement(Text, { color: 'white' }, 'Cons:'),
-    ...comparison.nosqlOption.cons.slice(0, 3).map((con, i) =>
-      React.createElement(Text, { key: `nosql-con-${i}`, color: 'gray' }, '  • ' + con)
-    ),
-    ...(nosqlCostMarks ? [
-      React.createElement(Text, { key: 'nosql-cost-gap' }, '\n'),
-      React.createElement(Text, { key: 'nosql-cost', color: 'yellow' }, 'Cost: ' + nosqlCostMarks)
-    ] : [])
+    // Side-by-side SQL vs NoSQL columns
+    React.createElement(Box, { flexDirection: 'row', gap: 2 },
+
+      // SQL column — 50% width
+      React.createElement(Box, { flexDirection: 'column', width: '50%', gap: 1 },
+        React.createElement(Text, { bold: true, color: 'green' }, 'SQL (e.g., ' + sqlExamples + ')'),
+        React.createElement(Box, { flexDirection: 'column' },
+          React.createElement(Text, { color: 'white' }, 'Pros:'),
+          ...comparison.sqlOption.pros.slice(0, 3).map((pro, i) =>
+            React.createElement(Text, { key: `sql-pro-${i}`, color: 'gray' }, '+ ' + pro)
+          )
+        ),
+        React.createElement(Box, { flexDirection: 'column' },
+          React.createElement(Text, { color: 'white' }, 'Cons:'),
+          ...comparison.sqlOption.cons.slice(0, 3).map((con, i) =>
+            React.createElement(Text, { key: `sql-con-${i}`, color: 'gray' }, '- ' + con)
+          )
+        ),
+        sqlCostMarks && React.createElement(Text, { color: 'yellow' }, 'Cost: ' + sqlCostMarks)
+      ),
+
+      // NoSQL column — 50% width
+      React.createElement(Box, { flexDirection: 'column', width: '50%', gap: 1 },
+        React.createElement(Text, { bold: true, color: 'blue' }, 'NoSQL (e.g., ' + nosqlExamples + ')'),
+        React.createElement(Box, { flexDirection: 'column' },
+          React.createElement(Text, { color: 'white' }, 'Pros:'),
+          ...comparison.nosqlOption.pros.slice(0, 3).map((pro, i) =>
+            React.createElement(Text, { key: `nosql-pro-${i}`, color: 'gray' }, '+ ' + pro)
+          )
+        ),
+        React.createElement(Box, { flexDirection: 'column' },
+          React.createElement(Text, { color: 'white' }, 'Cons:'),
+          ...comparison.nosqlOption.cons.slice(0, 3).map((con, i) =>
+            React.createElement(Text, { key: `nosql-con-${i}`, color: 'gray' }, '- ' + con)
+          )
+        ),
+        nosqlCostMarks && React.createElement(Text, { color: 'yellow' }, 'Cost: ' + nosqlCostMarks)
+      )
+    )
   );
 };
 
@@ -1292,20 +1307,20 @@ const DatabaseChoiceSelector = ({ comparison, selectedIndex, recommendedChoice }
 
   return React.createElement(Box, { flexDirection: 'column', marginTop: 1 },
     React.createElement(Text, { bold: true }, 'Choose your database approach:'),
-    React.createElement(Box, { marginTop: 1, flexDirection: 'column' },
+    React.createElement(Box, { marginTop: 1, flexDirection: 'column', gap: 1, 'aria-role': 'list' },
       ...choices.map((choice, i) =>
-        React.createElement(Box, { key: i, marginLeft: 2, flexDirection: 'column' },
+        React.createElement(Box, { key: i, marginLeft: 2, flexDirection: 'column', 'aria-role': 'listitem', 'aria-state': { selected: i === selectedIndex } },
           React.createElement(Text, {
             bold: i === selectedIndex,
             inverse: i === selectedIndex,
             color: i === selectedIndex ? 'green' : 'white'
           }, (i === selectedIndex ? '> ' : '  ') + choice.label),
-          React.createElement(Text, { color: 'gray' }, ' - ' + choice.description)
+          React.createElement(Text, { color: 'gray' }, '  ' + choice.description)
         )
       )
     ),
     React.createElement(Box, { marginTop: 1 },
-      React.createElement(Text, { color: 'gray' }, '↑/↓: Navigate | Enter: Select | Esc: Go back')
+      React.createElement(Text, { color: 'gray' }, '↑/↓: Navigate | 1-4: Quick select | Enter: Confirm | Esc: Go back')
     )
   );
 };
@@ -1552,6 +1567,8 @@ let activeCeremony = null;
 // Main App component
 const App = () => {
   const { exit } = useApp();
+  const isScreenReaderEnabled = useIsScreenReaderEnabled();
+  const [, startAnswerTransition] = useTransition(); // for non-urgent answer state merges
   const [mode, setMode] = useState('prompt'); // 'prompt' | 'selector' | 'executing'
   const [input, setInput] = useState('');
   const [outputItems, setOutputItems] = useState([]);
@@ -1565,6 +1582,7 @@ const App = () => {
   const [questionnaireActive, setQuestionnaireActive] = useState(false);
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [questionnaireAnswers, setQuestionnaireAnswers] = useState({});
+  const answersRef = useRef({});
   const [currentAnswer, setCurrentAnswer] = useState([]);
   const [emptyLineCount, setEmptyLineCount] = useState(0);
   const [editMode, setEditMode] = useState(false);
@@ -1702,6 +1720,9 @@ const App = () => {
       setExecutingSubstep
     });
   }, []);
+
+  // Keep answersRef in sync so async callbacks always read the latest answers
+  useEffect(() => { answersRef.current = questionnaireAnswers; }, [questionnaireAnswers]);
 
   // Subscribe to OutputBuffer changes
   useEffect(() => {
@@ -1915,12 +1936,12 @@ const App = () => {
     return aliases[cmd.toLowerCase()] || cmd;
   };
 
-  // Guards fileLog: true only while a CommandLogger+ConsoleOutputManager is active.
+  // Guards fileLog: true only while a CommandLogger is active.
   // Without this guard, console.log('[DEBUG]...') would leak to the terminal when
   // no .avc folder exists (and therefore no logger was created).
   let _fileLogActive = false;
 
-  // File-only logger: [DEBUG] prefix causes ConsoleOutputManager to route to file, not terminal
+  // File-only logger: [DEBUG] prefix routes to CommandLogger file, not terminal
   const fileLog = (level, message, data = null) => {
     if (!_fileLogActive) return;
     const ts = new Date().toISOString();
@@ -1998,13 +2019,11 @@ const App = () => {
       try {
         switch (command.toLowerCase()) {
           case '/help':
-            setExecutingMessage('Loading help...');
-            outputBuffer.append(showHelp());
+            showHelp();
             break;
 
           case '/version':
-            setExecutingMessage('Loading version info...');
-            outputBuffer.append(showVersion());
+            showVersion();
             break;
 
           case '/exit':
@@ -2013,12 +2032,12 @@ const App = () => {
             const running = manager.getRunningProcesses();
 
             if (running.length > 0) {
-              outputBuffer.append('\nStopping background processes...\n');
+              outputBuffer.append('Stopping background processes...\n');
               const stopped = manager.stopAll();
-              outputBuffer.append(`Stopped ${stopped} process(es)\n\n`);
+              outputBuffer.append(`Stopped ${stopped} process(es)\n`);
             }
 
-            outputBuffer.append('\nThanks for using AVC!\n');
+            outputBuffer.append('Thanks for using AVC!\n');
             setTimeout(() => {
               exit();
               process.exit(0);
@@ -2214,53 +2233,84 @@ const App = () => {
   };
 
   const showHelp = () => {
-    return `
-📚 Available Commands:
+    const groups = [
+      {
+        title: 'Ceremonies',
+        cmds: [
+          ['/sponsor-call (/sc)', 'Run Sponsor Call ceremony'],
+          ['/sprint-planning (/sp)', 'Expand project into Epics and Stories'],
+          ['/seed <story-id>', 'Generate tasks for a story'],
+        ]
+      },
+      {
+        title: 'Project',
+        cmds: [
+          ['/init (/i)', 'Create AVC project structure and config files'],
+          ['/status (/s)', 'Show current project status'],
+          ['/remove (/rm)', 'Remove AVC project structure'],
+        ]
+      },
+      {
+        title: 'Services',
+        cmds: [
+          ['/documentation (/d)', 'Build and serve project documentation'],
+          ['/kanban (/k)', 'Launch kanban board visualization'],
+          ['/processes (/p)', 'View and manage background processes'],
+        ]
+      },
+      {
+        title: 'Config',
+        cmds: [
+          ['/models (/m)', 'Configure LLM models for ceremonies'],
+          ['/tokens', 'Show token usage statistics'],
+        ]
+      },
+      {
+        title: 'Utilities',
+        cmds: [
+          ['/help (/h)', 'Show this help message'],
+          ['/version (/v)', 'Show version information'],
+          ['/restart', 'Restart AVC (Ctrl+R)'],
+          ['/exit (/q)', 'Exit AVC interactive mode'],
+        ]
+      },
+    ];
 
-/init (or /i)            Create AVC project structure and config files
-/documentation (/d)      Build and serve project documentation
-/sponsor-call (/sc)      Run Sponsor Call ceremony
-/status (or /s)          Show current project status
-/models (or /m)          Configure LLM models for ceremonies
-/kanban (or /k)          Launch kanban board visualization
-/processes (/p)          View and manage background processes
-/remove (or /rm)         Remove AVC project structure
-/help (or /h)            Show this help message
-/version (or /v)         Show version information
-/restart                 Restart AVC (Ctrl+R)
-/exit (or /q)            Exit AVC interactive mode
-
-Tips:
-- Type / and press Enter to see interactive command selector
-- Use arrow keys (↑/↓) to navigate command history
-- Use Tab key to auto-complete commands
-- Use number keys to quickly select commands from the menu
-- Press Esc to cancel command selector or dismiss notifications
-- Press Ctrl+R to restart after updates
-- Background processes are shown in bottom-right corner
-`;
+    outputBuffer.append('\nAvailable Commands\n\n');
+    for (const group of groups) {
+      outputBuffer.append(`${group.title}\n`);
+      for (const [cmd, desc] of group.cmds) {
+        outputBuffer.append(`  ${cmd.padEnd(26)} ${desc}\n`);
+      }
+      outputBuffer.append('\n');
+    }
+    outputBuffer.append(
+      'Tips\n' +
+      '  Type / + Enter to open interactive command selector\n' +
+      '  Use number keys (1-N) to quickly select in menus\n' +
+      '  Use arrow keys to navigate command history\n' +
+      '  Press Tab to auto-complete commands\n' +
+      '  Press Ctrl+R to restart after updates\n\n'
+    );
   };
 
   const showVersion = () => {
     const version = getVersion();
-    return `
-AVC Framework v${version}
-Agile Vibe Coding - AI-powered development framework
-https://agilevibecoding.org
-`;
+    outputBuffer.append('\n');
+    outputBuffer.append(`AVC  ${version}\n`);
+    outputBuffer.append(`Node  ${process.version}\n`);
+    outputBuffer.append(`Docs  https://agilevibecoding.org\n`);
+    outputBuffer.append('\n');
   };
 
   const runInit = async () => {
     const initiator = new ProjectInitiator();
 
     startCommand('init');
-    const outputManager = new ConsoleOutputManager();
-    outputManager.start();
 
     try {
       await initiator.init();
     } finally {
-      outputManager.stop();
       endCommand();
     }
   };
@@ -2285,8 +2335,6 @@ https://agilevibecoding.org
     const initiator = new ProjectInitiator();
 
     startCommand('seed');
-    const outputManager = new ConsoleOutputManager();
-    outputManager.start();
 
     try {
       if (!initiator.isAvcProject()) {
@@ -2294,9 +2342,8 @@ https://agilevibecoding.org
         return;
       }
       await initiator.seed(storyId);
-      outputBuffer.append('https://agilevibecoding.org/ceremonies/seed\n');
+      sendInfo('Docs: https://agilevibecoding.org/ceremonies/seed');
     } finally {
-      outputManager.stop();
       endCommand();
     }
   };
@@ -2482,10 +2529,7 @@ https://agilevibecoding.org
       filesCreated: []
     });
 
-    // ConsoleOutputManager disabled for sponsor-call - messaging API handles all output
-    // This prevents double output (console.log interception + messaging API)
-    // const outputManager = new ConsoleOutputManager();
-    // outputManager.start();
+    // All output goes through messaging API (sendOutput/sendSuccess/etc.)
 
     // Progress callback to update spinner message, substep, and execution state
     // Uses batching to reduce re-renders
@@ -2576,46 +2620,44 @@ https://agilevibecoding.org
         }
       }
 
-      // Build complete summary message
-      let summary = '\nSponsor Call Completed\n\n';
+      // Structured completion summary
+      sendSuccess('Sponsor Call completed');
 
       // Activities performed
       if (result && result.activities && result.activities.length > 0) {
-        summary += 'Activities performed:\n';
+        sendOutput('');
+        sendOutput('Activities performed');
         result.activities.forEach(activity => {
-          summary += `• ${activity}\n`;
+          sendOutput(`  • ${activity}`);
         });
-        summary += '\n';
       }
 
       // Files created
-      summary += 'Files created:\n';
+      sendOutput('');
+      sendOutput('Files created');
       if (result && result.outputPath) {
-        summary += `• ${result.outputPath}\n`;
+        sendOutput(`  ${result.outputPath}`);
       }
       if (result && result.contextPath) {
-        summary += `• ${result.contextPath}\n`;
+        sendOutput(`  ${result.contextPath}`);
       }
 
       // Token usage
       if (result && result.tokenUsage) {
-        summary += '\nToken Usage:\n';
-        summary += `Input: ${result.tokenUsage.input.toLocaleString()} tokens | `;
-        summary += `Output: ${result.tokenUsage.output.toLocaleString()} tokens | `;
-        summary += `Total: ${result.tokenUsage.total.toLocaleString()} tokens\n`;
-
+        const w = 8;
+        sendOutput('');
+        sendOutput('Token usage');
+        sendOutput(`  ${'Input'.padEnd(w)}  ${result.tokenUsage.input.toLocaleString()}`);
+        sendOutput(`  ${'Output'.padEnd(w)}  ${result.tokenUsage.output.toLocaleString()}`);
+        sendOutput(`  ${'Total'.padEnd(w)}  ${result.tokenUsage.total.toLocaleString()}`);
         if (result.cost && result.cost.total > 0) {
-          summary += `Estimated cost: $${result.cost.total.toFixed(4)}\n`;
+          sendOutput(`  ${'Cost'.padEnd(w)}  ~$${result.cost.total.toFixed(4)}`);
         }
       }
 
       // Next steps
-      summary += '\nNext steps:\n';
-      summary += '1. Review project documentation\n';
-      summary += '2. Run /sprint-planning to create Epics and Stories\n';
-
-      // Single output update with complete summary
-      sendOutput(summary);
+      sendOutput('');
+      sendInfo('Next: review docs, then run /sprint-planning to create Epics and Stories');
 
     } finally {
       // outputManager.stop(); // Disabled - see line 2422
@@ -2636,7 +2678,7 @@ https://agilevibecoding.org
         defaults: config.settings?.questionnaire?.defaults || {}
       };
     } catch (error) {
-      console.log('Could not load questionnaire config:', error.message);
+      fileLog('WARNING', 'Could not load questionnaire config', { error: error.message });
       return { defaults: {} };
     }
   };
@@ -2810,8 +2852,8 @@ https://agilevibecoding.org
       sendSubstep('Calling AI to analyze database needs (10-15 seconds)');
 
       const dbRec = await processor.getDatabaseRecommendation(
-        questionnaireAnswers.MISSION_STATEMENT,
-        questionnaireAnswers.INITIAL_SCOPE,
+        answersRef.current.MISSION_STATEMENT,
+        answersRef.current.INITIAL_SCOPE,
         deploymentStrategy // Pass deployment strategy for context
       );
 
@@ -2830,8 +2872,9 @@ https://agilevibecoding.org
         setQuestionnaireActive(false);
 
         // Clear executing state (selector is already active, so no gap)
+        setExecutingMessage('');
+        setExecutingSubstep('');
         setIsExecuting(false);
-        clearProgress();
 
         // Save progress
         autoSaveProgress();
@@ -2876,8 +2919,8 @@ https://agilevibecoding.org
       } : (databaseRecommendation?.recommendation || databaseRecommendation || null);
 
       const architectures = await processor.getArchitectureRecommendations(
-        questionnaireAnswers.MISSION_STATEMENT,
-        questionnaireAnswers.INITIAL_SCOPE,
+        answersRef.current.MISSION_STATEMENT,
+        answersRef.current.INITIAL_SCOPE,
         databaseContext,
         deploymentStrategy // Pass deployment strategy for filtering
       );
@@ -2890,8 +2933,9 @@ https://agilevibecoding.org
       setQuestionnaireActive(false);
 
       // Clear executing state (selector already active, no gap)
+      setExecutingMessage('');
+      setExecutingSubstep('');
       setIsExecuting(false);
-      clearProgress();
 
       // Save progress
       autoSaveProgress();
@@ -2900,8 +2944,9 @@ https://agilevibecoding.org
       console.error('Architecture recommendation failed:', error.message);
 
       // Clear executing state
+      setExecutingMessage('');
+      setExecutingSubstep('');
       setIsExecuting(false);
-      clearProgress();
 
       sendError(`Failed to generate architecture recommendations: ${error.message}`);
       sendOutput('Continuing with manual questionnaire...\n\n');
@@ -3004,8 +3049,8 @@ https://agilevibecoding.org
       } : (databaseRecommendation?.recommendation || databaseRecommendation || null);
 
       const prefilled = await processor.prefillQuestions(
-        questionnaireAnswers.MISSION_STATEMENT,
-        questionnaireAnswers.INITIAL_SCOPE,
+        answersRef.current.MISSION_STATEMENT,
+        answersRef.current.INITIAL_SCOPE,
         architecture,
         cloudProvider,
         databaseContext,
@@ -3013,24 +3058,27 @@ https://agilevibecoding.org
       );
 
       // Merge pre-filled with existing answers (don't overwrite user answers)
+      const latestAnswers = answersRef.current;
       const updatedAnswers = {
-        ...questionnaireAnswers,
-        TARGET_USERS: questionnaireAnswers.TARGET_USERS || prefilled.TARGET_USERS || '',
-        DEPLOYMENT_TARGET: questionnaireAnswers.DEPLOYMENT_TARGET || prefilled.DEPLOYMENT_TARGET || '',
-        TECHNICAL_CONSIDERATIONS: questionnaireAnswers.TECHNICAL_CONSIDERATIONS || prefilled.TECHNICAL_CONSIDERATIONS || '',
-        SECURITY_AND_COMPLIANCE_REQUIREMENTS: questionnaireAnswers.SECURITY_AND_COMPLIANCE_REQUIREMENTS || prefilled.SECURITY_AND_COMPLIANCE_REQUIREMENTS || ''
+        ...latestAnswers,
+        TARGET_USERS: latestAnswers.TARGET_USERS || prefilled.TARGET_USERS || '',
+        DEPLOYMENT_TARGET: latestAnswers.DEPLOYMENT_TARGET || prefilled.DEPLOYMENT_TARGET || '',
+        TECHNICAL_CONSIDERATIONS: latestAnswers.TECHNICAL_CONSIDERATIONS || prefilled.TECHNICAL_CONSIDERATIONS || '',
+        SECURITY_AND_COMPLIANCE_REQUIREMENTS: latestAnswers.SECURITY_AND_COMPLIANCE_REQUIREMENTS || prefilled.SECURITY_AND_COMPLIANCE_REQUIREMENTS || ''
       };
 
-      setQuestionnaireAnswers(updatedAnswers);
-
-      // Track which questions were AI-prefilled
+      // Compute prefilled set before transition (synchronous)
       const prefilledSet = new Set();
-      if (prefilled.TARGET_USERS && !questionnaireAnswers.TARGET_USERS) prefilledSet.add('TARGET_USERS');
-      if (prefilled.DEPLOYMENT_TARGET && !questionnaireAnswers.DEPLOYMENT_TARGET) prefilledSet.add('DEPLOYMENT_TARGET');
-      if (prefilled.TECHNICAL_CONSIDERATIONS && !questionnaireAnswers.TECHNICAL_CONSIDERATIONS) prefilledSet.add('TECHNICAL_CONSIDERATIONS');
-      if (prefilled.SECURITY_AND_COMPLIANCE_REQUIREMENTS && !questionnaireAnswers.SECURITY_AND_COMPLIANCE_REQUIREMENTS) prefilledSet.add('SECURITY_AND_COMPLIANCE_REQUIREMENTS');
+      if (prefilled.TARGET_USERS && !latestAnswers.TARGET_USERS) prefilledSet.add('TARGET_USERS');
+      if (prefilled.DEPLOYMENT_TARGET && !latestAnswers.DEPLOYMENT_TARGET) prefilledSet.add('DEPLOYMENT_TARGET');
+      if (prefilled.TECHNICAL_CONSIDERATIONS && !latestAnswers.TECHNICAL_CONSIDERATIONS) prefilledSet.add('TECHNICAL_CONSIDERATIONS');
+      if (prefilled.SECURITY_AND_COMPLIANCE_REQUIREMENTS && !latestAnswers.SECURITY_AND_COMPLIANCE_REQUIREMENTS) prefilledSet.add('SECURITY_AND_COMPLIANCE_REQUIREMENTS');
 
-      setAiPrefilledQuestions(prefilledSet);
+      // Defer the heavy answer state merge — non-urgent, won't block UI
+      startAnswerTransition(() => {
+        setQuestionnaireAnswers(updatedAnswers);
+        setAiPrefilledQuestions(prefilledSet);
+      });
 
       // Save progress
       autoSaveProgress();
@@ -3039,8 +3087,9 @@ https://agilevibecoding.org
       setQuestionnaireActive(false);
 
       // Clear executing state
+      setExecutingMessage('');
+      setExecutingSubstep('');
       setIsExecuting(false);
-      clearProgress();
 
       // Wait for output buffer to update before showing preview
       // This prevents visual glitches from React re-rendering before output updates
@@ -3054,8 +3103,9 @@ https://agilevibecoding.org
       console.error('Question pre-filling failed:', error.message);
 
       // Clear executing state
+      setExecutingMessage('');
+      setExecutingSubstep('');
       setIsExecuting(false);
-      clearProgress();
 
       sendError(`Failed to generate recommendations: ${error.message}`);
       sendOutput('Please answer the remaining questions manually.\n\n');
@@ -3132,13 +3182,10 @@ https://agilevibecoding.org
     const initiator = new ProjectInitiator();
 
     startCommand('status');
-    const outputManager = new ConsoleOutputManager();
-    outputManager.start();
 
     try {
       initiator.status();
     } finally {
-      outputManager.stop();
       endCommand();
     }
   };
@@ -3147,14 +3194,11 @@ https://agilevibecoding.org
     const initiator = new ProjectInitiator();
 
     startCommand('models');
-    const outputManager = new ConsoleOutputManager();
-    outputManager.start();
 
     let result;
     try {
       result = await initiator.models();
     } finally {
-      outputManager.stop();
       endCommand();
     }
 
@@ -3169,23 +3213,16 @@ https://agilevibecoding.org
   const runTokens = async () => {
     const initiator = new ProjectInitiator();
 
-    // Check if project is initialized
-    if (!initiator.isAvcProject()) {
-      outputBuffer.append(
-        '\nProject not initialized\n\n' +
-        'Please run /init first to create the project structure.\n\n'
-      );
-      return;
-    }
-
     startCommand('tokens');
-    const outputManager = new ConsoleOutputManager();
-    outputManager.start();
 
     try {
+      if (!initiator.isAvcProject()) {
+        sendError(getProjectNotInitializedMessage());
+        return;
+      }
+
       await initiator.showTokenStats();
     } finally {
-      outputManager.stop();
       endCommand();
     }
   };
@@ -3213,72 +3250,52 @@ https://agilevibecoding.org
 
   const confirmRemove = async () => {
     // NOTE: confirmRemove runs from a useInput handler, OUTSIDE executeCommand lifecycle.
-    // No CommandLogger is active here — do NOT use fileLog (would leak to terminal).
-    // The .avc/logs/ folder is also about to be deleted, so file logging is moot.
+    // startCommand is called here to enable the messaging API for typed output.
     setRemoveConfirmActive(false);
     setMode('executing');
     setIsExecuting(true);
     setExecutingMessage('Deleting AVC project structure...');
 
+    startCommand('remove');
     const initiator = new ProjectInitiator();
 
-    // Build output directly (no console interception needed)
-    let logs = [];
-
     try {
-      // Perform the deletion
       const deletedItems = initiator.getAvcContents();
 
       // Delete .avc folder
       const fs = await import('fs');
       fs.rmSync(initiator.avcDir, { recursive: true, force: true });
 
-      logs.push('Successfully deleted:\n');
-      logs.push('   .avc/ folder and all contents:');
+      sendSuccess('Deleted .avc/ and all contents');
       deletedItems.forEach(item => {
-        logs.push(`      • ${item}`);
+        sendOutput(`  • ${item}`);
       });
-      logs.push('');
 
       // Check for preserved files
-      const path = await import('path');
-      const envPath = path.join(initiator.projectRoot, '.env');
+      const pathMod = await import('path');
+      const envPath = pathMod.join(initiator.projectRoot, '.env');
       const hasEnvFile = fs.existsSync(envPath);
       const hasSrcFolder = initiator.hasSrcFolder();
       const hasWorktreesFolder = initiator.hasWorktreesFolder();
 
-      if (hasEnvFile || hasSrcFolder || hasWorktreesFolder) {
-        logs.push('Preserved files:\n');
-
-        if (hasEnvFile) {
-          logs.push('   The .env file was NOT deleted and still contains:');
-          logs.push('   • ANTHROPIC_API_KEY');
-          logs.push('   • GEMINI_API_KEY');
-          logs.push('   • (and any other API keys you added)\n');
-        }
-
-        if (hasSrcFolder) {
-          logs.push('The src/ folder was NOT deleted.');
-          logs.push('   All your AVC-managed code has been preserved.\n');
-        }
-
-        if (hasWorktreesFolder) {
-          logs.push('The worktrees/ folder was NOT deleted.');
-          logs.push('   All your git worktrees have been preserved.\n');
-        }
+      if (hasEnvFile) {
+        sendWarning('Preserved .env — contains API keys, not deleted');
+      }
+      if (hasSrcFolder) {
+        sendWarning('Preserved src/ — your code, not deleted');
+      }
+      if (hasWorktreesFolder) {
+        sendWarning('Preserved worktrees/ — git worktrees, not deleted');
       }
 
-      logs.push('AVC project structure has been completely removed.\n');
-      logs.push('You can re-initialize anytime by running /init\n');
+      sendSuccess('AVC project removed — run /init to reinitialize');
     } catch (error) {
-      logs.push(`Error during deletion: ${error.message}\n`);
-      logs.push('The .avc folder may be partially deleted.');
-      logs.push('You may need to manually remove it.\n');
+      sendError(`Deletion failed: ${error.message}`);
+      sendOutput('The .avc folder may be partially deleted — check manually.');
+    } finally {
+      endCommand();
     }
 
-    outputBuffer.append(logs.join('\n'));
-
-    // Return to prompt mode
     setIsExecuting(false);
     setTimeout(() => {
       setMode('prompt');
@@ -3299,8 +3316,7 @@ https://agilevibecoding.org
 
     if (!hasDocumentation) {
       fileLog('WARNING', 'documentation not found, aborting');
-      outputBuffer.append('\nDocumentation not found\n\n');
-      outputBuffer.append('Please run /init first to create documentation structure.\n\n');
+      sendError('Documentation not found — run /init first to create documentation structure');
       return;
     }
 
@@ -3323,7 +3339,7 @@ https://agilevibecoding.org
       if (portInUse) {
         // Managed process exists and port is in use - restart it
         fileLog('INFO', 'managed process running, restarting', { processId: existingDocServer.id });
-        outputBuffer.append('\nDocumentation server already running, restarting...\n\n');
+        sendInfo('Documentation server already running — restarting');
         manager.stopProcess(existingDocServer.id);
 
         // Clean up stopped/finished processes
@@ -3334,7 +3350,7 @@ https://agilevibecoding.org
       } else {
         // Managed process exists but port is not in use - it died, clean up
         fileLog('WARNING', 'managed process died (port not in use), cleaning up', { processId: existingDocServer.id });
-        outputBuffer.append('\nPrevious documentation server died, starting new one...\n\n');
+        sendWarning('Previous documentation server stopped — starting new one');
         manager.stopProcess(existingDocServer.id);
 
         // Clean up stopped/finished processes
@@ -3357,9 +3373,8 @@ https://agilevibecoding.org
 
           if (isOurDocs) {
             // It's confirmed to be AVC documentation server - safe to kill
-            outputBuffer.append('\nAVC documentation server already running (external process)\n');
-            outputBuffer.append(`Process: ${processInfo.command} (PID: ${processInfo.pid})\n`);
-            outputBuffer.append('Killing external process and restarting...\n\n');
+            sendInfo(`AVC documentation server already running (external process — PID ${processInfo.pid})`);
+            sendInfo('Killing external process and restarting...');
 
             // Try to kill the process
             const killed = await builder.killProcess(processInfo.pid);
@@ -3368,23 +3383,14 @@ https://agilevibecoding.org
             if (!killed) {
               // Failed to kill (permission denied, etc.)
               fileLog('ERROR', 'failed to kill process, aborting', { pid: processInfo.pid });
-              outputBuffer.append(
-                `Failed to kill process ${processInfo.pid}\n\n` +
-                `   Unable to stop the process (permission denied or process protected).\n` +
-                `   Please manually stop the process or change the port.\n\n` +
-                `   To change the port, edit .avc/avc.json:\n` +
-                `   {\n` +
-                `     "settings": {\n` +
-                `       "documentation": {\n` +
-                `         "port": 5173\n` +
-                `       }\n` +
-                `     }\n` +
-                `   }\n\n`
-              );
+              sendError(`Failed to kill process ${processInfo.pid} — permission denied or process protected`);
+              sendOutput('Please manually stop the process or change the port.');
+              sendOutput('To change the port, edit .avc/avc.json:');
+              sendOutput('  { "settings": { "documentation": { "port": 5173 } } }');
               return;
             }
 
-            outputBuffer.append('Process killed successfully\n\n');
+            sendSuccess('External process killed');
 
             // Remove from process manager if it was a managed process
             manager.removeProcessByPid(processInfo.pid);
@@ -3406,15 +3412,9 @@ https://agilevibecoding.org
         } else {
           // Port is in use but couldn't find the process (rare case)
           fileLog('ERROR', 'port in use but process unidentifiable', { port });
-          outputBuffer.append(`\nPort ${port} is in use but process could not be identified\n\n`);
-          outputBuffer.append(`   To change the port, edit .avc/avc.json:\n`);
-          outputBuffer.append(`   {\n`);
-          outputBuffer.append(`     "settings": {\n`);
-          outputBuffer.append(`       "documentation": {\n`);
-          outputBuffer.append(`         "port": 5173\n`);
-          outputBuffer.append(`       }\n`);
-          outputBuffer.append(`     }\n`);
-          outputBuffer.append(`   }\n\n`);
+          sendError(`Port ${port} is in use but process could not be identified`);
+          sendOutput('To change the port, edit .avc/avc.json:');
+          sendOutput('  { "settings": { "documentation": { "port": 5173 } } }');
           return;
         }
       }
@@ -3422,15 +3422,15 @@ https://agilevibecoding.org
 
     // Build documentation first
     fileLog('INFO', 'starting documentation build');
-    sendOutput('\nBuilding documentation...\n');
+    sendProgress('Building documentation...');
 
     try {
       await builder.build();
       fileLog('INFO', 'documentation build complete', { duration: `${Date.now() - ts0}ms` });
-      sendSuccess('Documentation built successfully\n');
+      sendSuccess('Documentation built successfully');
     } catch (error) {
       fileLog('ERROR', 'documentation build failed', { error: error.message, stack: error.stack, duration: `${Date.now() - ts0}ms` });
-      sendError(`Error: ${error.message}\n`);
+      sendError(error.message);
       return;
     }
 
@@ -3444,11 +3444,10 @@ https://agilevibecoding.org
     });
 
     fileLog('INFO', 'runBuildDocumentation complete', { processId, port, totalDuration: `${Date.now() - ts0}ms` });
-    outputBuffer.append(
-      'Starting documentation server in background...\n' +
-      `   URL: http://localhost:${port}\n` +
-      `   View process output: /processes\n\n`
-    );
+    sendSuccess('Documentation server started');
+    sendOutput(`  URL      http://localhost:${port}`);
+    sendOutput(`  PID      ${processId}`);
+    sendInfo('Stop with /processes — select Documentation Server — S');
   };
 
   const runKanban = async () => {
@@ -3474,8 +3473,7 @@ https://agilevibecoding.org
 
     if (!hasWorkItems) {
       kLog('WARNING', 'no work items found - aborting');
-      outputBuffer.append('\nNo work items found\n\n');
-      outputBuffer.append('Please run /sponsor-call or /sprint-planning first to create work items.\n\n');
+      sendWarning('No work items found — run /sponsor-call or /sprint-planning first');
       return;
     }
 
@@ -3498,7 +3496,7 @@ https://agilevibecoding.org
       if (portInUse) {
         // Managed process exists and port is in use - restart it
         kLog('INFO', 'managed process running, restarting', { processId: existingKanbanServer.id });
-        outputBuffer.append('\nKanban server already running, restarting...\n\n');
+        sendInfo('Kanban server already running — restarting');
         manager.stopProcess(existingKanbanServer.id);
 
         // Clean up stopped/finished processes
@@ -3509,7 +3507,7 @@ https://agilevibecoding.org
       } else {
         // Managed process exists but port is not in use - it died, clean up
         kLog('WARNING', 'managed process died (port not in use), cleaning up', { processId: existingKanbanServer.id });
-        outputBuffer.append('\nPrevious kanban server died, starting new one...\n\n');
+        sendWarning('Previous kanban server stopped — starting new one');
         manager.stopProcess(existingKanbanServer.id);
 
         // Clean up stopped/finished processes
@@ -3532,9 +3530,8 @@ https://agilevibecoding.org
 
           if (isOurKanban) {
             // It's confirmed to be AVC kanban server - safe to kill
-            outputBuffer.append('\nAVC kanban server already running (external process)\n');
-            outputBuffer.append(`Process: ${processInfo.command} (PID: ${processInfo.pid})\n`);
-            outputBuffer.append('Killing external process and restarting...\n\n');
+            sendInfo(`AVC kanban server already running (external process — PID ${processInfo.pid})`);
+            sendInfo('Killing external process and restarting...');
 
             // Try to kill the process
             const killed = await kanbanManager.killProcess(processInfo.pid);
@@ -3543,21 +3540,14 @@ https://agilevibecoding.org
             if (!killed) {
               // Failed to kill (permission denied, etc.)
               kLog('ERROR', 'failed to kill process, aborting', { pid: processInfo.pid });
-              sendError(`Failed to kill process ${processInfo.pid}\n\n` +
-                `   Unable to stop the process (permission denied or process protected).\n` +
-                `   Please manually stop the process or change the port.\n\n` +
-                `   To change the port, edit .avc/avc.json:\n` +
-                `   {\n` +
-                `     "settings": {\n` +
-                `       "kanban": {\n` +
-                `         "port": 4174\n` +
-                `       }\n` +
-                `     }\n` +
-                `   }\n`);
+              sendError(`Failed to kill process ${processInfo.pid} — permission denied or process protected`);
+              sendOutput('Please manually stop the process or change the port.');
+              sendOutput('To change the port, edit .avc/avc.json:');
+              sendOutput('  { "settings": { "kanban": { "port": 4174 } } }');
               return;
             }
 
-            sendSuccess('Process killed successfully\n');
+            sendSuccess('External process killed');
 
             // Remove from process manager if it was a managed process
             manager.removeProcessByPid(processInfo.pid);
@@ -3567,32 +3557,18 @@ https://agilevibecoding.org
           } else {
             // It's NOT AVC kanban - show warning
             kLog('WARNING', 'port in use by non-AVC process, aborting', { pid: processInfo.pid, command: processInfo.command, port });
-            sendWarning(`Port ${port} is in use by another process:\n` +
-              `   Command: ${processInfo.command}\n` +
-              `   PID: ${processInfo.pid}\n\n` +
-              `   Please stop this process manually or change the kanban port.\n\n` +
-              `   To change the port, edit .avc/avc.json:\n` +
-              `   {\n` +
-              `     "settings": {\n` +
-              `       "kanban": {\n` +
-              `         "port": 4174\n` +
-              `       }\n` +
-              `     }\n` +
-              `   }\n`);
+            sendWarning(`Port ${port} is in use by another process (PID ${processInfo.pid}: ${processInfo.command})`);
+            sendOutput('Stop that process manually or change the kanban port.');
+            sendOutput('To change the port, edit .avc/avc.json:');
+            sendOutput('  { "settings": { "kanban": { "port": 4174 } } }');
             return;
           }
         } else {
           // Port is in use but couldn't find the process (rare case)
           kLog('ERROR', 'port in use but process unidentifiable', { port });
-          sendError(`Port ${port} is in use but process could not be identified\n\n` +
-            `   To change the port, edit .avc/avc.json:\n` +
-            `   {\n` +
-            `     "settings": {\n` +
-            `       "kanban": {\n` +
-            `         "port": 4174\n` +
-            `       }\n` +
-            `     }\n` +
-            `   }\n`);
+          sendError(`Port ${port} is in use but process could not be identified`);
+          sendOutput('To change the port, edit .avc/avc.json:');
+          sendOutput('  { "settings": { "kanban": { "port": 4174 } } }');
           return;
         }
       }
@@ -3601,7 +3577,7 @@ https://agilevibecoding.org
     // Start kanban server in background
     const kanbanServerPath = path.join(__dirname, '..', 'kanban', 'server', 'start.js');
     kLog('INFO', 'starting kanban server process', { kanbanServerPath, port, cwd: process.cwd() });
-    sendOutput('\nStarting AVC Kanban Board server...\n');
+    sendProgress('Starting AVC Kanban Board server...');
 
     const processId = manager.startProcess({
       name: 'Kanban Board Server',
@@ -3611,13 +3587,12 @@ https://agilevibecoding.org
     });
 
     kLog('INFO', 'kanban server process started', { processId, port, duration: `${Date.now() - ts0}ms` });
-    sendSuccess('Kanban server started successfully\n\n' +
-      `   Backend API: http://localhost:${port}\n` +
-      `   Health check: http://localhost:${port}/api/health\n` +
-      `   Work items: http://localhost:${port}/api/work-items\n\n` +
-      `   View process output: /processes\n` +
-      `   Stop server: /processes (then select and stop)\n\n` +
-      `   Tip: Frontend UI coming in next release!\n`);
+    sendSuccess('Kanban board started');
+    sendOutput(`  API      http://localhost:${port}`);
+    sendOutput(`  Health   http://localhost:${port}/api/health`);
+    sendOutput(`  Items    http://localhost:${port}/api/work-items`);
+    sendOutput(`  PID      ${processId}`);
+    sendInfo('Stop with /processes — select Kanban Board Server — S');
   };
 
   // Handle keyboard input in prompt mode
@@ -3824,7 +3799,7 @@ https://agilevibecoding.org
 
         // Mission Statement is mandatory - cannot be skipped
         if (currentQuestionIndex === 0) {
-          console.log('Mission Statement is mandatory - please provide an answer');
+          sendInfo('Mission Statement is mandatory - please provide an answer');
           return;
         }
 
@@ -3833,7 +3808,7 @@ https://agilevibecoding.org
         // 1. Check for default in settings (highest priority)
         const defaultAnswer = getDefaultAnswer(questionKey);
         if (defaultAnswer) {
-          console.log('Using default from settings...');
+          sendInfo('Using default from settings...');
           saveQuestionnaireAnswer(questionKey, defaultAnswer);
           markAnswerAsDefaultSuggested(questionKey);
           moveToNextQuestion(questionKey, defaultAnswer);
@@ -3841,7 +3816,7 @@ https://agilevibecoding.org
         }
 
         // 2. Fall back to AI suggestion
-        console.log('Skipping - will use AI suggestion...');
+        sendInfo('Skipping - will use AI suggestion...');
         saveQuestionnaireAnswer(questionKey, null);
         moveToNextQuestion(questionKey, null);
         return;
@@ -4200,6 +4175,13 @@ https://agilevibecoding.org
       return;
     }
 
+    // Numeric shortcuts: 1-N jump to item
+    const n = parseInt(inputChar, 10);
+    if (!isNaN(n) && n >= 1 && n <= architectureOptions.length) {
+      setSelectedArchitectureIndex(n - 1);
+      return;
+    }
+
     // Escape - skip architecture selection
     if (key.escape) {
       setArchitectureSelectorActive(false);
@@ -4258,6 +4240,13 @@ https://agilevibecoding.org
       return;
     }
 
+    // Numeric shortcuts: 1=Local MVP, 2=Cloud
+    const n = parseInt(inputChar, 10);
+    if (!isNaN(n) && n >= 1 && n <= 2) {
+      setDeploymentStrategyIndex(n - 1);
+      return;
+    }
+
     // Escape - skip strategy selection (show all options)
     if (key.escape) {
       setIsProcessingDeploymentStrategy(true);
@@ -4297,6 +4286,13 @@ https://agilevibecoding.org
     // Arrow down
     if (key.downArrow) {
       setCloudProviderIndex(prev => Math.min(2, prev + 1));
+      return;
+    }
+
+    // Numeric shortcuts: 1=AWS, 2=Azure, 3=GCP
+    const n = parseInt(inputChar, 10);
+    if (!isNaN(n) && n >= 1 && n <= providers.length) {
+      setCloudProviderIndex(n - 1);
       return;
     }
 
@@ -4362,6 +4358,13 @@ https://agilevibecoding.org
       setDeploymentStrategySelectorActive(true);
       setDeploymentStrategyIndex(0);
       setMode('prompt');
+      return;
+    }
+
+    // Numeric shortcuts: 1=AI choose, 2=SQL, 3=NoSQL, 4=Skip
+    const n = parseInt(inputChar, 10);
+    if (!isNaN(n) && n >= 1 && n <= 4) {
+      setDatabaseChoiceIndex(n - 1);
       return;
     }
 
@@ -5329,7 +5332,8 @@ https://agilevibecoding.org
           lines: currentAnswer,
           showCharCount: true,
           cursorLine: cursorLine,
-          cursorChar: cursorChar
+          cursorChar: cursorChar,
+          cursorYOffset: 8  // approximate lines rendered by QuestionDisplay above
         }),
         React.createElement(QuestionnaireProgress, {
           current: currentQuestionIndex,
@@ -5546,5 +5550,10 @@ export function startRepl() {
   });
 
   console.clear();
-  render(React.createElement(App));
+  render(React.createElement(App), {
+    patchConsole: false,       // output is handled by outputBuffer + messaging API
+    incrementalRendering: true, // only re-render changed lines (reduces flickering)
+    maxFps: 30,                // cap at 30fps — prevents CPU spikes during fast state changes
+    concurrent: true           // React 19 concurrent mode — non-blocking renders
+  });
 }

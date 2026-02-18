@@ -276,7 +276,7 @@ export function sendListItem(item, indent = 0) {
  */
 export function sendIndented(content, level = 0) {
   const spacing = '  '.repeat(level);
-  sendOutput(`${spacing}${content}\n`);
+  sendOutput(`${spacing}${content}`);
 }
 
 /**

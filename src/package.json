@@ -53,7 +53,7 @@
     "url": "https://github.com/NachoColl/agilevibecoding/issues"
   },
   "engines": {
-    "node": ">=18.0.0"
+    "node": ">=20.0.0"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.20.0",
@@ -62,12 +62,12 @@
     "cors": "^2.8.5",
     "dotenv": "^16.4.0",
     "express": "^4.21.2",
-    "ink": "^5.0.1",
+    "ink": "^6.7.0",
     "ink-select-input": "^6.0.0",
     "ink-spinner": "^5.0.0",
     "marked": "^15.0.6",
     "openai": "^6.19.0",
-    "react": "^18.3.1",
+    "react": "^19.0.0",
     "vitepress": "^1.6.4",
     "ws": "^8.18.0"
   },

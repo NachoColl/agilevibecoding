@@ -155,13 +155,13 @@ describe('REPL Command Consistency', () => {
     });
 
     it('should have help text that matches actual commands', () => {
-      // Extract help text
+      // Extract showHelp() function body
       const helpMatch = replSource.match(
-        /const showHelp = \(\) => \{[\s\S]*?return `([\s\S]*?)`;\s*\};/
+        /const showHelp = \(\) => \{([\s\S]*?)\n  \};/
       );
       expect(helpMatch).toBeTruthy();
 
-      const helpText = helpMatch[1];
+      const helpBody = helpMatch[1];
 
       // All base commands should be mentioned in help
       const expectedCommands = [
@@ -178,13 +178,13 @@ describe('REPL Command Consistency', () => {
       ];
 
       for (const cmd of expectedCommands) {
-        expect(helpText).toContain(cmd);
+        expect(helpBody).toContain(cmd);
       }
 
       // All aliases should be mentioned in help
       const expectedAliases = ['/i', '/d', '/sc', '/s', '/m', '/rm', '/p', '/h', '/v'];
       for (const alias of expectedAliases) {
-        expect(helpText).toContain(alias);
+        expect(helpBody).toContain(alias);
       }
     });
 
@@ -270,23 +270,24 @@ describe('REPL Command Consistency', () => {
     });
 
     it('should have aliases mentioned in help text with correct format', () => {
+      // Extract showHelp() function body
       const helpMatch = replSource.match(
-        /const showHelp = \(\) => \{[\s\S]*?return `([\s\S]*?)`;\s*\};/
+        /const showHelp = \(\) => \{([\s\S]*?)\n  \};/
       );
       expect(helpMatch).toBeTruthy();
 
-      const helpText = helpMatch[1];
+      const helpBody = helpMatch[1];
 
-      // Check format: /command (or /alias) or /command (/alias)
-      expect(helpText).toMatch(/\/init.*\/i/);
-      expect(helpText).toMatch(/\/documentation.*\/d/);
-      expect(helpText).toMatch(/\/sponsor-call.*\/sc/);
-      expect(helpText).toMatch(/\/status.*\/s/);
-      expect(helpText).toMatch(/\/remove.*\/rm/);
-      expect(helpText).toMatch(/\/processes.*\/p/);
-      expect(helpText).toMatch(/\/help.*\/h/);
-      expect(helpText).toMatch(/\/version.*\/v/);
-      expect(helpText).toMatch(/\/exit.*\/q/);
+      // Check that command + alias appear together (on same or adjacent lines within groups)
+      expect(helpBody).toMatch(/\/init.*\/i/);
+      expect(helpBody).toMatch(/\/documentation.*\/d/);
+      expect(helpBody).toMatch(/\/sponsor-call.*\/sc/);
+      expect(helpBody).toMatch(/\/status.*\/s/);
+      expect(helpBody).toMatch(/\/remove.*\/rm/);
+      expect(helpBody).toMatch(/\/processes.*\/p/);
+      expect(helpBody).toMatch(/\/help.*\/h/);
+      expect(helpBody).toMatch(/\/version.*\/v/);
+      expect(helpBody).toMatch(/\/exit.*\/q/);
     });
   });
 
