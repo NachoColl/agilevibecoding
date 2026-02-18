@@ -2171,12 +2171,12 @@ const App = () => {
             const runningOnRestart = restartManager.getRunningProcesses();
 
             if (runningOnRestart.length > 0) {
-              sendOutput('\nStopping background processes...\n');
+              outputBuffer.append('\nStopping background processes...\n');
               const stopped = restartManager.stopAll();
-              sendOutput(`Stopped ${stopped} process(es)\n\n`);
+              outputBuffer.append(`Stopped ${stopped} process(es)\n\n`);
             }
 
-            sendOutput('Restarting AVC...\n');
+            outputBuffer.append('Restarting AVC...\n');
             setTimeout(() => {
               exit();
               try {
@@ -2188,13 +2188,13 @@ const App = () => {
 
           default:
             if (command.startsWith('/')) {
-              sendError(`Unknown command: ${command}\n\nType /help to see available commands\nTip: Try /h for help, /v for version, /q to exit`);
+              outputBuffer.append(`ERROR: Unknown command: ${command}\n\nType /help to see available commands\nTip: Try /h for help, /v for version, /q to exit`, 'ERROR');
             } else {
-              sendInfo(`Commands must start with /\n\nExample: /init, /status, /help\nTip: Type / and press Enter to see all commands`);
+              outputBuffer.append(`INFO: Commands must start with /\n\nExample: /init, /status, /help\nTip: Type / and press Enter to see all commands`, 'INFO');
             }
         }
       } catch (error) {
-        sendError(`Error: ${error.message}`);
+        outputBuffer.append(`ERROR: Error: ${error.message}`, 'ERROR');
       } finally {
         // For /sponsor-call, keep logger active during questionnaire
         // For other commands, stop logger immediately
@@ -3242,7 +3242,7 @@ const App = () => {
     // Check if project is initialized
     if (!initiator.isAvcProject()) {
       fileLog('WARNING', 'runRemove: no AVC project found, aborting');
-      outputBuffer.append('\nNo AVC project found in this directory.\n\nNothing to remove.\n');
+      outputBuffer.append('\nNo AVC project found in this directory.\nNothing to remove.\n');
       return;
     }
 
@@ -3275,9 +3275,12 @@ const App = () => {
       fs.rmSync(initiator.avcDir, { recursive: true, force: true });
 
       sendSuccess('Deleted .avc/ and all contents');
-      deletedItems.forEach(item => {
+
+      /* we don't need to detail
+        deletedItems.forEach(item => {
         sendOutput(`  • ${item}`);
       });
+      */
 
       // Check for preserved files
       const pathMod = await import('path');
@@ -3296,7 +3299,7 @@ const App = () => {
         sendWarning('Preserved worktrees/ — git worktrees, not deleted');
       }
 
-      sendSuccess('AVC project removed — run /init to reinitialize');
+      sendSuccess('\n');
     } catch (error) {
       sendError(`Deletion failed: ${error.message}`);
       sendOutput('The .avc folder may be partially deleted — check manually.');
@@ -3312,6 +3315,8 @@ const App = () => {
   };
 
   const runBuildDocumentation = async () => {
+    startCommand('documentation');
+    try {
     const ts0 = Date.now();
     const builder = new DocumentationBuilder();
     const manager = getProcessManager();
@@ -3456,9 +3461,14 @@ const App = () => {
     sendOutput(`  URL      http://localhost:${port}`);
     sendOutput(`  PID      ${processId}`);
     sendInfo('Stop with /processes — select Documentation Server — S');
+    } finally {
+      endCommand();
+    }
   };
 
   const runKanban = async () => {
+    startCommand('kanban');
+    try {
     const ts0 = Date.now();
     const kanbanManager = new KanbanServerManager();
     const manager = getProcessManager();
@@ -3601,6 +3611,9 @@ const App = () => {
     sendOutput(`  Items    http://localhost:${port}/api/work-items`);
     sendOutput(`  PID      ${processId}`);
     sendInfo('Stop with /processes — select Kanban Board Server — S');
+    } finally {
+      endCommand();
+    }
   };
 
   // Handle keyboard input in prompt mode
@@ -3616,12 +3629,12 @@ const App = () => {
       const runningOnCtrlR = ctrlRManager.getRunningProcesses();
 
       if (runningOnCtrlR.length > 0) {
-        sendOutput('\nStopping background processes...\n');
+        outputBuffer.append('\nStopping background processes...\n');
         const stopped = ctrlRManager.stopAll();
-        sendOutput(`   Stopped ${stopped} process(es)\n\n`);
+        outputBuffer.append(`   Stopped ${stopped} process(es)\n\n`);
       }
 
-      sendOutput('Restarting AVC...\n');
+      outputBuffer.append('Restarting AVC...\n');
       setTimeout(() => {
         exit();
         try {
