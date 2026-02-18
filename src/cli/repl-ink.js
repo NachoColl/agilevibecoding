@@ -92,7 +92,7 @@ const Banner = () => {
     React.createElement(Text, null, ' '),
     ...agileLines.map((agileLine, i) => {
       const vibeLine = vibeLines[i];
-      return React.createElement(Text, { key: i },
+      return React.createElement(Text, { key: `logo-${i}` },
         React.createElement(Text, { bold: true, color: LOGO_COLORS[i] }, agileLine),
         React.createElement(Text, { bold: true, color: 'white' }, '   ' + vibeLine)
       );
@@ -258,7 +258,7 @@ const MultiLineInput = React.memo(({ lines, showCharCount = true, cursorLine = n
         const atCursor = line[cursorChar] || ' '; // character at cursor, or space if at end
         const afterCursor = line.slice(cursorChar + 1);
 
-        return React.createElement(Text, { key: actualIdx },
+        return React.createElement(Text, { key: `ml-${actualIdx}` },
           beforeCursor,
           React.createElement(Text, { inverse: true }, atCursor),
           afterCursor
@@ -266,7 +266,7 @@ const MultiLineInput = React.memo(({ lines, showCharCount = true, cursorLine = n
       }
 
       // Regular line (no cursor) - fallback to old behavior
-      return React.createElement(Text, { key: actualIdx },
+      return React.createElement(Text, { key: `ml-${actualIdx}` },
         line,
         (isLastLine && cursorLine === null) && React.createElement(Text, { inverse: true }, ' ')
       );
@@ -327,7 +327,7 @@ const AnswersPreview = ({ answers, questions, defaultSuggested, aiPrefilled }) =
         icon = 'User: ';
       }
 
-      return React.createElement(Box, { key: idx, flexDirection: 'column', marginBottom: 1 },
+      return React.createElement(Box, { key: question.key, flexDirection: 'column', marginBottom: 1 },
         React.createElement(Text, { bold: true },
           `${icon}${idx + 1}. ${question.title}\n`
         ),
@@ -338,7 +338,7 @@ const AnswersPreview = ({ answers, questions, defaultSuggested, aiPrefilled }) =
         }, labelText) : null,
         ...lines.map((line, lineIdx) =>
           React.createElement(Text, {
-            key: lineIdx,
+            key: `line-${lineIdx}`,
             color: textColor,
             dimColor: !answers[question.key]
           }, line)
@@ -417,7 +417,7 @@ const CancelExecutionConfirmation = ({ executionState }) => {
         'Files created:'
       ),
       hasFiles ? filesCreated.map((file, idx) =>
-        React.createElement(Text, { key: idx, dimColor: true },
+        React.createElement(Text, { key: `file-${idx}`, dimColor: true },
           `  • ${file}`
         )
       ) : React.createElement(Text, { dimColor: true },
@@ -452,7 +452,7 @@ const RemoveConfirmation = ({ contents, confirmInput }) => {
     contents.length > 0 && React.createElement(Box, { flexDirection: 'column', marginY: 1 },
       React.createElement(Text, { bold: true }, '.avc/ folder contents:'),
       ...contents.map((item, idx) =>
-        React.createElement(Text, { key: idx, dimColor: true },
+        React.createElement(Text, { key: `content-${idx}`, dimColor: true },
           `• ${item}`
         )
       )
@@ -651,7 +651,9 @@ const CommandSelector = ({ onSelect, onCancel, filter }) => {
           color: idx === selectedIndex ? 'green' : 'white'
         }, `${idx === selectedIndex ? '› ' : '  '}[${idx + 1}] ${cmd.label}`)
       ),
-      React.createElement(Text, { dimColor: true }, '\n(Use arrows, number keys, or Esc to cancel)')
+      React.createElement(Box, { marginTop: 1 },
+        React.createElement(Text, { dimColor: true }, '(Use arrows, number keys, or Esc to cancel)')
+      )
     );
   }
 
@@ -660,14 +662,18 @@ const CommandSelector = ({ onSelect, onCancel, filter }) => {
   const groupElements = [];
 
   commandGroups.forEach((group, groupIdx) => {
-    // Group header
+    // Group header (add margin above groups after the first)
     groupElements.push(
-      React.createElement(Text, {
+      React.createElement(Box, {
         key: `header-${groupIdx}`,
-        bold: true,
-        color: 'cyan',
-        dimColor: true
-      }, groupIdx === 0 ? `── ${group.name.toUpperCase()} ──` : `\n── ${group.name.toUpperCase()} ──`)
+        marginTop: groupIdx === 0 ? 0 : 1
+      },
+        React.createElement(Text, {
+          bold: true,
+          color: 'cyan',
+          dimColor: true
+        }, `── ${group.name.toUpperCase()} ──`)
+      )
     );
 
     // Group commands
@@ -691,7 +697,9 @@ const CommandSelector = ({ onSelect, onCancel, filter }) => {
 
   return React.createElement(Box, { flexDirection: 'column', 'aria-role': 'list' },
     ...groupElements,
-    React.createElement(Text, { dimColor: true }, '\n(Use arrows, number keys, or Esc to cancel)')
+    React.createElement(Box, { marginTop: 1 },
+      React.createElement(Text, { dimColor: true }, '(Use arrows, number keys, or Esc to cancel)')
+    )
   );
 };
 
@@ -858,7 +866,7 @@ const ProcessDetailsViewer = ({ process, onBack, onStop }) => {
       : React.createElement(Box, { flexDirection: 'column', borderStyle: 'single' },
         ...recentOutput.map((line, idx) =>
           React.createElement(Text, {
-            key: idx,
+            key: `output-${idx}`,
             color: line.type === 'stderr' ? 'red' : undefined,
             dimColor: line.type === 'stderr'
           },
@@ -1036,7 +1044,7 @@ const ArchitectureSelector = ({ architectures, selectedIndex }) => {
         const icon = arch.requiresCloudProvider ? '[Cloud]' : '[Local]';
         const isSelected = idx === selectedIndex;
 
-        return React.createElement(Box, { key: idx, flexDirection: 'column', 'aria-role': 'listitem', 'aria-state': { selected: isSelected } },
+        return React.createElement(Box, { key: arch.name, flexDirection: 'column', 'aria-role': 'listitem', 'aria-state': { selected: isSelected } },
           React.createElement(Text, { color: isSelected ? 'green' : 'white', bold: isSelected, inverse: isSelected },
             (isSelected ? '> ' : '  ') + icon + ' ' + arch.name
           ),
@@ -1111,7 +1119,7 @@ const DeploymentStrategySelector = ({ selectedIndex }) => {
             // Details
             React.createElement(Box, { marginTop: 1, flexDirection: 'column' },
               ...strategy.details.map((detail, j) =>
-                React.createElement(Text, { key: j, color: 'gray' }, '  • ' + detail)
+                React.createElement(Text, { key: `detail-${j}`, color: 'gray' }, '  • ' + detail)
               )
             ),
 
@@ -1309,7 +1317,7 @@ const DatabaseChoiceSelector = ({ comparison, selectedIndex, recommendedChoice }
     React.createElement(Text, { bold: true }, 'Choose your database approach:'),
     React.createElement(Box, { marginTop: 1, flexDirection: 'column', gap: 1, 'aria-role': 'list' },
       ...choices.map((choice, i) =>
-        React.createElement(Box, { key: i, marginLeft: 2, flexDirection: 'column', 'aria-role': 'listitem', 'aria-state': { selected: i === selectedIndex } },
+        React.createElement(Box, { key: `choice-${i}`, marginLeft: 2, flexDirection: 'column', 'aria-role': 'listitem', 'aria-state': { selected: i === selectedIndex } },
           React.createElement(Text, {
             bold: i === selectedIndex,
             inverse: i === selectedIndex,
@@ -5446,12 +5454,11 @@ const App = () => {
 
     // Show loading indicator while app is initializing
     if (!isStableRender) {
-      return React.createElement(Box, { flexDirection: 'row', flexShrink: 0 },
+      return React.createElement(Box, { flexDirection: 'row', gap: 1, flexShrink: 0 },
         React.createElement(Text, { color: 'cyan' },
-          React.createElement(Spinner, { type: 'dots' }),
-          ' ',
-          'Initializing...'
-        )
+          React.createElement(Spinner, { type: 'dots' })
+        ),
+        React.createElement(Text, null, 'Initializing...')
       );
     }
 
@@ -5552,8 +5559,6 @@ export function startRepl() {
   console.clear();
   render(React.createElement(App), {
     patchConsole: false,       // output is handled by outputBuffer + messaging API
-    incrementalRendering: true, // only re-render changed lines (reduces flickering)
     maxFps: 30,                // cap at 30fps — prevents CPU spikes during fast state changes
-    concurrent: true           // React 19 concurrent mode — non-blocking renders
   });
 }
