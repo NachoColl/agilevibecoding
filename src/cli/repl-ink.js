@@ -301,9 +301,9 @@ const AnswersPreview = ({ answers, questions, defaultSuggested, aiPrefilled }) =
   // Check if any AI-prefilled answers exist
   const hasAiPrefilled = aiPrefilled && aiPrefilled.size > 0;
 
-  return React.createElement(Box, { flexDirection: 'column', marginTop: 1 },
+  return React.createElement(Box, { flexDirection: 'column' },
     React.createElement(Text, { bold: true, color: 'cyan' },
-      '\nReview Your Answers\n'
+      'Review Your Answers\n'
     ),
     hasAiPrefilled ? React.createElement(Text, { dimColor: true },
       'AI = AI-suggested (you can edit these) | User = User-entered\n'
@@ -357,9 +357,9 @@ const AnswersPreview = ({ answers, questions, defaultSuggested, aiPrefilled }) =
 
 // Cancel questionnaire confirmation component
 const CancelQuestionnaireConfirmation = () => {
-  return React.createElement(Box, { flexDirection: 'column', marginTop: 1 },
+  return React.createElement(Box, { flexDirection: 'column' },
     React.createElement(Text, { bold: true, color: 'yellow' },
-      '\nCancel Questionnaire\n'
+      'Cancel Questionnaire\n'
     ),
     React.createElement(Text, null,
       'You have answered some questions. What would you like to do with your progress?\n'
@@ -393,9 +393,9 @@ const CancelExecutionConfirmation = ({ executionState }) => {
   const currentOperation = substep || stage || 'Processing...';
   const hasFiles = filesCreated.length > 0;
 
-  return React.createElement(Box, { flexDirection: 'column', marginTop: 1 },
+  return React.createElement(Box, { flexDirection: 'column' },
     React.createElement(Text, { bold: true, color: 'yellow' },
-      '\nCancel Operation\n'
+      'Cancel Operation\n'
     ),
     React.createElement(Text, null,
       'Do you want to cancel the current operation?\n'
@@ -441,9 +441,9 @@ const CancelExecutionConfirmation = ({ executionState }) => {
 
 // Remove confirmation component
 const RemoveConfirmation = ({ contents, confirmInput }) => {
-  return React.createElement(Box, { flexDirection: 'column', marginTop: 1 },
+  return React.createElement(Box, { flexDirection: 'column' },
     React.createElement(Text, { bold: true, color: 'red' },
-      '\nRemove AVC Project Structure\n'
+      'Remove AVC Project Structure\n'
     ),
     React.createElement(Text, { color: 'yellow' },
       'WARNING: This is a DESTRUCTIVE operation!\n'
@@ -455,7 +455,7 @@ const RemoveConfirmation = ({ contents, confirmInput }) => {
       React.createElement(Text, { bold: true }, '.avc/ folder contents:'),
       ...contents.map((item, idx) =>
         React.createElement(Text, { key: `content-${idx}`, dimColor: true },
-          `• ${item}`
+          `   • ${item}`
         )
       )
     ),
@@ -496,9 +496,9 @@ const RemoveConfirmation = ({ contents, confirmInput }) => {
 
 // Kill external process confirmation component
 const KillProcessConfirmation = ({ processInfo, confirmInput }) => {
-  return React.createElement(Box, { flexDirection: 'column', marginTop: 1 },
+  return React.createElement(Box, { flexDirection: 'column' },
     React.createElement(Text, { bold: true, color: 'yellow' },
-      '\nExternal Process Using Port\n'
+      'External Process Using Port\n'
     ),
     React.createElement(Text, null,
       `Port ${processInfo.port} is currently in use by an external process:\n`
@@ -749,8 +749,8 @@ const ProcessViewer = ({ processes, onSelect, onCancel }) => {
   }, { isActive: true });
 
   if (processList.length === 0) {
-    return React.createElement(Box, { flexDirection: 'column', marginTop: 1 },
-      React.createElement(Text, null, '\nBackground Processes\n'),
+    return React.createElement(Box, { flexDirection: 'column' },
+      React.createElement(Text, null, 'Background Processes\n'),
       React.createElement(Text, { dimColor: true }, '   No background processes running\n'),
       React.createElement(Text, { dimColor: true }, '   Press Esc to return\n')
     );
@@ -758,8 +758,8 @@ const ProcessViewer = ({ processes, onSelect, onCancel }) => {
 
   const manager = getProcessManager();
 
-  return React.createElement(Box, { flexDirection: 'column', marginTop: 1 },
-    React.createElement(Text, null, '\nBackground Processes\n'),
+  return React.createElement(Box, { flexDirection: 'column' },
+    React.createElement(Text, null, 'Background Processes\n'),
     React.createElement(Text, { dimColor: true },
       `   Select a process to view details (${processList.length} total)\n`
     ),
@@ -827,10 +827,10 @@ const ProcessDetailsViewer = ({ process, onBack, onStop }) => {
     process.status === 'stopped' ? 'yellow' :
       process.status === 'exited' ? 'blue' : 'red';
 
-  return React.createElement(Box, { flexDirection: 'column', marginTop: 1 },
+  return React.createElement(Box, { flexDirection: 'column' },
     // Header
     React.createElement(Text, { bold: true },
-      `\n${process.name}\n`
+      `${process.name}\n`
     ),
 
     // Process info
@@ -5231,46 +5231,35 @@ const App = () => {
   const renderOutput = () => {
     // Show kill confirmation if active
     if (killConfirmActive) {
-      return React.createElement(Box, { marginY: 1 },
-        React.createElement(KillProcessConfirmation, {
-          processInfo: processToKill,
-          confirmInput: killConfirmInput
-        })
-      );
+      return React.createElement(KillProcessConfirmation, {
+        processInfo: processToKill,
+        confirmInput: killConfirmInput
+      });
     }
 
     // Show remove confirmation if active
     if (removeConfirmActive) {
-      return React.createElement(Box, { marginY: 1 },
-        React.createElement(RemoveConfirmation, {
-          contents: avcContents,
-          confirmInput: removeConfirmInput
-        })
-      );
+      return React.createElement(RemoveConfirmation, {
+        contents: avcContents,
+        confirmInput: removeConfirmInput
+      });
     }
 
     // Show cancel questionnaire confirmation if active
     if (cancelConfirmActive) {
-      return React.createElement(Box, { flexDirection: 'column', marginY: 1 },
-
-        React.createElement(CancelQuestionnaireConfirmation)
-      );
+      return React.createElement(CancelQuestionnaireConfirmation);
     }
 
     // Show cancel execution confirmation if active
     if (cancelExecutionActive) {
-      return React.createElement(Box, { flexDirection: 'column', marginY: 1 },
-
-        React.createElement(CancelExecutionConfirmation, {
-          executionState: executionState
-        })
-      );
+      return React.createElement(CancelExecutionConfirmation, {
+        executionState: executionState
+      });
     }
 
     // Show database choice selector if active (new comparison format)
     if (databaseChoiceActive && databaseComparison) {
-      return React.createElement(Box, { flexDirection: 'column', marginY: 1 },
-
+      return React.createElement(Box, { flexDirection: 'column' },
         React.createElement(DatabaseRecommendationDisplay, {
           comparison: databaseComparison,
           keyMetrics: databaseComparison.keyMetrics || {}
@@ -5297,47 +5286,35 @@ const App = () => {
 
     // Show architecture selector if active
     if (architectureSelectorActive) {
-      return React.createElement(Box, { flexDirection: 'column', marginY: 1 },
-
-        React.createElement(ArchitectureSelector, {
-          architectures: architectureOptions,
-          selectedIndex: selectedArchitectureIndex
-        })
-      );
+      return React.createElement(ArchitectureSelector, {
+        architectures: architectureOptions,
+        selectedIndex: selectedArchitectureIndex
+      });
     }
 
     // Show deployment strategy selector if active
     if (deploymentStrategySelectorActive) {
-      return React.createElement(Box, { flexDirection: 'column', marginY: 1 },
-
-        React.createElement(DeploymentStrategySelector, {
-          selectedIndex: deploymentStrategyIndex
-        })
-      );
+      return React.createElement(DeploymentStrategySelector, {
+        selectedIndex: deploymentStrategyIndex
+      });
     }
 
     // Show cloud provider selector if active
     if (cloudProviderSelectorActive) {
-      return React.createElement(Box, { flexDirection: 'column', marginY: 1 },
-
-        React.createElement(CloudProviderSelector, {
-          architectureName: selectedArchitecture?.name || 'Selected Architecture',
-          selectedIndex: cloudProviderIndex
-        })
-      );
+      return React.createElement(CloudProviderSelector, {
+        architectureName: selectedArchitecture?.name || 'Selected Architecture',
+        selectedIndex: cloudProviderIndex
+      });
     }
 
     // Show preview if active
     if (showPreview) {
-      return React.createElement(Box, { flexDirection: 'column', marginY: 1 },
-
-        React.createElement(AnswersPreview, {
-          answers: questionnaireAnswers,
-          questions: questionnaireQuestions,
-          defaultSuggested: defaultSuggestedAnswers,
-          aiPrefilled: aiPrefilledQuestions
-        })
-      );
+      return React.createElement(AnswersPreview, {
+        answers: questionnaireAnswers,
+        questions: questionnaireQuestions,
+        defaultSuggested: defaultSuggestedAnswers,
+        aiPrefilled: aiPrefilledQuestions
+      });
     }
 
     // Show questionnaire if active (guard: never show questionnaire while executing to prevent Q1 flash)
