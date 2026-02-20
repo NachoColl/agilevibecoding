@@ -13,17 +13,25 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 /**
- * Debug logging helper - adds timestamp and context
+ * Module-level debug log file path.
+ * Set via TemplateProcessor.setDebugLogFile() from repl-ink.js before creating
+ * any TemplateProcessor instance. When null, debug() is silent (no terminal output).
+ * This ensures diagnostic output NEVER corrupts the Ink UI.
+ */
+let _debugLogFile = null;
+
+/**
+ * Debug logging helper - writes directly to the log file, never to the terminal.
  * @param {string} message - Log message
  * @param {Object} data - Optional data to log
  */
 function debug(message, data = null) {
+  if (!_debugLogFile) return;
   const timestamp = new Date().toISOString();
-  if (data) {
-    console.log(`[DEBUG][${timestamp}] ${message}`, JSON.stringify(data, null, 2));
-  } else {
-    console.log(`[DEBUG][${timestamp}] ${message}`);
-  }
+  const line = data !== null
+    ? `[${timestamp}] [DEBUG] ${message}\n${JSON.stringify(data, null, 2)}\n`
+    : `[${timestamp}] [DEBUG] ${message}\n`;
+  try { fs.appendFileSync(_debugLogFile, line, 'utf8'); } catch (_) {}
 }
 
 /**
@@ -42,7 +50,7 @@ class TemplateProcessor {
     // Load environment variables from project .env
     dotenv.config({ path: path.join(process.cwd(), '.env') });
 
-    console.log('[DEBUG] TemplateProcessor constructor called:', { ceremonyName, nonInteractive });
+    debug('TemplateProcessor constructor called', { ceremonyName, nonInteractive });
 
     this.ceremonyName = ceremonyName;
 
@@ -522,11 +530,11 @@ Please carefully follow the output format requirements to avoid these issues.
     try {
       // Initialize main provider
       this.llmProvider = await LLMProvider.create(this._providerName, this._modelName);
-      console.log(`   Using ${this._providerName} (${this._modelName}) for generation\n`);
+      debug(`Using ${this._providerName} (${this._modelName}) for generation`);
 
       // Initialize validation provider if validation is enabled
       if (this._validationProvider) {
-        console.log(`   Using ${this._validationProvider} (${this._validationModel}) for validation\n`);
+        debug(`Using ${this._validationProvider} (${this._validationModel}) for validation`);
         this.validationLLMProvider = await LLMProvider.create(
           this._validationProvider,
           this._validationModel
@@ -563,7 +571,7 @@ Please carefully follow the output format requirements to avoid these issues.
     const providerInstance = await LLMProvider.create(provider, model);
     this._stageProviders[cacheKey] = providerInstance;
 
-    console.log(`   Using ${provider} (${model}) for ${stageName}\n`);
+    debug(`Using ${provider} (${model}) for ${stageName}`);
 
     return providerInstance;
   }
@@ -590,7 +598,7 @@ Please carefully follow the output format requirements to avoid these issues.
     const providerInstance = await LLMProvider.create(provider, model);
     this._validationProviders[cacheKey] = providerInstance;
 
-    console.log(`   Using ${provider} (${model}) for ${validationType} validation\n`);
+    debug(`Using ${provider} (${model}) for ${validationType} validation`);
 
     return providerInstance;
   }
@@ -704,7 +712,7 @@ Please carefully follow the output format requirements to avoid these issues.
       if (agentInstructions) {
         // Use domain-specific agent with context
         const prompt = this.buildPrompt(variableName, isPlural, context);
-        console.log(`Using specialized agent: ${variableName.toLowerCase().replace(/_/g, '-')}`);
+        debug(`Using specialized agent: ${variableName.toLowerCase().replace(/_/g, '-')}`);
 
         const text = await this.retryWithBackoff(
           () => provider.generate(prompt, isPlural ? 512 : 1024, agentInstructions),
@@ -2969,6 +2977,16 @@ Make it actionable with specific CLI commands, code examples, and cost estimates
       debug('generateMigrationGuide error', { error: error.message, stack: error.stack });
       throw error;
     }
+  }
+
+  /**
+   * Configure the log file for debug() writes.
+   * Called from repl-ink.js when the CommandLogger starts/stops.
+   * When filePath is null, debug() is silent (no terminal or file output).
+   * @param {string|null} filePath - Absolute path to the active log file
+   */
+  static setDebugLogFile(filePath) {
+    _debugLogFile = filePath;
   }
 }
 

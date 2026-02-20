@@ -206,6 +206,12 @@ export class LLMProvider {
 
   // Factory — async because of dynamic import (only loads the SDK you need)
   static async create(providerName, model) {
+    // AVC_LLM_MOCK=1: return instant mock provider for E2E testing (no API calls)
+    if (process.env.AVC_LLM_MOCK) {
+      const { MockLLMProvider } = await import('./llm-mock.js');
+      return new MockLLMProvider();
+    }
+
     switch (providerName) {
       case 'claude': {
         const { ClaudeProvider } = await import('./llm-claude.js');

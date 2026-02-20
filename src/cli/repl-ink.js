@@ -1044,15 +1044,16 @@ const ArchitectureSelector = ({ architectures, selectedIndex }) => {
       ...architectures.map((arch, idx) => {
         const tag = arch.requiresCloudProvider ? '[Cloud]' : '[Local]';
         const isSelected = idx === selectedIndex;
-        return React.createElement(Text, {
-          key: arch.name,
-          color: isSelected ? 'green' : 'white',
-          bold: isSelected,
-          inverse: isSelected,
-          'aria-role': 'listitem',
-          'aria-state': { selected: isSelected }
-        },
-          (isSelected ? '> ' : '  ') + (idx + 1) + '. ' + tag + ' ' + arch.name
+        return React.createElement(Box, { key: arch.name, flexDirection: 'column', marginBottom: 1 },
+          React.createElement(Text, {
+            color: isSelected ? 'green' : 'white',
+            bold: isSelected,
+            inverse: isSelected,
+            'aria-role': 'listitem',
+            'aria-state': { selected: isSelected }
+          }, (isSelected ? '> ' : '  ') + (idx + 1) + '. ' + tag + ' ' + arch.name),
+          arch.description && React.createElement(Text, { dimColor: true }, arch.description),
+          arch.bestFor && React.createElement(Text, { color: 'yellow' }, 'Best for: ' + arch.bestFor)
         );
       })
     ),
@@ -1065,21 +1066,36 @@ const ArchitectureSelector = ({ architectures, selectedIndex }) => {
  * Explicit choice: Local MVP First or Cloud Deployment
  */
 const DeploymentStrategySelector = ({ selectedIndex }) => {
-  const labels = ['Local MVP First', 'Cloud Deployment'];
+  const strategies = [
+    {
+      label: 'Local MVP First',
+      description: 'Build and validate your MVP on your local machine',
+      bullets: ['Zero cloud costs during development phase', 'Run on localhost or Docker Compose', 'Migrate to cloud when ready for production'],
+      bestFor: 'Best for: Validating ideas, learning, budget-conscious projects'
+    },
+    {
+      label: 'Cloud Deployment',
+      description: 'Deploy to production cloud infrastructure from day one',
+      bullets: ['AWS, Azure, or Google Cloud Platform', 'Scalable managed services, production-ready', 'Immediate global availability'],
+      bestFor: 'Best for: Enterprise projects, immediate scale requirements'
+    }
+  ];
   return React.createElement(Box, { flexDirection: 'column' },
     React.createElement(Text, { bold: true, color: 'cyan' }, 'Select deployment strategy:'),
     React.createElement(Box, { flexDirection: 'column', marginTop: 1, 'aria-role': 'list' },
-      ...labels.map((label, i) => {
+      ...strategies.map(({ label, description, bullets, bestFor }, i) => {
         const isSelected = i === selectedIndex;
-        return React.createElement(Text, {
-          key: label,
-          color: isSelected ? 'green' : 'white',
-          bold: isSelected,
-          inverse: isSelected,
-          'aria-role': 'listitem',
-          'aria-state': { selected: isSelected }
-        },
-          (isSelected ? '> ' : '  ') + (i + 1) + '. ' + label
+        return React.createElement(Box, { key: label, flexDirection: 'column', marginBottom: 1 },
+          React.createElement(Text, {
+            color: isSelected ? 'green' : 'white',
+            bold: isSelected,
+            inverse: isSelected,
+            'aria-role': 'listitem',
+            'aria-state': { selected: isSelected }
+          }, '> ' + (i + 1) + '. ' + label),
+          React.createElement(Text, { dimColor: true }, description),
+          ...bullets.map(b => React.createElement(Text, { key: b, dimColor: true }, '  • ' + b)),
+          React.createElement(Text, { color: 'yellow' }, bestFor)
         );
       })
     ),
@@ -1091,21 +1107,27 @@ const DeploymentStrategySelector = ({ selectedIndex }) => {
  * Cloud Provider Selector Component
  */
 const CloudProviderSelector = ({ selectedIndex }) => {
-  const labels = ['Amazon Web Services (AWS)', 'Microsoft Azure', 'Google Cloud Platform (GCP)'];
+  const providers = [
+    { label: 'Amazon Web Services (AWS)', description: 'Most comprehensive cloud platform with 200+ services and global reach' },
+    { label: 'Microsoft Azure', description: 'Strong .NET/Windows integration, excellent hybrid cloud capabilities' },
+    { label: 'Google Cloud Platform (GCP)', description: 'Cutting-edge data/ML services, strong Kubernetes support' }
+  ];
   return React.createElement(Box, { flexDirection: 'column' },
     React.createElement(Text, { bold: true, color: 'cyan' }, 'Select cloud provider:'),
     React.createElement(Box, { flexDirection: 'column', marginTop: 1, 'aria-role': 'list' },
-      ...labels.map((label, i) => {
+      ...providers.map(({ label, description }, i) => {
         const isSelected = i === selectedIndex;
-        return React.createElement(Text, {
-          key: label,
-          color: isSelected ? 'green' : 'white',
-          bold: isSelected,
-          inverse: isSelected,
-          'aria-role': 'listitem',
-          'aria-state': { selected: isSelected }
-        },
-          (isSelected ? '> ' : '  ') + (i + 1) + '. ' + label
+        return React.createElement(Box, { key: label, flexDirection: 'column' },
+          React.createElement(Text, {
+            color: isSelected ? 'green' : 'white',
+            bold: isSelected,
+            inverse: isSelected,
+            'aria-role': 'listitem',
+            'aria-state': { selected: isSelected }
+          },
+            '> ' + (i + 1) + '. ' + label
+          ),
+          React.createElement(Text, { dimColor: true }, '   ' + description)
         );
       })
     ),
@@ -1134,146 +1156,45 @@ const toCostMarks = (costStr) => {
 };
 
 /**
- * Write database comparison to static output buffer.
- * Called once when comparison is ready so Ink's dynamic area
- * only needs to render the small DatabaseChoiceSelector.
+ * No-op: DB comparison display moved entirely into DatabaseRecommendationDisplay
+ * React component (rendered alongside DatabaseChoiceSelector). Static buffer only
+ * receives a post-selection confirmation line — the same pattern as deploy strategy
+ * and architecture selectors.
  */
-const appendDatabaseComparison = (comparison) => {
-  if (!comparison) return;
-
-  const metrics = comparison.keyMetrics || {};
-
-  const sqlExamples = [comparison.sqlOption.database, 'PostgreSQL', 'MySQL', 'SQLite']
-    .filter((db, idx, arr) => arr.indexOf(db) === idx)
-    .slice(0, 3)
-    .join(', ');
-  const nosqlExamples = [comparison.nosqlOption.database, 'MongoDB', 'DynamoDB', 'Firestore']
-    .filter((db, idx, arr) => arr.indexOf(db) === idx)
-    .slice(0, 3)
-    .join(', ');
-
-  outputBuffer.append(boldCyan('Database Options Comparison'));
-
-  if (metrics.estimatedReadWriteRatio || metrics.expectedThroughput || metrics.dataComplexity) {
-    const parts = [];
-    if (metrics.estimatedReadWriteRatio) parts.push(`R/W: ${metrics.estimatedReadWriteRatio}`);
-    if (metrics.expectedThroughput) parts.push(`Throughput: ${metrics.expectedThroughput}`);
-    if (metrics.dataComplexity) parts.push(`Complexity: ${metrics.dataComplexity}`);
-    outputBuffer.append(gray(parts.join('  ')));
-  }
-
-  outputBuffer.append('');
-  outputBuffer.append(green(`SQL (e.g., ${sqlExamples})`));
-  (comparison.sqlOption.pros || []).slice(0, 3).forEach(pro => outputBuffer.append(gray(`  + ${pro}`)));
-  (comparison.sqlOption.cons || []).slice(0, 3).forEach(con => outputBuffer.append(gray(`  - ${con}`)));
-  const sqlCost = toCostMarks(comparison.sqlOption.estimatedCosts?.monthly);
-  if (sqlCost) outputBuffer.append(yellow(`  Cost: ${sqlCost}`));
-
-  outputBuffer.append('');
-  outputBuffer.append(cyan(`NoSQL (e.g., ${nosqlExamples})`));
-  (comparison.nosqlOption.pros || []).slice(0, 3).forEach(pro => outputBuffer.append(gray(`  + ${pro}`)));
-  (comparison.nosqlOption.cons || []).slice(0, 3).forEach(con => outputBuffer.append(gray(`  - ${con}`)));
-  const nosqlCost = toCostMarks(comparison.nosqlOption.estimatedCosts?.monthly);
-  if (nosqlCost) outputBuffer.append(yellow(`  Cost: ${nosqlCost}`));
-
-  outputBuffer.append('');
-};
+const appendDatabaseComparison = (_comparison) => { };
 
 /**
  * Write answers preview to static output buffer.
  * Called before setShowPreview(true) so the dynamic area only needs
  * the compact action-hint component (3 lines) instead of 20-60 lines.
  */
-const appendAnswersPreview = (answers, questions, defaultSuggested, aiPrefilled) => {
-  const hasAiPrefilled = aiPrefilled && aiPrefilled.size > 0;
-
-  outputBuffer.append(boldCyan('Review Your Answers'));
-  if (hasAiPrefilled) {
-    outputBuffer.append(gray('AI = AI-suggested (you can edit) | User = User-entered'));
-  }
-  outputBuffer.append('');
-
-  questions.forEach((question, idx) => {
-    const answer = answers[question.key];
-    const isDefault = defaultSuggested && defaultSuggested.has(question.key);
-    const isAiPrefilled = aiPrefilled && aiPrefilled.has(question.key);
-
-    let prefix = '';
-    if (isDefault) prefix = gray('(default) ');
-    else if (isAiPrefilled) prefix = yellow('AI: ');
-    else if (answer) prefix = '';
-
-    outputBuffer.append(bold(`${idx + 1}. ${question.title}`));
-    if (answer) {
-      answer.split('\n').forEach(line => {
-        const color = isDefault ? gray : isAiPrefilled ? yellow : (s => s);
-        outputBuffer.append(`  ${prefix}${color(line)}`);
-      });
-    } else {
-      outputBuffer.append(gray('  (Skipped - will use AI suggestion)'));
-    }
-    outputBuffer.append('');
-  });
-};
+/**
+ * No-op: answers preview display moved entirely into the AnswersPreview React
+ * component (rendered when showPreview===true). Static buffer only receives
+ * post-selection confirmation lines — the same pattern as all other selectors.
+ */
+const appendAnswersPreview = (_answers, _questions, _defaultSuggested, _aiPrefilled) => {};
 
 /**
- * Write deployment strategy options to static output buffer before activating the selector.
+ * No-op: React DeploymentStrategySelector owns its own header and option display.
+ * Static output only ever gets the post-selection confirmation line (written in the
+ * Enter handler), keeping prior-step text from persisting on screen during later steps.
  */
-const appendDeploymentStrategyOptions = () => {
-  outputBuffer.append(boldCyan('Deployment Strategy'));
-  outputBuffer.append('Choose how you want to deploy your application:');
-  outputBuffer.append('');
-  outputBuffer.append(green('1. Local MVP First'));
-  outputBuffer.append(gray('   Build and validate your MVP on your local machine'));
-  outputBuffer.append(gray('   • Zero cloud costs during development phase'));
-  outputBuffer.append(gray('   • Run on localhost or Docker Compose'));
-  outputBuffer.append(gray('   • Migrate to cloud when ready for production'));
-  outputBuffer.append(yellow('   Best for: Validating ideas, learning, budget-conscious projects'));
-  outputBuffer.append('');
-  outputBuffer.append(green('2. Cloud Deployment'));
-  outputBuffer.append(gray('   Deploy to production cloud infrastructure from day one'));
-  outputBuffer.append(gray('   • AWS, Azure, or Google Cloud Platform'));
-  outputBuffer.append(gray('   • Scalable managed services, production-ready'));
-  outputBuffer.append(gray('   • Immediate global availability'));
-  outputBuffer.append(yellow('   Best for: Enterprise projects, immediate scale requirements'));
-  outputBuffer.append('');
-};
+const appendDeploymentStrategyOptions = () => { };
 
 /**
- * Write architecture options to static output buffer before activating the selector.
+ * No-op: React ArchitectureSelector owns its own header and option display.
+ * Static output only ever gets the post-selection confirmation line (written in the
+ * Enter handler), keeping prior-step text from persisting on screen during later steps.
  */
-const appendArchitectureOptions = (architectures) => {
-  if (!architectures || architectures.length === 0) return;
-  outputBuffer.append(boldCyan('Recommended Deployment Architectures'));
-  outputBuffer.append(gray('Based on your mission and scope, here are recommended approaches:'));
-  outputBuffer.append('');
-  architectures.forEach((arch, idx) => {
-    const tag = arch.requiresCloudProvider ? '[Cloud]' : '[Local]';
-    outputBuffer.append(green(`${idx + 1}. ${tag} ${arch.name}`));
-    if (arch.description) outputBuffer.append(gray(`   ${arch.description}`));
-    if (arch.bestFor) outputBuffer.append(gray(`   Best for: ${arch.bestFor}`));
-    outputBuffer.append('');
-  });
-};
+const appendArchitectureOptions = (architectures) => { };
 
 /**
- * Write cloud provider options to static output buffer before activating the selector.
+ * No-op: React CloudProviderSelector owns its own header, option names, and descriptions.
+ * Static output only ever gets the post-selection confirmation line (written in the
+ * Enter handler), keeping prior-step text from persisting on screen during later steps.
  */
-const appendCloudProviderOptions = (architectureName) => {
-  const providers = [
-    { id: 'AWS', name: 'Amazon Web Services', description: 'Most comprehensive cloud platform with 200+ services and global reach' },
-    { id: 'Azure', name: 'Microsoft Azure', description: 'Strong .NET/Windows integration, excellent hybrid cloud capabilities' },
-    { id: 'GCP', name: 'Google Cloud Platform', description: 'Cutting-edge data/ML services, strong Kubernetes support' }
-  ];
-  outputBuffer.append(boldCyan(`Cloud Provider for "${architectureName}"`));
-  outputBuffer.append(gray('Your selected architecture requires a cloud provider:'));
-  outputBuffer.append('');
-  providers.forEach((p, idx) => {
-    outputBuffer.append(green(`${idx + 1}. ${p.name} (${p.id})`));
-    outputBuffer.append(gray(`   ${p.description}`));
-    outputBuffer.append('');
-  });
-};
+const appendCloudProviderOptions = (architectureName) => { };
 
 /**
  * Write model configuration overview to static output buffer before activating overview nav.
@@ -1330,6 +1251,12 @@ const DatabaseRecommendationDisplay = ({ comparison, keyMetrics }) => {
   const sqlCostMarks = toCostMarks(comparison.sqlOption.estimatedCosts?.monthly);
   const nosqlCostMarks = toCostMarks(comparison.nosqlOption.estimatedCosts?.monthly);
 
+  // Support both pros/cons (real LLM) and strengths/weaknesses (mock / some providers)
+  const sqlPros = comparison.sqlOption.pros || comparison.sqlOption.strengths || [];
+  const sqlCons = comparison.sqlOption.cons || comparison.sqlOption.weaknesses || [];
+  const nosqlPros = comparison.nosqlOption.pros || comparison.nosqlOption.strengths || [];
+  const nosqlCons = comparison.nosqlOption.cons || comparison.nosqlOption.weaknesses || [];
+
   return React.createElement(Box, { flexDirection: 'column', gap: 1 },
     React.createElement(Text, { bold: true, color: 'cyan' }, 'Database Options Comparison'),
 
@@ -1350,13 +1277,13 @@ const DatabaseRecommendationDisplay = ({ comparison, keyMetrics }) => {
         React.createElement(Text, { bold: true, color: 'green' }, 'SQL (e.g., ' + sqlExamples + ')'),
         React.createElement(Box, { flexDirection: 'column' },
           React.createElement(Text, { color: 'white' }, 'Pros:'),
-          ...comparison.sqlOption.pros.slice(0, 3).map((pro, i) =>
+          ...sqlPros.slice(0, 3).map((pro, i) =>
             React.createElement(Text, { key: `sql-pro-${i}`, color: 'gray' }, '+ ' + pro)
           )
         ),
         React.createElement(Box, { flexDirection: 'column' },
           React.createElement(Text, { color: 'white' }, 'Cons:'),
-          ...comparison.sqlOption.cons.slice(0, 3).map((con, i) =>
+          ...sqlCons.slice(0, 3).map((con, i) =>
             React.createElement(Text, { key: `sql-con-${i}`, color: 'gray' }, '- ' + con)
           )
         ),
@@ -1368,13 +1295,13 @@ const DatabaseRecommendationDisplay = ({ comparison, keyMetrics }) => {
         React.createElement(Text, { bold: true, color: 'blue' }, 'NoSQL (e.g., ' + nosqlExamples + ')'),
         React.createElement(Box, { flexDirection: 'column' },
           React.createElement(Text, { color: 'white' }, 'Pros:'),
-          ...comparison.nosqlOption.pros.slice(0, 3).map((pro, i) =>
+          ...nosqlPros.slice(0, 3).map((pro, i) =>
             React.createElement(Text, { key: `nosql-pro-${i}`, color: 'gray' }, '+ ' + pro)
           )
         ),
         React.createElement(Box, { flexDirection: 'column' },
           React.createElement(Text, { color: 'white' }, 'Cons:'),
-          ...comparison.nosqlOption.cons.slice(0, 3).map((con, i) =>
+          ...nosqlCons.slice(0, 3).map((con, i) =>
             React.createElement(Text, { key: `nosql-con-${i}`, color: 'gray' }, '- ' + con)
           )
         ),
@@ -1421,12 +1348,12 @@ const DatabaseChoiceSelector = ({ comparison, selectedIndex, recommendedChoice }
     React.createElement(Text, { bold: true }, 'Choose your database approach:'),
     React.createElement(Box, { marginTop: 1, flexDirection: 'column', gap: 1, 'aria-role': 'list' },
       ...choices.map((choice, i) =>
-        React.createElement(Box, { key: `choice-${i}`, marginLeft: 2, flexDirection: 'column', 'aria-role': 'listitem', 'aria-state': { selected: i === selectedIndex } },
+        React.createElement(Box, { key: `choice-${i}`, marginLeft: 0, flexDirection: 'column', 'aria-role': 'listitem', 'aria-state': { selected: i === selectedIndex } },
           React.createElement(Text, {
             bold: i === selectedIndex,
             inverse: i === selectedIndex,
             color: i === selectedIndex ? 'green' : 'white'
-          }, (i === selectedIndex ? '> ' : '  ') + choice.label),
+          }, (i === selectedIndex ? '> ' : '> ') + choice.label),
           React.createElement(Text, { color: 'gray' }, '  ' + choice.description)
         )
       )
@@ -2149,6 +2076,7 @@ const App = () => {
           logger = new CommandLogger(commandName, process.cwd(), true); // inkMode = true
           logger.start();
           _fileLogActive = true;
+          TemplateProcessor.setDebugLogFile(logger.getLogPath());
         }
       }
 
@@ -2319,9 +2247,11 @@ const App = () => {
             if (command.startsWith('/')) {
               outputBuffer.append(`Unknown command: ${command}`, 'ERROR');
               outputBuffer.append(`Type /help to see available commands\nTip: Try /h for help, /v for version, /q to exit`);
+              outputBuffer.append('\n');
             } else {
               outputBuffer.append('Commands must start with /', 'INFO');
               outputBuffer.append('Example: /init, /status, /help\nTip: Type / and press Enter to see all commands');
+              outputBuffer.append('\n');
             }
         }
       } catch (error) {
@@ -2337,6 +2267,7 @@ const App = () => {
             // Stop logger for all other commands
             logger.stop();
             _fileLogActive = false;
+            TemplateProcessor.setDebugLogFile(null);
 
             // Cleanup old logs (keep last 10 per command)
             CommandLogger.cleanupOldLogs();
@@ -2460,6 +2391,7 @@ const App = () => {
     try {
       if (!initiator.isAvcProject()) {
         sendError(getProjectNotInitializedMessage());
+        sendOutput('');
         return;
       }
       await initiator.sprintPlanning();
@@ -2476,6 +2408,7 @@ const App = () => {
     try {
       if (!initiator.isAvcProject()) {
         sendError(getProjectNotInitializedMessage());
+        sendOutput('');
         return;
       }
       await initiator.seed(storyId);
@@ -2497,6 +2430,7 @@ const App = () => {
     // Check if project is initialized
     if (!initiator.isAvcProject()) {
       sendError(getProjectNotInitializedMessage());
+      sendOutput('');
       return;
     }
 
@@ -2559,6 +2493,7 @@ const App = () => {
           setDeploymentStrategyIndex(savedProgress.deploymentStrategyIndex || 0);
           setMode('prompt');
           sendInfo('Resuming from deployment strategy selection...');
+          sendOutput('');
           return;
         }
 
@@ -2574,7 +2509,9 @@ const App = () => {
           setDatabaseChoiceActive(true);
           setDatabaseChoiceIndex(0);
           setMode('prompt');
+          sendOutput('');
           sendInfo('Resuming from database analysis...');
+          sendOutput('');
           return;
         }
 
@@ -2586,7 +2523,9 @@ const App = () => {
           setDatabaseQuestionIndex(savedProgress.databaseQuestionIndex || 0);
           setDatabaseQuestionsActive(true);
           setMode('prompt');
+          sendOutput('');
           sendInfo('Resuming from database deep-dive questions...');
+          sendOutput('');
           return;
         }
 
@@ -2605,7 +2544,9 @@ const App = () => {
           setArchitectureOptions(resumeArchOptions);
           appendArchitectureOptions(resumeArchOptions);
           setArchitectureSelectorActive(true);
+          sendOutput('');
           sendInfo('Resuming from architecture selection...');
+          sendOutput('');
           return;
         }
 
@@ -2624,7 +2565,9 @@ const App = () => {
           setSelectedArchitecture(resumeCloudArch);
           appendCloudProviderOptions(resumeCloudArch?.name || 'Cloud Architecture');
           setCloudProviderSelectorActive(true);
+          sendOutput('');
           sendInfo('Resuming from cloud provider selection...');
+          sendOutput('');
           return;
         }
 
@@ -2642,7 +2585,9 @@ const App = () => {
           appendAnswersPreview(resumeAnswers, questionnaireQuestions, defaultSuggestedAnswers, resumeAiPrefilled);
           setQuestionnaireAnswers(resumeAnswers);
           setShowPreview(true);
+          sendOutput('');
           sendInfo('Resuming from saved progress...');
+          sendOutput('');
           return;
         }
       }
@@ -2748,27 +2693,6 @@ const App = () => {
         return;
       }
 
-      // Generate migration guide if local MVP strategy was chosen
-      if (deploymentStrategy === 'local-mvp' && selectedArchitecture && result) {
-        try {
-          sendProgress('Generating cloud migration guide...');
-
-          const processor = new TemplateProcessor('sponsor-call', progressCallback, false);
-          const migrationGuide = await processor.generateMigrationGuide(
-            selectedArchitecture,
-            selectedDatabaseType,
-            answers
-          );
-
-          const migrationPath = path.join('.avc', 'DEPLOYMENT_MIGRATION.md');
-          writeFileSync(migrationPath, migrationGuide);
-
-          sendSuccess('Created: DEPLOYMENT_MIGRATION.md (cloud migration guide)');
-        } catch (error) {
-          sendWarning('Could not generate migration guide: ' + error.message);
-        }
-      }
-
       // Structured completion summary
       sendSuccess('Sponsor Call completed');
 
@@ -2808,6 +2732,7 @@ const App = () => {
       // Next steps
       sendOutput('');
       sendInfo('Next: review docs, then run /sprint-planning to create Epics and Stories');
+      sendOutput('');
 
     } finally {
       // outputManager.stop(); // Disabled - see line 2422
@@ -2977,6 +2902,7 @@ const App = () => {
       if (activeLogger) {
         activeLogger.stop();
         _fileLogActive = false;
+        TemplateProcessor.setDebugLogFile(null);
         CommandLogger.cleanupOldLogs();
         setActiveLogger(null);
       }
@@ -3373,6 +3299,7 @@ const App = () => {
     try {
       if (!initiator.isAvcProject()) {
         sendError(getProjectNotInitializedMessage());
+        sendOutput('');
         return;
       }
 
@@ -3464,151 +3391,151 @@ const App = () => {
   const runBuildDocumentation = async () => {
     startCommand('documentation');
     try {
-    const ts0 = Date.now();
-    const builder = new DocumentationBuilder();
-    const manager = getProcessManager();
+      const ts0 = Date.now();
+      const builder = new DocumentationBuilder();
+      const manager = getProcessManager();
 
-    fileLog('INFO', 'runBuildDocumentation started', { cwd: process.cwd() });
+      fileLog('INFO', 'runBuildDocumentation started', { cwd: process.cwd() });
 
-    // Check if project is initialized
-    const hasDocumentation = builder.hasDocumentation();
-    fileLog('INFO', 'documentation check', { hasDocumentation });
+      // Check if project is initialized
+      const hasDocumentation = builder.hasDocumentation();
+      fileLog('INFO', 'documentation check', { hasDocumentation });
 
-    if (!hasDocumentation) {
-      fileLog('WARNING', 'documentation not found, aborting');
-      sendError('Documentation not found — run /init first to create documentation structure');
-      return;
-    }
-
-    const port = builder.getPort();
-    fileLog('INFO', 'documentation port determined', { port });
-
-    // Check if documentation server is already running (managed process)
-    const runningProcesses = manager.getRunningProcesses();
-    const existingDocServer = runningProcesses.find(p => p.name === 'Documentation Server');
-    fileLog('INFO', 'managed process check', {
-      runningProcessCount: runningProcesses.length,
-      existingDocServer: existingDocServer ? { id: existingDocServer.id, name: existingDocServer.name } : null
-    });
-
-    if (existingDocServer) {
-      // We have a managed process - check if it's actually running
-      const portInUse = await builder.isPortInUse(port);
-      fileLog('INFO', 'managed process port check', { portInUse });
-
-      if (portInUse) {
-        // Managed process exists and port is in use - restart it
-        fileLog('INFO', 'managed process running, restarting', { processId: existingDocServer.id });
-        sendInfo('Documentation server already running — restarting');
-        manager.stopProcess(existingDocServer.id);
-
-        // Clean up stopped/finished processes
-        manager.cleanupFinished();
-
-        // Wait a bit for the port to be released
-        await new Promise(resolve => setTimeout(resolve, 1000));
-      } else {
-        // Managed process exists but port is not in use - it died, clean up
-        fileLog('WARNING', 'managed process died (port not in use), cleaning up', { processId: existingDocServer.id });
-        sendWarning('Previous documentation server stopped — starting new one');
-        manager.stopProcess(existingDocServer.id);
-
-        // Clean up stopped/finished processes
-        manager.cleanupFinished();
+      if (!hasDocumentation) {
+        fileLog('WARNING', 'documentation not found, aborting');
+        sendError('Documentation not found — run /init first to create documentation structure');
+        return;
       }
-    } else {
-      // No managed process - check if port is in use by external process
-      const portInUse = await builder.isPortInUse(port);
-      fileLog('INFO', 'no managed process, external port check', { portInUse });
 
-      if (portInUse) {
-        // Port is in use by external process - find and kill it
-        const processInfo = await builder.findProcessUsingPort(port);
-        fileLog('INFO', 'process found on port', { processInfo });
+      const port = builder.getPort();
+      fileLog('INFO', 'documentation port determined', { port });
 
-        if (processInfo) {
-          // Found the process using the port - check if it's AVC documentation
-          const isOurDocs = await builder.isDocumentationServer(port);
-          fileLog('INFO', 'is-our-docs check', { isOurDocs, pid: processInfo.pid, command: processInfo.command });
+      // Check if documentation server is already running (managed process)
+      const runningProcesses = manager.getRunningProcesses();
+      const existingDocServer = runningProcesses.find(p => p.name === 'Documentation Server');
+      fileLog('INFO', 'managed process check', {
+        runningProcessCount: runningProcesses.length,
+        existingDocServer: existingDocServer ? { id: existingDocServer.id, name: existingDocServer.name } : null
+      });
 
-          if (isOurDocs) {
-            // It's confirmed to be AVC documentation server - safe to kill
-            sendInfo(`AVC documentation server already running (external process — PID ${processInfo.pid})`);
-            sendInfo('Killing external process and restarting...');
+      if (existingDocServer) {
+        // We have a managed process - check if it's actually running
+        const portInUse = await builder.isPortInUse(port);
+        fileLog('INFO', 'managed process port check', { portInUse });
 
-            // Try to kill the process
-            const killed = await builder.killProcess(processInfo.pid);
-            fileLog(killed ? 'INFO' : 'ERROR', 'kill external docs process', { pid: processInfo.pid, killed });
+        if (portInUse) {
+          // Managed process exists and port is in use - restart it
+          fileLog('INFO', 'managed process running, restarting', { processId: existingDocServer.id });
+          sendInfo('Documentation server already running — restarting');
+          manager.stopProcess(existingDocServer.id);
 
-            if (!killed) {
-              // Failed to kill (permission denied, etc.)
-              fileLog('ERROR', 'failed to kill process, aborting', { pid: processInfo.pid });
-              sendError(`Failed to kill process ${processInfo.pid} — permission denied or process protected`);
-              sendOutput('Please manually stop the process or change the port.');
-              sendOutput('To change the port, edit .avc/avc.json:');
-              sendOutput('  { "settings": { "documentation": { "port": 5173 } } }');
+          // Clean up stopped/finished processes
+          manager.cleanupFinished();
+
+          // Wait a bit for the port to be released
+          await new Promise(resolve => setTimeout(resolve, 1000));
+        } else {
+          // Managed process exists but port is not in use - it died, clean up
+          fileLog('WARNING', 'managed process died (port not in use), cleaning up', { processId: existingDocServer.id });
+          sendWarning('Previous documentation server stopped — starting new one');
+          manager.stopProcess(existingDocServer.id);
+
+          // Clean up stopped/finished processes
+          manager.cleanupFinished();
+        }
+      } else {
+        // No managed process - check if port is in use by external process
+        const portInUse = await builder.isPortInUse(port);
+        fileLog('INFO', 'no managed process, external port check', { portInUse });
+
+        if (portInUse) {
+          // Port is in use by external process - find and kill it
+          const processInfo = await builder.findProcessUsingPort(port);
+          fileLog('INFO', 'process found on port', { processInfo });
+
+          if (processInfo) {
+            // Found the process using the port - check if it's AVC documentation
+            const isOurDocs = await builder.isDocumentationServer(port);
+            fileLog('INFO', 'is-our-docs check', { isOurDocs, pid: processInfo.pid, command: processInfo.command });
+
+            if (isOurDocs) {
+              // It's confirmed to be AVC documentation server - safe to kill
+              sendInfo(`AVC documentation server already running (external process — PID ${processInfo.pid})`);
+              sendInfo('Killing external process and restarting...');
+
+              // Try to kill the process
+              const killed = await builder.killProcess(processInfo.pid);
+              fileLog(killed ? 'INFO' : 'ERROR', 'kill external docs process', { pid: processInfo.pid, killed });
+
+              if (!killed) {
+                // Failed to kill (permission denied, etc.)
+                fileLog('ERROR', 'failed to kill process, aborting', { pid: processInfo.pid });
+                sendError(`Failed to kill process ${processInfo.pid} — permission denied or process protected`);
+                sendOutput('Please manually stop the process or change the port.');
+                sendOutput('To change the port, edit .avc/avc.json:');
+                sendOutput('  { "settings": { "documentation": { "port": 5173 } } }');
+                return;
+              }
+
+              sendSuccess('External process killed');
+
+              // Remove from process manager if it was a managed process
+              manager.removeProcessByPid(processInfo.pid);
+
+              // Wait for port to be released
+              await new Promise(resolve => setTimeout(resolve, 1000));
+            } else {
+              // It's NOT AVC documentation - ask user if they want to kill it anyway
+              fileLog('WARNING', 'port in use by non-AVC process, prompting user for confirmation', { pid: processInfo.pid, command: processInfo.command, port });
+              setProcessToKill({
+                pid: processInfo.pid,
+                command: processInfo.command,
+                port: port
+              });
+              setKillConfirmActive(true);
+              setMode('kill-confirm');
               return;
             }
-
-            sendSuccess('External process killed');
-
-            // Remove from process manager if it was a managed process
-            manager.removeProcessByPid(processInfo.pid);
-
-            // Wait for port to be released
-            await new Promise(resolve => setTimeout(resolve, 1000));
           } else {
-            // It's NOT AVC documentation - ask user if they want to kill it anyway
-            fileLog('WARNING', 'port in use by non-AVC process, prompting user for confirmation', { pid: processInfo.pid, command: processInfo.command, port });
-            setProcessToKill({
-              pid: processInfo.pid,
-              command: processInfo.command,
-              port: port
-            });
-            setKillConfirmActive(true);
-            setMode('kill-confirm');
+            // Port is in use but couldn't find the process (rare case)
+            fileLog('ERROR', 'port in use but process unidentifiable', { port });
+            sendError(`Port ${port} is in use but process could not be identified`);
+            sendOutput('To change the port, edit .avc/avc.json:');
+            sendOutput('  { "settings": { "documentation": { "port": 5173 } } }');
             return;
           }
-        } else {
-          // Port is in use but couldn't find the process (rare case)
-          fileLog('ERROR', 'port in use but process unidentifiable', { port });
-          sendError(`Port ${port} is in use but process could not be identified`);
-          sendOutput('To change the port, edit .avc/avc.json:');
-          sendOutput('  { "settings": { "documentation": { "port": 5173 } } }');
-          return;
         }
       }
-    }
 
-    // Build documentation first
-    fileLog('INFO', 'starting documentation build');
-    sendProgress('Building documentation...');
+      // Build documentation first
+      fileLog('INFO', 'starting documentation build');
+      sendProgress('Building documentation...');
 
-    try {
-      await builder.build();
-      fileLog('INFO', 'documentation build complete', { duration: `${Date.now() - ts0}ms` });
-      sendSuccess('Documentation built successfully');
-    } catch (error) {
-      fileLog('ERROR', 'documentation build failed', { error: error.message, stack: error.stack, duration: `${Date.now() - ts0}ms` });
-      sendError(error.message);
-      return;
-    }
+      try {
+        await builder.build();
+        fileLog('INFO', 'documentation build complete', { duration: `${Date.now() - ts0}ms` });
+        sendSuccess('Documentation built successfully');
+      } catch (error) {
+        fileLog('ERROR', 'documentation build failed', { error: error.message, stack: error.stack, duration: `${Date.now() - ts0}ms` });
+        sendError(error.message);
+        return;
+      }
 
-    // Start preview server in background
-    fileLog('INFO', 'starting documentation preview server', { port, docsDir: builder.docsDir });
-    const processId = manager.startProcess({
-      name: 'Documentation Server',
-      command: 'npx',
-      args: ['vitepress', 'preview', '--port', String(port)],
-      cwd: builder.docsDir
-    });
+      // Start preview server in background
+      fileLog('INFO', 'starting documentation preview server', { port, docsDir: builder.docsDir });
+      const processId = manager.startProcess({
+        name: 'Documentation Server',
+        command: 'npx',
+        args: ['vitepress', 'preview', '--port', String(port)],
+        cwd: builder.docsDir
+      });
 
-    fileLog('INFO', 'runBuildDocumentation complete', { processId, port, totalDuration: `${Date.now() - ts0}ms` });
-    sendSuccess('Documentation server started');
-    sendOutput('');
-    sendIndented(`URL      http://localhost:${port}`, 1);
-    sendIndented(`PID      ${processId}`, 1);
-    sendInfo('Stop with /processes — select Documentation Server — S');
+      fileLog('INFO', 'runBuildDocumentation complete', { processId, port, totalDuration: `${Date.now() - ts0}ms` });
+      sendSuccess('Documentation server started');
+      sendOutput('');
+      sendIndented(`URL      http://localhost:${port}`, 1);
+      sendIndented(`PID      ${processId}`, 1);
+      sendInfo('Stop with /processes — select Documentation Server — S');
     } finally {
       endCommand();
     }
@@ -3617,149 +3544,149 @@ const App = () => {
   const runKanban = async () => {
     startCommand('kanban');
     try {
-    const ts0 = Date.now();
-    const kanbanManager = new KanbanServerManager();
-    const manager = getProcessManager();
+      const ts0 = Date.now();
+      const kanbanManager = new KanbanServerManager();
+      const manager = getProcessManager();
 
-    // File-only logger for runKanban (uses same [DEBUG] prefix pattern)
-    const kLog = (level, message, data = null) => {
-      const ts = new Date().toISOString();
-      if (data !== null) {
-        console.log(`[DEBUG] [${level}] [${ts}] [kanban] ${message}`, JSON.stringify(data, null, 2));
-      } else {
-        console.log(`[DEBUG] [${level}] [${ts}] [kanban] ${message}`);
+      // File-only logger for runKanban (uses same [DEBUG] prefix pattern)
+      const kLog = (level, message, data = null) => {
+        const ts = new Date().toISOString();
+        if (data !== null) {
+          console.log(`[DEBUG] [${level}] [${ts}] [kanban] ${message}`, JSON.stringify(data, null, 2));
+        } else {
+          console.log(`[DEBUG] [${level}] [${ts}] [kanban] ${message}`);
+        }
+      };
+
+      kLog('INFO', 'runKanban started', { cwd: process.cwd() });
+
+      // Check if project is initialized
+      const hasWorkItems = kanbanManager.hasWorkItems();
+      kLog('INFO', 'work items check', { hasWorkItems });
+
+      if (!hasWorkItems) {
+        kLog('WARNING', 'no work items found - aborting');
+        sendWarning('No work items found — run /sponsor-call or /sprint-planning first');
+        return;
       }
-    };
 
-    kLog('INFO', 'runKanban started', { cwd: process.cwd() });
+      const port = kanbanManager.getPort();
+      kLog('INFO', 'kanban port determined', { port });
 
-    // Check if project is initialized
-    const hasWorkItems = kanbanManager.hasWorkItems();
-    kLog('INFO', 'work items check', { hasWorkItems });
+      // Check if kanban server is already running (managed process)
+      const runningProcesses = manager.getRunningProcesses();
+      const existingKanbanServer = runningProcesses.find(p => p.name === 'Kanban Board Server');
+      kLog('INFO', 'managed process check', {
+        runningProcessCount: runningProcesses.length,
+        existingKanbanServer: existingKanbanServer ? { id: existingKanbanServer.id, name: existingKanbanServer.name } : null
+      });
 
-    if (!hasWorkItems) {
-      kLog('WARNING', 'no work items found - aborting');
-      sendWarning('No work items found — run /sponsor-call or /sprint-planning first');
-      return;
-    }
+      if (existingKanbanServer) {
+        // We have a managed process - check if it's actually running
+        const portInUse = await kanbanManager.isPortInUse(port);
+        kLog('INFO', 'managed process port check', { portInUse });
 
-    const port = kanbanManager.getPort();
-    kLog('INFO', 'kanban port determined', { port });
+        if (portInUse) {
+          // Managed process exists and port is in use - restart it
+          kLog('INFO', 'managed process running, restarting', { processId: existingKanbanServer.id });
+          sendInfo('Kanban server already running — restarting');
+          manager.stopProcess(existingKanbanServer.id);
 
-    // Check if kanban server is already running (managed process)
-    const runningProcesses = manager.getRunningProcesses();
-    const existingKanbanServer = runningProcesses.find(p => p.name === 'Kanban Board Server');
-    kLog('INFO', 'managed process check', {
-      runningProcessCount: runningProcesses.length,
-      existingKanbanServer: existingKanbanServer ? { id: existingKanbanServer.id, name: existingKanbanServer.name } : null
-    });
+          // Clean up stopped/finished processes
+          manager.cleanupFinished();
 
-    if (existingKanbanServer) {
-      // We have a managed process - check if it's actually running
-      const portInUse = await kanbanManager.isPortInUse(port);
-      kLog('INFO', 'managed process port check', { portInUse });
+          // Wait a bit for the port to be released
+          await new Promise(resolve => setTimeout(resolve, 1000));
+        } else {
+          // Managed process exists but port is not in use - it died, clean up
+          kLog('WARNING', 'managed process died (port not in use), cleaning up', { processId: existingKanbanServer.id });
+          sendWarning('Previous kanban server stopped — starting new one');
+          manager.stopProcess(existingKanbanServer.id);
 
-      if (portInUse) {
-        // Managed process exists and port is in use - restart it
-        kLog('INFO', 'managed process running, restarting', { processId: existingKanbanServer.id });
-        sendInfo('Kanban server already running — restarting');
-        manager.stopProcess(existingKanbanServer.id);
-
-        // Clean up stopped/finished processes
-        manager.cleanupFinished();
-
-        // Wait a bit for the port to be released
-        await new Promise(resolve => setTimeout(resolve, 1000));
+          // Clean up stopped/finished processes
+          manager.cleanupFinished();
+        }
       } else {
-        // Managed process exists but port is not in use - it died, clean up
-        kLog('WARNING', 'managed process died (port not in use), cleaning up', { processId: existingKanbanServer.id });
-        sendWarning('Previous kanban server stopped — starting new one');
-        manager.stopProcess(existingKanbanServer.id);
+        // No managed process - check if port is in use by external process
+        const portInUse = await kanbanManager.isPortInUse(port);
+        kLog('INFO', 'no managed process, external port check', { portInUse });
 
-        // Clean up stopped/finished processes
-        manager.cleanupFinished();
-      }
-    } else {
-      // No managed process - check if port is in use by external process
-      const portInUse = await kanbanManager.isPortInUse(port);
-      kLog('INFO', 'no managed process, external port check', { portInUse });
+        if (portInUse) {
+          // Port is in use by external process - find and kill it
+          const processInfo = await kanbanManager.findProcessUsingPort(port);
+          kLog('INFO', 'process found on port', { processInfo });
 
-      if (portInUse) {
-        // Port is in use by external process - find and kill it
-        const processInfo = await kanbanManager.findProcessUsingPort(port);
-        kLog('INFO', 'process found on port', { processInfo });
+          if (processInfo) {
+            // Found the process using the port - check if it's AVC kanban server
+            const isOurKanban = await kanbanManager.isKanbanServer(port);
+            kLog('INFO', 'is-our-kanban check', { isOurKanban, pid: processInfo.pid, command: processInfo.command });
 
-        if (processInfo) {
-          // Found the process using the port - check if it's AVC kanban server
-          const isOurKanban = await kanbanManager.isKanbanServer(port);
-          kLog('INFO', 'is-our-kanban check', { isOurKanban, pid: processInfo.pid, command: processInfo.command });
+            if (isOurKanban) {
+              // It's confirmed to be AVC kanban server - safe to kill
+              sendInfo(`AVC kanban server already running (external process — PID ${processInfo.pid})`);
+              sendInfo('Killing external process and restarting...');
 
-          if (isOurKanban) {
-            // It's confirmed to be AVC kanban server - safe to kill
-            sendInfo(`AVC kanban server already running (external process — PID ${processInfo.pid})`);
-            sendInfo('Killing external process and restarting...');
+              // Try to kill the process
+              const killed = await kanbanManager.killProcess(processInfo.pid);
+              kLog(killed ? 'INFO' : 'ERROR', 'kill external kanban process', { pid: processInfo.pid, killed });
 
-            // Try to kill the process
-            const killed = await kanbanManager.killProcess(processInfo.pid);
-            kLog(killed ? 'INFO' : 'ERROR', 'kill external kanban process', { pid: processInfo.pid, killed });
+              if (!killed) {
+                // Failed to kill (permission denied, etc.)
+                kLog('ERROR', 'failed to kill process, aborting', { pid: processInfo.pid });
+                sendError(`Failed to kill process ${processInfo.pid} — permission denied or process protected`);
+                sendOutput('Please manually stop the process or change the port.');
+                sendOutput('To change the port, edit .avc/avc.json:');
+                sendOutput('  { "settings": { "kanban": { "port": 4174 } } }');
+                return;
+              }
 
-            if (!killed) {
-              // Failed to kill (permission denied, etc.)
-              kLog('ERROR', 'failed to kill process, aborting', { pid: processInfo.pid });
-              sendError(`Failed to kill process ${processInfo.pid} — permission denied or process protected`);
-              sendOutput('Please manually stop the process or change the port.');
+              sendSuccess('External process killed');
+
+              // Remove from process manager if it was a managed process
+              manager.removeProcessByPid(processInfo.pid);
+
+              // Wait for port to be released
+              await new Promise(resolve => setTimeout(resolve, 1000));
+            } else {
+              // It's NOT AVC kanban - show warning
+              kLog('WARNING', 'port in use by non-AVC process, aborting', { pid: processInfo.pid, command: processInfo.command, port });
+              sendWarning(`Port ${port} is in use by another process (PID ${processInfo.pid}: ${processInfo.command})`);
+              sendOutput('Stop that process manually or change the kanban port.');
               sendOutput('To change the port, edit .avc/avc.json:');
               sendOutput('  { "settings": { "kanban": { "port": 4174 } } }');
               return;
             }
-
-            sendSuccess('External process killed');
-
-            // Remove from process manager if it was a managed process
-            manager.removeProcessByPid(processInfo.pid);
-
-            // Wait for port to be released
-            await new Promise(resolve => setTimeout(resolve, 1000));
           } else {
-            // It's NOT AVC kanban - show warning
-            kLog('WARNING', 'port in use by non-AVC process, aborting', { pid: processInfo.pid, command: processInfo.command, port });
-            sendWarning(`Port ${port} is in use by another process (PID ${processInfo.pid}: ${processInfo.command})`);
-            sendOutput('Stop that process manually or change the kanban port.');
+            // Port is in use but couldn't find the process (rare case)
+            kLog('ERROR', 'port in use but process unidentifiable', { port });
+            sendError(`Port ${port} is in use but process could not be identified`);
             sendOutput('To change the port, edit .avc/avc.json:');
             sendOutput('  { "settings": { "kanban": { "port": 4174 } } }');
             return;
           }
-        } else {
-          // Port is in use but couldn't find the process (rare case)
-          kLog('ERROR', 'port in use but process unidentifiable', { port });
-          sendError(`Port ${port} is in use but process could not be identified`);
-          sendOutput('To change the port, edit .avc/avc.json:');
-          sendOutput('  { "settings": { "kanban": { "port": 4174 } } }');
-          return;
         }
       }
-    }
 
-    // Start kanban server in background
-    const kanbanServerPath = path.join(__dirname, '..', 'kanban', 'server', 'start.js');
-    kLog('INFO', 'starting kanban server process', { kanbanServerPath, port, cwd: process.cwd() });
-    sendProgress('Starting AVC Kanban Board server...');
+      // Start kanban server in background
+      const kanbanServerPath = path.join(__dirname, '..', 'kanban', 'server', 'start.js');
+      kLog('INFO', 'starting kanban server process', { kanbanServerPath, port, cwd: process.cwd() });
+      sendProgress('Starting AVC Kanban Board server...');
 
-    const processId = manager.startProcess({
-      name: 'Kanban Board Server',
-      command: 'node',
-      args: [kanbanServerPath, process.cwd(), String(port)],
-      cwd: process.cwd()
-    });
+      const processId = manager.startProcess({
+        name: 'Kanban Board Server',
+        command: 'node',
+        args: [kanbanServerPath, process.cwd(), String(port)],
+        cwd: process.cwd()
+      });
 
-    kLog('INFO', 'kanban server process started', { processId, port, duration: `${Date.now() - ts0}ms` });
-    sendSuccess('Kanban board started');
-    sendOutput('');
-    sendIndented(`API      http://localhost:${port}`, 1);
-    sendIndented(`Health   http://localhost:${port}/api/health`, 1);
-    sendIndented(`Items    http://localhost:${port}/api/work-items`, 1);
-    sendIndented(`PID      ${processId}`, 1);
-    sendInfo('Stop with /processes — select Kanban Board Server — S');
+      kLog('INFO', 'kanban server process started', { processId, port, duration: `${Date.now() - ts0}ms` });
+      sendSuccess('Kanban board started');
+      sendOutput('');
+      sendIndented(`API      http://localhost:${port}`, 1);
+      sendIndented(`Health   http://localhost:${port}/api/health`, 1);
+      sendIndented(`Items    http://localhost:${port}/api/work-items`, 1);
+      sendIndented(`PID      ${processId}`, 1);
+      sendInfo('Stop with /processes — select Kanban Board Server — S');
     } finally {
       endCommand();
     }
@@ -4319,6 +4246,7 @@ const App = () => {
       const selected = architectureOptions[selectedArchitectureIndex];
       setSelectedArchitecture(selected);
       setArchitectureSelectorActive(false);
+      outputBuffer.append(green('Architecture: ' + selected.name));
 
       // Check deployment strategy first
       if (deploymentStrategy === 'local-mvp') {
@@ -4403,6 +4331,9 @@ const App = () => {
         setQuestionnaireActive(false);
         setMode('executing');
         setIsExecuting(true);
+
+        const strategyNames = { 'local-mvp': 'Local MVP First', 'cloud': 'Cloud Deployment' };
+        outputBuffer.append(green('Deployment strategy: ' + strategyNames[selected]));
 
         // Delay to let React/Ink process state changes
         await new Promise(resolve => setTimeout(resolve, 250));
@@ -4548,6 +4479,15 @@ const App = () => {
     if (key.return) {
       const choices = ['ai-choose', 'sql', 'nosql', 'skip'];
       const choice = choices[databaseChoiceIndex];
+
+      // Append confirmation to static buffer before disabling selector
+      const dbChoiceLabels = {
+        'ai-choose': 'Let AI choose (' + (recommendedChoice === 'nosql' ? 'NoSQL' : 'SQL') + ')',
+        'sql': 'SQL',
+        'nosql': 'NoSQL',
+        'skip': 'Skip database analysis'
+      };
+      outputBuffer.append(green('Database: ' + dbChoiceLabels[choice]));
 
       // Disable selector first
       setDatabaseChoiceActive(false);
@@ -4700,6 +4640,7 @@ const App = () => {
       // Stop active logger before exiting
       if (activeLogger) {
         activeLogger.stop();
+        TemplateProcessor.setDebugLogFile(null);
         CommandLogger.cleanupOldLogs();
         setActiveLogger(null);
       }
@@ -4747,6 +4688,7 @@ const App = () => {
       // Stop active logger before exiting
       if (activeLogger) {
         activeLogger.stop();
+        TemplateProcessor.setDebugLogFile(null);
         CommandLogger.cleanupOldLogs();
         setActiveLogger(null);
       }
@@ -4838,6 +4780,7 @@ const App = () => {
       // Stop active logger
       if (activeLogger) {
         activeLogger.stop();
+        TemplateProcessor.setDebugLogFile(null);
         CommandLogger.cleanupOldLogs();
         setActiveLogger(null);
       }
@@ -5411,13 +5354,19 @@ const App = () => {
       });
     }
 
-    // Show database choice selector if active (comparison already written to static buffer)
+    // Show database comparison + choice selector together (both React-owned, nothing in static buffer)
     if (databaseChoiceActive && databaseComparison) {
-      return React.createElement(DatabaseChoiceSelector, {
-        comparison: databaseComparison,
-        selectedIndex: databaseChoiceIndex,
-        recommendedChoice: recommendedChoice
-      });
+      return React.createElement(Box, { flexDirection: 'column' },
+        React.createElement(DatabaseRecommendationDisplay, {
+          comparison: databaseComparison,
+          keyMetrics: databaseComparison.keyMetrics
+        }),
+        React.createElement(DatabaseChoiceSelector, {
+          comparison: databaseComparison,
+          selectedIndex: databaseChoiceIndex,
+          recommendedChoice: recommendedChoice
+        })
+      );
     }
 
     // Show database questions if active (DISABLED - removed Customize option)
@@ -5454,9 +5403,14 @@ const App = () => {
       });
     }
 
-    // Show preview if active (content already written to static buffer via appendAnswersPreview)
+    // Show full preview in React — disappears instantly on submit (showPreview → false)
     if (showPreview) {
-      return React.createElement(AnswersPreviewActions);
+      return React.createElement(AnswersPreview, {
+        answers: questionnaireAnswers,
+        questions: questionnaireQuestions,
+        defaultSuggested: defaultSuggestedAnswers,
+        aiPrefilled: aiPrefilledQuestions
+      });
     }
 
     // Show questionnaire if active (guard: never show questionnaire while executing to prevent Q1 flash)

@@ -5,3 +5,18 @@
 tests/.env-test/.env
 test-*/
 .avc/
+
+# VitePress build output
+.avc/documentation/.vitepress/dist
+
+# VitePress cache
+.avc/documentation/.vitepress/cache
+
+# Command execution logs
+.avc/logs
+
+# Token usage tracking
+.avc/token-history.json
+
+# Ceremony execution history
+.avc/ceremonies-history.json

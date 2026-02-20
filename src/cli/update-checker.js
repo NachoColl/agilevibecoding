@@ -1,4 +1,4 @@
-import { execSync } from 'child_process';
+import { exec } from 'child_process';
 import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -76,23 +76,25 @@ export class UpdateChecker {
     }
   }
 
-  // Check npm registry for latest version
+  // Check npm registry for latest version (truly async — does not block the event loop)
   async getLatestVersion() {
-    try {
+    return new Promise((resolve) => {
       updateLogger.debug('Checking npm registry for latest version');
-      const result = execSync(`npm view ${this.packageName} version`, {
-        encoding: 'utf8',
-        timeout: 10000,
-        stdio: ['pipe', 'pipe', 'ignore'] // Suppress stderr
-      });
-      const version = result.trim();
-      updateLogger.debug(`Latest version on npm: ${version}`);
-      return version;
-    } catch (error) {
-      updateLogger.error('Failed to check npm registry', error);
-      // Silently fail - will retry on next check
-      return null;
-    }
+      exec(
+        `npm view ${this.packageName} version`,
+        { timeout: 10000 },
+        (error, stdout) => {
+          if (error) {
+            updateLogger.error('Failed to check npm registry', error);
+            resolve(null);
+          } else {
+            const version = stdout.trim();
+            updateLogger.debug(`Latest version on npm: ${version}`);
+            resolve(version);
+          }
+        }
+      );
+    });
   }
 
   // Compare versions (returns true if remote is newer)
