@@ -4,6 +4,7 @@ export default defineConfig({
   title: '{{PROJECT_NAME}}',
   description: 'Project documentation powered by Agile Vibe Coding',
   base: '/',
+  ignoreDeadLinks: true,
 
   // Custom head tags for AVC documentation identification
   head: [

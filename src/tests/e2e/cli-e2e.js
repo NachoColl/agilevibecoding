@@ -393,6 +393,54 @@ await test('arrow keys in selector do NOT produce spurious command', async (cli,
   }
 });
 
+await test('"1" in answers preview edits Q1 — no spurious command, change saved', async (cli, tmpDir) => {
+  // Drive the full questionnaire to reach the answers preview
+  await initProject(cli, tmpDir);
+  cli.send('/sponsor-call\r');
+  await cli.waitFor('Mission Statement');
+  cli.send('Build a test task manager\r\r');
+  await cli.waitFor('Initial Scope', 15000);
+  cli.send('MVP with tasks and auth\r\r');
+  await cli.waitFor('Select deployment strategy:', 15000);
+  cli.send('\r'); // accept default deployment strategy
+  await cli.waitFor('Choose your database approach', 30000);
+  cli.send('\r'); // accept default DB choice
+  await cli.waitFor('Select architecture', 30000);
+  cli.send('\r'); // accept default architecture
+  await cli.waitFor('Enter to submit', 30000);
+  await sleep(500); // let preview render fully
+
+  // Mark before pressing "1" — watch the output for any leaked command
+  const m = cli.mark();
+
+  // Press "1" to edit Q1: must NOT leak to the command-prompt input buffer
+  cli.send('1');
+
+  // Should enter Q1 edit mode (Mission Statement question becomes active)
+  await cli.waitFor('Mission Statement', 10000);
+
+  // Append " Updated" to the existing answer and submit with double-Enter
+  cli.send(' Updated\r\r');
+
+  // Should return to the answers preview
+  await cli.waitFor('Enter to submit', 15000);
+  await sleep(300);
+
+  // Verify no "Commands must start with /" appeared — that would indicate the
+  // number key leaked into the main command-prompt input buffer (the bug we fixed)
+  const output = cli.since(m);
+  if (/Commands must start with/.test(output)) {
+    throw new Error(
+      `"Commands must start with /" appeared — number key leaked to command buffer:\n${output.slice(0, 400)}`
+    );
+  }
+
+  // Verify the edited answer is visible in the preview
+  if (!cli.capture().includes('Updated')) {
+    throw new Error('Updated answer not visible in preview after editing');
+  }
+});
+
 console.log('\nSponsor-call Full Flow & UI Snapshots');
 
 // ── Screen-snapshot note ─────────────────────────────────────────────────────

@@ -1051,7 +1051,7 @@ const ArchitectureSelector = ({ architectures, selectedIndex }) => {
             inverse: isSelected,
             'aria-role': 'listitem',
             'aria-state': { selected: isSelected }
-          }, (isSelected ? '> ' : '  ') + (idx + 1) + '. ' + tag + ' ' + arch.name),
+          }, (isSelected ? '> ' : '> ') + (idx + 1) + '. ' + tag + ' ' + arch.name),
           arch.description && React.createElement(Text, { dimColor: true }, arch.description),
           arch.bestFor && React.createElement(Text, { color: 'yellow' }, 'Best for: ' + arch.bestFor)
         );
@@ -1173,7 +1173,7 @@ const appendDatabaseComparison = (_comparison) => { };
  * component (rendered when showPreview===true). Static buffer only receives
  * post-selection confirmation lines — the same pattern as all other selectors.
  */
-const appendAnswersPreview = (_answers, _questions, _defaultSuggested, _aiPrefilled) => {};
+const appendAnswersPreview = (_answers, _questions, _defaultSuggested, _aiPrefilled) => { };
 
 /**
  * No-op: React DeploymentStrategySelector owns its own header and option display.
@@ -2734,6 +2734,41 @@ const App = () => {
       sendInfo('Next: review docs, then run /sprint-planning to create Epics and Stories');
       sendOutput('');
 
+      // Auto-start documentation server (skipped in mock/test mode)
+      if (!process.env.AVC_LLM_MOCK) {
+        try {
+          const builder = new DocumentationBuilder();
+          if (builder.hasDocumentation()) {
+            const manager = getProcessManager();
+            const port = builder.getPort();
+            const runningProcesses = manager.getRunningProcesses();
+            const existingDocServer = runningProcesses.find(p => p.name === 'Documentation Server');
+            if (!existingDocServer) {
+              sendOutput('');
+              sendOutput(boldCyan('Documentation Server'));
+              sendProgress('Building documentation...');
+              await builder.build();
+              const processId = manager.startProcess({
+                name: 'Documentation Server',
+                command: 'npx',
+                args: ['vitepress', 'preview', '--port', String(port)],
+                cwd: builder.docsDir
+              });
+              sendSuccess('Documentation server started');
+              sendOutput('');
+              sendIndented(`URL      http://localhost:${port}`, 1);
+              sendIndented(`PID      ${processId}`, 1);
+              sendInfo('Stop with /processes — select Documentation Server — S');
+            } else {
+              sendInfo(`Documentation server already running — http://localhost:${port}`);
+            }
+          }
+        } catch (docError) {
+          sendWarning('Could not start documentation server: ' + docError.message);
+          sendInfo('Run /documentation to start the server manually');
+        }
+      }
+
     } finally {
       // outputManager.stop(); // Disabled - see line 2422
       // End execution context - clears progress indicators
@@ -3812,7 +3847,7 @@ const App = () => {
         setMode('selector');
       }
     }
-  }, { isActive: mode === 'prompt' && !questionnaireActive && !modelConfigActive && !removeConfirmActive && !deploymentStrategySelectorActive && !architectureSelectorActive && !cloudProviderSelectorActive && !databaseChoiceActive && isStableRender });
+  }, { isActive: mode === 'prompt' && !questionnaireActive && !showPreview && !modelConfigActive && !removeConfirmActive && !deploymentStrategySelectorActive && !architectureSelectorActive && !cloudProviderSelectorActive && !databaseChoiceActive && isStableRender });
 
   // Handle keyboard input in selector mode
   useInput((inputChar, key) => {

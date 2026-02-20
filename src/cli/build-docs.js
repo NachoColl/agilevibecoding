@@ -257,12 +257,30 @@ export class DocumentationBuilder {
   }
 
   /**
+   * Ensure ignoreDeadLinks: true is present in the VitePress config.
+   * Patches existing project configs that were created before this option was added.
+   */
+  _ensureIgnoreDeadLinks() {
+    const configPath = path.join(this.docsDir, '.vitepress', 'config.mts');
+    if (!fs.existsSync(configPath)) return;
+    const content = fs.readFileSync(configPath, 'utf8');
+    if (content.includes('ignoreDeadLinks')) return;
+    const patched = content.replace(
+      /defineConfig\(\{/,
+      'defineConfig({\n  ignoreDeadLinks: true,'
+    );
+    fs.writeFileSync(configPath, patched, 'utf8');
+  }
+
+  /**
    * Build documentation without starting server
    */
   async build() {
     if (!this.hasDocumentation()) {
       throw new Error('Documentation not found. Run /init first to create documentation structure.');
     }
+
+    this._ensureIgnoreDeadLinks();
 
     try {
       // Build asynchronously to avoid blocking the event loop
