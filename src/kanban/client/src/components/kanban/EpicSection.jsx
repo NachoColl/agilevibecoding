@@ -85,9 +85,9 @@ export function EpicSection({ group, columnVisibility, onCardClick }) {
               )}
             </div>
 
-            {/* Epic ID */}
-            {epic && (
-              <p className="text-sm text-slate-500 ml-8">{epic.id}</p>
+            {/* Epic description */}
+            {epic?.description && (
+              <p className="text-sm text-slate-500 ml-8">{epic.description}</p>
             )}
           </div>
 
