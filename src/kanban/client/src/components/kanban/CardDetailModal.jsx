@@ -84,7 +84,7 @@ const TYPE_METADATA = {
  * Card Detail Modal Component
  * Displays full work item details with tabbed sections
  */
-export function CardDetailModal({ workItem, open, onOpenChange, onNavigate, allItems }) {
+export function CardDetailModal({ workItem, open, onOpenChange, onNavigate, onItemClick, allItems }) {
   const [activeTab, setActiveTab] = useState('overview');
   const [fullDetails, setFullDetails] = useState(null);
   const [documentation, setDocumentation] = useState(null);
@@ -474,10 +474,13 @@ export function CardDetailModal({ workItem, open, onOpenChange, onNavigate, allI
                         const childStatusMeta = getStatusMetadata(child.status);
                         const childTypeMeta = TYPE_METADATA[child.type];
 
+                        const fullChild = allItems?.find((i) => i.id === child.id);
+
                         return (
-                          <div
+                          <button
                             key={child.id}
-                            className="p-4 border border-slate-200 rounded-lg hover:border-blue-300 transition-colors"
+                            onClick={() => fullChild && onItemClick?.(fullChild)}
+                            className="w-full text-left p-4 border border-slate-200 rounded-lg hover:border-blue-300 hover:bg-blue-50 transition-colors cursor-pointer"
                           >
                             <div className="flex items-start justify-between">
                               <div>
@@ -504,8 +507,9 @@ export function CardDetailModal({ workItem, open, onOpenChange, onNavigate, allI
                                   </Badge>
                                 </div>
                               </div>
+                              <ChevronRight className="w-4 h-4 text-slate-400 mt-1 flex-shrink-0" />
                             </div>
-                          </div>
+                          </button>
                         );
                       })}
                     </div>

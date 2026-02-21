@@ -205,6 +205,7 @@ function App() {
         open={modalOpen}
         onOpenChange={handleModalClose}
         onNavigate={handleNavigate}
+        onItemClick={handleCardClick}
         allItems={workItems}
       />
     </div>
