@@ -174,3 +174,41 @@ export async function updateWorkItemContext(id, content) {
     body: JSON.stringify({ content }),
   });
 }
+
+// ── Project-level (root) files ──────────────────────────────────────────────
+
+export async function getProjectDoc() {
+  const url = `${API_BASE_URL}/project/doc`;
+  const response = await fetch(url);
+  if (!response.ok) return '';
+  return response.text();
+}
+
+export async function getProjectDocRaw() {
+  const url = `${API_BASE_URL}/project/doc/raw`;
+  const response = await fetch(url);
+  if (!response.ok) return '';
+  return response.text();
+}
+
+export async function updateProjectDoc(content) {
+  return apiFetch('/project/doc', { method: 'PUT', body: JSON.stringify({ content }) });
+}
+
+export async function getProjectContext() {
+  const url = `${API_BASE_URL}/project/context`;
+  const response = await fetch(url);
+  if (!response.ok) return '';
+  return response.text();
+}
+
+export async function getProjectContextRaw() {
+  const url = `${API_BASE_URL}/project/context/raw`;
+  const response = await fetch(url);
+  if (!response.ok) return '';
+  return response.text();
+}
+
+export async function updateProjectContext(content) {
+  return apiFetch('/project/context', { method: 'PUT', body: JSON.stringify({ content }) });
+}

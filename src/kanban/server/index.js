@@ -2,6 +2,7 @@ import express from 'express';
 import http from 'http';
 import cors from 'cors';
 import path from 'path';
+import fs from 'fs/promises';
 import { fileURLToPath } from 'url';
 import { FileSystemScanner } from './services/FileSystemScanner.js';
 import { WorkItemReader } from './services/WorkItemReader.js';
@@ -9,6 +10,7 @@ import { HierarchyBuilder } from './services/HierarchyBuilder.js';
 import { FileWatcher } from './services/FileWatcher.js';
 import { createWorkItemsRouter } from './routes/work-items.js';
 import { setupWebSocket } from './routes/websocket.js';
+import { renderMarkdown } from './utils/markdown.js';
 
 /**
  * KanbanServer
@@ -128,6 +130,55 @@ export class KanbanServer {
         console.error('Error during manual reload:', error);
         res.status(500).json({ error: 'Reload failed', message: error.message });
       }
+    });
+
+    // Project-level doc.md and context.md (root .avc/project/ files)
+    const projectPath = path.join(this.projectRoot, '.avc', 'project');
+
+    const readProjectFile = async (filename) => {
+      try {
+        return await fs.readFile(path.join(projectPath, filename), 'utf8');
+      } catch {
+        return null;
+      }
+    };
+
+    this.app.get('/api/project/doc', async (req, res) => {
+      const md = await readProjectFile('doc.md');
+      if (!md) return res.status(404).json({ error: 'Project doc.md not found' });
+      res.send(renderMarkdown(md));
+    });
+
+    this.app.get('/api/project/doc/raw', async (req, res) => {
+      const md = await readProjectFile('doc.md');
+      if (!md) return res.status(404).json({ error: 'Project doc.md not found' });
+      res.type('text/plain').send(md);
+    });
+
+    this.app.put('/api/project/doc', async (req, res) => {
+      const { content } = req.body;
+      if (typeof content !== 'string') return res.status(400).json({ error: 'content must be a string' });
+      await fs.writeFile(path.join(projectPath, 'doc.md'), content, 'utf8');
+      res.json({ status: 'ok' });
+    });
+
+    this.app.get('/api/project/context', async (req, res) => {
+      const md = await readProjectFile('context.md');
+      if (!md) return res.status(404).json({ error: 'Project context.md not found' });
+      res.send(renderMarkdown(md));
+    });
+
+    this.app.get('/api/project/context/raw', async (req, res) => {
+      const md = await readProjectFile('context.md');
+      if (!md) return res.status(404).json({ error: 'Project context.md not found' });
+      res.type('text/plain').send(md);
+    });
+
+    this.app.put('/api/project/context', async (req, res) => {
+      const { content } = req.body;
+      if (typeof content !== 'string') return res.status(400).json({ error: 'content must be a string' });
+      await fs.writeFile(path.join(projectPath, 'context.md'), content, 'utf8');
+      res.json({ status: 'ok' });
     });
 
     // Work items routes

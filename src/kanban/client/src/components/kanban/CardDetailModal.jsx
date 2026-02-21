@@ -30,13 +30,19 @@ import {
   getWorkItemContextRaw,
   updateWorkItemDoc,
   updateWorkItemContext,
+  getProjectDoc,
+  getProjectDocRaw,
+  updateProjectDoc,
+  getProjectContext,
+  getProjectContextRaw,
+  updateProjectContext,
 } from '../../lib/api';
 import { getStatusMetadata } from '../../lib/status-grouping';
 import { cn } from '../../lib/utils';
 
 /**
- * Inline viewer for a parent's doc or context file.
- * Fetches and expands on click.
+ * Inline viewer for a parent's (or project root's) doc or context file.
+ * item = { id, name } for work items, or { id: 'project', name: 'Project' } for root.
  */
 function ParentFileLink({ item, fileType }) {
   const [expanded, setExpanded] = useState(false);
@@ -44,19 +50,29 @@ function ParentFileLink({ item, fileType }) {
 
   const load = async () => {
     if (html !== null) { setExpanded(!expanded); return; }
-    const fetcher = fileType === 'doc' ? getWorkItemDoc : getWorkItemContext;
-    const content = await fetcher(item.id).catch(() => '');
+    let content;
+    if (item.id === 'project') {
+      content = fileType === 'doc' ? await getProjectDoc() : await getProjectContext();
+    } else {
+      const fetcher = fileType === 'doc' ? getWorkItemDoc : getWorkItemContext;
+      content = await fetcher(item.id).catch(() => '');
+    }
     setHtml(content || '<p class="text-slate-400 italic">No content</p>');
     setExpanded(true);
   };
 
   const label = fileType === 'doc' ? 'doc.md' : 'context.md';
+  const isProject = item.id === 'project';
 
   return (
     <div className="w-full">
       <button
         onClick={load}
-        className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-slate-100 hover:bg-slate-200 text-slate-600 font-medium"
+        className={`inline-flex items-center gap-1 px-2 py-0.5 rounded font-medium ${
+          isProject
+            ? 'bg-indigo-50 hover:bg-indigo-100 text-indigo-700'
+            : 'bg-slate-100 hover:bg-slate-200 text-slate-600'
+        }`}
       >
         {expanded ? <ChevronUp className="w-3 h-3" /> : <ChevronRight className="w-3 h-3" />}
         {item.name} — {label}
@@ -137,18 +153,20 @@ export function CardDetailModal({ workItem, open, onOpenChange, onNavigate, onIt
       const details = await getWorkItem(workItem.id);
       setFullDetails(details);
 
-      // Build parent chain (grandparent → parent order)
+      // Build parent chain: project root → … → grandparent → parent
+      const chain = [{ id: 'project', name: 'Project' }];
       if (allItems) {
-        const chain = [];
+        const ancestors = [];
         let parentId = details.parentId;
         while (parentId) {
           const parent = allItems.find((i) => i.id === parentId);
           if (!parent) break;
-          chain.unshift(parent);
+          ancestors.unshift(parent);
           parentId = parent.parentId;
         }
-        setParentChain(chain);
+        chain.push(...ancestors);
       }
+      setParentChain(chain);
 
       const [doc, ctx] = await Promise.all([
         getWorkItemDoc(workItem.id).catch(() => null),
