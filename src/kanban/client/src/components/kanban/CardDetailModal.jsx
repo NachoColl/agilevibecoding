@@ -376,14 +376,25 @@ export function CardDetailModal({ workItem, open, onOpenChange, onNavigate, onIt
                           <span>Dependencies ({fullDetails.dependencies.length})</span>
                         </div>
                         <ul className="space-y-2">
-                          {fullDetails.dependencies.map((dep) => (
-                            <li
-                              key={dep}
-                              className="text-sm text-slate-600 pl-6 border-l-2 border-slate-200"
-                            >
-                              {dep}
-                            </li>
-                          ))}
+                          {fullDetails.dependencies.map((depId) => {
+                            const depItem = allItems?.find((i) => i.id === depId);
+                            return (
+                              <li key={depId} className="pl-4 border-l-2 border-slate-200">
+                                <button
+                                  onClick={() => depItem && onItemClick?.(depItem)}
+                                  disabled={!depItem}
+                                  className="text-left w-full group"
+                                >
+                                  <p className={`text-sm font-medium ${depItem ? 'text-blue-600 group-hover:text-blue-800 group-hover:underline' : 'text-slate-500'}`}>
+                                    {depItem ? depItem.name : depId}
+                                  </p>
+                                  {depItem?.description && (
+                                    <p className="text-xs text-slate-500 mt-0.5">{depItem.description}</p>
+                                  )}
+                                </button>
+                              </li>
+                            );
+                          })}
                         </ul>
                       </div>
                     )}
