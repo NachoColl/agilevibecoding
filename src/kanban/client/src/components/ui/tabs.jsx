@@ -1,4 +1,4 @@
-import { createContext, useContext, useState } from 'react';
+import { createContext, useContext, useEffect, useState } from 'react';
 import { cn } from '../../lib/utils';
 
 /**
@@ -10,6 +10,13 @@ const TabsContext = createContext();
 
 export function Tabs({ defaultValue, value, onValueChange, children, className }) {
   const [selectedTab, setSelectedTab] = useState(value || defaultValue);
+
+  // Sync internal state when controlled value prop changes
+  useEffect(() => {
+    if (value !== undefined) {
+      setSelectedTab(value);
+    }
+  }, [value]);
 
   const handleTabChange = (newValue) => {
     setSelectedTab(newValue);
