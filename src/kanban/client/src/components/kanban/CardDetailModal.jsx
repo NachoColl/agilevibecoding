@@ -41,6 +41,53 @@ import { getStatusMetadata } from '../../lib/status-grouping';
 import { cn } from '../../lib/utils';
 
 /**
+ * Clickable item box — same visual style as the children list.
+ */
+function ItemBox({ item, fallbackName, fallbackId, onItemClick }) {
+  const typeMeta = item ? TYPE_METADATA[item.type] : null;
+  const statusMeta = item ? getStatusMetadata(item.status) : null;
+
+  return (
+    <button
+      onClick={() => item && onItemClick?.(item)}
+      disabled={!item}
+      className="w-full text-left p-4 border border-slate-200 rounded-lg hover:border-blue-300 hover:bg-blue-50 transition-colors disabled:opacity-50 disabled:cursor-default"
+    >
+      <div className="flex items-start justify-between">
+        <div className="flex-1 min-w-0">
+          <p className="font-medium text-slate-900 mb-1 truncate">{item?.name ?? fallbackName}</p>
+          {item?.description && (
+            <p className="text-xs text-slate-500 mb-1 line-clamp-2">{item.description}</p>
+          )}
+          {(statusMeta || typeMeta) && (
+            <div className="flex items-center gap-2 mt-1">
+              {statusMeta && (
+                <Badge variant="secondary" className={cn(
+                  'text-xs',
+                  statusMeta.color === 'green' && 'bg-green-100 text-green-700',
+                  statusMeta.color === 'blue' && 'bg-blue-100 text-blue-700',
+                  statusMeta.color === 'yellow' && 'bg-yellow-100 text-yellow-700',
+                  statusMeta.color === 'purple' && 'bg-purple-100 text-purple-700',
+                  statusMeta.color === 'red' && 'bg-red-100 text-red-700',
+                )}>
+                  {statusMeta.icon} {statusMeta.label}
+                </Badge>
+              )}
+              {typeMeta && (
+                <Badge variant="outline" className="text-xs">
+                  {typeMeta.icon} {typeMeta.label}
+                </Badge>
+              )}
+            </div>
+          )}
+        </div>
+        {item && <ChevronRight className="w-4 h-4 text-slate-400 mt-1 flex-shrink-0 ml-2" />}
+      </div>
+    </button>
+  );
+}
+
+/**
  * Inline viewer for a parent's (or project root's) doc or context file.
  * item = { id, name } for work items, or { id: 'project', name: 'Project' } for root.
  */
@@ -312,61 +359,41 @@ export function CardDetailModal({ workItem, open, onOpenChange, onNavigate, onIt
                       </div>
                     )}
 
-                    {/* Metadata Grid */}
-                    <div className="grid grid-cols-2 gap-4">
-                      {/* Parent */}
-                      {fullDetails?.parentName && (
+                    {/* Created */}
+                    {fullDetails?.created && (
+                      <div className="flex items-center gap-2 text-sm text-slate-500">
+                        <Calendar className="w-4 h-4" />
+                        <span>Created {new Date(fullDetails.created).toLocaleDateString()}</span>
+                      </div>
+                    )}
+
+                    {/* Parent */}
+                    {fullDetails?.parentName && (() => {
+                      const parent = allItems?.find((i) => i.id === fullDetails.parentId);
+                      return (
                         <div>
-                          <div className="flex items-center gap-2 text-sm text-slate-500 mb-1">
+                          <div className="flex items-center gap-2 text-sm font-semibold text-slate-700 mb-2">
                             <Package className="w-4 h-4" />
                             <span>Parent</span>
                           </div>
-                          <button
-                            onClick={() => {
-                              const parent = allItems?.find((i) => i.id === fullDetails.parentId);
-                              if (parent) onItemClick?.(parent);
-                            }}
-                            className="text-left font-medium text-blue-600 hover:text-blue-800 hover:underline"
-                          >
-                            {fullDetails.parentName}
-                          </button>
-                          <p className="text-xs text-slate-500">{fullDetails.parentId}</p>
+                          <ItemBox item={parent} fallbackName={fullDetails.parentName} fallbackId={fullDetails.parentId} onItemClick={onItemClick} />
                         </div>
-                      )}
+                      );
+                    })()}
 
-                      {/* Epic */}
-                      {fullDetails?.epicName && workItem.type !== 'epic' && (
+                    {/* Epic */}
+                    {fullDetails?.epicName && workItem.type !== 'epic' && (() => {
+                      const epic = allItems?.find((i) => i.id === fullDetails.epicId);
+                      return (
                         <div>
-                          <div className="flex items-center gap-2 text-sm text-slate-500 mb-1">
+                          <div className="flex items-center gap-2 text-sm font-semibold text-slate-700 mb-2">
                             <Package className="w-4 h-4" />
                             <span>Epic</span>
                           </div>
-                          <button
-                            onClick={() => {
-                              const epic = allItems?.find((i) => i.id === fullDetails.epicId);
-                              if (epic) onItemClick?.(epic);
-                            }}
-                            className="text-left font-medium text-blue-600 hover:text-blue-800 hover:underline"
-                          >
-                            {fullDetails.epicName}
-                          </button>
-                          <p className="text-xs text-slate-500">{fullDetails.epicId}</p>
+                          <ItemBox item={epic} fallbackName={fullDetails.epicName} fallbackId={fullDetails.epicId} onItemClick={onItemClick} />
                         </div>
-                      )}
-
-                      {/* Created */}
-                      {fullDetails?.created && (
-                        <div>
-                          <div className="flex items-center gap-2 text-sm text-slate-500 mb-1">
-                            <Calendar className="w-4 h-4" />
-                            <span>Created</span>
-                          </div>
-                          <p className="text-slate-900">
-                            {new Date(fullDetails.created).toLocaleDateString()}
-                          </p>
-                        </div>
-                      )}
-                    </div>
+                      );
+                    })()}
 
                     {/* Dependencies */}
                     {fullDetails?.dependencies && fullDetails.dependencies.length > 0 && (
@@ -375,27 +402,12 @@ export function CardDetailModal({ workItem, open, onOpenChange, onNavigate, onIt
                           <Link2 className="w-4 h-4" />
                           <span>Dependencies ({fullDetails.dependencies.length})</span>
                         </div>
-                        <ul className="space-y-2">
+                        <div className="space-y-2">
                           {fullDetails.dependencies.map((depId) => {
                             const depItem = allItems?.find((i) => i.id === depId);
-                            return (
-                              <li key={depId} className="pl-4 border-l-2 border-slate-200">
-                                <button
-                                  onClick={() => depItem && onItemClick?.(depItem)}
-                                  disabled={!depItem}
-                                  className="text-left w-full group"
-                                >
-                                  <p className={`text-sm font-medium ${depItem ? 'text-blue-600 group-hover:text-blue-800 group-hover:underline' : 'text-slate-500'}`}>
-                                    {depItem ? depItem.name : depId}
-                                  </p>
-                                  {depItem?.description && (
-                                    <p className="text-xs text-slate-500 mt-0.5">{depItem.description}</p>
-                                  )}
-                                </button>
-                              </li>
-                            );
+                            return <ItemBox key={depId} item={depItem} fallbackName={depId} fallbackId={depId} onItemClick={onItemClick} />;
                           })}
-                        </ul>
+                        </div>
                       </div>
                     )}
                   </div>
