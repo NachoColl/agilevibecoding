@@ -1625,10 +1625,6 @@ Return your response as JSON following the exact structure specified in your ins
       throw new Error(`Invalid context response for ${id}: missing required fields`);
     }
 
-    if (!result.withinBudget) {
-      sendWarning(`Warning: ${id} context exceeds token budget (${result.tokenCount} tokens)`);
-    }
-
     debug('generateContext complete', { level, id, tokenCount: result.tokenCount, withinBudget: result.withinBudget, duration: `${Date.now() - t0}ms` });
     return result;
   }
@@ -1651,10 +1647,6 @@ Return your response as JSON following the exact structure specified in your ins
     // Validate response
     if (!result.contextMarkdown || !result.tokenCount) {
       throw new Error(`Invalid context response for ${id}: missing required fields`);
-    }
-
-    if (!result.withinBudget) {
-      sendWarning(`Warning: ${id} context exceeds token budget (${result.tokenCount} tokens)`);
     }
 
     return result;

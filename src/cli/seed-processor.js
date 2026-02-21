@@ -375,10 +375,6 @@ Return your response as JSON following the exact structure specified in your ins
       throw new Error(`Invalid context response for ${id}: missing required fields`);
     }
 
-    if (!result.withinBudget) {
-      sendWarning(`${id} context exceeds token budget (${result.tokenCount} tokens)`);
-    }
-
     return result;
   }
 
