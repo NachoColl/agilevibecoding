@@ -49,14 +49,24 @@ export function EpicSection({ group, columnVisibility, onCardClick }) {
                 )}
               </button>
 
-              <h2
-                className={cn(
-                  'text-xl font-bold',
-                  isUngrouped ? 'text-slate-600' : 'text-indigo-900'
-                )}
-              >
-                {isUngrouped ? '📂' : '🏛️'} {name}
-              </h2>
+              {epic && !isUngrouped ? (
+                <button
+                  onClick={() => onCardClick?.(epic)}
+                  className="text-xl font-bold text-indigo-900 hover:text-indigo-600 hover:underline transition-colors text-left"
+                  title="View epic details"
+                >
+                  🏛️ {name}
+                </button>
+              ) : (
+                <h2
+                  className={cn(
+                    'text-xl font-bold',
+                    isUngrouped ? 'text-slate-600' : 'text-indigo-900'
+                  )}
+                >
+                  {isUngrouped ? '📂' : '🏛️'} {name}
+                </h2>
+              )}
 
               {/* Epic Status Badge */}
               {epicStatusMeta && (

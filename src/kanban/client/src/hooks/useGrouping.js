@@ -48,7 +48,7 @@ function groupByEpic(workItems) {
   const groups = epics.map((epic) => {
     // Get all descendants of this epic
     const epicItems = workItems.filter(
-      (item) => item.epicId === epic.id || item.id === epic.id
+      (item) => item.epicId === epic.id
     );
 
     // Group epic's items by column
