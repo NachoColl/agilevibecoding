@@ -34,30 +34,53 @@ export function EpicSection({ group, columnVisibility, onCardClick }) {
           isUngrouped ? 'border-slate-300' : 'border-indigo-300'
         )}
       >
-        <div className="flex items-start justify-between">
-          <div className="flex-1">
-            {/* Epic Title */}
-            <div className="flex items-center gap-3 mb-2">
-              <button
-                onClick={() => setIsExpanded(!isExpanded)}
-                className="text-slate-600 hover:text-slate-900 transition-colors"
-              >
-                {isExpanded ? (
-                  <ChevronDown className="w-5 h-5" />
-                ) : (
-                  <ChevronRight className="w-5 h-5" />
-                )}
-              </button>
-
-              {epic && !isUngrouped ? (
-                <button
-                  onClick={() => onCardClick?.(epic)}
-                  className="text-xl font-bold text-indigo-900 hover:text-indigo-600 hover:underline transition-colors text-left"
-                  title="View epic details"
-                >
-                  🏛️ {name}
-                </button>
+        <div className="flex items-start justify-between gap-4">
+          <div className="flex items-start gap-3 flex-1 min-w-0">
+            {/* Expand/Collapse Toggle */}
+            <button
+              onClick={() => setIsExpanded(!isExpanded)}
+              className="text-slate-600 hover:text-slate-900 transition-colors mt-3 flex-shrink-0"
+            >
+              {isExpanded ? (
+                <ChevronDown className="w-5 h-5" />
               ) : (
+                <ChevronRight className="w-5 h-5" />
+              )}
+            </button>
+
+            {/* Epic Title */}
+            {epic && !isUngrouped ? (
+              <button
+                onClick={() => onCardClick?.(epic)}
+                className="flex-1 min-w-0 text-left p-3 border border-indigo-200 rounded-lg hover:border-indigo-400 hover:bg-indigo-50 transition-colors"
+                title="View epic details"
+              >
+                <div className="flex items-start justify-between gap-2">
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap mb-1">
+                      <span className="text-lg font-bold text-indigo-900">🏛️ {name}</span>
+                      {epicStatusMeta && (
+                        <span
+                          className={cn(
+                            'px-2 py-0.5 rounded-full text-xs font-medium',
+                            epicStatusMeta.color === 'green' && 'bg-green-100 text-green-700',
+                            epicStatusMeta.color === 'blue' && 'bg-blue-100 text-blue-700',
+                            epicStatusMeta.color === 'yellow' && 'bg-yellow-100 text-yellow-700'
+                          )}
+                        >
+                          {epicStatusMeta.icon} {epicStatusMeta.label}
+                        </span>
+                      )}
+                    </div>
+                    {epic?.description && (
+                      <p className="text-sm text-slate-500 line-clamp-2">{epic.description}</p>
+                    )}
+                  </div>
+                  <ChevronRight className="w-4 h-4 text-indigo-400 mt-1 flex-shrink-0" />
+                </div>
+              </button>
+            ) : (
+              <div className="flex-1 py-2">
                 <h2
                   className={cn(
                     'text-xl font-bold',
@@ -66,33 +89,12 @@ export function EpicSection({ group, columnVisibility, onCardClick }) {
                 >
                   {isUngrouped ? '📂' : '🏛️'} {name}
                 </h2>
-              )}
-
-              {/* Epic Status Badge */}
-              {epicStatusMeta && (
-                <span
-                  className={cn(
-                    'px-2 py-1 rounded-full text-xs font-medium',
-                    epicStatusMeta.color === 'green' &&
-                      'bg-green-100 text-green-700',
-                    epicStatusMeta.color === 'blue' && 'bg-blue-100 text-blue-700',
-                    epicStatusMeta.color === 'yellow' &&
-                      'bg-yellow-100 text-yellow-700'
-                  )}
-                >
-                  {epicStatusMeta.icon} {epicStatusMeta.label}
-                </span>
-              )}
-            </div>
-
-            {/* Epic description */}
-            {epic?.description && (
-              <p className="text-sm text-slate-500 ml-8">{epic.description}</p>
+              </div>
             )}
           </div>
 
           {/* Progress Stats */}
-          <div className="text-right">
+          <div className="text-right flex-shrink-0">
             <div className="text-sm text-slate-600 mb-1">
               {completedItems} / {totalItems} completed
             </div>

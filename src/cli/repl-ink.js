@@ -549,6 +549,43 @@ const KillProcessConfirmation = ({ processInfo, confirmInput }) => {
   );
 };
 
+const KanbanPortConflictPrompt = ({ conflictInfo, confirmInput }) => {
+  const hasPid = conflictInfo && conflictInfo.pid != null;
+  return React.createElement(Box, { flexDirection: 'column' },
+    React.createElement(Text, { bold: true, color: 'yellow' }, 'Port Conflict — Kanban Board\n'),
+    hasPid
+      ? React.createElement(Box, { flexDirection: 'column', marginY: 1 },
+          React.createElement(Text, null, `Port ${conflictInfo.port} is in use by an external process:`),
+          React.createElement(Text, { bold: true }, `  Process: ${conflictInfo.command}`),
+          React.createElement(Text, { dimColor: true }, `  PID: ${conflictInfo.pid}`),
+          React.createElement(Text, { color: 'red' }, '\nThis is NOT an AVC kanban server.\n')
+        )
+      : React.createElement(Text, { marginY: 1 },
+          `Port ${conflictInfo.port} is in use but the process could not be identified.\n`
+        ),
+    React.createElement(Box, { borderStyle: 'round', borderColor: 'yellow', marginY: 1 },
+      React.createElement(Box, { flexDirection: 'column' },
+        React.createElement(Text, { bold: true, color: 'yellow' }, 'Choose an action:'),
+        hasPid && React.createElement(Text, null,
+          `  • Type "kill" to kill PID ${conflictInfo.pid} and use port ${conflictInfo.port}`
+        ),
+        React.createElement(Text, null,
+          `  • Type "port XXXX" to use a different port (suggested: ${conflictInfo.suggestedPort})`
+        ),
+        React.createElement(Text, null, '  • Type "no" or press Escape to cancel')
+      )
+    ),
+    React.createElement(Box, { marginTop: 1 },
+      React.createElement(Text, null, 'Response: '),
+      React.createElement(Text, null, confirmInput),
+      React.createElement(Text, { inverse: true }, ' ')
+    ),
+    React.createElement(Box, { marginTop: 1 },
+      React.createElement(Text, { dimColor: true }, 'Press Enter to submit | Escape to cancel\n')
+    )
+  );
+};
+
 // Command selector component with number shortcuts and groups
 const CommandSelector = ({ onSelect, onCancel, filter }) => {
   const [selectedIndex, setSelectedIndex] = useState(0);
@@ -1714,6 +1751,11 @@ const App = () => {
   const [killConfirmInput, setKillConfirmInput] = useState('');
   const [processToKill, setProcessToKill] = useState(null); // { pid, command, port }
 
+  // Kanban port conflict state
+  const [kanbanPortConflictActive, setKanbanPortConflictActive] = useState(false);
+  const [kanbanPortConflictInput, setKanbanPortConflictInput] = useState('');
+  const [kanbanPortConflictInfo, setKanbanPortConflictInfo] = useState(null); // { pid, command, port, suggestedPort }
+
   // Background process state
   const [backgroundProcesses, setBackgroundProcesses] = useState(new Map());
   const [processViewerActive, setProcessViewerActive] = useState(false);
@@ -2321,7 +2363,7 @@ const App = () => {
 
         // Only return to prompt if not in a special viewer/confirmation mode
         setMode((currentMode) => {
-          if (currentMode === 'process-viewer' || currentMode === 'kill-confirm' || currentMode === 'cancel-confirm') {
+          if (currentMode === 'process-viewer' || currentMode === 'kill-confirm' || currentMode === 'kanban-port-conflict' || currentMode === 'cancel-confirm') {
             return currentMode; // Keep special modes
           }
           return 'prompt';
@@ -3719,20 +3761,36 @@ const App = () => {
               // Wait for port to be released
               await new Promise(resolve => setTimeout(resolve, 1000));
             } else {
-              // It's NOT AVC kanban - show warning
-              kLog('WARNING', 'port in use by non-AVC process, aborting', { pid: processInfo.pid, command: processInfo.command, port });
-              sendWarning(`Port ${port} is in use by another process (PID ${processInfo.pid}: ${processInfo.command})`);
-              sendOutput('Stop that process manually or change the kanban port.');
-              sendOutput('To change the port, edit .avc/avc.json:');
-              sendOutput('  { "settings": { "kanban": { "port": 4174 } } }');
+              // It's NOT AVC kanban - prompt user to kill or choose new port
+              kLog('WARNING', 'port in use by non-AVC process, prompting user', { pid: processInfo.pid, command: processInfo.command, port });
+
+              // Find next available port for suggestion
+              let suggestedPort = port + 1;
+              while (suggestedPort < 65535) {
+                const inUse = await kanbanManager.isPortInUse(suggestedPort);
+                if (!inUse) break;
+                suggestedPort++;
+              }
+
+              setKanbanPortConflictInfo({ pid: processInfo.pid, command: processInfo.command, port, suggestedPort });
+              setKanbanPortConflictActive(true);
+              setMode('kanban-port-conflict');
               return;
             }
           } else {
-            // Port is in use but couldn't find the process (rare case)
+            // Port is in use but couldn't find the process - prompt for new port only
             kLog('ERROR', 'port in use but process unidentifiable', { port });
-            sendError(`Port ${port} is in use but process could not be identified`);
-            sendOutput('To change the port, edit .avc/avc.json:');
-            sendOutput('  { "settings": { "kanban": { "port": 4174 } } }');
+
+            let suggestedPort = port + 1;
+            while (suggestedPort < 65535) {
+              const inUse = await kanbanManager.isPortInUse(suggestedPort);
+              if (!inUse) break;
+              suggestedPort++;
+            }
+
+            setKanbanPortConflictInfo({ pid: null, command: null, port, suggestedPort });
+            setKanbanPortConflictActive(true);
+            setMode('kanban-port-conflict');
             return;
           }
         }
@@ -5063,6 +5121,131 @@ const App = () => {
     }
   }, { isActive: killConfirmActive });
 
+  // Kanban port conflict input handler
+  useInput(async (inputChar, key) => {
+    if (!kanbanPortConflictActive) return;
+
+    if (key.return) {
+      const input = kanbanPortConflictInput.trim().toLowerCase();
+
+      const resetConflict = () => {
+        setKanbanPortConflictActive(false);
+        setKanbanPortConflictInput('');
+      };
+
+      const startKanban = async (targetPort) => {
+        setMode('executing');
+        setIsExecuting(true);
+        setExecutingMessage('Starting AVC Kanban Board server...');
+
+        const manager = getProcessManager();
+        const kanbanServerPath = path.join(__dirname, '..', 'kanban', 'server', 'start.js');
+
+        try {
+          const processId = manager.startProcess({
+            name: 'Kanban Board Server',
+            command: 'node',
+            args: [kanbanServerPath, process.cwd(), String(targetPort)],
+            cwd: process.cwd()
+          });
+
+          outputBuffer.append(
+            `Kanban board started\n` +
+            `   URL: http://localhost:${targetPort}\n` +
+            `   PID: ${processId}\n` +
+            `   Stop with /processes or /stop-kanban\n\n`
+          );
+        } catch (err) {
+          outputBuffer.append(`Failed to start kanban server: ${err.message}\n\n`);
+        } finally {
+          setIsExecuting(false);
+          setMode('prompt');
+        }
+      };
+
+      if (input === 'kill' && kanbanPortConflictInfo && kanbanPortConflictInfo.pid != null) {
+        resetConflict();
+        setMode('executing');
+        setIsExecuting(true);
+        setExecutingMessage('Killing process...');
+
+        const mgr = new KanbanServerManager();
+        const killed = await mgr.killProcess(kanbanPortConflictInfo.pid);
+
+        if (!killed) {
+          setIsExecuting(false);
+          setMode('prompt');
+          outputBuffer.append(
+            `Failed to kill process ${kanbanPortConflictInfo.pid}.\n` +
+            `   Please stop it manually or choose a different port.\n\n`
+          );
+          return;
+        }
+
+        outputBuffer.append(`Process ${kanbanPortConflictInfo.pid} killed.\n`);
+        getProcessManager().removeProcessByPid(kanbanPortConflictInfo.pid);
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        await startKanban(kanbanPortConflictInfo.port);
+
+      } else if (input.startsWith('port ')) {
+        const newPortStr = input.split(' ')[1];
+        const newPort = parseInt(newPortStr, 10);
+
+        if (!newPort || newPort < 1024 || newPort > 65535) {
+          setKanbanPortConflictInput('');
+          // Don't cancel — keep prompt open so user can retry
+          return;
+        }
+
+        resetConflict();
+
+        // Update avc.json with new port
+        try {
+          const avcJsonPath = path.join(process.cwd(), '.avc', 'avc.json');
+          let config = {};
+          try {
+            config = JSON.parse(readFileSync(avcJsonPath, 'utf8'));
+          } catch (_) {}
+          if (!config.settings) config.settings = {};
+          if (!config.settings.kanban) config.settings.kanban = {};
+          config.settings.kanban.port = newPort;
+          writeFileSync(avcJsonPath, JSON.stringify(config, null, 2), 'utf8');
+          outputBuffer.append(`Port updated to ${newPort} in .avc/avc.json\n`);
+        } catch (err) {
+          outputBuffer.append(`Warning: could not update avc.json: ${err.message}\n`);
+        }
+
+        await startKanban(newPort);
+
+      } else if (input === 'no' || input === 'n' || input === '') {
+        resetConflict();
+        setMode('prompt');
+        outputBuffer.append('Operation cancelled.\n\n');
+      } else {
+        // Invalid input — keep prompt open, just clear input
+        setKanbanPortConflictInput('');
+      }
+      return;
+    }
+
+    if (key.backspace || key.delete) {
+      setKanbanPortConflictInput(kanbanPortConflictInput.slice(0, -1));
+      return;
+    }
+
+    if (key.escape) {
+      setKanbanPortConflictActive(false);
+      setKanbanPortConflictInput('');
+      setMode('prompt');
+      outputBuffer.append('Operation cancelled.\n\n');
+      return;
+    }
+
+    if (inputChar && !key.ctrl && !key.meta) {
+      setKanbanPortConflictInput(kanbanPortConflictInput + inputChar);
+    }
+  }, { isActive: kanbanPortConflictActive });
+
   // Model Configuration Prompt Handler
   useInput((input, key) => {
     if (!modelConfigActive || modelConfigMode !== 'prompt') return;
@@ -5403,6 +5586,14 @@ const App = () => {
       });
     }
 
+    // Show kanban port conflict prompt if active
+    if (kanbanPortConflictActive) {
+      return React.createElement(KanbanPortConflictPrompt, {
+        conflictInfo: kanbanPortConflictInfo,
+        confirmInput: kanbanPortConflictInput
+      });
+    }
+
     // Show remove confirmation if active
     if (removeConfirmActive) {
       return React.createElement(RemoveConfirmation, {
@@ -5602,7 +5793,7 @@ const App = () => {
   };
 
   const renderPrompt = () => {
-    if (mode !== 'prompt' || questionnaireActive || showPreview || removeConfirmActive || killConfirmActive || processViewerActive || cancelConfirmActive || isExecuting || modelConfigActive || architectureSelectorActive || cloudProviderSelectorActive || databaseChoiceActive || databaseQuestionsActive || deploymentStrategySelectorActive) return null;
+    if (mode !== 'prompt' || questionnaireActive || showPreview || removeConfirmActive || killConfirmActive || kanbanPortConflictActive || processViewerActive || cancelConfirmActive || isExecuting || modelConfigActive || architectureSelectorActive || cloudProviderSelectorActive || databaseChoiceActive || databaseQuestionsActive || deploymentStrategySelectorActive) return null;
 
     // Show loading indicator while app is initializing
     if (!isStableRender) {
@@ -5630,7 +5821,7 @@ const App = () => {
     renderSelector(),
     renderModelConfig(),
     renderPrompt(),
-    !questionnaireActive && !showPreview && !removeConfirmActive && !killConfirmActive && !processViewerActive && !cancelConfirmActive && !modelConfigActive && mode !== 'executing' && React.createElement(BottomRightStatus, { backgroundProcesses })
+    !questionnaireActive && !showPreview && !removeConfirmActive && !killConfirmActive && !kanbanPortConflictActive && !processViewerActive && !cancelConfirmActive && !modelConfigActive && mode !== 'executing' && React.createElement(BottomRightStatus, { backgroundProcesses })
   );
 };
 
