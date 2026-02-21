@@ -855,6 +855,7 @@ ${templateWithValues}`;
 - INITIAL_SCOPE: ${questionnaire.INITIAL_SCOPE || 'N/A'}
 - TECHNICAL_CONSIDERATIONS: ${questionnaire.TECHNICAL_CONSIDERATIONS || 'N/A'}
 - DEPLOYMENT_TARGET: ${deploymentTarget || 'N/A'}
+- TECHNICAL_EXCLUSIONS: ${questionnaire.TECHNICAL_EXCLUSIONS || 'None'}
 - SECURITY_AND_COMPLIANCE_REQUIREMENTS: ${questionnaire.SECURITY_AND_COMPLIANCE_REQUIREMENTS || 'N/A'}`;
 
           if (isLocal) {
@@ -864,6 +865,15 @@ The user has chosen LOCAL deployment ("${deploymentTarget}").
 - Do NOT add cloud providers (AWS, GCP, Azure), managed services, Kubernetes, Terraform, CI/CD pipelines, or any cloud infrastructure.
 - Do NOT suggest migration to cloud unless the user's INITIAL_SCOPE or TECHNICAL_CONSIDERATIONS explicitly requests it.
 - Infrastructure means: local processes, local database, local file system.`;
+          }
+
+          if (questionnaire.TECHNICAL_EXCLUSIONS) {
+            userPrompt += `\n\n**TECHNOLOGY EXCLUSION CONSTRAINT — CRITICAL:**
+The user has explicitly excluded the following from this project:
+${questionnaire.TECHNICAL_EXCLUSIONS}
+- These technologies MUST NOT appear as recommendations anywhere in the document.
+- Add an "Explicitly Excluded Technologies" subsection in section 6 (Technical Architecture).
+- Do NOT soften with "consider using" or "if needed" language.`;
           }
         }
 
@@ -1186,7 +1196,39 @@ Return the enhanced markdown document.`;
           }
         }
 
-        // Write context.md - ensure directory exists first
+        // 9c. Deterministic exclusion keyword scan (runs even when LLM validation is off)
+        if (collectedValues.TECHNICAL_EXCLUSIONS && contextContent) {
+          const excluded = collectedValues.TECHNICAL_EXCLUSIONS
+            .split(/[,;\n.]+/)
+            .map(s => s.replace(/^(no |not |without |avoid |don't use |do not use )/i, '').trim())
+            .filter(s => s.length > 2);
+          // Skip the "Technical Exclusions" section itself to avoid false positives
+          const contentWithoutExclusionSection = contextContent.replace(/## Technical Exclusions[\s\S]*?(?=\n##|$)/, '');
+          const hits = excluded.filter(term =>
+            new RegExp(`\\b${term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'i').test(contentWithoutExclusionSection)
+          );
+          if (hits.length > 0) {
+            sendWarning(`context.md may reference excluded technology: ${hits.join(', ')}.`);
+            sendIndented('Review .avc/project/context.md — excluded technologies should only appear in the DO NOT USE section.', 1);
+          }
+        }
+
+        // 9d. Cross-validate doc.md ↔ context.md for mutual consistency
+        if (this.isCrossValidationEnabled()) {
+          this.reportSubstep('Cross-validating doc.md and context.md for mutual consistency...');
+          try {
+            const crossResult = await this.crossValidateDocAndContext(
+              finalDocument, contextContent, collectedValues
+            );
+            finalDocument = crossResult.docContent;
+            contextContent = crossResult.contextContent;
+          } catch (error) {
+            debug(`Cross-validation failed, continuing with current content: ${error.message}`);
+            sendWarning('Cross-validation encountered an error — proceeding with pre-validation content.');
+          }
+        }
+
+        // Write context.md (healed if cross-validation ran) — ensure directory exists first
         if (!fs.existsSync(this.outputDir)) {
           fs.mkdirSync(this.outputDir, { recursive: true });
         }
@@ -1204,7 +1246,7 @@ Return the enhanced markdown document.`;
       }
     }
 
-    // 10. Write documentation to file
+    // 10. Write documentation to file (healed if cross-validation ran)
     await this.writeDocument(finalDocument);
     this.reportSubstep('Wrapping up...');
 
@@ -1626,7 +1668,7 @@ Return your response as JSON following the exact structure specified in your ins
    * @returns {string} Prompt for context generator agent
    */
   buildContextPrompt(level, id, data) {
-    const { INITIAL_SCOPE, TARGET_USERS, MISSION_STATEMENT, TECHNICAL_CONSIDERATIONS, SECURITY_AND_COMPLIANCE_REQUIREMENTS, DEPLOYMENT_TARGET, epic, story } = data;
+    const { INITIAL_SCOPE, TARGET_USERS, MISSION_STATEMENT, TECHNICAL_CONSIDERATIONS, TECHNICAL_EXCLUSIONS, SECURITY_AND_COMPLIANCE_REQUIREMENTS, DEPLOYMENT_TARGET, epic, story } = data;
 
     let prompt = `Generate a context.md file for the following ${level}:\n\n`;
     prompt += `**Level:** ${level}\n`;
@@ -1648,6 +1690,10 @@ Return your response as JSON following the exact structure specified in your ins
         prompt += `- DO NOT include AWS, GCP, Azure, DigitalOcean, Kubernetes, ECS, Fargate, GitHub Actions, Vercel, Heroku, or any cloud/CI/CD service.\n`;
         prompt += `- DO NOT add tools (Sentry, Playwright, node-pg-migrate, etc.) not mentioned in Technical Considerations.\n\n`;
       }
+
+      if (TECHNICAL_EXCLUSIONS) {
+        prompt += `**Technical Exclusions (hard constraints — list as "DO NOT use" in context.md):**\n${TECHNICAL_EXCLUSIONS}\n\n`;
+      }
     } else if (level === 'epic') {
       prompt += `**Epic Name:** ${epic.name}\n`;
       prompt += `**Epic Domain:** ${epic.domain}\n`;
@@ -1656,6 +1702,9 @@ Return your response as JSON following the exact structure specified in your ins
       prompt += `**Project Mission Statement:**\n${MISSION_STATEMENT}\n\n`;
       prompt += `**Technical Considerations:**\n${TECHNICAL_CONSIDERATIONS}\n\n`;
       prompt += `**Security and Compliance:**\n${SECURITY_AND_COMPLIANCE_REQUIREMENTS}\n\n`;
+      if (TECHNICAL_EXCLUSIONS) {
+        prompt += `**Technical Exclusions (inherited — must NOT be recommended):**\n${TECHNICAL_EXCLUSIONS}\n\n`;
+      }
     } else if (level === 'story') {
       prompt += `**Story Name:** ${story.name}\n`;
       prompt += `**Story Description:** ${story.description}\n`;
@@ -1667,6 +1716,9 @@ Return your response as JSON following the exact structure specified in your ins
       prompt += `- Features: ${epic.features.join(', ')}\n\n`;
       prompt += `**Project Mission Statement:**\n${MISSION_STATEMENT}\n\n`;
       prompt += `**Technical Considerations:**\n${TECHNICAL_CONSIDERATIONS}\n\n`;
+      if (TECHNICAL_EXCLUSIONS) {
+        prompt += `**Technical Exclusions (inherited — must NOT be recommended):**\n${TECHNICAL_EXCLUSIONS}\n\n`;
+      }
     }
 
     prompt += `Return your response as JSON following the exact structure specified in your instructions.`;
@@ -1897,6 +1949,7 @@ Return your response as JSON following the exact structure specified in your ins
     prompt += `- INITIAL_SCOPE: ${questionnaire.INITIAL_SCOPE || 'N/A'}\n`;
     prompt += `- TECHNICAL_CONSIDERATIONS: ${questionnaire.TECHNICAL_CONSIDERATIONS || 'N/A'}\n`;
     prompt += `- DEPLOYMENT_TARGET: ${deploymentTarget || 'N/A'}\n`;
+    prompt += `- TECHNICAL_EXCLUSIONS: ${questionnaire.TECHNICAL_EXCLUSIONS || 'None'}\n`;
     prompt += `- SECURITY_AND_COMPLIANCE_REQUIREMENTS: ${questionnaire.SECURITY_AND_COMPLIANCE_REQUIREMENTS || 'N/A'}\n\n`;
 
     if (isLocalDeployment) {
@@ -1909,6 +1962,12 @@ Return your response as JSON following the exact structure specified in your ins
       prompt += `- CI/CD pipelines: GitHub Actions, GitLab CI, CircleCI, Jenkins, etc. (unless user explicitly mentioned them in TECHNICAL_CONSIDERATIONS)\n`;
       prompt += `- Infrastructure as Code: Terraform, CloudFormation, Pulumi, etc.\n`;
       prompt += `These contradict the user's stated local deployment target and must be removed or replaced with local equivalents.\n\n`;
+    }
+
+    if (questionnaire.TECHNICAL_EXCLUSIONS) {
+      prompt += `**EXCLUSION ALIGNMENT CHECK — CRITICAL:**\n`;
+      prompt += `The user explicitly excluded: ${questionnaire.TECHNICAL_EXCLUSIONS}\n`;
+      prompt += `Flag as a CRITICAL contentIssue (category: "consistency") any mention of an excluded technology being recommended, suggested, or used in the document.\n\n`;
     }
 
     if (contextContent) {
@@ -2314,6 +2373,270 @@ Return your response as JSON following the exact structure specified in your ins
     }
 
     return currentContent;
+  }
+
+  /**
+   * Get cross-validation configuration from avc.json, with defaults
+   */
+  getCrossValidationConfig() {
+    try {
+      const config = JSON.parse(fs.readFileSync(this.avcConfigPath, 'utf8'));
+      const ceremony = config.settings?.ceremonies?.find(c => c.name === this.ceremonyName);
+      if (ceremony?.crossValidation) return ceremony.crossValidation;
+    } catch (_) {}
+
+    // Defaults: use opus + sonnet for diversity
+    const models = [{ provider: this._providerName, model: 'claude-opus-4-6' }];
+    if (this._modelName !== 'claude-sonnet-4-6') {
+      models.push({ provider: this._providerName, model: 'claude-sonnet-4-6' });
+    }
+    return { enabled: true, maxIterations: 3, models };
+  }
+
+  /**
+   * Check if cross-validation is enabled
+   */
+  isCrossValidationEnabled() {
+    return this.getCrossValidationConfig().enabled !== false;
+  }
+
+  /**
+   * Run a single cross-validation pass with a specific provider/model
+   * @param {'doc-to-context'|'context-to-doc'} direction - Validation direction
+   * @param {{ doc: string, context: string }} documents - The two documents
+   * @param {Object} questionnaire - Collected questionnaire values
+   * @param {string} provider - Provider name
+   * @param {string} model - Model name
+   * @returns {Promise<{ consistent: boolean, issues: Array, strengths: Array }>}
+   */
+  async runSingleCrossValidation(direction, { doc, context }, questionnaire, provider, model) {
+    // Cache cross-validation providers similarly to stage providers
+    const cacheKey = `cross-validation:${provider}:${model}`;
+    if (!this._stageProviders) this._stageProviders = {};
+
+    let providerInstance = this._stageProviders[cacheKey];
+    if (!providerInstance) {
+      try {
+        providerInstance = await LLMProvider.create(provider, model);
+        this._stageProviders[cacheKey] = providerInstance;
+        debug(`Created cross-validation provider: ${provider} (${model})`);
+      } catch (error) {
+        debug(`Failed to create cross-validation provider ${provider}/${model}: ${error.message}`);
+        return { consistent: true, issues: [], strengths: [] };
+      }
+    }
+
+    if (!providerInstance || typeof providerInstance.generateJSON !== 'function') {
+      return { consistent: true, issues: [], strengths: [] };
+    }
+
+    const agentFile = direction === 'doc-to-context'
+      ? 'cross-validator-doc-to-context.md'
+      : 'cross-validator-context-to-doc.md';
+    const agentInstructions = this.loadAgentInstructions(agentFile);
+
+    // Build prompt with both documents and questionnaire context
+    let prompt = direction === 'doc-to-context'
+      ? 'Validate that context.md faithfully captures all constraints from doc.md.\n\n'
+      : 'Validate that doc.md explicitly documents all architectural decisions established in context.md.\n\n';
+
+    prompt += `**doc.md:**\n\`\`\`markdown\n${doc}\n\`\`\`\n\n`;
+    prompt += `**context.md:**\n\`\`\`markdown\n${context}\n\`\`\`\n\n`;
+    prompt += `**Questionnaire Data:**\n`;
+    prompt += `- MISSION_STATEMENT: ${questionnaire.MISSION_STATEMENT || 'N/A'}\n`;
+    prompt += `- TECHNICAL_CONSIDERATIONS: ${questionnaire.TECHNICAL_CONSIDERATIONS || 'N/A'}\n`;
+    prompt += `- DEPLOYMENT_TARGET: ${questionnaire.DEPLOYMENT_TARGET || 'N/A'}\n`;
+    prompt += `- TECHNICAL_EXCLUSIONS: ${questionnaire.TECHNICAL_EXCLUSIONS || 'N/A'}\n`;
+    prompt += `- SECURITY_AND_COMPLIANCE_REQUIREMENTS: ${questionnaire.SECURITY_AND_COMPLIANCE_REQUIREMENTS || 'N/A'}\n\n`;
+    prompt += `Return raw JSON only. No markdown code fences.`;
+
+    try {
+      const result = await this.retryWithBackoff(
+        () => providerInstance.generateJSON(prompt, agentInstructions),
+        `cross-validation (${direction}, ${model})`
+      );
+
+      return {
+        consistent: result.consistent !== false,
+        issues: Array.isArray(result.issues) ? result.issues : [],
+        strengths: Array.isArray(result.strengths) ? result.strengths : []
+      };
+    } catch (error) {
+      debug(`Cross-validation error (${direction}, ${model}): ${error.message}`);
+      return { consistent: true, issues: [], strengths: [] };
+    }
+  }
+
+  /**
+   * Run cross-validation in a given direction using multiple models in parallel
+   * Returns union of all issues across models (deduplicated)
+   * @param {'doc-to-context'|'context-to-doc'} direction
+   * @param {{ doc: string, context: string }} documents
+   * @param {Object} questionnaire
+   * @param {Array<{ provider: string, model: string }>} models
+   * @returns {Promise<{ hasIssues: boolean, issues: Array }>}
+   */
+  async runMultiModelCrossValidation(direction, documents, questionnaire, models) {
+    const results = await Promise.allSettled(
+      models.map(({ provider, model }) =>
+        this.runSingleCrossValidation(direction, documents, questionnaire, provider, model)
+      )
+    );
+
+    // Union of all issues from fulfilled results
+    const allIssues = results
+      .filter(r => r.status === 'fulfilled')
+      .flatMap(r => r.value.issues || []);
+
+    // Deduplicate by section + first 40 chars of issue text
+    const seen = new Set();
+    const dedupedIssues = allIssues.filter(issue => {
+      const key = `${issue.section || ''}:${(issue.issue || '').substring(0, 40)}`;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+
+    return { hasIssues: dedupedIssues.length > 0, issues: dedupedIssues };
+  }
+
+  /**
+   * Heal a document based on cross-validation issues
+   * @param {'doc'|'context'} target - Which document to heal
+   * @param {string} content - Current content of the target document
+   * @param {Array} issues - Issues to fix
+   * @param {string} otherContent - The other document (for reference)
+   * @param {Object} questionnaire - Questionnaire values
+   * @returns {Promise<string>} Healed content
+   */
+  async healWithCrossValidation(target, content, issues, otherContent, questionnaire) {
+    let provider;
+    let agentFile;
+    let stageName;
+
+    if (target === 'context') {
+      stageName = 'context';
+      agentFile = 'project-context-generator.md';
+    } else {
+      stageName = 'documentation';
+      agentFile = 'project-documentation-creator.md';
+    }
+
+    try {
+      provider = await this.getProviderForStageInstance(stageName);
+    } catch (error) {
+      debug(`Skipping cross-validation healing (provider not available): ${error.message}`);
+      return content;
+    }
+
+    if (!provider || typeof provider.generateText !== 'function') {
+      return content;
+    }
+
+    const agentInstructions = this.loadAgentInstructions(agentFile);
+
+    let prompt = `Fix the following cross-validation issues in ${target === 'context' ? 'context.md' : 'doc.md'}.\n\n`;
+    prompt += `**Current ${target === 'context' ? 'context.md' : 'doc.md'}:**\n\`\`\`markdown\n${content}\n\`\`\`\n\n`;
+
+    const refLabel = target === 'context' ? 'doc.md (source of truth)' : 'context.md (architectural constraints)';
+    prompt += `**Reference document — ${refLabel}:**\n\`\`\`markdown\n${otherContent}\n\`\`\`\n\n`;
+
+    prompt += `**Issues to Fix:**\n`;
+    issues.forEach((issue, i) => {
+      prompt += `${i + 1}. [${(issue.severity || 'major').toUpperCase()}] ${issue.section || 'General'}: ${issue.issue || issue.description || ''}\n`;
+      if (issue.suggestion) prompt += `   Fix: ${issue.suggestion}\n`;
+    });
+    prompt += `\n`;
+
+    prompt += `**Questionnaire Data (ground truth):**\n`;
+    prompt += `- MISSION_STATEMENT: ${questionnaire.MISSION_STATEMENT || 'N/A'}\n`;
+    prompt += `- TECHNICAL_CONSIDERATIONS: ${questionnaire.TECHNICAL_CONSIDERATIONS || 'N/A'}\n`;
+    prompt += `- DEPLOYMENT_TARGET: ${questionnaire.DEPLOYMENT_TARGET || 'N/A'}\n`;
+    prompt += `- TECHNICAL_EXCLUSIONS: ${questionnaire.TECHNICAL_EXCLUSIONS || 'N/A'}\n`;
+    prompt += `- SECURITY_AND_COMPLIANCE_REQUIREMENTS: ${questionnaire.SECURITY_AND_COMPLIANCE_REQUIREMENTS || 'N/A'}\n\n`;
+
+    prompt += `Fix ONLY the listed issues. Preserve all other content unchanged. `;
+    prompt += `Return ONLY the fixed markdown content, not wrapped in JSON or code fences.`;
+
+    try {
+      const healed = await this.retryWithBackoff(
+        () => provider.generateText(prompt, agentInstructions),
+        `cross-validation healing (${target})`
+      );
+      return healed;
+    } catch (error) {
+      debug(`Cross-validation healing failed (${target}): ${error.message}`);
+      return content;
+    }
+  }
+
+  /**
+   * Iterative cross-validation of doc.md ↔ context.md for mutual consistency
+   * Runs multiple models in parallel for each direction, heals issues found
+   * @param {string} docContent - Current doc.md content
+   * @param {string} contextContent - Current context.md content
+   * @param {Object} questionnaire - Questionnaire values
+   * @returns {Promise<{ docContent: string, contextContent: string }>}
+   */
+  async crossValidateDocAndContext(docContent, contextContent, questionnaire) {
+    const config = this.getCrossValidationConfig();
+    const maxIterations = config.maxIterations || 3;
+    const models = config.models || [{ provider: this._providerName, model: 'claude-opus-4-6' }];
+
+    let currentDoc = docContent;
+    let currentContext = contextContent;
+
+    for (let i = 0; i < maxIterations; i++) {
+      this.reportSubstep(`Cross-validation ${i + 1}/${maxIterations}: doc.md ↔ context.md...`);
+      let anyIssues = false;
+
+      // Pass A: doc → context (check context.md against doc.md)
+      this.reportSubstep(`Pass A: Checking context.md against doc.md (${models.length} model(s) in parallel)...`);
+      const resultA = await this.runMultiModelCrossValidation(
+        'doc-to-context',
+        { doc: currentDoc, context: currentContext },
+        questionnaire,
+        models
+      );
+
+      if (resultA.hasIssues) {
+        anyIssues = true;
+        this.reportSubstep(`Found ${resultA.issues.length} issue(s) in context.md — healing...`);
+        debug('Cross-validation Pass A issues', resultA.issues);
+        currentContext = await this.healWithCrossValidation(
+          'context', currentContext, resultA.issues, currentDoc, questionnaire
+        );
+      } else {
+        this.reportSubstep('Pass A: context.md is consistent with doc.md ✓');
+      }
+
+      // Pass B: context → doc (check doc.md against context.md)
+      this.reportSubstep(`Pass B: Checking doc.md against context.md (${models.length} model(s) in parallel)...`);
+      const resultB = await this.runMultiModelCrossValidation(
+        'context-to-doc',
+        { doc: currentDoc, context: currentContext },
+        questionnaire,
+        models
+      );
+
+      if (resultB.hasIssues) {
+        anyIssues = true;
+        this.reportSubstep(`Found ${resultB.issues.length} issue(s) in doc.md — healing...`);
+        debug('Cross-validation Pass B issues', resultB.issues);
+        currentDoc = await this.healWithCrossValidation(
+          'doc', currentDoc, resultB.issues, currentContext, questionnaire
+        );
+      } else {
+        this.reportSubstep('Pass B: doc.md is consistent with context.md ✓');
+      }
+
+      if (!anyIssues) {
+        this.reportSubstep('Cross-validation passed ✓ — doc.md and context.md are mutually consistent.');
+        break;
+      }
+    }
+
+    return { docContent: currentDoc, contextContent: currentContext };
   }
 
   /**
