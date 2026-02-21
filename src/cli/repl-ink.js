@@ -2456,6 +2456,65 @@ const App = () => {
 
     try {
       await initiator.init();
+
+      const manager = getProcessManager();
+
+      // ── Start documentation server ──────────────────────────────────────
+      sendProgress('Building documentation...');
+      const builder = new DocumentationBuilder(process.cwd());
+      const docPort = builder.getPort();
+
+      // Stop existing managed documentation server if any
+      const existingDocServer = manager.getRunningProcesses().find(p => p.name === 'Documentation Server');
+      if (existingDocServer) {
+        manager.stopProcess(existingDocServer.id);
+        manager.cleanupFinished();
+        await new Promise(resolve => setTimeout(resolve, 500));
+      }
+
+      try {
+        await builder.build();
+      } catch (docErr) {
+        fileLog('WARNING', 'documentation build failed during init', { error: docErr.message });
+        sendWarning('Documentation build failed — server will start when docs are available');
+      }
+
+      const docProcessId = manager.startProcess({
+        name: 'Documentation Server',
+        command: 'npx',
+        args: ['vitepress', 'preview', '--port', String(docPort)],
+        cwd: builder.docsDir,
+      });
+      fileLog('INFO', 'documentation server started during init', { docProcessId, docPort });
+
+      // ── Start kanban server ─────────────────────────────────────────────
+      sendProgress('Starting kanban board...');
+      const kanbanManager = new KanbanServerManager();
+      const kanbanPort = kanbanManager.getPort();
+
+      // Stop existing managed kanban server if any
+      const existingKanbanServer = manager.getRunningProcesses().find(p => p.name === 'Kanban Board Server');
+      if (existingKanbanServer) {
+        manager.stopProcess(existingKanbanServer.id);
+        manager.cleanupFinished();
+        await new Promise(resolve => setTimeout(resolve, 500));
+      }
+
+      const kanbanServerPath = path.join(__dirname, '..', 'kanban', 'server', 'start.js');
+      const kanbanProcessId = manager.startProcess({
+        name: 'Kanban Board Server',
+        command: 'node',
+        args: [kanbanServerPath, process.cwd(), String(kanbanPort)],
+        cwd: process.cwd(),
+      });
+      fileLog('INFO', 'kanban server started during init', { kanbanProcessId, kanbanPort });
+
+      // ── Show project links ──────────────────────────────────────────────
+      sendOutput('');
+      sendSuccess('Project ready — set your API key in .env then open the Kanban board to get started');
+      sendIndented(`${gray('Kanban Board  ')} http://localhost:${kanbanPort}`, 1);
+      sendIndented(`${gray('Documentation ')} http://localhost:${docPort}`, 1);
+      sendOutput('');
     } finally {
       endCommand();
     }

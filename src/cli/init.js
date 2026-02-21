@@ -973,7 +973,7 @@ If you're new to Agile Vibe Coding, visit the [AVC Documentation](https://agilev
     if (this.isAvcProject()) {
       // Project already initialized
       fileLog('INFO', 'Project already initialized — skipping structure creation');
-      sendOutput('Project already initialized. Run /sponsor-call to start.');
+      sendOutput('Project already initialized.');
       sendOutput('');
       return;
     }
@@ -1016,7 +1016,6 @@ If you're new to Agile Vibe Coding, visit the [AVC Documentation](https://agilev
     });
 
     sendOutput('Project initialized.');
-    sendOutput('Set your LLM API keys in .env, then run /sponsor-call to start.');
     sendOutput('');
 
     return;
