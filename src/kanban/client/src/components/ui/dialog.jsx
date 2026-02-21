@@ -68,7 +68,7 @@ export function DialogContent({ className, children, onClose }) {
       transition={{ duration: 0.2 }}
       onClick={(e) => e.stopPropagation()}
       className={cn(
-        'relative bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-hidden',
+        'relative bg-white rounded-lg shadow-xl max-w-4xl w-full h-[90vh] overflow-hidden',
         'flex flex-col',
         className
       )}
