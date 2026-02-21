@@ -26,6 +26,14 @@ If DEPLOYMENT_TARGET contains "local", "localhost", "dev machine", "on-premise",
 
 If DEPLOYMENT_TARGET names a cloud provider, use only that specific provider. Do not expand to other providers.
 
+## Technical Exclusions (conditional)
+
+If TECHNICAL_EXCLUSIONS is provided and non-empty, add a "## Technical Exclusions" section
+listing each exclusion as a "DO NOT use" bullet with imperative framing so downstream LLM
+agents treat them as hard constraints. Place this section immediately after the Technology Stack.
+
+If TECHNICAL_EXCLUSIONS is empty or absent, omit the section entirely.
+
 ## Template
 
 ```markdown
@@ -37,6 +45,11 @@ If DEPLOYMENT_TARGET names a cloud provider, use only that specific provider. Do
 - Frontend: [e.g., React 18, Vite 5]
 - Database: [e.g., PostgreSQL 15]
 - Infrastructure: [ONLY from DEPLOYMENT_TARGET — e.g., "Docker Compose (local dev)" for local, "AWS EC2" for cloud]
+
+## Technical Exclusions
+[Only if TECHNICAL_EXCLUSIONS non-empty]
+- DO NOT use [technology 1] — [reason if given]
+- DO NOT use [technology 2]
 
 ## Cross-Cutting Concerns
 

@@ -22,6 +22,10 @@ You will be helping to create a comprehensive Project Brief. This document will 
 
 {{TECHNICAL_CONSIDERATIONS}}
 
+### Technology Exclusions
+
+{{TECHNICAL_EXCLUSIONS}}
+
 ### Security and Compliance
 
 {{SECURITY_AND_COMPLIANCE_REQUIREMENTS}}

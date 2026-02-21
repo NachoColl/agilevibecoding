@@ -167,6 +167,12 @@ const questionnaireQuestions = [
     example: 'Mobile-first responsive design, must work offline with data sync when online, real-time updates using WebSockets, PostgreSQL database, deployed on AWS with auto-scaling.'
   },
   {
+    key: 'TECHNICAL_EXCLUSIONS',
+    title: 'Technology Exclusions (Optional)',
+    guidance: 'List any technologies, tools, or architectural patterns that should explicitly NOT be used. Leave blank to skip.',
+    example: 'No Docker or containers (use local processes instead). No TypeScript (plain JavaScript only). No microservices (monolithic architecture only). No ORM (raw SQL queries only). No cloud services.'
+  },
+  {
     key: 'SECURITY_AND_COMPLIANCE_REQUIREMENTS',
     title: 'Security & Compliance',
     guidance: 'Security, privacy, or regulatory requirements your application must meet.',

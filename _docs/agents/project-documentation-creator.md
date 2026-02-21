@@ -150,6 +150,18 @@ All documentation follows this 9-section structure:
 
 ## 6. Technical Architecture
 
+### Technology Exclusions (conditional)
+
+**CRITICAL RULE — read TECHNICAL_EXCLUSIONS before writing this section:**
+
+If TECHNICAL_EXCLUSIONS is provided and non-empty:
+- Add a subsection `#### Explicitly Excluded Technologies` inside section 6, after the Architecture Patterns subsection.
+- List each exclusion as a bullet: "**No [technology]** — [brief reason if the user stated one]"
+- These are hard constraints. Do NOT soften with "consider" or "if needed" language.
+- Do NOT include this subsection if TECHNICAL_EXCLUSIONS is empty or not provided.
+
+Never recommend or suggest using a technology that appears in TECHNICAL_EXCLUSIONS anywhere in the document.
+
 ### Deployment Environment
 
 **CRITICAL RULE — read DEPLOYMENT_TARGET before writing this section:**
@@ -195,6 +207,11 @@ Only use cloud/hosted infrastructure descriptions when DEPLOYMENT_TARGET explici
 ### Architecture Patterns
 
 [Paragraph describing architecture approach - REST API, GraphQL, Microservices, Serverless, etc.]
+
+#### Explicitly Excluded Technologies
+[Only include this subsection if TECHNICAL_EXCLUSIONS is non-empty]
+- **No [technology 1]** — [reason if stated by user]
+- **No [technology 2]** — [reason if stated by user]
 
 ### Key Components
 
@@ -564,7 +581,7 @@ Deployed to us-east-1 region with CloudFront CDN for static assets. RDS PostgreS
 
 ## Notes
 
-- Work from questionnaire responses (MISSION_STATEMENT, TARGET_USERS, INITIAL_SCOPE, DEPLOYMENT_TARGET, TECHNICAL_CONSIDERATIONS, SECURITY_AND_COMPLIANCE_REQUIREMENTS)
+- Work from questionnaire responses (MISSION_STATEMENT, TARGET_USERS, INITIAL_SCOPE, DEPLOYMENT_TARGET, TECHNICAL_CONSIDERATIONS, TECHNICAL_EXCLUSIONS, SECURITY_AND_COMPLIANCE_REQUIREMENTS)
 - Expand user answers with professional clarity
 - Document vision and intent in the form of a Project Brief
 - Write in PRESENT TENSE as if describing an existing system

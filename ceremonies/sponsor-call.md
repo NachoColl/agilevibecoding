@@ -82,10 +82,14 @@ sequenceDiagram
     Note over REPL,Prefill: Intelligent Pre-filling Stage
     REPL->>Prefill: Generate answers (architecture + provider + database + strategy)
     Prefill->>Prefill: Create contextual answers
-    Prefill-->>QA: Pre-filled Q3-Q6
+    Prefill-->>QA: Pre-filled Q3-Q5, Q7
 
-    QA->>User: 3-6. Review/edit AI-prefilled answers
+    QA->>User: 3-5. Review/edit AI-prefilled answers (Target Users, Deployment, Technical)
     User->>QA: Confirm or edit each answer
+    QA->>User: 6. Technology Exclusions (optional, user-only — no AI prefill)
+    User->>QA: Enter exclusions or skip
+    QA->>User: 7. Review/edit AI-prefilled Security & Compliance
+    User->>QA: Confirm or edit
 
     Note over REPL,QA: Preview & Confirm
     QA-->>REPL: All answers collected
@@ -156,7 +160,8 @@ The ceremony begins by asking the project team to define:
 | 3 | Target Users | 🤖 AI-prefilled (editable) | Identifies end users and their roles based on **mission and scope only** |
 | 4 | Deployment Target | 🤖 AI-prefilled (editable) | Specifies the deployment environment matching selected architecture and strategy |
 | 5 | Technical Considerations | 🤖 AI-prefilled (editable) | Technology stack aligned with architecture, database, and deployment strategy |
-| 6 | Security & Compliance Requirements | 🤖 AI-prefilled (editable) | Defines regulatory, privacy, and security obligations |
+| 6 | **Technology Exclusions** | Manual (optional) | Technologies, tools, or patterns explicitly excluded — user-driven, never AI-inferred |
+| 7 | Security & Compliance Requirements | 🤖 AI-prefilled (editable) | Defines regulatory, privacy, and security obligations |
 
 > **Important:** Target Users (Q3) represent the **end users of your application** (customers, admins, employees), NOT the developers building it. This is determined from your mission and scope, and is **not affected** by your deployment strategy choice.
 
@@ -406,11 +411,14 @@ Your selected architecture requires a cloud provider. Choose one:
 
 After selecting architecture (and optionally cloud provider), the **Question Prefiller** agent generates contextual answers for the remaining questionnaire questions:
 
-**Pre-filled Questions:**
+**Pre-filled Questions (Q3, Q4, Q5, Q7):**
 1. **Target Users** - User personas, roles, and characteristics **based on mission and scope only** (NOT deployment strategy)
 2. **Deployment Target** - Specific hosting platform and infrastructure matching architecture and deployment strategy
 3. **Technical Considerations** - Tech stack, frameworks, database, scalability patterns aligned with all selections
 4. **Security Requirements** - Auth, encryption, compliance inferred from architecture, database, and scope
+
+**Not pre-filled (Q6):**
+- **Technology Exclusions** — user-only field. Exclusions must be explicit user decisions and are never inferred by AI.
 
 **Pre-filled answers are intelligent:**
 - ✅ Align exactly with your selected architecture, deployment strategy, and database
