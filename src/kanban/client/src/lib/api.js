@@ -175,6 +175,26 @@ export async function updateWorkItemContext(id, content) {
   });
 }
 
+// ── Board settings ───────────────────────────────────────────────────────────
+
+/**
+ * Get board title from avc.json (falls back to 'AVC Kanban Board')
+ */
+export async function getBoardTitle() {
+  const data = await apiFetch('/settings/title');
+  return data.title || 'AVC Kanban Board';
+}
+
+/**
+ * Save board title to avc.json
+ */
+export async function updateBoardTitle(title) {
+  return apiFetch('/settings/title', {
+    method: 'PUT',
+    body: JSON.stringify({ title }),
+  });
+}
+
 // ── Project-level (root) files ──────────────────────────────────────────────
 
 export async function getProjectDoc() {

@@ -1,5 +1,6 @@
-import { useEffect, useState, useMemo } from 'react';
-import { getHealth } from './lib/api';
+import { useEffect, useState, useMemo, useRef } from 'react';
+import { Pencil, Check, X } from 'lucide-react';
+import { getHealth, getBoardTitle, updateBoardTitle } from './lib/api';
 import { useWebSocket } from './hooks/useWebSocket';
 import { useKanbanStore } from './store/kanbanStore';
 import { useFilterStore } from './store/filterStore';
@@ -12,6 +13,12 @@ function App() {
   const [health, setHealth] = useState(null);
   const [selectedItem, setSelectedItem] = useState(null);
   const [modalOpen, setModalOpen] = useState(false);
+
+  // Board title state
+  const [boardTitle, setBoardTitle] = useState('AVC Kanban Board');
+  const [editingTitle, setEditingTitle] = useState(false);
+  const [titleInput, setTitleInput] = useState('');
+  const titleInputRef = useRef(null);
 
   // Zustand stores
   const { workItems, loadWorkItems, loading, error } = useKanbanStore();
@@ -48,11 +55,9 @@ function App() {
   useEffect(() => {
     const init = async () => {
       try {
-        // Check backend health
-        const healthData = await getHealth();
+        const [healthData, title] = await Promise.all([getHealth(), getBoardTitle()]);
         setHealth(healthData);
-
-        // Load work items
+        setBoardTitle(title);
         await loadWorkItems();
       } catch (err) {
         console.error('Initialization error:', err);
@@ -62,13 +67,54 @@ function App() {
     init();
   }, [loadWorkItems]);
 
-  // Handle card click - open detail modal
+  // Focus input when editing starts
+  useEffect(() => {
+    if (editingTitle) {
+      titleInputRef.current?.focus();
+      titleInputRef.current?.select();
+    }
+  }, [editingTitle]);
+
+  // ── Title editing handlers ─────────────────────────────────────────────────
+
+  const startEditTitle = () => {
+    setTitleInput(boardTitle);
+    setEditingTitle(true);
+  };
+
+  const cancelEditTitle = () => {
+    setEditingTitle(false);
+    setTitleInput('');
+  };
+
+  const saveTitle = async () => {
+    const trimmed = titleInput.trim();
+    if (!trimmed || trimmed === boardTitle) {
+      cancelEditTitle();
+      return;
+    }
+    try {
+      await updateBoardTitle(trimmed);
+      setBoardTitle(trimmed);
+    } catch (err) {
+      console.error('Failed to save title:', err);
+    }
+    setEditingTitle(false);
+    setTitleInput('');
+  };
+
+  const handleTitleKeyDown = (e) => {
+    if (e.key === 'Enter') saveTitle();
+    if (e.key === 'Escape') cancelEditTitle();
+  };
+
+  // ── Card navigation ────────────────────────────────────────────────────────
+
   const handleCardClick = (item) => {
     setSelectedItem(item);
     setModalOpen(true);
   };
 
-  // Handle modal navigation (prev/next)
   const handleNavigate = (direction) => {
     if (!selectedItem || filteredItems.length === 0) return;
 
@@ -85,34 +131,30 @@ function App() {
     setSelectedItem(filteredItems[newIndex]);
   };
 
-  // Handle modal close
   const handleModalClose = () => {
     setModalOpen(false);
-    // Don't clear selectedItem immediately to prevent flash during close animation
     setTimeout(() => setSelectedItem(null), 200);
   };
 
-  // Loading state
+  // ── Loading / error states ─────────────────────────────────────────────────
+
   if (loading && !health) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-slate-50">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <p className="text-slate-600">Loading AVC Kanban Board...</p>
+          <p className="text-slate-600">Loading {boardTitle}...</p>
         </div>
       </div>
     );
   }
 
-  // Error state
   if (error && !health) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-slate-50">
         <div className="text-center max-w-md p-6 bg-white rounded-lg shadow-md">
           <div className="text-red-600 text-5xl mb-4">⚠️</div>
-          <h2 className="text-xl font-semibold text-slate-900 mb-2">
-            Connection Error
-          </h2>
+          <h2 className="text-xl font-semibold text-slate-900 mb-2">Connection Error</h2>
           <p className="text-slate-600 mb-4">{error}</p>
           <button
             onClick={() => window.location.reload()}
@@ -132,9 +174,43 @@ function App() {
         <div className="max-w-full px-4 sm:px-6 lg:px-8 py-4">
           <div className="flex items-center justify-between">
             <div>
-              <h1 className="text-2xl font-bold text-slate-900">
-                AVC Kanban Board
-              </h1>
+              {/* Editable board title */}
+              {editingTitle ? (
+                <div className="flex items-center gap-2">
+                  <input
+                    ref={titleInputRef}
+                    value={titleInput}
+                    onChange={(e) => setTitleInput(e.target.value)}
+                    onKeyDown={handleTitleKeyDown}
+                    className="text-2xl font-bold text-slate-900 bg-transparent border-b-2 border-blue-500 outline-none min-w-0 w-72"
+                  />
+                  <button
+                    onClick={saveTitle}
+                    className="text-green-600 hover:text-green-700 transition-colors"
+                    title="Save"
+                  >
+                    <Check className="w-5 h-5" />
+                  </button>
+                  <button
+                    onClick={cancelEditTitle}
+                    className="text-slate-400 hover:text-slate-600 transition-colors"
+                    title="Cancel"
+                  >
+                    <X className="w-5 h-5" />
+                  </button>
+                </div>
+              ) : (
+                <button
+                  onClick={startEditTitle}
+                  className="group flex items-center gap-2 text-left"
+                  title="Click to edit board title"
+                >
+                  <h1 className="text-2xl font-bold text-slate-900 group-hover:text-slate-700 transition-colors">
+                    {boardTitle}
+                  </h1>
+                  <Pencil className="w-4 h-4 text-slate-300 group-hover:text-slate-500 transition-colors flex-shrink-0" />
+                </button>
+              )}
               <p className="text-sm text-slate-600 mt-1">
                 {health?.projectRoot || 'Loading...'}
               </p>
@@ -159,7 +235,6 @@ function App() {
                     : 'No live updates'}
                 </span>
               </div>
-
             </div>
           </div>
         </div>

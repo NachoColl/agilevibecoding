@@ -181,6 +181,40 @@ export class KanbanServer {
       res.json({ status: 'ok' });
     });
 
+    // Board title setting (read/write from avc.json)
+    const avcJsonPath = path.join(this.projectRoot, '.avc', 'avc.json');
+    const DEFAULT_TITLE = 'AVC Kanban Board';
+
+    const readAvcConfig = async () => {
+      try {
+        return JSON.parse(await fs.readFile(avcJsonPath, 'utf8'));
+      } catch {
+        return {};
+      }
+    };
+
+    this.app.get('/api/settings/title', async (req, res) => {
+      const config = await readAvcConfig();
+      res.json({ title: config?.settings?.kanban?.title || DEFAULT_TITLE });
+    });
+
+    this.app.put('/api/settings/title', async (req, res) => {
+      const { title } = req.body;
+      if (typeof title !== 'string' || !title.trim()) {
+        return res.status(400).json({ error: 'title must be a non-empty string' });
+      }
+      try {
+        const config = await readAvcConfig();
+        if (!config.settings) config.settings = {};
+        if (!config.settings.kanban) config.settings.kanban = {};
+        config.settings.kanban.title = title.trim();
+        await fs.writeFile(avcJsonPath, JSON.stringify(config, null, 2), 'utf8');
+        res.json({ title: title.trim() });
+      } catch (err) {
+        res.status(500).json({ error: err.message });
+      }
+    });
+
     // Work items routes
     const workItemsRouter = createWorkItemsRouter(this);
     this.app.use('/api/work-items', workItemsRouter);
