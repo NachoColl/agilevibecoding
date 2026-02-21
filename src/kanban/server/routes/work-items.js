@@ -1,4 +1,6 @@
 import express from 'express';
+import fs from 'fs/promises';
+import path from 'path';
 import { renderMarkdown } from '../utils/markdown.js';
 import { groupItemsByColumn, getColumnStats } from '../utils/status-grouping.js';
 
@@ -163,6 +165,96 @@ export function createWorkItemsRouter(dataStore) {
     } catch (error) {
       console.error(`Error getting context for ${req.params.id}:`, error);
       res.status(500).json({ error: 'Failed to get context' });
+    }
+  });
+
+  /**
+   * GET /api/work-items/:id/doc/raw
+   * Get raw markdown source of doc.md
+   */
+  router.get('/:id/doc/raw', async (req, res) => {
+    try {
+      const { items } = dataStore.getHierarchy();
+      const item = items.get(req.params.id);
+      if (!item) return res.status(404).json({ error: 'Work item not found' });
+
+      const fullItem = await dataStore.getFullDetails(item);
+      if (!fullItem.documentation) return res.status(404).json({ error: 'Documentation not found' });
+
+      res.type('text/plain').send(fullItem.documentation);
+    } catch (error) {
+      console.error(`Error getting raw doc for ${req.params.id}:`, error);
+      res.status(500).json({ error: 'Failed to get documentation' });
+    }
+  });
+
+  /**
+   * GET /api/work-items/:id/context/raw
+   * Get raw markdown source of context.md
+   */
+  router.get('/:id/context/raw', async (req, res) => {
+    try {
+      const { items } = dataStore.getHierarchy();
+      const item = items.get(req.params.id);
+      if (!item) return res.status(404).json({ error: 'Work item not found' });
+
+      const fullItem = await dataStore.getFullDetails(item);
+      if (!fullItem.context) return res.status(404).json({ error: 'Context not found' });
+
+      res.type('text/plain').send(fullItem.context);
+    } catch (error) {
+      console.error(`Error getting raw context for ${req.params.id}:`, error);
+      res.status(500).json({ error: 'Failed to get context' });
+    }
+  });
+
+  /**
+   * PUT /api/work-items/:id/doc
+   * Save updated markdown content to doc.md
+   */
+  router.put('/:id/doc', async (req, res) => {
+    try {
+      const { items } = dataStore.getHierarchy();
+      const item = items.get(req.params.id);
+      if (!item) return res.status(404).json({ error: 'Work item not found' });
+
+      const markdown = req.body.content;
+      if (typeof markdown !== 'string') {
+        return res.status(400).json({ error: 'content must be a string' });
+      }
+
+      const docPath = path.join(item._dirPath, 'doc.md');
+      await fs.writeFile(docPath, markdown, 'utf8');
+
+      res.json({ status: 'ok' });
+    } catch (error) {
+      console.error(`Error saving doc for ${req.params.id}:`, error);
+      res.status(500).json({ error: 'Failed to save documentation' });
+    }
+  });
+
+  /**
+   * PUT /api/work-items/:id/context
+   * Save updated markdown content to context.md
+   */
+  router.put('/:id/context', async (req, res) => {
+    try {
+      const { items } = dataStore.getHierarchy();
+      const item = items.get(req.params.id);
+      if (!item) return res.status(404).json({ error: 'Work item not found' });
+
+      const markdown = req.body.content;
+      if (typeof markdown !== 'string') {
+        return res.status(400).json({ error: 'content must be a string' });
+      }
+
+      const contextPath = path.join(item._dirPath, 'context.md');
+      await fs.writeFile(contextPath, markdown, 'utf8');
+
+      res.json({ status: 'ok' });
+    } catch (error) {
+      console.error(`Error saving context for ${req.params.id}:`, error);
+      res.status(500).json({ error: 'Failed to save context' });
     }
   });
 

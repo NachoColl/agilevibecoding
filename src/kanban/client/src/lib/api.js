@@ -126,3 +126,51 @@ export async function getWorkItemContext(id) {
 
   return await response.text();
 }
+
+/**
+ * Get raw markdown source of doc.md
+ * @param {string} id - Work item ID
+ * @returns {Promise<string>} Raw markdown or empty string if not found
+ */
+export async function getWorkItemDocRaw(id) {
+  const url = `${API_BASE_URL}/work-items/${id}/doc/raw`;
+  const response = await fetch(url);
+  if (!response.ok) return '';
+  return await response.text();
+}
+
+/**
+ * Get raw markdown source of context.md
+ * @param {string} id - Work item ID
+ * @returns {Promise<string>} Raw markdown or empty string if not found
+ */
+export async function getWorkItemContextRaw(id) {
+  const url = `${API_BASE_URL}/work-items/${id}/context/raw`;
+  const response = await fetch(url);
+  if (!response.ok) return '';
+  return await response.text();
+}
+
+/**
+ * Save updated markdown to doc.md
+ * @param {string} id - Work item ID
+ * @param {string} content - Markdown content
+ */
+export async function updateWorkItemDoc(id, content) {
+  return apiFetch(`/work-items/${id}/doc`, {
+    method: 'PUT',
+    body: JSON.stringify({ content }),
+  });
+}
+
+/**
+ * Save updated markdown to context.md
+ * @param {string} id - Work item ID
+ * @param {string} content - Markdown content
+ */
+export async function updateWorkItemContext(id, content) {
+  return apiFetch(`/work-items/${id}/context`, {
+    method: 'PUT',
+    body: JSON.stringify({ content }),
+  });
+}
