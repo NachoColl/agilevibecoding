@@ -33,10 +33,12 @@ export class FileWatcher extends EventEmitter {
     this.watcher = chokidar.watch(watchPattern, {
       persistent: true,
       ignoreInitial: true, // Don't emit events for initial scan
+      usePolling: true,    // Required for WSL2 /mnt/ paths (no inotify on Windows mounts)
+      interval: 2000,      // Poll every 2 seconds
       awaitWriteFinish: {
         // Wait for file writes to complete before emitting event
-        stabilityThreshold: 100,
-        pollInterval: 50,
+        stabilityThreshold: 500,
+        pollInterval: 100,
       },
     });
 

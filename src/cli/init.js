@@ -238,7 +238,7 @@ class ProjectInitiator {
             ],
             validation: {
               enabled: true,
-              maxIterations: 2,
+              maxIterations: 10,
               acceptanceThreshold: 75,
               skipOnCriticalIssues: false,
               provider: 'claude',

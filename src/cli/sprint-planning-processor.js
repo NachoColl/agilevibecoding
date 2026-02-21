@@ -651,10 +651,6 @@ Return your response as JSON following the exact structure specified in your ins
       if (epicValidation.overallStatus === 'needs-improvement') {
         this.debug(`Epic "${epic.name}" needs improvement - showing issues`);
         this.displayValidationIssues(epicValidation);
-
-        // For now, continue with warnings (user can review files later)
-        // TODO: Implement auto-fix or ask user for confirmation
-        sendWarning('Epic will be created with validation warnings');
       }
 
       // Validate each story under this epic
@@ -674,9 +670,6 @@ Return your response as JSON following the exact structure specified in your ins
         if (storyValidation.overallStatus === 'needs-improvement') {
           this.debug(`Story "${story.name}" needs improvement - showing issues`);
           this.displayValidationIssues(storyValidation);
-
-          // For now, continue with warnings (user can review files later)
-          sendWarning('Story will be created with validation warnings');
         }
       }
     }

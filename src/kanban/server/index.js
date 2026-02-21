@@ -115,6 +115,21 @@ export class KanbanServer {
       res.json(stats);
     });
 
+    // Manual reload endpoint
+    this.app.post('/api/reload', async (req, res) => {
+      try {
+        await this.reloadWorkItems();
+        const count = this.hierarchy ? this.hierarchy.items.size : 0;
+        res.json({ status: 'ok', workItemCount: count });
+        if (this.websocket) {
+          this.websocket.broadcastRefresh();
+        }
+      } catch (error) {
+        console.error('Error during manual reload:', error);
+        res.status(500).json({ error: 'Reload failed', message: error.message });
+      }
+    });
+
     // Work items routes
     const workItemsRouter = createWorkItemsRouter(this);
     this.app.use('/api/work-items', workItemsRouter);

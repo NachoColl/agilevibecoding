@@ -1867,7 +1867,7 @@ Return your response as JSON following the exact structure specified in your ins
 
       return ceremony?.validation || {
         enabled: true,
-        maxIterations: 2,
+        maxIterations: 10,
         acceptanceThreshold: 75,
         skipOnCriticalIssues: false
       };
@@ -1875,7 +1875,7 @@ Return your response as JSON following the exact structure specified in your ins
       // Default settings if config can't be read
       return {
         enabled: true,
-        maxIterations: 2,
+        maxIterations: 10,
         acceptanceThreshold: 75,
         skipOnCriticalIssues: false
       };
@@ -2285,7 +2285,7 @@ Return your response as JSON following the exact structure specified in your ins
    */
   async iterativeValidation(content, type, questionnaire, contextContent = null) {
     const settings = this.getValidationSettings();
-    const maxIterations = settings.maxIterations || 2;
+    const maxIterations = settings.maxIterations || 10;
     const threshold = settings.acceptanceThreshold || 75;
 
     let currentContent = content;
@@ -2382,7 +2382,7 @@ Return your response as JSON following the exact structure specified in your ins
     if (this._modelName !== 'claude-sonnet-4-6') {
       models.push({ provider: this._providerName, model: 'claude-sonnet-4-6' });
     }
-    return { enabled: true, maxIterations: 3, models };
+    return { enabled: true, maxIterations: 10, models };
   }
 
   /**
@@ -2572,7 +2572,7 @@ Return your response as JSON following the exact structure specified in your ins
    */
   async crossValidateDocAndContext(docContent, contextContent, questionnaire) {
     const config = this.getCrossValidationConfig();
-    const maxIterations = config.maxIterations || 3;
+    const maxIterations = config.maxIterations || 10;
     const models = config.models || [{ provider: this._providerName, model: 'claude-opus-4-6' }];
 
     let currentDoc = docContent;
