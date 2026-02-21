@@ -24,7 +24,7 @@ export const useFilterStore = create(
         Done: true,
       },
       searchQuery: '',
-      groupBy: 'status', // 'status' | 'epic' | 'type' | 'category'
+      groupBy: 'epic', // 'status' | 'epic' | 'type' | 'category'
 
       // Actions
 
@@ -184,7 +184,7 @@ export const useFilterStore = create(
             Done: true,
           },
           searchQuery: '',
-          groupBy: 'status',
+          groupBy: 'epic',
         });
       },
     }),
