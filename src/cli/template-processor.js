@@ -1176,6 +1176,16 @@ Return the enhanced markdown document.`;
           contextContent = await this.iterativeValidation(contextContent, 'context', collectedValues, finalDocument);
         }
 
+        // 9b. Deterministic deployment constraint check (runs even when LLM validation is off)
+        const deployTarget = collectedValues.DEPLOYMENT_TARGET || '';
+        if (/local|localhost|dev\s*machine|on.?prem/i.test(deployTarget) && contextContent) {
+          const cloudPattern = /\b(AWS|GCP|Google Cloud|Azure|DigitalOcean|Cloudflare|Kubernetes|ECS|EKS|GKE|Fargate|Lambda|RDS|S3|CloudFront|Firebase|Supabase|Heroku|Vercel)\b/i;
+          if (cloudPattern.test(contextContent)) {
+            sendWarning('context.md references cloud infrastructure but deployment target is local-only.');
+            sendIndented('Review .avc/project/context.md — the Infrastructure section may need correction.', 1);
+          }
+        }
+
         // Write context.md - ensure directory exists first
         if (!fs.existsSync(this.outputDir)) {
           fs.mkdirSync(this.outputDir, { recursive: true });
@@ -1616,7 +1626,7 @@ Return your response as JSON following the exact structure specified in your ins
    * @returns {string} Prompt for context generator agent
    */
   buildContextPrompt(level, id, data) {
-    const { INITIAL_SCOPE, TARGET_USERS, MISSION_STATEMENT, TECHNICAL_CONSIDERATIONS, SECURITY_AND_COMPLIANCE_REQUIREMENTS, epic, story } = data;
+    const { INITIAL_SCOPE, TARGET_USERS, MISSION_STATEMENT, TECHNICAL_CONSIDERATIONS, SECURITY_AND_COMPLIANCE_REQUIREMENTS, DEPLOYMENT_TARGET, epic, story } = data;
 
     let prompt = `Generate a context.md file for the following ${level}:\n\n`;
     prompt += `**Level:** ${level}\n`;
@@ -1625,8 +1635,19 @@ Return your response as JSON following the exact structure specified in your ins
     if (level === 'project') {
       prompt += `**Mission Statement:**\n${MISSION_STATEMENT}\n\n`;
       prompt += `**Target Users:**\n${TARGET_USERS}\n\n`;
+      prompt += `**Deployment Target:**\n${DEPLOYMENT_TARGET || 'Not specified'}\n\n`;
       prompt += `**Technical Considerations:**\n${TECHNICAL_CONSIDERATIONS}\n\n`;
       prompt += `**Security and Compliance:**\n${SECURITY_AND_COMPLIANCE_REQUIREMENTS}\n\n`;
+
+      // Enforce deployment constraint in prompt so the LLM cannot drift
+      const isLocalDeployment = /local|localhost|dev\s*machine|on.?prem/i.test(DEPLOYMENT_TARGET || '');
+      if (isLocalDeployment) {
+        prompt += `**DEPLOYMENT CONSTRAINT — CRITICAL:**\n`;
+        prompt += `DEPLOYMENT_TARGET is local-only ("${DEPLOYMENT_TARGET}").\n`;
+        prompt += `- Infrastructure line MUST describe local setup only (e.g. "Docker Compose (local dev)" or "Local processes").\n`;
+        prompt += `- DO NOT include AWS, GCP, Azure, DigitalOcean, Kubernetes, ECS, Fargate, GitHub Actions, Vercel, Heroku, or any cloud/CI/CD service.\n`;
+        prompt += `- DO NOT add tools (Sentry, Playwright, node-pg-migrate, etc.) not mentioned in Technical Considerations.\n\n`;
+      }
     } else if (level === 'epic') {
       prompt += `**Epic Name:** ${epic.name}\n`;
       prompt += `**Epic Domain:** ${epic.domain}\n`;

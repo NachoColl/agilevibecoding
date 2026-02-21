@@ -6,8 +6,8 @@ The **Sprint Planning** ceremony decomposes your project scope into domain-based
 
 **Input**
 
-- Project documentation (.avc/project/project/doc.md)
-- Project context (.avc/project/project/context.md)
+- Project documentation (`.avc/project/doc.md`)
+- Project context (`.avc/project/context.md`)
 - Existing Epics/Stories (optional)
 
 **Output**
@@ -108,8 +108,8 @@ The ceremony reads the Initial Scope from your project documentation and decompo
 **Prerequisite Validation**
 
 Before decomposition, the ceremony verifies:
-- Project documentation exists (`.avc/project/project/doc.md`)
-- Project context exists (`.avc/project/project/context.md`)
+- Project documentation exists (`.avc/project/doc.md`)
+- Project context exists (`.avc/project/context.md`)
 - Initial Scope section is present in documentation
 
 **Duplicate Detection**

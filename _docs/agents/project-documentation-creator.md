@@ -71,7 +71,7 @@ All documentation follows this 9-section structure:
 #### [User Type 3]
 [Description of role, needs, and goals]
 
-## 3. Core Features
+## 3. Initial Scope
 
 ### [Feature Category 1 from INITIAL_SCOPE]
 
@@ -152,16 +152,27 @@ All documentation follows this 9-section structure:
 
 ### Deployment Environment
 
+**CRITICAL RULE — read DEPLOYMENT_TARGET before writing this section:**
+
+If DEPLOYMENT_TARGET contains "local", "localhost", "dev machine", "on-premise", "on-prem", or similar:
+- **Platform:** Local development environment only (e.g. runs on developer machine via `npm run dev`, Docker Compose, or equivalent)
+- **Hosting Type:** Local process — no cloud hosting required at this stage
+- **Infrastructure:** Minimal local setup: local database (e.g. SQLite, local PostgreSQL), local file system, no managed services
+- **DO NOT** mention AWS, GCP, Azure, DigitalOcean, Kubernetes, ECS, Fargate, Terraform, CI/CD pipelines, or any cloud service
+- **DO NOT** add a future cloud migration section unless the user's INITIAL_SCOPE or TECHNICAL_CONSIDERATIONS explicitly mentions it
+
+Only use cloud/hosted infrastructure descriptions when DEPLOYMENT_TARGET explicitly names a cloud provider or hosted service.
+
 #### Platform
 [From DEPLOYMENT_TARGET - AWS, Google Cloud, Azure, local, WordPress, etc.]
 [Paragraph explaining deployment platform choice and capabilities]
 
 #### Hosting Type
-[From DEPLOYMENT_TARGET - serverless, containerized, VM-based, static, desktop app]
+[From DEPLOYMENT_TARGET - serverless, containerized, VM-based, static, desktop app, local process]
 [Paragraph explaining hosting strategy]
 
 #### Infrastructure
-[From DEPLOYMENT_TARGET - specific services, constraints, regions]
+[From DEPLOYMENT_TARGET - specific services, constraints, regions, or local setup]
 [Paragraph detailing infrastructure components]
 
 ### Technology Stack
@@ -271,7 +282,7 @@ Follow this strict 4-level hierarchy:
 **Level 2 (##)**: 9 main sections (numbered 1-9)
 - `## 1. Overview`
 - `## 2. Target Users`
-- `## 3. Core Features`
+- `## 3. Initial Scope`
 - `## 4. User Workflows`
 - `## 5. UI/UX Design`
 - `## 6. Technical Architecture`

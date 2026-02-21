@@ -49,7 +49,7 @@ Now, create a comprehensive Project Brief that includes the following sections:
 
 2. **Target Users and Stakeholders**: Identify the different types of users who will interact with this application, their roles, and their key needs
 
-3. **Key Features and Functionality**: Describe the essential features organized by functional area or domain (e.g., user management, data processing, reporting, etc.)
+3. **Initial Scope**: Describe the essential features organized by functional area or domain (e.g., user management, data processing, reporting, etc.)
 
 4. **User Workflows**: Outline the primary user journeys or workflows through the application with step-by-step descriptions
 

@@ -53,12 +53,12 @@ sequenceDiagram
     User->>QA: Enter scope
     QA->>QA: Auto-save progress
 
-    Note over REPL,DepStrat: 🆕 Deployment Strategy Selection
+    Note over REPL,DepStrat: Deployment Strategy Selection
     REPL->>DepStrat: Show Local MVP vs Cloud options
     DepStrat->>User: Select strategy (↑/↓/Enter/Esc)
     User->>DepStrat: Choose "Local MVP First" or "Cloud"
 
-    Note over REPL,DBAnalyzer: 🆕 Database Analysis Stage
+    Note over REPL,DBAnalyzer: Database Analysis Stage
     REPL->>DBAnalyzer: Analyze database needs (mission + scope + strategy)
     DBAnalyzer->>DBAnalyzer: Generate SQL vs NoSQL comparison
     DBAnalyzer-->>DBChoice: Comparison + AI recommendation
@@ -66,7 +66,7 @@ sequenceDiagram
     DBChoice->>User: Choose database (AI/SQL/NoSQL/Skip)
     User->>DBChoice: Select option
 
-    Note over REPL,ArchRec: 🆕 Architecture Selection Stage
+    Note over REPL,ArchRec: Architecture Selection Stage
     REPL->>ArchRec: Analyze (mission + scope + strategy + database)
     ArchRec->>ArchRec: Generate 3-5 filtered architectures
     ArchRec-->>ArchSel: Architecture options
@@ -79,18 +79,23 @@ sequenceDiagram
         User->>CloudSel: Choose provider
     end
 
-    Note over REPL,Prefill: 🆕 Intelligent Pre-filling Stage
+    Note over REPL,Prefill: Intelligent Pre-filling Stage
     REPL->>Prefill: Generate answers (architecture + provider + database + strategy)
     Prefill->>Prefill: Create contextual answers
     Prefill-->>QA: Pre-filled Q3-Q6
 
-    QA->>User: Preview (🤖 AI vs ✏️ user indicators)
-    User->>QA: Review/edit answers
-    QA->>QA: Collect final answers
+    QA->>User: 3-6. Review/edit AI-prefilled answers
+    User->>QA: Confirm or edit each answer
 
+    Note over REPL,QA: Preview & Confirm
+    QA-->>REPL: All answers collected
+    REPL->>User: Show preview (✏️ manual / 🤖 AI indicators)
+    User->>REPL: S to submit / E to edit / Esc to cancel
+
+    Note over REPL,Doc: Generate & Validate Documentation
     REPL->>Doc: Generate documentation
-    Doc->>Doc: Call LLM with answers
-    Doc-->>REPL: 8-section project document
+    Doc->>Doc: Call LLM with all answers
+    Doc-->>REPL: 9-section project brief
 
     opt Validation enabled
         loop Until score >= 75 OR maxIterations (2)
@@ -102,9 +107,10 @@ sequenceDiagram
         end
     end
 
+    Note over REPL,Ctx: Generate & Validate Context
     REPL->>Ctx: Generate context
-    Ctx->>Ctx: Call LLM with answers
-    Ctx-->>REPL: Architectural context
+    Ctx->>Ctx: Call LLM → auto-verify (LLMVerifier)
+    Ctx-->>REPL: Context markdown
 
     opt Validation enabled
         loop Until score >= 75 OR maxIterations (2)
@@ -116,12 +122,13 @@ sequenceDiagram
         end
     end
 
-    REPL->>FS: Write .avc/project/doc.md
+    Note over REPL,FS: Write Output Files
     REPL->>FS: Write .avc/project/context.md
-    REPL->>FS: Copy to .avc/documentation/index.md
+    REPL->>FS: Write .avc/project/doc.md
 
-    opt Local MVP strategy
-        REPL->>FS: Write .avc/DEPLOYMENT_MIGRATION.md
+    opt .avc/documentation/ folder exists
+        REPL->>FS: Sync to .avc/documentation/index.md
+        REPL->>REPL: Auto-start documentation server
     end
 
     REPL->>User: ✅ Ceremony complete
@@ -513,7 +520,7 @@ The collected answers are transformed into formal project artifacts using specia
 
 | Agent | Purpose | Location |
 |-------|---------|----------|
-| [Documentation Creator](/agents/project-documentation-creator) | Converts questionnaire responses into a structured 8-section project document | `/agents/project-documentation-creator` |
+| [Documentation Creator](/agents/project-documentation-creator) | Converts questionnaire responses into a structured 9-section project brief | `/agents/project-documentation-creator` |
 | [Documentation Validator](/agents/validator-documentation) | Scores and validates documentation quality (0–100 scale) | `/agents/validator-documentation` |
 
 #### Context Agents
@@ -532,14 +539,15 @@ After completing the Sponsor Call:
 
 **Project Documentation** (`.avc/project/doc.md`)
 
-Comprehensive 8-section project document including:
-- Executive Summary
-- Problem Statement
-- Solution Overview
-- User Personas
-- Core Features
+Comprehensive 9-section project brief including:
+- Overview
+- Target Users
+- Initial Scope
+- User Workflows
+- UI/UX Design
 - Technical Architecture
-- Security Considerations
+- Integration Points
+- Security & Compliance
 - Success Metrics
 
 ```bash

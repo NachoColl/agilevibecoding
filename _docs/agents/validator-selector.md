@@ -63,6 +63,19 @@ Given an Epic or Story description, select **5-8 relevant validators** from the 
 ❌ You're trying to reach exactly 8 validators (5-8 is the range, not a target)
 ❌ You're selecting "just to be safe" - be precise, not comprehensive
 
+### Deployment-Aware Selection (IMPORTANT)
+
+Before selecting validators, check the project context for the deployment target:
+
+**If the project context indicates LOCAL deployment** (DEPLOYMENT_TARGET = "local", "localhost", "on-premise", "dev machine", or no cloud provider is mentioned):
+- ❌ **DO NOT select `validator-epic-cloud` or `validator-story-cloud`** — cloud architecture validation is irrelevant
+- ❌ **DO NOT select `validator-epic-devops` or `validator-story-devops`** unless the epic/story explicitly involves CI/CD pipelines, containerization for deployment, or infrastructure automation
+- ✅ DO select `validator-epic-backend`, `validator-epic-database`, `validator-epic-security` as normal — these apply regardless of deployment
+
+**If the project context indicates CLOUD deployment** (DEPLOYMENT_TARGET names AWS, GCP, Azure, Vercel, etc.):
+- ✅ Cloud and devops validators are appropriate for infrastructure-related epics/stories
+- ❌ Still avoid cloud validators for pure frontend, UX, or business logic work items
+
 ### Selection Examples
 
 **Example 1: Epic - "Real-time Chat System"**
@@ -83,11 +96,28 @@ Selected (7 validators):
 - validator-epic-ux (Conversation flow, notifications)
 - validator-epic-security (Message encryption, user auth)
 
-**Example 2: Story - "User can upload profile picture"**
+**Example 2a: Story - "User can upload profile picture" (LOCAL deployment)**
 
 Analysis:
 - File upload = backend (multipart), api (endpoint)
-- Image storage = backend, cloud (S3/blob storage)
+- Image storage = backend (local file system or local disk) — no cloud storage
+- UI for upload = frontend, ui
+- Image validation/processing = backend
+- Security (file type, size limits) = security
+- No cloud validator: project is local, storage is local file system
+
+Selected (5 validators):
+- validator-story-backend (Upload handling, image processing, local file storage)
+- validator-story-api (Upload endpoint, file size limits)
+- validator-story-frontend (Upload UI, progress bar)
+- validator-story-ui (Image preview, crop tool)
+- validator-story-security (File validation, malware check)
+
+**Example 2b: Story - "User can upload profile picture" (CLOUD deployment, e.g. AWS)**
+
+Analysis:
+- File upload = backend (multipart), api (endpoint)
+- Image storage = cloud (S3/blob storage), backend
 - UI for upload = frontend, ui
 - Image validation/processing = backend
 - Security (file type, size limits) = security
@@ -95,7 +125,7 @@ Analysis:
 Selected (6 validators):
 - validator-story-backend (Upload handling, image processing)
 - validator-story-api (Upload endpoint, file size limits)
-- validator-story-cloud (Storage service, CDN)
+- validator-story-cloud (S3 storage service, CDN)
 - validator-story-frontend (Upload UI, progress bar)
 - validator-story-ui (Image preview, crop tool)
 - validator-story-security (File validation, malware check)

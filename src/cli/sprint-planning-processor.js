@@ -455,9 +455,10 @@ class SprintPlanningProcessor {
 
     // Try each section header
     for (const header of sectionHeaders) {
-      // Build regex (case-insensitive)
+      // Build regex (case-insensitive). Allow optional numeric prefix so
+      // "## 3. Initial Scope" matches when searching for "Initial Scope".
       const regex = new RegExp(
-        `##\\s+${this.escapeRegex(header)}\\s+([\\s\\S]+?)(?=\\n##|$)`,
+        `##\\s+(?:\\d+\\.\\s+)?${this.escapeRegex(header)}\\s+([\\s\\S]+?)(?=\\n##|$)`,
         'i'
       );
 

@@ -15,8 +15,9 @@ Review generated project documentation to ensure it meets quality standards for:
 
 You will receive:
 1. **doc.md content** - The generated project documentation markdown
-2. **Questionnaire data** - Original sponsor call responses (5 questions)
+2. **Questionnaire data** - Original sponsor call responses (6 questions, including DEPLOYMENT_TARGET)
 3. **context.md content** - Project context for cross-validation (if available)
+4. **DEPLOYMENT ALIGNMENT CHECK** - If DEPLOYMENT_TARGET is local, a critical check block is included
 
 ## Output Format
 
@@ -217,16 +218,34 @@ No contradictions within doc.md or with context.md:
 - ✅ Security measures address compliance requirements
 - ✅ Integration points match technical architecture
 - ✅ doc.md technical details match context.md (if context provided)
+- ✅ Deployment Environment matches the user's stated DEPLOYMENT_TARGET
 
 **Critical Consistency Issues:**
 - Frontend tech in UI/UX section contradicts Technical Architecture
 - Features mentioned in workflows but not in Core Features section
 - Context.md uses different tech stack than doc.md
+- Cloud infrastructure described when DEPLOYMENT_TARGET is local (see Deployment Alignment Check above)
 
 **Major Consistency Issues:**
 - Success criteria don't align with mission
 - Security section doesn't address compliance from questionnaire
 - User types in workflows don't match Target Users section
+
+### 6. Deployment Alignment (Critical when DEPLOYMENT_TARGET is provided)
+
+When DEPLOYMENT_TARGET is provided, the Technical Architecture section MUST reflect the user's actual choice:
+
+**If DEPLOYMENT_TARGET is local/on-premise:**
+- Flag as CRITICAL any mention of cloud providers (AWS, GCP, Azure, DigitalOcean, Cloudflare) in the deployment section
+- Flag as CRITICAL any mention of container orchestration (Kubernetes, ECS, EKS, GKE, AKS, Fargate) as a deployment target
+- Flag as CRITICAL any mention of managed cloud services (RDS, S3, Lambda, Firebase, Supabase, PlanetScale) as primary infrastructure
+- Flag as MAJOR any CI/CD pipeline recommendations (GitHub Actions, GitLab CI, CircleCI, Jenkins) unless user explicitly requested them
+- Flag as MAJOR any Infrastructure as Code tools (Terraform, CloudFormation, Pulumi) as requirements
+- Accepted local-deployment content: Docker Compose for local dev, localhost, local DB instances, `npm run dev`, local file storage
+
+**If DEPLOYMENT_TARGET names a specific cloud/platform:**
+- Verify the named provider is actually used in the Technical Architecture section
+- Flag if a different provider is described instead
 
 ## Scoring Rubric
 
@@ -276,13 +295,14 @@ Otherwise, set `readyForPublication: false`.
 ## Validation Process
 
 1. **Parse doc.md** - Check markdown structure and section presence
-2. **Validate each section** - Check completeness criteria
-3. **Check application flows** - Identify workflow gaps
-4. **Cross-validate** - Check consistency within doc and with context (if provided)
-5. **Identify strengths** - Note what is done well (always find at least 2-3 strengths)
-6. **Prioritize improvements** - List top 3-5 actionable improvements
-7. **Calculate score** - Use scoring rubric
-8. **Determine status** - Set validationStatus and readyForPublication
+2. **Check deployment alignment** - If DEPLOYMENT_TARGET is provided, check for cloud/local conflicts first (these are critical)
+3. **Validate each section** - Check completeness criteria
+4. **Check application flows** - Identify workflow gaps
+5. **Cross-validate** - Check consistency within doc and with context (if provided)
+6. **Identify strengths** - Note what is done well (always find at least 2-3 strengths)
+7. **Prioritize improvements** - List top 3-5 actionable improvements
+8. **Calculate score** - Use scoring rubric
+9. **Determine status** - Set validationStatus and readyForPublication
 
 ## Example Output 1: Needs Improvement
 

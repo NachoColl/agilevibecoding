@@ -71,7 +71,7 @@ All documentation follows this 9-section structure:
 #### [User Type 3]
 [Description of role, needs, and goals]
 
-## 3. Core Features
+## 3. Initial Scope
 
 ### [Feature Category 1 from INITIAL_SCOPE]
 
@@ -282,7 +282,7 @@ Follow this strict 4-level hierarchy:
 **Level 2 (##)**: 9 main sections (numbered 1-9)
 - `## 1. Overview`
 - `## 2. Target Users`
-- `## 3. Core Features`
+- `## 3. Initial Scope`
 - `## 4. User Workflows`
 - `## 5. UI/UX Design`
 - `## 6. Technical Architecture`
