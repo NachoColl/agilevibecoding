@@ -160,15 +160,6 @@ function App() {
                 </span>
               </div>
 
-              {/* Powered by link */}
-              <a
-                href="https://agilevibecoding.org"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-sm text-blue-600 hover:text-blue-700 hover:underline"
-              >
-                Powered by AVC
-              </a>
             </div>
           </div>
         </div>
@@ -186,17 +177,14 @@ function App() {
 
       {/* Footer */}
       <footer className="bg-white border-t border-slate-200 py-4 text-center text-sm text-slate-500 flex-shrink-0">
-        <p>
-          Built with React + Vite + Tailwind CSS + Framer Motion •{' '}
-          <a
-            href="https://github.com/NachoColl/agilevibecoding"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-blue-600 hover:underline"
-          >
-            GitHub
-          </a>
-        </p>
+        <a
+          href="https://agilevibecoding.org"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-blue-600 hover:text-blue-700 hover:underline"
+        >
+          Powered by AVC
+        </a>
       </footer>
 
       {/* Detail Modal */}
