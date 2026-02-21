@@ -87,7 +87,7 @@ export function KanbanBoard({ onCardClick }) {
             No Work Items
           </h3>
           <p className="text-slate-600 mb-4">
-            Start by creating epics and stories with /sponsor-call or /sprint-planning
+            Start by creating epics and stories with /sprint-planning command
           </p>
         </div>
       </div>

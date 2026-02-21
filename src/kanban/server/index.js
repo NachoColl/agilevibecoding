@@ -1,6 +1,8 @@
 import express from 'express';
 import http from 'http';
 import cors from 'cors';
+import path from 'path';
+import { fileURLToPath } from 'url';
 import { FileSystemScanner } from './services/FileSystemScanner.js';
 import { WorkItemReader } from './services/WorkItemReader.js';
 import { HierarchyBuilder } from './services/HierarchyBuilder.js';
@@ -21,6 +23,10 @@ export class KanbanServer {
     this.projectRoot = projectRoot;
     this.port = options.port || 4174;
     this.host = options.host || 'localhost';
+
+    // Path to pre-built React client
+    const __dirname = path.dirname(fileURLToPath(import.meta.url));
+    this.clientDistPath = path.join(__dirname, '..', 'client', 'dist');
 
     // Services
     this.scanner = new FileSystemScanner(projectRoot);
@@ -50,13 +56,16 @@ export class KanbanServer {
     // CORS for frontend development server
     this.app.use(
       cors({
-        origin: ['http://localhost:5173', 'http://127.0.0.1:5173'],
+        origin: [`http://localhost:${this.port}`, 'http://localhost:5173', 'http://127.0.0.1:5173'],
         credentials: true,
       })
     );
 
     // JSON body parser
     this.app.use(express.json());
+
+    // Serve pre-built React client
+    this.app.use(express.static(this.clientDistPath));
 
     // Request logging
     this.app.use((req, res, next) => {
@@ -109,6 +118,11 @@ export class KanbanServer {
     // Work items routes
     const workItemsRouter = createWorkItemsRouter(this);
     this.app.use('/api/work-items', workItemsRouter);
+
+    // SPA fallback — serve index.html for any non-API GET
+    this.app.get('*', (req, res) => {
+      res.sendFile(path.join(this.clientDistPath, 'index.html'));
+    });
 
     // 404 handler
     this.app.use((req, res) => {

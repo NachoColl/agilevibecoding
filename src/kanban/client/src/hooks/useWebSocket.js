@@ -1,29 +1,36 @@
-import { useEffect, useRef, useCallback } from 'react';
+import { useEffect, useRef, useCallback, useState } from 'react';
+
+// Module-level constant — window.location.host never changes during a session
+const WS_URL = import.meta.env.VITE_WS_URL || `ws://${window.location.host}/ws`;
+
+const MAX_RECONNECT_ATTEMPTS = 5;
+const RECONNECT_DELAY = 2000;
 
 /**
- * WebSocket hook for real-time updates
- * @param {object} options - WebSocket options
- * @param {function} options.onMessage - Message handler
- * @param {function} options.onConnected - Connected handler
- * @param {function} options.onDisconnected - Disconnected handler
- * @param {function} options.onError - Error handler
- * @returns {object} WebSocket control
+ * WebSocket hook for real-time updates.
+ *
+ * Returns wsStatus: 'connecting' | 'connected' | 'disconnected'
+ * Callbacks are stored in refs so connect() is stable and the effect
+ * only runs once (no infinite reconnect loop from inline callbacks).
  */
 export function useWebSocket(options = {}) {
-  const {
-    onMessage,
-    onConnected,
-    onDisconnected,
-    onError,
-  } = options;
+  const { onMessage, onConnected, onDisconnected, onError } = options;
+
+  const [wsStatus, setWsStatus] = useState('connecting');
 
   const wsRef = useRef(null);
   const reconnectTimeoutRef = useRef(null);
   const reconnectAttempts = useRef(0);
 
-  const WS_URL = import.meta.env.VITE_WS_URL || 'ws://localhost:4174/ws';
-  const MAX_RECONNECT_ATTEMPTS = 5;
-  const RECONNECT_DELAY = 2000; // 2 seconds
+  // Stable refs — updated every render without triggering reconnects
+  const onMessageRef = useRef(onMessage);
+  const onConnectedRef = useRef(onConnected);
+  const onDisconnectedRef = useRef(onDisconnected);
+  const onErrorRef = useRef(onError);
+  onMessageRef.current = onMessage;
+  onConnectedRef.current = onConnected;
+  onDisconnectedRef.current = onDisconnected;
+  onErrorRef.current = onError;
 
   const connect = useCallback(() => {
     if (wsRef.current?.readyState === WebSocket.OPEN) {
@@ -36,13 +43,14 @@ export function useWebSocket(options = {}) {
       ws.onopen = () => {
         console.log('WebSocket connected');
         reconnectAttempts.current = 0;
-        onConnected?.();
+        setWsStatus('connected');
+        onConnectedRef.current?.();
       };
 
       ws.onmessage = (event) => {
         try {
           const data = JSON.parse(event.data);
-          onMessage?.(data);
+          onMessageRef.current?.(data);
         } catch (error) {
           console.error('WebSocket message parse error:', error);
         }
@@ -50,32 +58,31 @@ export function useWebSocket(options = {}) {
 
       ws.onerror = (error) => {
         console.error('WebSocket error:', error);
-        onError?.(error);
+        onErrorRef.current?.(error);
       };
 
       ws.onclose = () => {
         console.log('WebSocket disconnected');
-        onDisconnected?.();
+        wsRef.current = null;
+        onDisconnectedRef.current?.();
 
-        // Attempt to reconnect
         if (reconnectAttempts.current < MAX_RECONNECT_ATTEMPTS) {
           reconnectAttempts.current++;
           console.log(`Reconnecting... (attempt ${reconnectAttempts.current})`);
-
-          reconnectTimeoutRef.current = setTimeout(() => {
-            connect();
-          }, RECONNECT_DELAY);
+          setWsStatus('connecting');
+          reconnectTimeoutRef.current = setTimeout(connect, RECONNECT_DELAY);
         } else {
           console.error('Max reconnection attempts reached');
+          setWsStatus('disconnected');
         }
       };
 
       wsRef.current = ws;
     } catch (error) {
       console.error('WebSocket connection error:', error);
-      onError?.(error);
+      onErrorRef.current?.(error);
     }
-  }, [WS_URL, onMessage, onConnected, onDisconnected, onError]);
+  }, []); // No callback deps — refs keep them current without recreating connect
 
   const disconnect = useCallback(() => {
     if (reconnectTimeoutRef.current) {
@@ -99,16 +106,15 @@ export function useWebSocket(options = {}) {
 
   useEffect(() => {
     connect();
-
     return () => {
       disconnect();
     };
-  }, [connect, disconnect]);
+  }, [connect, disconnect]); // both stable — effect runs exactly once
 
   return {
+    wsStatus,
     send,
     disconnect,
     reconnect: connect,
-    isConnected: wsRef.current?.readyState === WebSocket.OPEN,
   };
 }

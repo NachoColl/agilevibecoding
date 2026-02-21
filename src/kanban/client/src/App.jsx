@@ -10,7 +10,6 @@ import { groupItemsByColumn } from './lib/status-grouping';
 
 function App() {
   const [health, setHealth] = useState(null);
-  const [wsConnected, setWsConnected] = useState(false);
   const [selectedItem, setSelectedItem] = useState(null);
   const [modalOpen, setModalOpen] = useState(false);
 
@@ -37,25 +36,11 @@ function App() {
   }, [workItems, typeFilters, searchQuery]);
 
   // WebSocket connection for real-time updates
-  useWebSocket({
+  const { wsStatus } = useWebSocket({
     onMessage: (message) => {
-      console.log('WebSocket message:', message);
-
       if (message.type === 'refresh' || message.type === 'work-item-update') {
-        // Reload work items when backend notifies of changes
         loadWorkItems();
       }
-    },
-    onConnected: () => {
-      console.log('WebSocket connected');
-      setWsConnected(true);
-    },
-    onDisconnected: () => {
-      console.log('WebSocket disconnected');
-      setWsConnected(false);
-    },
-    onError: (error) => {
-      console.error('WebSocket error:', error);
     },
   });
 
@@ -155,15 +140,23 @@ function App() {
               </p>
             </div>
             <div className="flex items-center gap-4">
-              {/* WebSocket status indicator */}
+              {/* Real-time updates status */}
               <div className="flex items-center gap-2">
                 <div
                   className={`w-2 h-2 rounded-full ${
-                    wsConnected ? 'bg-green-500 animate-pulse' : 'bg-red-500'
+                    wsStatus === 'connected'
+                      ? 'bg-green-500 animate-pulse'
+                      : wsStatus === 'connecting'
+                      ? 'bg-amber-400 animate-pulse'
+                      : 'bg-slate-400'
                   }`}
                 ></div>
-                <span className="text-sm text-slate-600">
-                  {wsConnected ? 'Live Updates' : 'Disconnected'}
+                <span className="text-sm text-slate-500">
+                  {wsStatus === 'connected'
+                    ? 'Live updates'
+                    : wsStatus === 'connecting'
+                    ? 'Connecting...'
+                    : 'No live updates'}
                 </span>
               </div>
 

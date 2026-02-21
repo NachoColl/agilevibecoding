@@ -2785,14 +2785,17 @@ const App = () => {
               sendSuccess('Documentation server started');
               sendIndented(`${gray('URL')}      http://localhost:${port}`, 1);
               sendIndented(`${gray('PID')}      ${processId}`, 1);
-              sendInfo('Stop with /processes — select Documentation Server — S');
+              sendInfo('Stop with /processes');
+              sendOutput('');
             } else {
               sendInfo(`Documentation server already running — http://localhost:${port}`);
+              sendOutput('');
             }
           }
         } catch (docError) {
           sendWarning('Could not start documentation server: ' + docError.message);
           sendInfo('Run /documentation to start the server manually');
+          sendOutput('');
         }
       }
 
@@ -3597,6 +3600,7 @@ const App = () => {
       sendIndented(`${gray('URL')}      http://localhost:${port}`, 1);
       sendIndented(`${gray('PID')}      ${processId}`, 1);
       sendInfo('Stop with /processes — select Documentation Server — S');
+      sendOutput('');
     } finally {
       endCommand();
     }
@@ -3742,12 +3746,10 @@ const App = () => {
 
       kLog('INFO', 'kanban server process started', { processId, port, duration: `${Date.now() - ts0}ms` });
       sendSuccess('Kanban board started');
+      sendIndented(`${gray('URL'.padEnd(6))} http://localhost:${port}`, 1);
+      sendIndented(`${gray('PID'.padEnd(6))} ${processId}`, 1);
+      sendInfo('Stop with /processes or /stop-kanban');
       sendOutput('');
-      sendIndented(`API      http://localhost:${port}`, 1);
-      sendIndented(`Health   http://localhost:${port}/api/health`, 1);
-      sendIndented(`Items    http://localhost:${port}/api/work-items`, 1);
-      sendIndented(`PID      ${processId}`, 1);
-      sendInfo('Stop with /processes — select Kanban Board Server — S');
     } finally {
       endCommand();
     }
