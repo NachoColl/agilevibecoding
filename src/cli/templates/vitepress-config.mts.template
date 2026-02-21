@@ -14,8 +14,7 @@ export default defineConfig({
 
   themeConfig: {
     nav: [
-      { text: 'Home', link: '/' },
-      { text: 'Epics', link: '/epics' }
+      { text: 'Home', link: '/' }
     ],
 
     sidebar: [

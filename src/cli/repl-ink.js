@@ -1168,12 +1168,42 @@ const appendDatabaseComparison = (_comparison) => { };
  * Called before setShowPreview(true) so the dynamic area only needs
  * the compact action-hint component (3 lines) instead of 20-60 lines.
  */
-/**
- * No-op: answers preview display moved entirely into the AnswersPreview React
- * component (rendered when showPreview===true). Static buffer only receives
- * post-selection confirmation lines — the same pattern as all other selectors.
- */
-const appendAnswersPreview = (_answers, _questions, _defaultSuggested, _aiPrefilled) => { };
+const appendAnswersPreview = (answers, questions, defaultSuggested, aiPrefilled) => {
+  const hasAiPrefilled = aiPrefilled && aiPrefilled.size > 0;
+  const parts = [boldCyan('Review Your Answers')];
+
+  if (hasAiPrefilled) {
+    parts.push(gray('AI = AI-suggested (you can edit these) | User = User-entered'));
+  }
+
+  for (let idx = 0; idx < questions.length; idx++) {
+    const question = questions[idx];
+    const answer = answers[question.key] || '(Skipped - will use AI suggestion)';
+    const isDefault = defaultSuggested && defaultSuggested.has(question.key);
+    const isAiPrefilled = aiPrefilled && aiPrefilled.has(question.key);
+
+    let titlePrefix = '';
+    if (isAiPrefilled) titlePrefix = 'AI: ';
+    else if (answers[question.key]) titlePrefix = 'User: ';
+
+    parts.push('');
+    parts.push(bold(`${titlePrefix}${idx + 1}. ${question.title}`));
+
+    if (isDefault) {
+      parts.push(gray(answer));
+      parts.push(gray('   (default from settings)'));
+    } else if (isAiPrefilled) {
+      answer.split('\n').forEach(line => parts.push(yellow(line)));
+    } else {
+      answer.split('\n').forEach(line => parts.push(line));
+    }
+  }
+
+  parts.push('');
+  parts.push(gray('Type 1-6 to edit a question | Enter to submit | Escape to cancel'));
+
+  outputBuffer.append(parts.join('\n'));
+};
 
 /**
  * No-op: React DeploymentStrategySelector owns its own header and option display.
@@ -2699,8 +2729,7 @@ const App = () => {
       // Activities performed
       if (result && result.activities && result.activities.length > 0) {
         sendOutput('');
-        sendOutput(boldCyan('Activities performed'));
-        sendOutput('');
+        sendOutput('Activities performed');
         result.activities.forEach(activity => {
           sendIndented(`• ${activity}`, 1);
         });
@@ -2708,7 +2737,7 @@ const App = () => {
 
       // Files created
       sendOutput('');
-      sendOutput(boldCyan('Files created'));
+      sendOutput('Files created');
       if (result && result.outputPath) {
         sendIndented(gray(result.outputPath), 1);
       }
@@ -2720,7 +2749,7 @@ const App = () => {
       if (result && result.tokenUsage) {
         const w = 8;
         sendOutput('');
-        sendOutput(boldCyan('Token usage'));
+        sendOutput('Token usage');
         sendIndented(`${gray('Input'.padEnd(w))}  ${result.tokenUsage.input.toLocaleString()}`, 1);
         sendIndented(`${gray('Output'.padEnd(w))}  ${result.tokenUsage.output.toLocaleString()}`, 1);
         sendIndented(`${gray('Total'.padEnd(w))}  ${result.tokenUsage.total.toLocaleString()}`, 1);
@@ -2732,7 +2761,6 @@ const App = () => {
       // Next steps
       sendOutput('');
       sendInfo('Next: review docs, then run /sprint-planning to create Epics and Stories');
-      sendOutput('');
 
       // Auto-start documentation server (skipped in mock/test mode)
       if (!process.env.AVC_LLM_MOCK) {
@@ -2745,7 +2773,7 @@ const App = () => {
             const existingDocServer = runningProcesses.find(p => p.name === 'Documentation Server');
             if (!existingDocServer) {
               sendOutput('');
-              sendOutput(boldCyan('Documentation Server'));
+              sendOutput('Documentation Server');
               sendProgress('Building documentation...');
               await builder.build();
               const processId = manager.startProcess({
@@ -2755,9 +2783,8 @@ const App = () => {
                 cwd: builder.docsDir
               });
               sendSuccess('Documentation server started');
-              sendOutput('');
-              sendIndented(`URL      http://localhost:${port}`, 1);
-              sendIndented(`PID      ${processId}`, 1);
+              sendIndented(`${gray('URL')}      http://localhost:${port}`, 1);
+              sendIndented(`${gray('PID')}      ${processId}`, 1);
               sendInfo('Stop with /processes — select Documentation Server — S');
             } else {
               sendInfo(`Documentation server already running — http://localhost:${port}`);
@@ -3567,9 +3594,8 @@ const App = () => {
 
       fileLog('INFO', 'runBuildDocumentation complete', { processId, port, totalDuration: `${Date.now() - ts0}ms` });
       sendSuccess('Documentation server started');
-      sendOutput('');
-      sendIndented(`URL      http://localhost:${port}`, 1);
-      sendIndented(`PID      ${processId}`, 1);
+      sendIndented(`${gray('URL')}      http://localhost:${port}`, 1);
+      sendIndented(`${gray('PID')}      ${processId}`, 1);
       sendInfo('Stop with /processes — select Documentation Server — S');
     } finally {
       endCommand();
@@ -4281,7 +4307,7 @@ const App = () => {
       const selected = architectureOptions[selectedArchitectureIndex];
       setSelectedArchitecture(selected);
       setArchitectureSelectorActive(false);
-      outputBuffer.append(green('Architecture: ' + selected.name));
+      sendSuccess('Architecture: ' + selected.name);
 
       // Check deployment strategy first
       if (deploymentStrategy === 'local-mvp') {
@@ -4368,7 +4394,7 @@ const App = () => {
         setIsExecuting(true);
 
         const strategyNames = { 'local-mvp': 'Local MVP First', 'cloud': 'Cloud Deployment' };
-        outputBuffer.append(green('Deployment strategy: ' + strategyNames[selected]));
+        sendSuccess('Deployment strategy: ' + strategyNames[selected]);
 
         // Delay to let React/Ink process state changes
         await new Promise(resolve => setTimeout(resolve, 250));
@@ -4522,7 +4548,7 @@ const App = () => {
         'nosql': 'NoSQL',
         'skip': 'Skip database analysis'
       };
-      outputBuffer.append(green('Database: ' + dbChoiceLabels[choice]));
+      sendSuccess('Database: ' + dbChoiceLabels[choice]);
 
       // Disable selector first
       setDatabaseChoiceActive(false);
@@ -5438,14 +5464,9 @@ const App = () => {
       });
     }
 
-    // Show full preview in React — disappears instantly on submit (showPreview → false)
+    // Show minimal action prompt — answers already written to static buffer by appendAnswersPreview()
     if (showPreview) {
-      return React.createElement(AnswersPreview, {
-        answers: questionnaireAnswers,
-        questions: questionnaireQuestions,
-        defaultSuggested: defaultSuggestedAnswers,
-        aiPrefilled: aiPrefilledQuestions
-      });
+      return React.createElement(AnswersPreviewActions);
     }
 
     // Show questionnaire if active (guard: never show questionnaire while executing to prevent Q1 flash)
