@@ -419,7 +419,6 @@ export function CardDetailModal({ workItem, open, onOpenChange, onNavigate, onIt
                     {/* Parent chain links */}
                     {parentChain.length > 0 && (
                       <div className="mb-4 flex flex-wrap items-center gap-2 text-xs text-slate-500">
-                        <ChevronUp className="w-3 h-3" />
                         {parentChain.map((ancestor) => (
                           <ParentFileLink key={ancestor.id} item={ancestor} fileType="context" />
                         ))}
@@ -472,7 +471,6 @@ export function CardDetailModal({ workItem, open, onOpenChange, onNavigate, onIt
                     {/* Parent chain links */}
                     {parentChain.length > 0 && (
                       <div className="mb-4 flex flex-wrap items-center gap-2 text-xs text-slate-500">
-                        <ChevronUp className="w-3 h-3" />
                         {parentChain.map((ancestor) => (
                           <ParentFileLink key={ancestor.id} item={ancestor} fileType="doc" />
                         ))}
