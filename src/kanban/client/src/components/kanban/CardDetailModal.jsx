@@ -321,9 +321,15 @@ export function CardDetailModal({ workItem, open, onOpenChange, onNavigate, onIt
                             <Package className="w-4 h-4" />
                             <span>Parent</span>
                           </div>
-                          <p className="text-slate-900 font-medium">
+                          <button
+                            onClick={() => {
+                              const parent = allItems?.find((i) => i.id === fullDetails.parentId);
+                              if (parent) onItemClick?.(parent);
+                            }}
+                            className="text-left font-medium text-blue-600 hover:text-blue-800 hover:underline"
+                          >
                             {fullDetails.parentName}
-                          </p>
+                          </button>
                           <p className="text-xs text-slate-500">{fullDetails.parentId}</p>
                         </div>
                       )}
@@ -335,9 +341,15 @@ export function CardDetailModal({ workItem, open, onOpenChange, onNavigate, onIt
                             <Package className="w-4 h-4" />
                             <span>Epic</span>
                           </div>
-                          <p className="text-slate-900 font-medium">
+                          <button
+                            onClick={() => {
+                              const epic = allItems?.find((i) => i.id === fullDetails.epicId);
+                              if (epic) onItemClick?.(epic);
+                            }}
+                            className="text-left font-medium text-blue-600 hover:text-blue-800 hover:underline"
+                          >
                             {fullDetails.epicName}
-                          </p>
+                          </button>
                           <p className="text-xs text-slate-500">{fullDetails.epicId}</p>
                         </div>
                       )}
