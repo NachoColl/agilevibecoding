@@ -2460,7 +2460,7 @@ const App = () => {
       const manager = getProcessManager();
 
       // ── Start documentation server ──────────────────────────────────────
-      sendProgress('Building documentation...');
+      sendProgress('Starting documentation server...');
       const builder = new DocumentationBuilder(process.cwd());
       const docPort = builder.getPort();
 
@@ -2472,17 +2472,10 @@ const App = () => {
         await new Promise(resolve => setTimeout(resolve, 500));
       }
 
-      try {
-        await builder.build();
-      } catch (docErr) {
-        fileLog('WARNING', 'documentation build failed during init', { error: docErr.message });
-        sendWarning('Documentation build failed — server will start when docs are available');
-      }
-
       const docProcessId = manager.startProcess({
         name: 'Documentation Server',
         command: 'npx',
-        args: ['vitepress', 'preview', '--port', String(docPort)],
+        args: ['vitepress', 'dev', '--port', String(docPort)],
         cwd: builder.docsDir,
       });
       fileLog('INFO', 'documentation server started during init', { docProcessId, docPort });
@@ -2881,12 +2874,11 @@ const App = () => {
             if (!existingDocServer) {
               sendOutput('');
               sendOutput('Documentation Server');
-              sendProgress('Building documentation...');
-              await builder.build();
+              sendProgress('Starting documentation server...');
               const processId = manager.startProcess({
                 name: 'Documentation Server',
                 command: 'npx',
-                args: ['vitepress', 'preview', '--port', String(port)],
+                args: ['vitepress', 'dev', '--port', String(port)],
                 cwd: builder.docsDir
               });
               sendSuccess('Documentation server started');
@@ -3679,26 +3671,12 @@ const App = () => {
         }
       }
 
-      // Build documentation first
-      fileLog('INFO', 'starting documentation build');
-      sendProgress('Building documentation...');
-
-      try {
-        await builder.build();
-        fileLog('INFO', 'documentation build complete', { duration: `${Date.now() - ts0}ms` });
-        sendSuccess('Documentation built successfully');
-      } catch (error) {
-        fileLog('ERROR', 'documentation build failed', { error: error.message, stack: error.stack, duration: `${Date.now() - ts0}ms` });
-        sendError(error.message);
-        return;
-      }
-
-      // Start preview server in background
-      fileLog('INFO', 'starting documentation preview server', { port, docsDir: builder.docsDir });
+      // Start dev server in background (builds on-demand, hot-reloads on .md changes)
+      fileLog('INFO', 'starting documentation dev server', { port, docsDir: builder.docsDir });
       const processId = manager.startProcess({
         name: 'Documentation Server',
         command: 'npx',
-        args: ['vitepress', 'preview', '--port', String(port)],
+        args: ['vitepress', 'dev', '--port', String(port)],
         cwd: builder.docsDir
       });
 

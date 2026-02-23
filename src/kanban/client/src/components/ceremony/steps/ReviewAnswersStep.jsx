@@ -41,22 +41,51 @@ const FIELDS = [
 ];
 
 export function ReviewAnswersStep({ onNext, onBack }) {
-  const { answers, updateAnswer } = useCeremonyStore();
+  const { requirements, updateRequirement, mission, setMission, initialScope, setInitialScope } = useCeremonyStore();
 
-  const canContinue = FIELDS.filter((f) => f.required).every(
-    (f) => answers[f.key]?.trim()
-  );
+  const canContinue =
+    mission.trim().length > 0 &&
+    initialScope.trim().length > 0 &&
+    FIELDS.filter((f) => f.required).every((f) => requirements[f.key]?.trim());
 
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-xl font-semibold text-slate-900">Review & Edit Answers</h2>
+        <h2 className="text-xl font-semibold text-slate-900">Review & Edit Requirements</h2>
         <p className="text-sm text-slate-500 mt-1">
-          AI has pre-filled these answers based on your selections. Review and edit as needed.
+          AI has pre-filled these requirements based on your selections. Review and edit as needed.
         </p>
       </div>
 
       <div className="space-y-4">
+        {/* Mission & Scope */}
+        <div>
+          <label className="block text-sm font-medium text-slate-700 mb-0.5">
+            Mission Statement <span className="text-red-500">*</span>
+          </label>
+          <textarea
+            value={mission}
+            onChange={(e) => setMission(e.target.value)}
+            rows={3}
+            className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+            placeholder="Required..."
+          />
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-slate-700 mb-0.5">
+            Initial Scope <span className="text-red-500">*</span>
+          </label>
+          <textarea
+            value={initialScope}
+            onChange={(e) => setInitialScope(e.target.value)}
+            rows={4}
+            className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+            placeholder="Required..."
+          />
+        </div>
+
+        <hr className="border-slate-200" />
+
         {FIELDS.map((field) => (
           <div key={field.key}>
             <label className="block text-sm font-medium text-slate-700 mb-0.5">
@@ -65,8 +94,8 @@ export function ReviewAnswersStep({ onNext, onBack }) {
             </label>
             <p className="text-xs text-slate-400 mb-1">{field.description}</p>
             <textarea
-              value={answers[field.key] || ''}
-              onChange={(e) => updateAnswer(field.key, e.target.value)}
+              value={requirements[field.key] || ''}
+              onChange={(e) => updateRequirement(field.key, e.target.value)}
               rows={field.rows}
               className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
               placeholder={field.required ? `Required...` : 'Optional...'}
@@ -88,7 +117,7 @@ export function ReviewAnswersStep({ onNext, onBack }) {
           disabled={!canContinue}
           className="px-5 py-2 bg-green-600 text-white text-sm font-medium rounded-lg disabled:opacity-40 hover:bg-green-700 transition-colors"
         >
-          Generate Project Documentation
+          Generate initial Context and Documentation
         </button>
       </div>
     </div>

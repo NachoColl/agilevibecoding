@@ -161,18 +161,18 @@ export function createCeremonyRouter(ceremonyService) {
   });
 
   // POST /api/ceremony/run
-  // Body: { answers } — all 7 questionnaire answers
+  // Body: { requirements } — all 7 template variables
   router.post('/run', async (req, res) => {
-    const { answers } = req.body;
+    const { requirements } = req.body;
     console.log('[ceremony] POST /run', {
-      answerKeys: Object.keys(answers || {}),
-      missionLength: answers?.MISSION_STATEMENT?.length,
+      requirementKeys: Object.keys(requirements || {}),
+      missionLength: requirements?.MISSION_STATEMENT?.length,
     });
-    if (!answers || !answers.MISSION_STATEMENT) {
-      return res.status(400).json({ error: 'answers.MISSION_STATEMENT is required' });
+    if (!requirements || !requirements.MISSION_STATEMENT) {
+      return res.status(400).json({ error: 'requirements.MISSION_STATEMENT is required' });
     }
     try {
-      await ceremonyService.run(answers);
+      await ceremonyService.run(requirements);
       console.log('[ceremony] run started (fire-and-forget)');
       res.json({ started: true });
     } catch (err) {

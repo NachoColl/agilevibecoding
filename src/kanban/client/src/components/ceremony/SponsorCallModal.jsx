@@ -83,7 +83,7 @@ export function SponsorCallModal({ onClose }) {
     setArchOptions,
     selectedArch,
     applyPrefill,
-    answers,
+    requirements,
     ceremonyStatus,
     setCeremonyStatus,
     setCeremonyResult,
@@ -136,6 +136,7 @@ export function SponsorCallModal({ onClose }) {
   // Step 3 → Architecture analysis → Step 4
   const handleDatabaseNext = async () => {
     setAnalyzing(true);
+    setAnalyzingMessage('Analysing architecture options…');
     try {
       const dbContext = dbResult ? { ...dbResult, userChoice: dbChoice } : null;
       const archData = await analyzeArchitecture(mission, initialScope, dbContext, strategy);
@@ -146,12 +147,14 @@ export function SponsorCallModal({ onClose }) {
       alert(`Analysis failed: ${err.message}`);
     } finally {
       setAnalyzing(false);
+      setAnalyzingMessage('');
     }
   };
 
   // Step 4 → Prefill → Step 5
   const handleArchitectureNext = async () => {
     setAnalyzing(true);
+    setAnalyzingMessage('Pre-filling requirements from your selections…');
     try {
       const dbContext = dbResult ? { ...dbResult, userChoice: dbChoice } : null;
       const prefill = await prefillAnswers(mission, initialScope, selectedArch, dbContext, strategy);
@@ -162,6 +165,7 @@ export function SponsorCallModal({ onClose }) {
       alert(`Prefill failed: ${err.message}`);
     } finally {
       setAnalyzing(false);
+      setAnalyzingMessage('');
     }
   };
 
@@ -170,7 +174,7 @@ export function SponsorCallModal({ onClose }) {
     try {
       startRun();
       setWizardStep(6);
-      await runCeremony(answers);
+      await runCeremony(requirements);
     } catch (err) {
       console.error('Run ceremony error:', err);
       setCeremonyStatus('error');

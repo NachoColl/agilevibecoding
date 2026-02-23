@@ -260,10 +260,10 @@ export async function prefillAnswers(mission, scope, arch, dbContext, strategy) 
   });
 }
 
-export async function runCeremony(answers) {
+export async function runCeremony(requirements) {
   return apiFetch('/ceremony/run', {
     method: 'POST',
-    body: JSON.stringify({ answers }),
+    body: JSON.stringify({ requirements }),
   });
 }
 

@@ -102,11 +102,36 @@ export function setupWebSocket(server, dataStore) {
     });
   }
 
+  function broadcastCeremonyProgress(message) {
+    broadcast({ type: 'ceremony:progress', message });
+  }
+
+  function broadcastCeremonySubstep(substep, meta = {}) {
+    broadcast({ type: 'ceremony:substep', substep, meta });
+  }
+
+  function broadcastCeremonyComplete(result) {
+    broadcast({ type: 'ceremony:complete', result });
+  }
+
+  function broadcastCeremonyError(error) {
+    broadcast({ type: 'ceremony:error', error });
+  }
+
+  function broadcastMissionProgress(step, message) {
+    broadcast({ type: 'mission:progress', step, message });
+  }
+
   return {
     wss,
     broadcast,
     broadcastWorkItemUpdate,
     broadcastRefresh,
+    broadcastCeremonyProgress,
+    broadcastCeremonySubstep,
+    broadcastCeremonyComplete,
+    broadcastCeremonyError,
+    broadcastMissionProgress,
     getClientCount: () => clients.size,
   };
 }

@@ -123,13 +123,16 @@ When user has chosen "Cloud Deployment":
   "requiresCloudProvider": true,
   "bestFor": "Specific use case and scale requirements",
   "tags": ["cloud", "production", "managed"],
-  "estimatedMonthlyCost": {
-    "low": "$10-50 (low traffic, minimal resources)",
-    "medium": "$100-300 (medium traffic, typical startup scale)",
-    "high": "$500-1000+ (high traffic, production scale)"
-  }
+  "costTier": "$$"
 }
 ```
+
+**Cost Tier Values** (use ONLY these — no monetary amounts):
+- `"Free"` — zero infrastructure cost (local-only, static hosting free tiers)
+- `"$"` — minimal cost, free tier or near-free (e.g. Cloudflare Pages, Vercel hobby)
+- `"$$"` — low-to-moderate cost, typical startup scale
+- `"$$$"` — moderate-to-high cost, production scale
+- `"$$$$"` — high cost, enterprise / high-traffic scale
 
 **Messaging for Cloud:**
 - Emphasize "production-ready from day one"
@@ -278,11 +281,21 @@ Return a JSON object with this exact structure:
       "name": "Short descriptive name (3-5 words)",
       "description": "2-3 sentences describing the architecture approach, key technologies, and infrastructure. Be specific about actual services/platforms (e.g., 'Next.js on Vercel' not 'modern stack').",
       "requiresCloudProvider": true,
-      "bestFor": "Specific scenario when this is the optimal choice"
+      "bestFor": "Specific scenario when this is the optimal choice",
+      "costTier": "$$"
     }
   ]
 }
 ```
+
+**IMPORTANT — Cost field rules:**
+- Always include `costTier` on every architecture
+- Use ONLY: `"Free"`, `"$"`, `"$$"`, `"$$$"`, `"$$$$"`
+- **Never output monetary amounts** (no "$150/month", no "100-300 USD", no price ranges)
+- Local/offline architectures are typically `"Free"` or `"$"`
+- PaaS (Vercel, Railway, Render) hobby tiers: `"$"`
+- Production PaaS / managed containers: `"$$"` to `"$$$"`
+- Enterprise cloud (ECS, AKS, GKE with managed DB): `"$$$"` to `"$$$$"`
 
 ## Requirements
 - Provide 3-5 architecture recommendations (no more, no less)

@@ -4,13 +4,16 @@ import cors from 'cors';
 import path from 'path';
 import fs from 'fs/promises';
 import { fileURLToPath } from 'url';
+import chokidar from 'chokidar';
 import { FileSystemScanner } from './services/FileSystemScanner.js';
 import { WorkItemReader } from './services/WorkItemReader.js';
 import { HierarchyBuilder } from './services/HierarchyBuilder.js';
 import { FileWatcher } from './services/FileWatcher.js';
 import { createWorkItemsRouter } from './routes/work-items.js';
+import { createCeremonyRouter } from './routes/ceremony.js';
 import { setupWebSocket } from './routes/websocket.js';
 import { renderMarkdown } from './utils/markdown.js';
+import { CeremonyService } from './services/CeremonyService.js';
 
 /**
  * KanbanServer
@@ -38,6 +41,9 @@ export class KanbanServer {
 
     // Data store
     this.hierarchy = null;
+
+    // Ceremony service
+    this.ceremonyService = new CeremonyService(projectRoot);
 
     // Express app
     this.app = express();
@@ -219,6 +225,10 @@ export class KanbanServer {
     const workItemsRouter = createWorkItemsRouter(this);
     this.app.use('/api/work-items', workItemsRouter);
 
+    // Ceremony routes
+    const ceremonyRouter = createCeremonyRouter(this.ceremonyService);
+    this.app.use('/api/ceremony', ceremonyRouter);
+
     // SPA fallback — serve index.html for any non-API GET
     this.app.get('*', (req, res) => {
       res.sendFile(path.join(this.clientDistPath, 'index.html'));
@@ -305,6 +315,36 @@ export class KanbanServer {
     });
 
     this.fileWatcher.start();
+
+    // Watch doc.md for changes → sync to .avc/documentation/index.md
+    // so vitepress dev picks up the change and hot-reloads the browser
+    const docMdPath = path.join(this.projectRoot, '.avc', 'project', 'doc.md');
+    const docsIndexPath = path.join(this.projectRoot, '.avc', 'documentation', 'index.md');
+
+    const docWatcher = chokidar.watch(docMdPath, {
+      persistent: true,
+      ignoreInitial: true,
+      usePolling: true,
+      interval: 2000,
+      awaitWriteFinish: { stabilityThreshold: 500, pollInterval: 100 },
+    });
+
+    docWatcher.on('change', async () => {
+      try {
+        const docsDir = path.join(this.projectRoot, '.avc', 'documentation');
+        const docsDirExists = await fs.access(docsDir).then(() => true).catch(() => false);
+        if (!docsDirExists) return; // documentation not set up yet
+        const content = await fs.readFile(docMdPath, 'utf8');
+        await fs.writeFile(docsIndexPath, content, 'utf8');
+        console.log('[doc-watcher] Synced doc.md → documentation/index.md');
+      } catch (err) {
+        console.error('[doc-watcher] Sync failed:', err.message);
+      }
+    });
+
+    docWatcher.on('error', (err) => {
+      console.error('[doc-watcher] Error:', err.message);
+    });
   }
 
   /**
@@ -348,6 +388,9 @@ export class KanbanServer {
 
       // Setup WebSocket
       this.websocket = setupWebSocket(this.server, this);
+
+      // Wire ceremony service to WebSocket for broadcasting
+      this.ceremonyService.setWebSocket(this.websocket);
 
       // Setup file watcher
       this.setupFileWatcher();

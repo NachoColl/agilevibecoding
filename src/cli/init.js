@@ -189,19 +189,19 @@ class ProjectInitiator {
           {
             name: 'sponsor-call',
             provider: 'claude',
-            defaultModel: 'claude-sonnet-4-5-20250929',
+            defaultModel: 'claude-sonnet-4-6',
             stages: {
               suggestions: {
                 provider: 'claude',
-                model: 'claude-sonnet-4-5-20250929'
+                model: 'claude-sonnet-4-6'
               },
               documentation: {
                 provider: 'claude',
-                model: 'claude-sonnet-4-5-20250929'
+                model: 'claude-sonnet-4-6'
               },
               context: {
                 provider: 'claude',
-                model: 'claude-sonnet-4-5-20250929'
+                model: 'claude-sonnet-4-6'
               },
               'architecture-recommendation': {
                 provider: 'claude',
@@ -209,7 +209,7 @@ class ProjectInitiator {
               },
               'question-prefilling': {
                 provider: 'claude',
-                model: 'claude-sonnet-4-5-20250929'
+                model: 'claude-sonnet-4-6'
               }
             },
             agents: [
@@ -242,21 +242,21 @@ class ProjectInitiator {
               acceptanceThreshold: 75,
               skipOnCriticalIssues: false,
               provider: 'claude',
-              model: 'claude-sonnet-4-5-20250929',
+              model: 'claude-sonnet-4-6',
               documentation: {
                 provider: 'claude',
-                model: 'claude-sonnet-4-5-20250929'
+                model: 'claude-sonnet-4-6'
               },
               context: {
                 provider: 'claude',
-                model: 'claude-sonnet-4-5-20250929'
+                model: 'claude-sonnet-4-6'
               }
             }
           },
           {
             name: 'sprint-planning',
             provider: 'claude',
-            defaultModel: 'claude-sonnet-4-5-20250929',
+            defaultModel: 'claude-sonnet-4-6',
             stages: {
               decomposition: {
                 provider: 'claude',
@@ -279,7 +279,7 @@ class ProjectInitiator {
           {
             name: 'context-retrospective',
             provider: 'claude',
-            defaultModel: 'claude-sonnet-4-5-20250929',
+            defaultModel: 'claude-sonnet-4-6',
             stages: {
               'context-refinement': {
                 provider: 'claude',
@@ -302,7 +302,7 @@ class ProjectInitiator {
           {
             name: 'seed',
             provider: 'claude',
-            defaultModel: 'claude-sonnet-4-5-20250929',
+            defaultModel: 'claude-sonnet-4-6',
             stages: {
               decomposition: {
                 provider: 'claude',
@@ -335,41 +335,50 @@ class ProjectInitiator {
         },
         models: {
           // Anthropic Claude models (prices per 1M tokens in USD)
-          'claude-sonnet-4-5-20250929': {
+          'claude-opus-4-6': {
             provider: 'claude',
-            displayName: 'Claude Sonnet 4.5',
-            pricing: {
-              input: 3.00,      // $3 per 1M tokens
-              output: 15.00,    // $15 per 1M tokens
-              unit: 'million'   // per million tokens
-            }
-          },
-          'claude-3-5-haiku-20241022': {
-            provider: 'claude',
-            displayName: 'Claude Haiku 3.5',
-            pricing: {
-              input: 1.00,
-              output: 5.00,
-              unit: 'million'
-            }
-          },
-          'claude-opus-4-5-20250929': {
-            provider: 'claude',
-            displayName: 'Claude Opus 4.5',
+            displayName: 'Claude Opus 4.6',
             pricing: {
               input: 5.00,
               output: 25.00,
               unit: 'million'
             }
           },
+          'claude-sonnet-4-6': {
+            provider: 'claude',
+            displayName: 'Claude Sonnet 4.6',
+            pricing: {
+              input: 3.00,
+              output: 15.00,
+              unit: 'million'
+            }
+          },
+          'claude-haiku-4-5-20251001': {
+            provider: 'claude',
+            displayName: 'Claude Haiku 4.5',
+            pricing: {
+              input: 1.00,
+              output: 5.00,
+              unit: 'million'
+            }
+          },
 
           // Google Gemini models (prices per 1M tokens in USD)
+          'gemini-2.5-pro': {
+            provider: 'gemini',
+            displayName: 'Gemini 2.5 Pro',
+            pricing: {
+              input: 1.25,
+              output: 10.00,
+              unit: 'million'
+            }
+          },
           'gemini-2.5-flash': {
             provider: 'gemini',
             displayName: 'Gemini 2.5 Flash',
             pricing: {
-              input: 0.15,
-              output: 0.60,
+              input: 0.30,
+              output: 2.50,
               unit: 'million'
             }
           },
@@ -382,41 +391,50 @@ class ProjectInitiator {
               unit: 'million'
             }
           },
-          'gemini-2.5-pro': {
-            provider: 'gemini',
-            displayName: 'Gemini 2.5 Pro',
-            pricing: {
-              input: 1.25,
-              output: 5.00,
-              unit: 'million'
-            }
-          },
 
           // OpenAI models (prices per 1M tokens in USD)
-          'gpt-5.2-chat-latest': {
-            provider: 'openai',
-            displayName: 'GPT-5.2 Instant',
-            pricing: {
-              input: 1.75,
-              output: 14.00,
-              unit: 'million'
-            }
-          },
           'gpt-5.2': {
             provider: 'openai',
-            displayName: 'GPT-5.2 Thinking',
+            displayName: 'GPT-5.2',
             pricing: {
               input: 1.75,
               output: 14.00,
               unit: 'million'
             }
           },
-          'gpt-5.2-pro': {
+          'gpt-5.1': {
             provider: 'openai',
-            displayName: 'GPT-5.2 Pro',
+            displayName: 'GPT-5.1',
             pricing: {
-              input: 1.75,
-              output: 14.00,
+              input: 1.25,
+              output: 10.00,
+              unit: 'million'
+            }
+          },
+          'gpt-5-mini': {
+            provider: 'openai',
+            displayName: 'GPT-5 mini',
+            pricing: {
+              input: 0.25,
+              output: 2.00,
+              unit: 'million'
+            }
+          },
+          'o4-mini': {
+            provider: 'openai',
+            displayName: 'o4-mini',
+            pricing: {
+              input: 1.10,
+              output: 4.40,
+              unit: 'million'
+            }
+          },
+          'o3': {
+            provider: 'openai',
+            displayName: 'o3',
+            pricing: {
+              input: 2.00,
+              output: 8.00,
               unit: 'million'
             }
           },
@@ -807,7 +825,7 @@ If you're new to Agile Vibe Coding, visit the [AVC Documentation](https://agilev
     }
 
     const mainProvider = ceremony.provider || 'claude';
-    const mainModel = ceremony.defaultModel || 'claude-sonnet-4-5-20250929';
+    const mainModel = ceremony.defaultModel || 'claude-sonnet-4-6';
 
     // Check validation provider if validation is enabled
     const validationEnabled = ceremony.validation?.enabled !== false;
@@ -1212,7 +1230,7 @@ If you're new to Agile Vibe Coding, visit the [AVC Documentation](https://agilev
 
       // Get model ID from ceremony config
       const ceremony = this.readCeremonyConfig('sponsor-call');
-      const modelId = ceremony?.defaultModel || 'claude-sonnet-4-5-20250929';
+      const modelId = ceremony?.defaultModel || 'claude-sonnet-4-6';
 
       // Calculate cost using token tracker
       const { TokenTracker } = await import('./token-tracker.js');

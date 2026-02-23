@@ -1,5 +1,13 @@
 import { useCeremonyStore } from '../../../store/ceremonyStore';
 
+const COST_TIER_COLOR = {
+  'Free': 'text-green-600',
+  '$':    'text-green-600',
+  '$$':   'text-amber-500',
+  '$$$':  'text-orange-500',
+  '$$$$': 'text-red-500',
+};
+
 function ArchCard({ arch, selected, onSelect }) {
   return (
     <button
@@ -29,13 +37,10 @@ function ArchCard({ arch, selected, onSelect }) {
         <p className="text-xs text-slate-500 italic">Best for: {arch.bestFor}</p>
       )}
 
-      {arch.estimatedMonthlyCost && (
-        <div className="mt-2 text-xs text-slate-500">
-          <span className="font-medium">Cost: </span>
-          {typeof arch.estimatedMonthlyCost === 'object'
-            ? arch.estimatedMonthlyCost.low || Object.values(arch.estimatedMonthlyCost)[0]
-            : arch.estimatedMonthlyCost}
-        </div>
+      {arch.costTier && (
+        <p className={`mt-2 text-sm font-semibold ${COST_TIER_COLOR[arch.costTier] ?? 'text-slate-500'}`}>
+          {arch.costTier}
+        </p>
       )}
 
       {arch.migrationPath && (
@@ -98,7 +103,7 @@ export function ArchitectureStep({ onNext, onBack, analyzing }) {
           {analyzing ? (
             <>
               <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-              Preparing answers...
+              Preparing requirements…
             </>
           ) : (
             'Continue'

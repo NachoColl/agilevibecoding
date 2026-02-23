@@ -4,9 +4,11 @@ import { getHealth, getBoardTitle, updateBoardTitle } from './lib/api';
 import { useWebSocket } from './hooks/useWebSocket';
 import { useKanbanStore } from './store/kanbanStore';
 import { useFilterStore } from './store/filterStore';
+import { useCeremonyStore } from './store/ceremonyStore';
 import { KanbanBoard } from './components/kanban/KanbanBoard';
 import { FilterToolbar } from './components/kanban/FilterToolbar';
 import { CardDetailModal } from './components/kanban/CardDetailModal';
+import { SponsorCallModal } from './components/ceremony/SponsorCallModal';
 import { groupItemsByColumn } from './lib/status-grouping';
 
 function App() {
@@ -23,6 +25,18 @@ function App() {
   // Zustand stores
   const { workItems, loadWorkItems, loading, error } = useKanbanStore();
   const { typeFilters, searchQuery } = useFilterStore();
+  const {
+    isOpen: ceremonyOpen,
+    openWizard,
+    resetWizard,
+    ceremonyStatus,
+    setCeremonyStatus,
+    setCeremonyResult,
+    setCeremonyError,
+    appendProgress,
+    appendMissionProgress,
+    setWizardStep,
+  } = useCeremonyStore();
 
   // Get filtered items for navigation
   const filteredItems = useMemo(() => {
@@ -42,11 +56,25 @@ function App() {
     return filtered;
   }, [workItems, typeFilters, searchQuery]);
 
-  // WebSocket connection for real-time updates
+  // WebSocket connection for real-time updates + ceremony events
   const { wsStatus } = useWebSocket({
     onMessage: (message) => {
       if (message.type === 'refresh' || message.type === 'work-item-update') {
         loadWorkItems();
+      } else if (message.type === 'ceremony:progress') {
+        appendProgress({ type: 'progress', message: message.message });
+      } else if (message.type === 'ceremony:substep') {
+        appendProgress({ type: 'substep', substep: message.substep, meta: message.meta });
+      } else if (message.type === 'ceremony:complete') {
+        setCeremonyStatus('complete');
+        setCeremonyResult(message.result);
+        setWizardStep(7);
+        loadWorkItems();
+      } else if (message.type === 'ceremony:error') {
+        setCeremonyStatus('error');
+        setCeremonyError(message.error);
+      } else if (message.type === 'mission:progress') {
+        appendMissionProgress({ step: message.step, message: message.message });
       }
     },
   });
@@ -55,7 +83,10 @@ function App() {
   useEffect(() => {
     const init = async () => {
       try {
-        const [healthData, title] = await Promise.all([getHealth(), getBoardTitle()]);
+        const [healthData, title] = await Promise.all([
+          getHealth(),
+          getBoardTitle(),
+        ]);
         setHealth(healthData);
         setBoardTitle(title);
         await loadWorkItems();
@@ -216,6 +247,20 @@ function App() {
               </p>
             </div>
             <div className="flex items-center gap-4">
+              {/* Sponsor Call button */}
+              {ceremonyStatus !== 'running' && !loading && workItems.length === 0 && (
+                <button
+                  onClick={() => {
+                    resetWizard();
+                    openWizard();
+                  }}
+                  className="px-3 py-1.5 text-sm font-medium bg-slate-900 text-white rounded-lg hover:bg-slate-700 transition-colors"
+                  title="Start sponsor call ceremony"
+                >
+                  🚀 Start Project
+                </button>
+              )}
+
               {/* Real-time updates status */}
               <div className="flex items-center gap-2">
                 <div
@@ -271,6 +316,9 @@ function App() {
         onItemClick={handleCardClick}
         allItems={workItems}
       />
+
+      {/* Sponsor Call Ceremony Modal */}
+      {ceremonyOpen && <SponsorCallModal />}
     </div>
   );
 }

@@ -1,7 +1,8 @@
+import { useEffect, useRef } from 'react';
 import { useCeremonyStore } from '../../../store/ceremonyStore';
 
 const STAGE_LABELS = [
-  'Processing questionnaire answers',
+  'Processing requirements',
   'Preparing project template',
   'Preparing for documentation generation',
   'Creating project documentation',
@@ -19,6 +20,11 @@ function parseStageNumber(message) {
 
 export function RunningStep() {
   const { progressLog, ceremonyStatus, ceremonyError } = useCeremonyStore();
+  const logBottomRef = useRef(null);
+
+  useEffect(() => {
+    logBottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [progressLog]);
 
   // Find the latest stage progress message
   const progressMessages = progressLog.filter((e) => e.type === 'progress');
@@ -77,7 +83,7 @@ export function RunningStep() {
       </div>
 
       {/* Substep log */}
-      <div className="bg-slate-900 rounded-lg p-4 max-h-56 overflow-y-auto font-mono text-xs">
+      <div className="bg-slate-900 rounded-lg p-4 h-56 overflow-y-auto font-mono text-xs">
         {substepMessages.length === 0 && progressMessages.length === 0 ? (
           <p className="text-slate-400 animate-pulse">Initializing...</p>
         ) : (
@@ -92,6 +98,7 @@ export function RunningStep() {
                 {'  '}{entry.substep}
               </p>
             ))}
+            <div ref={logBottomRef} />
           </div>
         )}
       </div>

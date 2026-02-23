@@ -2,7 +2,6 @@ import path from 'path';
 import fs from 'fs';
 import { fileURLToPath } from 'url';
 import { KanbanLogger } from '../utils/kanban-logger.js';
-
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const agentsPath = path.join(__dirname, '../../../cli/agents');
 
@@ -489,7 +488,7 @@ export class CeremonyService {
     }
   }
 
-  async run(answers) {
+  async run(requirements) {
     if (this.state.status === 'running') {
       throw new Error('Ceremony already running');
     }
@@ -497,14 +496,14 @@ export class CeremonyService {
     this.state = { status: 'running', progress: [], result: null, error: null };
 
     // Fire-and-forget: caller gets {started:true} immediately
-    this._runAsync(answers);
+    this._runAsync(requirements);
   }
 
-  async _runAsync(answers) {
+  async _runAsync(requirements) {
     const log = new KanbanLogger('ceremony-run', this.projectRoot);
     log.info('_runAsync() started', {
-      answerKeys: Object.keys(answers || {}),
-      missionLength: answers?.MISSION_STATEMENT?.length,
+      requirementKeys: Object.keys(requirements || {}),
+      missionLength: requirements?.MISSION_STATEMENT?.length,
     });
 
     try {
@@ -512,7 +511,7 @@ export class CeremonyService {
       const initiator = new ProjectInitiator();
       log.debug('ProjectInitiator created');
 
-      const result = await initiator.sponsorCallWithAnswers(answers, (msg, substep, meta) => {
+      const result = await initiator.sponsorCallWithAnswers(requirements, (msg, substep, meta) => {
         if (msg) {
           log.info(`[progress] ${msg}`);
           this.state.progress.push({ type: 'progress', message: msg });

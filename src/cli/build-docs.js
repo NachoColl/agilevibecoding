@@ -197,13 +197,9 @@ export class DocumentationBuilder {
     const port = this.getPort();
 
     try {
-      // Build the documentation asynchronously to avoid blocking
-      await execAsync('npx vitepress build', {
-        cwd: this.docsDir
-      });
-
-      // Start the preview server
-      const serverProcess = spawn('npx', ['vitepress', 'preview', '--port', String(port)], {
+      // Start the dev server — no initial build needed, vitepress dev builds on-demand
+      // and hot-reloads the browser whenever source .md files change
+      const serverProcess = spawn('npx', ['vitepress', 'dev', '--port', String(port)], {
         cwd: this.docsDir,
         stdio: 'pipe'
       });

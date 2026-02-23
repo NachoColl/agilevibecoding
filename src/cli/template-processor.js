@@ -604,6 +604,26 @@ Please carefully follow the output format requirements to avoid these issues.
   }
 
   /**
+   * Run an async fn while emitting periodic heartbeat substep messages.
+   * Clears the interval once fn resolves or rejects.
+   * @param {Function} fn - Async function to run
+   * @param {Function} getMessageFn - Called with elapsed seconds, returns substep string
+   * @param {number} intervalMs - How often to emit (default 10s)
+   */
+  async withHeartbeat(fn, getMessageFn, intervalMs = 10000) {
+    const startTime = Date.now();
+    const timer = setInterval(() => {
+      const elapsed = Math.round((Date.now() - startTime) / 1000);
+      this.reportSubstep(getMessageFn(elapsed));
+    }, intervalMs);
+    try {
+      return await fn();
+    } finally {
+      clearInterval(timer);
+    }
+  }
+
+  /**
    * Retry wrapper for LLM calls with exponential backoff
    * @param {Function} fn - Async function to retry
    * @param {string} operation - Description of operation for logging
@@ -883,9 +903,12 @@ ${questionnaire.TECHNICAL_EXCLUSIONS}
         userPrompt = this.enhancePromptWithFeedback(userPrompt, 'project-documentation-creator');
 
         this.reportSubstep('Generating Project Brief (this may take 20-30 seconds)...');
-        const enhanced = await this.retryWithBackoff(
-          () => provider.generate(userPrompt, 4096, agentInstructions),
-          'document enhancement'
+        const enhanced = await this.withHeartbeat(
+          () => this.retryWithBackoff(
+            () => provider.generate(userPrompt, 4096, agentInstructions),
+            'document enhancement'
+          ),
+          (elapsed) => `Generating Project Brief… (${elapsed}s elapsed)`
         );
 
         // Report token usage after generation
@@ -936,9 +959,13 @@ Please review and enhance this document to ensure:
 
 Return the enhanced markdown document.`;
 
-        const enhanced = await this.retryWithBackoff(
-          () => provider.generate(legacyPrompt, 4096),
-          'document enhancement (legacy)'
+        this.reportSubstep('Generating Project Brief (this may take 20-30 seconds)...');
+        const enhanced = await this.withHeartbeat(
+          () => this.retryWithBackoff(
+            () => provider.generate(legacyPrompt, 4096),
+            'document enhancement (legacy)'
+          ),
+          (elapsed) => `Generating Project Brief… (${elapsed}s elapsed)`
         );
         debug('generateFinalDocument complete (legacy path)', { duration: `${Date.now() - t0}ms`, resultLength: enhanced?.length });
         return enhanced;
@@ -1390,9 +1417,12 @@ Return the enhanced markdown document.`;
 
       // Generate project context
       this.reportSubstep('Generating project context (target: ~500 tokens)...');
-      const projectContext = await this.retryWithBackoff(
-        () => this.generateContextWithProvider(provider, 'project', 'project', collectedValues, projectContextGeneratorAgent),
-        'project context'
+      const projectContext = await this.withHeartbeat(
+        () => this.retryWithBackoff(
+          () => this.generateContextWithProvider(provider, 'project', 'project', collectedValues, projectContextGeneratorAgent),
+          'project context'
+        ),
+        (elapsed) => `Generating project context… (${elapsed}s elapsed)`
       );
 
       // Report token usage and validation
