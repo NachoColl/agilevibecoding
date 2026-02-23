@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react';
 import { useCeremonyStore } from '../../../store/ceremonyStore';
 
+// Stage labels (unused but kept for future tooltips)
 const STAGE_LABELS = [
   'Processing requirements',
   'Preparing project template',
@@ -19,12 +20,19 @@ function parseStageNumber(message) {
 }
 
 export function RunningStep() {
-  const { progressLog, ceremonyStatus, ceremonyError } = useCeremonyStore();
+  const { progressLog, ceremonyStatus, ceremonyError, setWizardStep } = useCeremonyStore();
   const logBottomRef = useRef(null);
 
   useEffect(() => {
     logBottomRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [progressLog]);
+
+  // Auto-advance to CompleteStep when ceremony finishes
+  useEffect(() => {
+    if (ceremonyStatus === 'complete') {
+      setWizardStep(7);
+    }
+  }, [ceremonyStatus, setWizardStep]);
 
   // Find the latest stage progress message
   const progressMessages = progressLog.filter((e) => e.type === 'progress');
