@@ -16,6 +16,7 @@ export class FileWatcher extends EventEmitter {
     this.projectRoot = projectRoot;
     this.avcProjectPath = path.join(projectRoot, '.avc', 'project');
     this.watcher = null;
+    this.dirWatcher = null;
   }
 
   /**
@@ -57,6 +58,11 @@ export class FileWatcher extends EventEmitter {
       this.emit('deleted', filePath);
     });
 
+    // Directory deleted inside .avc/project/
+    this.watcher.on('unlinkDir', (dirPath) => {
+      this.emit('deleted', dirPath);
+    });
+
     // Error
     this.watcher.on('error', (error) => {
       this.emit('error', error);
@@ -65,6 +71,26 @@ export class FileWatcher extends EventEmitter {
     // Ready (initial scan complete)
     this.watcher.on('ready', () => {
       this.emit('ready');
+    });
+
+    // Secondary watcher: explicitly watch the .avc/project directory itself.
+    // On WSL2, polling a file-glob may not reliably emit unlinkDir when the
+    // entire .avc/ tree is deleted (e.g. by /remove). Watching the directory
+    // path directly guarantees detection on the next 2-second poll cycle.
+    this.dirWatcher = chokidar.watch(this.avcProjectPath, {
+      persistent: true,
+      ignoreInitial: true,
+      usePolling: true,
+      interval: 2000,
+      depth: 0, // Only care about the directory itself, not its contents
+    });
+
+    this.dirWatcher.on('unlinkDir', () => {
+      this.emit('deleted', this.avcProjectPath);
+    });
+
+    this.dirWatcher.on('error', (error) => {
+      this.emit('error', error);
     });
   }
 
@@ -75,6 +101,10 @@ export class FileWatcher extends EventEmitter {
     if (this.watcher) {
       await this.watcher.close();
       this.watcher = null;
+    }
+    if (this.dirWatcher) {
+      await this.dirWatcher.close();
+      this.dirWatcher = null;
     }
   }
 
