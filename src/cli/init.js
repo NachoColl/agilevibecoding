@@ -1266,6 +1266,9 @@ If you're new to Agile Vibe Coding, visit the [AVC Documentation](https://agilev
       this.writeProgress(progress, progressPath);
       this.clearProgress(progressPath);
 
+      // Emit a final main progress message so the UI log clearly shows completion
+      if (progressCallback) progressCallback('✓ Documentation generated successfully!');
+
       fileLog('INFO', 'sponsorCallWithAnswers() complete', {
         duration: `${Date.now() - startTime}ms`,
         outputPath: result?.outputPath,
