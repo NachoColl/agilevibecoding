@@ -1,6 +1,6 @@
 import { useEffect, useState, useMemo, useRef } from 'react';
 import { Pencil, Check, X } from 'lucide-react';
-import { getHealth, getBoardTitle, updateBoardTitle } from './lib/api';
+import { getHealth, getBoardTitle, updateBoardTitle, getDocsUrl } from './lib/api';
 import { useWebSocket } from './hooks/useWebSocket';
 import { useKanbanStore } from './store/kanbanStore';
 import { useFilterStore } from './store/filterStore';
@@ -18,6 +18,7 @@ function App() {
 
   // Board title state
   const [boardTitle, setBoardTitle] = useState('AVC Kanban Board');
+  const [docsUrl, setDocsUrl] = useState('http://localhost:4173');
   const [editingTitle, setEditingTitle] = useState(false);
   const [titleInput, setTitleInput] = useState('');
   const titleInputRef = useRef(null);
@@ -83,12 +84,14 @@ function App() {
   useEffect(() => {
     const init = async () => {
       try {
-        const [healthData, title] = await Promise.all([
+        const [healthData, title, docsUrlData] = await Promise.all([
           getHealth(),
           getBoardTitle(),
+          getDocsUrl(),
         ]);
         setHealth(healthData);
         setBoardTitle(title);
+        setDocsUrl(docsUrlData);
         await loadWorkItems();
       } catch (err) {
         console.error('Initialization error:', err);
@@ -247,6 +250,17 @@ function App() {
               </p>
             </div>
             <div className="flex items-center gap-4">
+              {/* Documentation link */}
+              <a
+                href={docsUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-sm text-slate-500 hover:text-slate-800 transition-colors"
+                title="Open project documentation"
+              >
+                Docs ↗
+              </a>
+
               {/* Sponsor Call button */}
               {ceremonyStatus !== 'running' && !loading && workItems.length === 0 && (
                 <button

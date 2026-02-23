@@ -204,6 +204,12 @@ export class KanbanServer {
       res.json({ title: config?.settings?.kanban?.title || DEFAULT_TITLE });
     });
 
+    this.app.get('/api/settings/docs-url', async (req, res) => {
+      const config = await readAvcConfig();
+      const docsPort = config?.settings?.documentation?.port || 4173;
+      res.json({ url: `http://localhost:${docsPort}` });
+    });
+
     this.app.put('/api/settings/title', async (req, res) => {
       const { title } = req.body;
       if (typeof title !== 'string' || !title.trim()) {

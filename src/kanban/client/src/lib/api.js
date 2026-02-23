@@ -185,6 +185,11 @@ export async function getBoardTitle() {
   return data.title || 'AVC Kanban Board';
 }
 
+export async function getDocsUrl() {
+  const data = await apiFetch('/settings/docs-url');
+  return data.url || 'http://localhost:4173';
+}
+
 /**
  * Save board title to avc.json
  */
