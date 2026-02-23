@@ -604,7 +604,6 @@ const CommandSelector = ({ onSelect, onCancel, filter }) => {
     {
       name: 'Ceremonies',
       commands: [
-        { label: '/sponsor-call      Create project foundation', value: '/sponsor-call', aliases: ['/sc'] },
         { label: '/sprint-planning    Create Epics and Stories', value: '/sprint-planning', aliases: ['/sp'] },
         { label: '/seed <story-id>    Create Tasks and Subtasks', value: '/seed', aliases: [] }
       ]
@@ -1987,7 +1986,6 @@ const App = () => {
   // Available commands for Tab completion (including aliases)
   const allCommands = [
     '/init', '/i',
-    '/sponsor-call', '/sc',
     '/sprint-planning', '/sp',
     '/seed',
     '/status', '/s',
@@ -2069,7 +2067,6 @@ const App = () => {
       '/i': '/init',
       '/s': '/status',
       '/m': '/models',
-      '/sc': '/sponsor-call',
       '/rm': '/remove',
       '/d': '/documentation',
       '/p': '/processes'
@@ -2138,7 +2135,6 @@ const App = () => {
       // For other commands, only create logger if .avc already exists
       const loggedCommands = [
         '/init',
-        '/sponsor-call',
         '/sprint-planning',
         '/seed',
         '/status',
@@ -2193,16 +2189,6 @@ const App = () => {
             sendProgress('Initializing project structure...');
             await runInit();
             fileLog('INFO', '/init complete', { duration: `${Date.now() - t0}ms` });
-            break;
-          }
-
-          case '/sponsor-call':
-          case '/sc': {
-            const t0 = Date.now();
-            fileLog('INFO', '/sponsor-call handler called', { cwd: process.cwd(), avcExists });
-            sendProgress('Running Sponsor Call ceremony...');
-            await runSponsorCall();
-            fileLog('INFO', '/sponsor-call complete', { duration: `${Date.now() - t0}ms` });
             break;
           }
 
@@ -2335,14 +2321,9 @@ const App = () => {
       } catch (error) {
         outputBuffer.append(`Error: ${error.message}`, 'ERROR');
       } finally {
-        // For /sponsor-call, keep logger active during questionnaire
-        // For other commands, stop logger immediately
         if (logger) {
-          if (command.toLowerCase() === '/sponsor-call' || command.toLowerCase() === '/sc') {
-            // Store logger to keep it active during questionnaire
-            setActiveLogger(logger);
-          } else {
-            // Stop logger for all other commands
+          {
+            // Stop logger after command completes
             logger.stop();
             _fileLogActive = false;
             TemplateProcessor.setDebugLogFile(null);
@@ -2385,7 +2366,6 @@ const App = () => {
       {
         title: 'Ceremonies',
         cmds: [
-          ['/sponsor-call (/sc)', 'Run Sponsor Call ceremony'],
           ['/sprint-planning (/sp)', 'Expand project into Epics and Stories'],
           ['/seed <story-id>', 'Generate tasks for a story'],
         ]
@@ -3716,7 +3696,7 @@ const App = () => {
 
       if (!hasWorkItems) {
         kLog('WARNING', 'no work items found - aborting');
-        sendWarning('No work items found — run /sponsor-call or /sprint-planning first');
+        sendWarning('No work items found — use the kanban board Start Project to run the Sponsor Call ceremony first, then run /sprint-planning');
         return;
       }
 
