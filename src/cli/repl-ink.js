@@ -3690,16 +3690,6 @@ const App = () => {
 
       kLog('INFO', 'runKanban started', { cwd: process.cwd() });
 
-      // Check if project is initialized
-      const hasWorkItems = kanbanManager.hasWorkItems();
-      kLog('INFO', 'work items check', { hasWorkItems });
-
-      if (!hasWorkItems) {
-        kLog('WARNING', 'no work items found - aborting');
-        sendWarning('No work items found — use the kanban board Start Project to run the Sponsor Call ceremony first, then run /sprint-planning');
-        return;
-      }
-
       const port = kanbanManager.getPort();
       kLog('INFO', 'kanban port determined', { port });
 
