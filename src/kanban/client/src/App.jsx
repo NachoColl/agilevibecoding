@@ -1,5 +1,5 @@
 import { useEffect, useState, useMemo, useRef } from 'react';
-import { Pencil, Check, X } from 'lucide-react';
+import { Pencil, Check, X, BookOpen } from 'lucide-react';
 import { getHealth, getBoardTitle, updateBoardTitle, getDocsUrl } from './lib/api';
 import { useWebSocket } from './hooks/useWebSocket';
 import { useKanbanStore } from './store/kanbanStore';
@@ -250,17 +250,6 @@ function App() {
               </p>
             </div>
             <div className="flex items-center gap-4">
-              {/* Documentation link */}
-              <a
-                href={docsUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-sm text-slate-500 hover:text-slate-800 transition-colors"
-                title="Open project documentation"
-              >
-                Docs ↗
-              </a>
-
               {/* Sponsor Call button */}
               {ceremonyStatus !== 'running' && !loading && workItems.length === 0 && (
                 <button
@@ -294,6 +283,18 @@ function App() {
                     : 'No live updates'}
                 </span>
               </div>
+
+              {/* Documentation link */}
+              <a
+                href={docsUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-1.5 text-sm text-slate-500 hover:text-slate-800 transition-colors"
+                title="Open project documentation"
+              >
+                <BookOpen className="w-4 h-4" />
+                Project Documentation
+              </a>
             </div>
           </div>
         </div>
