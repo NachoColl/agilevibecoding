@@ -2452,6 +2452,18 @@ const App = () => {
         await new Promise(resolve => setTimeout(resolve, 500));
       }
 
+      // Kill any external process on the docs port (e.g. stale vitepress preview
+      // from a previous AVC session) so the new vitepress dev gets the right port
+      const docPortInUse = await builder.isPortInUse(docPort);
+      if (docPortInUse) {
+        const externalDocProcess = await builder.findProcessUsingPort(docPort);
+        if (externalDocProcess) {
+          fileLog('INFO', 'killing external process on docs port', { pid: externalDocProcess.pid, command: externalDocProcess.command });
+          await builder.killProcess(externalDocProcess.pid);
+          await new Promise(resolve => setTimeout(resolve, 500));
+        }
+      }
+
       const docProcessId = manager.startProcess({
         name: 'Documentation Server',
         command: 'npx',
