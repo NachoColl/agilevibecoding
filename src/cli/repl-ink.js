@@ -3674,41 +3674,21 @@ const App = () => {
   const runKanban = async () => {
     startCommand('kanban');
     try {
-      const ts0 = Date.now();
       const kanbanManager = new KanbanServerManager();
       const manager = getProcessManager();
 
-      // File-only logger for runKanban (uses same [DEBUG] prefix pattern)
-      const kLog = (level, message, data = null) => {
-        const ts = new Date().toISOString();
-        if (data !== null) {
-          console.log(`[DEBUG] [${level}] [${ts}] [kanban] ${message}`, JSON.stringify(data, null, 2));
-        } else {
-          console.log(`[DEBUG] [${level}] [${ts}] [kanban] ${message}`);
-        }
-      };
-
-      kLog('INFO', 'runKanban started', { cwd: process.cwd() });
-
       const port = kanbanManager.getPort();
-      kLog('INFO', 'kanban port determined', { port });
 
       // Check if kanban server is already running (managed process)
       const runningProcesses = manager.getRunningProcesses();
       const existingKanbanServer = runningProcesses.find(p => p.name === 'Kanban Board Server');
-      kLog('INFO', 'managed process check', {
-        runningProcessCount: runningProcesses.length,
-        existingKanbanServer: existingKanbanServer ? { id: existingKanbanServer.id, name: existingKanbanServer.name } : null
-      });
 
       if (existingKanbanServer) {
         // We have a managed process - check if it's actually running
         const portInUse = await kanbanManager.isPortInUse(port);
-        kLog('INFO', 'managed process port check', { portInUse });
 
         if (portInUse) {
           // Managed process exists and port is in use - restart it
-          kLog('INFO', 'managed process running, restarting', { processId: existingKanbanServer.id });
           sendInfo('Kanban server already running — restarting');
           manager.stopProcess(existingKanbanServer.id);
 
@@ -3719,7 +3699,6 @@ const App = () => {
           await new Promise(resolve => setTimeout(resolve, 1000));
         } else {
           // Managed process exists but port is not in use - it died, clean up
-          kLog('WARNING', 'managed process died (port not in use), cleaning up', { processId: existingKanbanServer.id });
           sendWarning('Previous kanban server stopped — starting new one');
           manager.stopProcess(existingKanbanServer.id);
 
@@ -3729,17 +3708,14 @@ const App = () => {
       } else {
         // No managed process - check if port is in use by external process
         const portInUse = await kanbanManager.isPortInUse(port);
-        kLog('INFO', 'no managed process, external port check', { portInUse });
 
         if (portInUse) {
           // Port is in use by external process - find and kill it
           const processInfo = await kanbanManager.findProcessUsingPort(port);
-          kLog('INFO', 'process found on port', { processInfo });
 
           if (processInfo) {
             // Found the process using the port - check if it's AVC kanban server
             const isOurKanban = await kanbanManager.isKanbanServer(port);
-            kLog('INFO', 'is-our-kanban check', { isOurKanban, pid: processInfo.pid, command: processInfo.command });
 
             if (isOurKanban) {
               // It's confirmed to be AVC kanban server - safe to kill
@@ -3748,11 +3724,8 @@ const App = () => {
 
               // Try to kill the process
               const killed = await kanbanManager.killProcess(processInfo.pid);
-              kLog(killed ? 'INFO' : 'ERROR', 'kill external kanban process', { pid: processInfo.pid, killed });
 
               if (!killed) {
-                // Failed to kill (permission denied, etc.)
-                kLog('ERROR', 'failed to kill process, aborting', { pid: processInfo.pid });
                 sendError(`Failed to kill process ${processInfo.pid} — permission denied or process protected`);
                 sendOutput('Please manually stop the process or change the port.');
                 sendOutput('To change the port, edit .avc/avc.json:');
@@ -3769,8 +3742,6 @@ const App = () => {
               await new Promise(resolve => setTimeout(resolve, 1000));
             } else {
               // It's NOT AVC kanban - prompt user to kill or choose new port
-              kLog('WARNING', 'port in use by non-AVC process, prompting user', { pid: processInfo.pid, command: processInfo.command, port });
-
               // Find next available port for suggestion
               let suggestedPort = port + 1;
               while (suggestedPort < 65535) {
@@ -3786,8 +3757,6 @@ const App = () => {
             }
           } else {
             // Port is in use but couldn't find the process - prompt for new port only
-            kLog('ERROR', 'port in use but process unidentifiable', { port });
-
             let suggestedPort = port + 1;
             while (suggestedPort < 65535) {
               const inUse = await kanbanManager.isPortInUse(suggestedPort);
@@ -3805,7 +3774,6 @@ const App = () => {
 
       // Start kanban server in background
       const kanbanServerPath = path.join(__dirname, '..', 'kanban', 'server', 'start.js');
-      kLog('INFO', 'starting kanban server process', { kanbanServerPath, port, cwd: process.cwd() });
       sendProgress('Starting AVC Kanban Board server...');
 
       const processId = manager.startProcess({
@@ -3815,7 +3783,6 @@ const App = () => {
         cwd: process.cwd()
       });
 
-      kLog('INFO', 'kanban server process started', { processId, port, duration: `${Date.now() - ts0}ms` });
       sendSuccess('Kanban board started');
       sendIndented(`${gray('URL'.padEnd(6))} http://localhost:${port}`, 1);
       sendIndented(`${gray('PID'.padEnd(6))} ${processId}`, 1);
