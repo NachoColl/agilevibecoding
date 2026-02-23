@@ -232,3 +232,55 @@ export async function getProjectContextRaw() {
 export async function updateProjectContext(content) {
   return apiFetch('/project/context', { method: 'PUT', body: JSON.stringify({ content }) });
 }
+
+// ── Ceremony API ─────────────────────────────────────────────────────────────
+
+export async function getCeremonyStatus() {
+  return apiFetch('/ceremony/status');
+}
+
+export async function analyzeDatabase(mission, scope, strategy) {
+  return apiFetch('/ceremony/analyze/database', {
+    method: 'POST',
+    body: JSON.stringify({ mission, scope, strategy }),
+  });
+}
+
+export async function analyzeArchitecture(mission, scope, dbContext, strategy) {
+  return apiFetch('/ceremony/analyze/architecture', {
+    method: 'POST',
+    body: JSON.stringify({ mission, scope, dbContext, strategy }),
+  });
+}
+
+export async function prefillAnswers(mission, scope, arch, dbContext, strategy) {
+  return apiFetch('/ceremony/analyze/prefill', {
+    method: 'POST',
+    body: JSON.stringify({ mission, scope, arch, dbContext, strategy }),
+  });
+}
+
+export async function runCeremony(answers) {
+  return apiFetch('/ceremony/run', {
+    method: 'POST',
+    body: JSON.stringify({ answers }),
+  });
+}
+
+export async function getModels() {
+  return apiFetch('/ceremony/models');
+}
+
+export async function generateMission(description, modelId, provider, validatorModelId, validatorProvider) {
+  return apiFetch('/ceremony/generate-mission', {
+    method: 'POST',
+    body: JSON.stringify({ description, modelId, provider, validatorModelId, validatorProvider }),
+  });
+}
+
+export async function refineMission(missionStatement, initialScope, refinementRequest, modelId, provider, validatorModelId, validatorProvider) {
+  return apiFetch('/ceremony/refine-mission', {
+    method: 'POST',
+    body: JSON.stringify({ missionStatement, initialScope, refinementRequest, modelId, provider, validatorModelId, validatorProvider }),
+  });
+}
