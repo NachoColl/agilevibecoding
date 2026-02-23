@@ -1897,7 +1897,7 @@ Return your response as JSON following the exact structure specified in your ins
 
       return ceremony?.validation || {
         enabled: true,
-        maxIterations: 100,
+        maxIterations: 3,
         acceptanceThreshold: 75,
         skipOnCriticalIssues: false
       };
@@ -1905,7 +1905,7 @@ Return your response as JSON following the exact structure specified in your ins
       // Default settings if config can't be read
       return {
         enabled: true,
-        maxIterations: 100,
+        maxIterations: 3,
         acceptanceThreshold: 75,
         skipOnCriticalIssues: false
       };
@@ -2412,7 +2412,7 @@ Return your response as JSON following the exact structure specified in your ins
     if (this._modelName !== 'claude-sonnet-4-6') {
       models.push({ provider: this._providerName, model: 'claude-sonnet-4-6' });
     }
-    return { enabled: true, maxIterations: 100, models };
+    return { enabled: true, maxIterations: 3, models };
   }
 
   /**
@@ -2602,15 +2602,16 @@ Return your response as JSON following the exact structure specified in your ins
    */
   async crossValidateDocAndContext(docContent, contextContent, questionnaire) {
     const config = this.getCrossValidationConfig();
-    const maxIterations = config.maxIterations || 100;
+    const maxIterations = config.maxIterations || 3;
     const models = config.models || [{ provider: this._providerName, model: 'claude-opus-4-6' }];
 
     let currentDoc = docContent;
     let currentContext = contextContent;
+    let prevIssueCount = Infinity;
 
     for (let i = 0; i < maxIterations; i++) {
       this.reportSubstep(`Cross-validation ${i + 1}/${maxIterations}: doc.md ↔ context.md...`);
-      let anyIssues = false;
+      let issueCount = 0;
 
       // Pass A: doc → context (check context.md against doc.md)
       this.reportSubstep(`Pass A: Checking context.md against doc.md (${models.length} model(s) in parallel)...`);
@@ -2622,7 +2623,7 @@ Return your response as JSON following the exact structure specified in your ins
       );
 
       if (resultA.hasIssues) {
-        anyIssues = true;
+        issueCount += resultA.issues.length;
         this.reportSubstep(`Found ${resultA.issues.length} issue(s) in context.md — healing...`);
         debug('Cross-validation Pass A issues', resultA.issues);
         currentContext = await this.healWithCrossValidation(
@@ -2642,7 +2643,7 @@ Return your response as JSON following the exact structure specified in your ins
       );
 
       if (resultB.hasIssues) {
-        anyIssues = true;
+        issueCount += resultB.issues.length;
         this.reportSubstep(`Found ${resultB.issues.length} issue(s) in doc.md — healing...`);
         debug('Cross-validation Pass B issues', resultB.issues);
         currentDoc = await this.healWithCrossValidation(
@@ -2652,10 +2653,18 @@ Return your response as JSON following the exact structure specified in your ins
         this.reportSubstep('Pass B: doc.md is consistent with context.md ✓');
       }
 
-      if (!anyIssues) {
+      if (issueCount === 0) {
         this.reportSubstep('Cross-validation passed ✓ — doc.md and context.md are mutually consistent.');
         break;
       }
+
+      // Stop early if healing made no progress (issue count didn't improve)
+      if (issueCount >= prevIssueCount) {
+        this.reportSubstep(`Cross-validation stopping — no improvement after healing (${issueCount} issue(s) remain).`);
+        break;
+      }
+
+      prevIssueCount = issueCount;
     }
 
     return { docContent: currentDoc, contextContent: currentContext };
