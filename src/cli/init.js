@@ -656,36 +656,7 @@ class ProjectInitiator {
     if (!fs.existsSync(indexPath)) {
       const indexContent = `# ${this.getProjectName()}
 
-## Project Status
-
-This project is being developed using the [Agile Vibe Coding](https://agilevibecoding.org) framework.
-
-**Current Stage**: Initial Setup
-
-Project documentation will be generated automatically as the project is defined and developed.
-
-## About This Documentation
-
-This site provides comprehensive documentation about **${this.getProjectName()}**, including:
-
-- Project overview and objectives
-- Feature specifications organized by epics and stories
-- Technical architecture and design decisions
-- Implementation progress and status
-
-Documentation is automatically updated from the AVC project structure as development progresses.
-
-## Getting Started with AVC
-
-If you're new to Agile Vibe Coding, visit the [AVC Documentation](https://agilevibecoding.org) to learn about:
-
-- [CLI Commands](https://agilevibecoding.org/commands) - Available commands and their usage
-- [Installation Guide](https://agilevibecoding.org/install) - Setup instructions
-- [Framework Overview](https://agilevibecoding.org) - Core concepts and workflow
-
----
-
-*Documentation powered by [Agile Vibe Coding](https://agilevibecoding.org)*
+Documentation for this project will be generated automatically once the project is defined via the Sponsor Call ceremony. Use the **Start Project** button in the [Kanban board](http://localhost:4174) to get started.
 `;
       fs.writeFileSync(indexPath, indexContent, 'utf8');
     }
