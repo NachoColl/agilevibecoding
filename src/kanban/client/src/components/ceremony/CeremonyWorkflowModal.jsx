@@ -336,8 +336,8 @@ function StepBadge({ type }) {
 function StepCard({ step, models }) {
   const showModel = step.type !== 'input' && step.type !== 'output';
   return (
-    <div className="flex gap-3 items-start bg-white border border-slate-200 rounded-lg px-3 py-2.5 shadow-sm">
-      <div className="pt-0.5 flex-shrink-0">
+    <div className="flex gap-3 items-baseline bg-white border border-slate-200 rounded-lg px-3 py-2.5 shadow-sm">
+      <div className="flex-shrink-0">
         <StepBadge type={step.type} />
       </div>
       <div className="min-w-0 flex-1">
