@@ -75,7 +75,8 @@ const LOOP_C = {
 //   loop group   → { type: 'loop-group', loop: {max, threshold}, steps: [...] }
 //
 // agent  : single slug string — links to one agent doc page
-// agents : array of slug strings — links to multiple agent doc pages
+// agents : array of { slug, note? } — multiple agents; note is a one-line
+//          description of what this agent specifically does in this step
 
 function buildSponsorCallPhases(ceremony) {
   return [
@@ -128,11 +129,11 @@ function buildSponsorCallPhases(ceremony) {
           model: ceremony.stages?.suggestions?.model,
           // One suggestion agent fires per skipped question
           agents: [
-            'suggestion-product-manager',
-            'suggestion-ux-researcher',
-            'suggestion-deployment-architect',
-            'suggestion-technical-architect',
-            'suggestion-security-specialist',
+            { slug: 'suggestion-product-manager',      note: 'fills Initial Scope' },
+            { slug: 'suggestion-ux-researcher',        note: 'fills Target Users' },
+            { slug: 'suggestion-deployment-architect', note: 'fills Deployment Target' },
+            { slug: 'suggestion-technical-architect',  note: 'fills Technical Considerations' },
+            { slug: 'suggestion-security-specialist',  note: 'fills Security & Compliance' },
           ],
         },
         {
@@ -222,7 +223,10 @@ function buildSponsorCallPhases(ceremony) {
             {
               type:   'cross',
               label:  'Cross-validate doc ↔ context consistency',
-              agents: ['cross-validator-doc-to-context', 'cross-validator-context-to-doc'],
+              agents: [
+                { slug: 'cross-validator-doc-to-context', note: 'checks every doc.md reference exists in context.md' },
+                { slug: 'cross-validator-context-to-doc', note: 'checks every context.md reference exists in doc.md' },
+              ],
             },
           ],
         },
@@ -277,12 +281,41 @@ function AgentLink({ slug }) {
 }
 
 function AgentLinks({ step }) {
-  const slugs = step.agents || (step.agent ? [step.agent] : []);
-  if (slugs.length === 0) return null;
+  // Normalise to [{ slug, note }] regardless of input shape
+  const items = step.agents
+    ? step.agents.map((a) => (typeof a === 'string' ? { slug: a, note: null } : a))
+    : step.agent
+      ? [{ slug: step.agent, note: null }]
+      : [];
+
+  if (items.length === 0) return null;
+
+  const hasNotes = items.some((a) => a.note);
+
+  if (!hasNotes) {
+    // Single agent or multi without notes — compact inline row
+    return (
+      <div className="flex items-center gap-1 mt-1.5 flex-wrap">
+        <span className="text-[10px] text-slate-400 font-medium mr-0.5">Agent</span>
+        {items.map(({ slug }) => <AgentLink key={slug} slug={slug} />)}
+      </div>
+    );
+  }
+
+  // Multi-agent with per-agent notes — vertical list
   return (
-    <div className="flex items-center gap-1 mt-1.5 flex-wrap">
-      <span className="text-[10px] text-slate-400 font-medium mr-0.5">Agent</span>
-      {slugs.map((s) => <AgentLink key={s} slug={s} />)}
+    <div className="mt-1.5">
+      <span className="text-[10px] text-slate-400 font-medium">Agent</span>
+      <div className="mt-1 flex flex-col gap-1">
+        {items.map(({ slug, note }) => (
+          <div key={slug} className="flex items-center gap-2 flex-wrap">
+            <AgentLink slug={slug} />
+            {note && (
+              <span className="text-[10px] text-slate-400 italic">{note}</span>
+            )}
+          </div>
+        ))}
+      </div>
     </div>
   );
 }
