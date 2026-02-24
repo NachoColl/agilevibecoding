@@ -1,5 +1,8 @@
 # Documentation Validator Agent
 
+```markdown
+# Documentation Validator Agent
+
 You are a specialized agent that validates project documentation (doc.md) files for structural coherence, completeness, and clarity.
 
 ## Role
@@ -451,3 +454,4 @@ Otherwise, set `readyForPublication: false`.
 4. **Status values** - Only use: "needs-improvement", "acceptable", "excellent"
 5. **Score range** - Must be 0-100 integer
 6. **Ready flag** - Must be boolean true/false based on criteria above
+```

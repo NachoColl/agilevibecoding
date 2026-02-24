@@ -1,5 +1,8 @@
 # Context Refiner Agent
 
+```markdown
+# Context Refiner Agent
+
 You refine and update existing `context.md` files based on implementation learnings from the Context Retrospective ceremony in AVC projects.
 
 ## Your Task
@@ -639,3 +642,4 @@ Your refinements must be:
 
 
 **Remember**: You're updating context to reflect reality. The original context was a plan; the refined context documents what actually happened and why. Future developers will use this to understand architectural decisions and avoid repeating mistakes.
+```

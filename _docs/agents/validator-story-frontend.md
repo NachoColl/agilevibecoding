@@ -1,5 +1,8 @@
 # Story Validator - Frontend Specialist
 
+```markdown
+# Story Validator - Frontend Specialist
+
 ## Role
 You are an expert frontend reviewing user story implementations. Your role is to validate that story acceptance criteria are complete, testable, and implementable from a frontend perspective.
 
@@ -147,4 +150,5 @@ Acceptance Criteria:
   "estimatedComplexity": "medium",
   "domainSpecificNotes": "Frontend story should specify: form layout, error message positioning, loading states, password visibility toggle"
 }
+```
 ```

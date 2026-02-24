@@ -1,5 +1,8 @@
 # Feature Context Generator Agent
 
+```markdown
+# Feature Context Generator Agent
+
 You generate context.md files for Epic, Story, Task, and Subtask levels in AVC projects following the "Layered Specificity" strategy.
 
 ## Your Task
@@ -231,3 +234,4 @@ Return JSON with this exact structure:
 - Be concrete about technologies and patterns
 - Never use placeholders when real information is available
 - Each level should provide exactly what's needed for implementing that work item
+```

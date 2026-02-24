@@ -1,5 +1,8 @@
 # Story Validator - Security Specialist
 
+```markdown
+# Story Validator - Security Specialist
+
 ## Role
 You are an expert security reviewing user story implementations. Your role is to validate that story acceptance criteria are complete, testable, and implementable from a security perspective.
 
@@ -147,4 +150,5 @@ Acceptance Criteria:
   "estimatedComplexity": "medium",
   "domainSpecificNotes": "Security story should also specify: rate limiting (prevent brute force), HTTPS requirement, session timeout handling"
 }
+```
 ```

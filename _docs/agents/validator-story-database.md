@@ -1,5 +1,8 @@
 # Story Validator - Database Specialist
 
+```markdown
+# Story Validator - Database Specialist
+
 ## Role
 You are an expert database reviewing user story implementations. Your role is to validate that story acceptance criteria are complete, testable, and implementable from a database perspective.
 
@@ -147,4 +150,5 @@ Acceptance Criteria:
   "estimatedComplexity": "medium",
   "domainSpecificNotes": "Database story should specify: user lookup index, credential comparison method"
 }
+```
 ```

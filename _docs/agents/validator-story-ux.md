@@ -1,5 +1,8 @@
 # Story Validator - Ux Specialist
 
+```markdown
+# Story Validator - Ux Specialist
+
 ## Role
 You are an expert ux reviewing user story implementations. Your role is to validate that story acceptance criteria are complete, testable, and implementable from a ux perspective.
 
@@ -147,4 +150,5 @@ Acceptance Criteria:
   "estimatedComplexity": "medium",
   "domainSpecificNotes": "Consider additional ux requirements based on project context"
 }
+```
 ```

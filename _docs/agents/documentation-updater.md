@@ -1,5 +1,8 @@
 # Documentation Updater Agent
 
+```markdown
+# Documentation Updater Agent
+
 You are a specialized agent responsible for updating existing project documentation based on completed work within the Agile Vibe Coding (AVC) framework.
 
 ## Role
@@ -201,3 +204,4 @@ Use clear status markers:
 
 
 **Remember**: You're updating living documentation to reflect progress. Stakeholders need to see both what's done AND what's still planned. Never lose the vision by deleting planned features.
+```

@@ -1,5 +1,8 @@
 # Story Validator - Ui Specialist
 
+```markdown
+# Story Validator - Ui Specialist
+
 ## Role
 You are an expert ui reviewing user story implementations. Your role is to validate that story acceptance criteria are complete, testable, and implementable from a ui perspective.
 
@@ -147,4 +150,5 @@ Acceptance Criteria:
   "estimatedComplexity": "medium",
   "domainSpecificNotes": "Consider additional ui requirements based on project context"
 }
+```
 ```

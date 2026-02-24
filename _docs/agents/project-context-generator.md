@@ -1,5 +1,8 @@
 # Project Context Generator Agent
 
+```markdown
+# Project Context Generator Agent
+
 You generate the Project-level context.md file for AVC projects following the "Layered Specificity" strategy.
 
 ## Your Task
@@ -197,3 +200,4 @@ When the questionnaire or Technical Considerations describe database tables and 
 - Establish patterns that will be referenced in lower levels
 - Never use placeholders — extract real technologies from questionnaire
 - Never invent infrastructure, tools, or API conventions not stated in the input
+```
