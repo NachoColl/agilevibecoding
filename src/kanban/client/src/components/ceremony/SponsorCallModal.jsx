@@ -1,12 +1,15 @@
 import { useState } from 'react';
-import { X } from 'lucide-react';
+import { X, Info } from 'lucide-react';
 import { useCeremonyStore } from '../../store/ceremonyStore';
 import {
   analyzeDatabase,
   analyzeArchitecture,
   prefillAnswers,
   runCeremony,
+  getSettings,
+  getModels,
 } from '../../lib/api';
+import { CeremonyWorkflowModal } from './CeremonyWorkflowModal';
 
 import { DeploymentStep } from './steps/DeploymentStep';
 import { MissionStep } from './steps/MissionStep';
@@ -95,6 +98,9 @@ export function SponsorCallModal({ onClose }) {
   } = useCeremonyStore();
 
   const [analyzingMessage, setAnalyzingMessage] = useState('');
+  const [workflowOpen, setWorkflowOpen] = useState(false);
+  const [workflowCeremony, setWorkflowCeremony] = useState(null);
+  const [workflowModels, setWorkflowModels] = useState([]);
 
   if (!isOpen) return null;
 
@@ -221,14 +227,35 @@ export function SponsorCallModal({ onClose }) {
               <StepProgress currentStep={wizardStep} hasDb={hasDb} />
             </div>
           </div>
-          {ceremonyStatus !== 'running' && (
-            <button
-              onClick={handleClose}
-              className="text-slate-400 hover:text-slate-600 transition-colors ml-4 mt-0.5"
-            >
-              <X className="w-5 h-5" />
-            </button>
-          )}
+          <div className="flex items-center gap-3 ml-4 mt-0.5">
+            {ceremonyStatus !== 'running' && (
+              <button
+                type="button"
+                onClick={async () => {
+                  try {
+                    const [s, m] = await Promise.all([getSettings(), getModels()]);
+                    const sc = s.ceremonies?.find((c) => c.name === 'sponsor-call') ?? {};
+                    setWorkflowCeremony(sc);
+                    setWorkflowModels(m);
+                    setWorkflowOpen(true);
+                  } catch {}
+                }}
+                className="flex items-center gap-1 text-xs text-slate-400 hover:text-blue-500 transition-colors"
+                title="View ceremony workflow"
+              >
+                <Info className="w-3.5 h-3.5" />
+                How it works
+              </button>
+            )}
+            {ceremonyStatus !== 'running' && (
+              <button
+                onClick={handleClose}
+                className="text-slate-400 hover:text-slate-600 transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            )}
+          </div>
         </div>
 
         {/* Scrollable content */}
@@ -239,6 +266,14 @@ export function SponsorCallModal({ onClose }) {
           <p className="text-xs text-slate-400 truncate">{analyzingMessage}</p>
         </div>
       </div>
+
+      {workflowOpen && workflowCeremony && (
+        <CeremonyWorkflowModal
+          ceremony={workflowCeremony}
+          models={workflowModels}
+          onClose={() => setWorkflowOpen(false)}
+        />
+      )}
     </div>
   );
 }

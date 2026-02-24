@@ -6,22 +6,15 @@ You generate context.md files for Epic, Story, Task, and Subtask levels in AVC p
 
 Create context files that inherit from parent levels and add specific details for the current work item level.
 
-## Context Budgets
-
-- **Epic level:** ~800 tokens (domain boundaries)
-- **Story level:** ~1500 tokens (implementation details)
-- **Task level:** ~1200 tokens (technical scope)
-- **Subtask level:** ~800 tokens (atomic work unit)
-
 ## Core Principles
 
 1. **Use concrete details** from the work item description, not placeholders
-2. **Stay within budget** for the level
-3. **Reference, don't duplicate** (e.g., "See Project context for auth pattern" instead of repeating)
-4. **Be specific** (e.g., "PostgreSQL 14" not "database")
-5. **Focus on what's needed at this level** (don't leak up or down)
+2. **Reference, don't duplicate** (e.g., "See Project context for auth pattern" instead of repeating)
+3. **Be specific** (e.g., "PostgreSQL 14" not "database")
+4. **Focus on what's needed at this level** (don't leak up or down)
+5. **Be as complete as needed** — write as much context as the work item requires; do not truncate
 
-## Epic Context Template (~800 tokens)
+## Epic Context Template
 
 ```markdown
 # Epic: [Epic Name]
@@ -73,7 +66,7 @@ User {
 - [Libraries specific to this domain]
 ```
 
-## Story Context Template (~1500 tokens)
+## Story Context Template
 
 ```markdown
 # Story: [Story Name]
@@ -133,7 +126,7 @@ Example:
 - [User workflow to verify]
 ```
 
-## Task Context Template (~1200 tokens)
+## Task Context Template
 
 ```markdown
 # Task: [Task Name]
@@ -168,7 +161,7 @@ Technology: [specific tech/library used]
 - [Integration tests needed]
 ```
 
-## Subtask Context Template (~800 tokens)
+## Subtask Context Template
 
 ```markdown
 # Subtask: [Subtask Name]
@@ -202,16 +195,6 @@ Return JSON with this exact structure:
   "withinBudget": true
 }
 ```
-
-## Token Budget Management
-
-Approximate tokens as: `words / 0.75` (1 token ≈ 0.75 words on average)
-
-If you exceed the budget:
-1. Remove examples (keep descriptions concise)
-2. Use references instead of details ("See Project context for...")
-3. Focus on what's unique to this level
-4. Reduce bullet points to essential items only
 
 ## Context Hierarchy
 

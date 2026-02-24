@@ -238,6 +238,24 @@ export async function updateProjectContext(content) {
   return apiFetch('/project/context', { method: 'PUT', body: JSON.stringify({ content }) });
 }
 
+// ── Settings API ─────────────────────────────────────────────────────────────
+
+export async function getSettings() {
+  return apiFetch('/settings');
+}
+
+export async function saveApiKeys(keys) {
+  return apiFetch('/settings/api-keys', { method: 'PUT', body: JSON.stringify(keys) });
+}
+
+export async function saveCeremonies(ceremonies) {
+  return apiFetch('/settings/ceremonies', { method: 'PUT', body: JSON.stringify({ ceremonies }) });
+}
+
+export async function saveGeneralSettings(data) {
+  return apiFetch('/settings/general', { method: 'PUT', body: JSON.stringify(data) });
+}
+
 // ── Ceremony API ─────────────────────────────────────────────────────────────
 
 export async function getCeremonyStatus() {

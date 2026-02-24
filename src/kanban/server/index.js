@@ -11,6 +11,7 @@ import { HierarchyBuilder } from './services/HierarchyBuilder.js';
 import { FileWatcher } from './services/FileWatcher.js';
 import { createWorkItemsRouter } from './routes/work-items.js';
 import { createCeremonyRouter } from './routes/ceremony.js';
+import { createSettingsRouter } from './routes/settings.js';
 import { setupWebSocket } from './routes/websocket.js';
 import { renderMarkdown } from './utils/markdown.js';
 import { CeremonyService } from './services/CeremonyService.js';
@@ -186,6 +187,10 @@ export class KanbanServer {
       await fs.writeFile(path.join(projectPath, 'context.md'), content, 'utf8');
       res.json({ status: 'ok' });
     });
+
+    // Settings router (GET /api/settings + PUT sub-routes)
+    const settingsRouter = createSettingsRouter(this.projectRoot);
+    this.app.use('/api/settings', settingsRouter);
 
     // Board title setting (read/write from avc.json)
     const avcJsonPath = path.join(this.projectRoot, '.avc', 'avc.json');

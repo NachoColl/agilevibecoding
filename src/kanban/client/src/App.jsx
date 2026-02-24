@@ -1,6 +1,6 @@
 import { useEffect, useState, useMemo, useRef } from 'react';
-import { Pencil, Check, X, BookOpen } from 'lucide-react';
-import { getHealth, getBoardTitle, updateBoardTitle, getDocsUrl } from './lib/api';
+import { Pencil, Check, X, BookOpen, Settings } from 'lucide-react';
+import { getHealth, getBoardTitle, updateBoardTitle, getDocsUrl, getSettings, getModels } from './lib/api';
 import { useWebSocket } from './hooks/useWebSocket';
 import { useKanbanStore } from './store/kanbanStore';
 import { useFilterStore } from './store/filterStore';
@@ -9,6 +9,7 @@ import { KanbanBoard } from './components/kanban/KanbanBoard';
 import { FilterToolbar } from './components/kanban/FilterToolbar';
 import { CardDetailModal } from './components/kanban/CardDetailModal';
 import { SponsorCallModal } from './components/ceremony/SponsorCallModal';
+import { SettingsModal } from './components/settings/SettingsModal';
 import { groupItemsByColumn } from './lib/status-grouping';
 
 function App() {
@@ -22,6 +23,11 @@ function App() {
   const [editingTitle, setEditingTitle] = useState(false);
   const [titleInput, setTitleInput] = useState('');
   const titleInputRef = useRef(null);
+
+  // Settings modal state
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [settingsSnapshot, setSettingsSnapshot] = useState(null);
+  const [modelsSnapshot, setModelsSnapshot] = useState([]);
 
   // Zustand stores
   const { workItems, loadWorkItems, loading, error } = useKanbanStore();
@@ -140,6 +146,30 @@ function App() {
   const handleTitleKeyDown = (e) => {
     if (e.key === 'Enter') saveTitle();
     if (e.key === 'Escape') cancelEditTitle();
+  };
+
+  // ── Settings modal ─────────────────────────────────────────────────────────
+
+  const openSettings = async () => {
+    try {
+      const [data, modelList] = await Promise.all([getSettings(), getModels()]);
+      setSettingsSnapshot(data);
+      setModelsSnapshot(modelList);
+      setSettingsOpen(true);
+    } catch (err) {
+      console.error('Failed to load settings:', err);
+    }
+  };
+
+  const handleSettingsSaved = async () => {
+    try {
+      const data = await getSettings();
+      setSettingsSnapshot(data);
+      const title = await getBoardTitle();
+      setBoardTitle(title);
+    } catch (err) {
+      console.error('Failed to refresh settings:', err);
+    }
   };
 
   // ── Card navigation ────────────────────────────────────────────────────────
@@ -284,6 +314,16 @@ function App() {
                 </span>
               </div>
 
+              {/* Settings button */}
+              <button
+                onClick={openSettings}
+                className="flex items-center gap-1.5 text-sm text-slate-500 hover:text-slate-800 transition-colors"
+                title="Project settings"
+              >
+                <Settings className="w-4 h-4" />
+                Settings
+              </button>
+
               {/* Documentation link */}
               <a
                 href={docsUrl}
@@ -334,6 +374,16 @@ function App() {
 
       {/* Sponsor Call Ceremony Modal */}
       {ceremonyOpen && <SponsorCallModal />}
+
+      {/* Settings Modal */}
+      {settingsOpen && settingsSnapshot && (
+        <SettingsModal
+          settings={settingsSnapshot}
+          models={modelsSnapshot}
+          onClose={() => setSettingsOpen(false)}
+          onSaved={handleSettingsSaved}
+        />
+      )}
     </div>
   );
 }
