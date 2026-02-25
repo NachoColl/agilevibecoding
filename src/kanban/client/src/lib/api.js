@@ -248,12 +248,16 @@ export async function saveApiKeys(keys) {
   return apiFetch('/settings/api-keys', { method: 'PUT', body: JSON.stringify(keys) });
 }
 
-export async function saveCeremonies(ceremonies) {
-  return apiFetch('/settings/ceremonies', { method: 'PUT', body: JSON.stringify({ ceremonies }) });
+export async function saveCeremonies(ceremonies, missionGenerator) {
+  return apiFetch('/settings/ceremonies', { method: 'PUT', body: JSON.stringify({ ceremonies, missionGenerator }) });
 }
 
 export async function saveGeneralSettings(data) {
   return apiFetch('/settings/general', { method: 'PUT', body: JSON.stringify(data) });
+}
+
+export async function saveModelPricing(models) {
+  return apiFetch('/settings/models', { method: 'PUT', body: JSON.stringify({ models }) });
 }
 
 // ── Ceremony API ─────────────────────────────────────────────────────────────
@@ -306,4 +310,26 @@ export async function refineMission(missionStatement, initialScope, refinementRe
     method: 'POST',
     body: JSON.stringify({ missionStatement, initialScope, refinementRequest, modelId, provider, validatorModelId, validatorProvider }),
   });
+}
+
+// ── Costs API ─────────────────────────────────────────────────────────────────
+
+/**
+ * Get current month cost summary for the header chip
+ * @returns {Promise<{ totalCost: number, totalTokens: number, apiCalls: number }>}
+ */
+export async function getCostSummary() {
+  return apiFetch('/costs/summary');
+}
+
+/**
+ * Get cost history for chart and ceremony breakdown
+ * @param {number|{ from: string, to: string }} range - Days count or custom date range
+ * @returns {Promise<{ daily: Array, ceremonies: Array }>}
+ */
+export async function getCostHistory(range = 30) {
+  if (typeof range === 'number') {
+    return apiFetch(`/costs/history?days=${range}`);
+  }
+  return apiFetch(`/costs/history?from=${range.from}&to=${range.to}`);
 }

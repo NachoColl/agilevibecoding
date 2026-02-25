@@ -1,3 +1,4 @@
+import { Info } from 'lucide-react';
 import { useCeremonyStore } from '../../../store/ceremonyStore';
 
 const strategies = [
@@ -89,6 +90,15 @@ export function DeploymentStep({ onNext }) {
             </button>
           );
         })}
+      </div>
+
+      <div className="flex items-start gap-2 px-1 py-2 text-xs text-slate-400">
+        <Info className="w-3.5 h-3.5 flex-shrink-0 mt-0.5 text-slate-300" />
+        <p>
+          Technologies listed (e.g. SQLite, MongoDB) are illustrative examples.
+          The ceremony tailors all recommendations to your actual requirements — your project may end up
+          using a vector database, a search engine, no database at all, or something else entirely.
+        </p>
       </div>
 
       <div className="flex items-center justify-end gap-3 pt-2">

@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { X, Info } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { X, Info, AlertTriangle, Settings as SettingsIcon } from 'lucide-react';
 import { useCeremonyStore } from '../../store/ceremonyStore';
 import {
   analyzeDatabase,
@@ -8,6 +8,7 @@ import {
   runCeremony,
   getSettings,
   getModels,
+  saveCeremonies,
 } from '../../lib/api';
 import { CeremonyWorkflowModal } from './CeremonyWorkflowModal';
 
@@ -18,6 +19,43 @@ import { ArchitectureStep } from './steps/ArchitectureStep';
 import { ReviewAnswersStep } from './steps/ReviewAnswersStep';
 import { RunningStep } from './steps/RunningStep';
 import { CompleteStep } from './steps/CompleteStep';
+
+const KEY_LABELS = {
+  anthropic: 'Anthropic API Key (ANTHROPIC_API_KEY)',
+  gemini: 'Google Gemini API Key (GEMINI_API_KEY)',
+  openai: 'OpenAI API Key (OPENAI_API_KEY)',
+};
+
+function normalizeProvider(provider = '') {
+  const p = provider.toLowerCase();
+  if (p === 'claude' || p === 'anthropic') return 'anthropic';
+  return p;
+}
+
+function computeMissingProviders(settings) {
+  const ceremony = settings.ceremonies?.find((c) => c.name === 'sponsor-call');
+  const needed = new Set();
+
+  // stages is an object: { stageName: { provider, model }, ... }
+  if (ceremony?.stages && typeof ceremony.stages === 'object') {
+    for (const stage of Object.values(ceremony.stages)) {
+      if (stage?.provider) needed.add(normalizeProvider(stage.provider));
+    }
+  }
+
+  // validation: top-level { model, provider } and/or sub-areas { areaName: { model, provider } }
+  if (ceremony?.validation && typeof ceremony.validation === 'object') {
+    if (ceremony.validation.provider) needed.add(normalizeProvider(ceremony.validation.provider));
+    for (const val of Object.values(ceremony.validation)) {
+      if (val && typeof val === 'object' && typeof val.provider === 'string') {
+        needed.add(normalizeProvider(val.provider));
+      }
+    }
+  }
+
+  const apiKeys = settings.apiKeys ?? {};
+  return [...needed].filter((p) => !apiKeys[p]?.isSet);
+}
 
 // Step definitions for the progress header (shown steps vary based on hasDb)
 const ALL_STEPS = [
@@ -69,7 +107,7 @@ function StepProgress({ currentStep, hasDb }) {
   );
 }
 
-export function SponsorCallModal({ onClose }) {
+export function SponsorCallModal({ onClose, onOpenSettings }) {
   const {
     isOpen,
     wizardStep,
@@ -101,6 +139,43 @@ export function SponsorCallModal({ onClose }) {
   const [workflowOpen, setWorkflowOpen] = useState(false);
   const [workflowCeremony, setWorkflowCeremony] = useState(null);
   const [workflowModels, setWorkflowModels] = useState([]);
+  const [workflowMissionGenValidation, setWorkflowMissionGenValidation] = useState(null);
+  const [workflowAllCeremonies, setWorkflowAllCeremonies] = useState([]);
+  const [apiKeyCheck, setApiKeyCheck] = useState({ loading: true, missing: [] });
+
+  // Check required API keys when the modal opens
+  useEffect(() => {
+    let cancelled = false;
+    getSettings()
+      .then((s) => {
+        if (!cancelled) setApiKeyCheck({ loading: false, missing: computeMissingProviders(s) });
+      })
+      .catch(() => {
+        if (!cancelled) setApiKeyCheck({ loading: false, missing: [] }); // fail open
+      });
+    return () => { cancelled = true; };
+  }, []);
+
+  const recheckKeys = () => {
+    setApiKeyCheck({ loading: true, missing: [] });
+    getSettings()
+      .then((s) => setApiKeyCheck({ loading: false, missing: computeMissingProviders(s) }))
+      .catch(() => setApiKeyCheck({ loading: false, missing: [] }));
+  };
+
+  const handleWorkflowSave = async (updatedCeremony, updatedMG) => {
+    const base = workflowAllCeremonies.length > 0 ? workflowAllCeremonies : [updatedCeremony];
+    const next = base.map((c) => c.name === updatedCeremony.name ? updatedCeremony : c);
+    await saveCeremonies(next, { validation: updatedMG });
+    setWorkflowCeremony(updatedCeremony);
+    setWorkflowMissionGenValidation(updatedMG);
+    setWorkflowAllCeremonies(next);
+  };
+
+  const handleWorkflowClose = () => {
+    setWorkflowOpen(false);
+    recheckKeys();
+  };
 
   if (!isOpen) return null;
 
@@ -193,7 +268,7 @@ export function SponsorCallModal({ onClose }) {
       case 1:
         return <DeploymentStep onNext={() => setWizardStep(2)} />;
       case 2:
-        return <MissionStep onNext={handleMissionNext} onBack={() => setWizardStep(1)} analyzing={analyzing} />;
+        return <MissionStep onNext={handleMissionNext} onBack={() => setWizardStep(1)} analyzing={analyzing} onOpenSettings={onOpenSettings} />;
       case 3:
         return <DatabaseStep onNext={handleDatabaseNext} onBack={() => setWizardStep(2)} analyzing={analyzing} />;
       case 4:
@@ -237,6 +312,8 @@ export function SponsorCallModal({ onClose }) {
                     const sc = s.ceremonies?.find((c) => c.name === 'sponsor-call') ?? {};
                     setWorkflowCeremony(sc);
                     setWorkflowModels(m);
+                    setWorkflowMissionGenValidation(s.missionGenerator?.validation ?? null);
+                    setWorkflowAllCeremonies(s.ceremonies || []);
                     setWorkflowOpen(true);
                   } catch {}
                 }}
@@ -259,7 +336,50 @@ export function SponsorCallModal({ onClose }) {
         </div>
 
         {/* Scrollable content */}
-        <div className="flex-1 overflow-y-auto px-6 py-5">{renderStep()}</div>
+        <div className="flex-1 overflow-y-auto px-6 py-5">
+          {apiKeyCheck.loading ? (
+            <div className="flex items-center justify-center py-12">
+              <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600" />
+            </div>
+          ) : apiKeyCheck.missing.length > 0 ? (
+            <div className="flex flex-col gap-5">
+              <div className="flex items-start gap-3 p-4 bg-amber-50 border border-amber-200 rounded-lg">
+                <AlertTriangle className="w-5 h-5 text-amber-500 flex-shrink-0 mt-0.5" />
+                <div>
+                  <p className="text-sm font-semibold text-amber-900">API Keys Required</p>
+                  <p className="text-xs text-amber-700 mt-1">
+                    Configure the following API keys before running the Sponsor Call ceremony:
+                  </p>
+                  <ul className="mt-2 space-y-1.5">
+                    {apiKeyCheck.missing.map((p) => (
+                      <li key={p} className="flex items-center gap-2 text-xs text-amber-800">
+                        <span className="w-1.5 h-1.5 rounded-full bg-amber-400 flex-shrink-0" />
+                        {KEY_LABELS[p] || p}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              </div>
+              <div className="flex items-center gap-3">
+                <button
+                  onClick={() => onOpenSettings?.()}
+                  className="flex items-center gap-1.5 px-4 py-2 text-sm font-medium bg-slate-900 text-white rounded-lg hover:bg-slate-700 transition-colors"
+                >
+                  <SettingsIcon className="w-4 h-4" />
+                  Open Settings
+                </button>
+                <button
+                  onClick={recheckKeys}
+                  className="px-3 py-2 text-sm text-slate-500 hover:text-slate-800 transition-colors"
+                >
+                  Re-check
+                </button>
+              </div>
+            </div>
+          ) : (
+            renderStep()
+          )}
+        </div>
 
         {/* Status bar — always rendered to prevent height flicker */}
         <div className="flex-shrink-0 border-t border-slate-100 px-6 h-8 flex items-center">
@@ -271,7 +391,10 @@ export function SponsorCallModal({ onClose }) {
         <CeremonyWorkflowModal
           ceremony={workflowCeremony}
           models={workflowModels}
-          onClose={() => setWorkflowOpen(false)}
+          missionGenValidation={workflowMissionGenValidation}
+          readOnly={ceremonyStatus === 'running'}
+          onSave={ceremonyStatus !== 'running' ? handleWorkflowSave : undefined}
+          onClose={handleWorkflowClose}
         />
       )}
     </div>

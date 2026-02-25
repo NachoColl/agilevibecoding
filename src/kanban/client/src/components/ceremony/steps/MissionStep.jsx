@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useCeremonyStore } from '../../../store/ceremonyStore';
 import { AskModelPopup } from '../AskModelPopup';
 
-export function MissionStep({ onNext, onBack, analyzing }) {
+export function MissionStep({ onNext, onBack, analyzing, onOpenSettings }) {
   const { mission, setMission, initialScope, setInitialScope } = useCeremonyStore();
   const [showPopup, setShowPopup] = useState(false);
 
@@ -98,6 +98,7 @@ export function MissionStep({ onNext, onBack, analyzing }) {
             setShowPopup(false);
           }}
           onClose={() => setShowPopup(false)}
+          onOpenSettings={onOpenSettings}
         />
       )}
     </div>

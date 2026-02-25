@@ -3,10 +3,12 @@ import { X } from 'lucide-react';
 import { ApiKeysTab } from './ApiKeysTab';
 import { CeremonyModelsTab } from './CeremonyModelsTab';
 import { ServersTab } from './ServersTab';
+import { ModelPricingTab } from './ModelPricingTab';
 
 const TABS = [
   { id: 'api-keys',   label: 'API Keys' },
   { id: 'ceremonies', label: 'Ceremony Models' },
+  { id: 'pricing',    label: 'Model Pricing' },
   { id: 'servers',    label: 'Servers & Ports' },
 ];
 
@@ -60,6 +62,9 @@ export function SettingsModal({ settings, models, onClose, onSaved }) {
           )}
           {activeTab === 'ceremonies' && (
             <CeremonyModelsTab settings={settings} models={models} onSaved={onSaved} />
+          )}
+          {activeTab === 'pricing' && (
+            <ModelPricingTab settings={settings} onSaved={onSaved} />
           )}
           {activeTab === 'servers' && (
             <ServersTab settings={settings} onSaved={onSaved} />

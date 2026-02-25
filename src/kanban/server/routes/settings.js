@@ -3,6 +3,35 @@ import fs from 'fs/promises';
 import path from 'path';
 
 /**
+ * Default model catalogue — mirrors the defaults in src/cli/init.js.
+ * Used as a fallback when a project's avc.json pre-dates model pricing support.
+ */
+const PRICING_SOURCES = {
+  claude: 'https://www.anthropic.com/pricing',
+  gemini: 'https://ai.google.dev/pricing',
+  openai: 'https://openai.com/api/pricing',
+};
+
+const DEFAULT_MODELS = {
+  // Anthropic Claude models (prices per 1M tokens in USD)
+  'claude-opus-4-6':            { provider: 'claude',  displayName: 'Claude Opus 4.6',          pricing: { input: 5.00,  output: 25.00, unit: 'million', source: PRICING_SOURCES.claude, lastUpdated: '2026-02-24' } },
+  'claude-sonnet-4-6':          { provider: 'claude',  displayName: 'Claude Sonnet 4.6',        pricing: { input: 3.00,  output: 15.00, unit: 'million', source: PRICING_SOURCES.claude, lastUpdated: '2026-02-24' } },
+  'claude-haiku-4-5-20251001':  { provider: 'claude',  displayName: 'Claude Haiku 4.5',         pricing: { input: 1.00,  output:  5.00, unit: 'million', source: PRICING_SOURCES.claude, lastUpdated: '2026-02-24' } },
+  // Google Gemini models (prices per 1M tokens in USD)
+  'gemini-2.5-pro':             { provider: 'gemini',  displayName: 'Gemini 2.5 Pro',           pricing: { input: 1.25,  output: 10.00, unit: 'million', source: PRICING_SOURCES.gemini, lastUpdated: '2026-02-24' } },
+  'gemini-2.5-flash':           { provider: 'gemini',  displayName: 'Gemini 2.5 Flash',         pricing: { input: 0.30,  output:  2.50, unit: 'million', source: PRICING_SOURCES.gemini, lastUpdated: '2026-02-24' } },
+  'gemini-2.5-flash-lite':      { provider: 'gemini',  displayName: 'Gemini 2.5 Flash-Lite',    pricing: { input: 0.10,  output:  0.40, unit: 'million', source: PRICING_SOURCES.gemini, lastUpdated: '2026-02-24' } },
+  // OpenAI models (prices per 1M tokens in USD)
+  'gpt-5.2':                    { provider: 'openai',  displayName: 'GPT-5.2',                  pricing: { input: 1.75,  output: 14.00, unit: 'million', source: PRICING_SOURCES.openai, lastUpdated: '2026-02-24' } },
+  'gpt-5.1':                    { provider: 'openai',  displayName: 'GPT-5.1',                  pricing: { input: 1.25,  output: 10.00, unit: 'million', source: PRICING_SOURCES.openai, lastUpdated: '2026-02-24' } },
+  'gpt-5-mini':                 { provider: 'openai',  displayName: 'GPT-5 mini',               pricing: { input: 0.25,  output:  2.00, unit: 'million', source: PRICING_SOURCES.openai, lastUpdated: '2026-02-24' } },
+  'o4-mini':                    { provider: 'openai',  displayName: 'o4-mini',                  pricing: { input: 1.10,  output:  4.40, unit: 'million', source: PRICING_SOURCES.openai, lastUpdated: '2026-02-24' } },
+  'o3':                         { provider: 'openai',  displayName: 'o3',                       pricing: { input: 2.00,  output:  8.00, unit: 'million', source: PRICING_SOURCES.openai, lastUpdated: '2026-02-24' } },
+  'o3-mini':                    { provider: 'openai',  displayName: 'o3-mini',                  pricing: { input: 0.50,  output:  2.00, unit: 'million', source: PRICING_SOURCES.openai, lastUpdated: '2026-02-24' } },
+  'gpt-5.2-codex':              { provider: 'openai',  displayName: 'GPT-5.2-Codex',            pricing: { input: 1.75,  output: 14.00, unit: 'million', source: PRICING_SOURCES.openai, lastUpdated: '2026-02-24' } },
+};
+
+/**
  * Settings Router
  * Handles GET /api/settings and PUT sub-routes for project configuration.
  * @param {string} projectRoot - Absolute path to project root
@@ -78,6 +107,10 @@ export function createSettingsRouter(projectRoot) {
           },
         },
         ceremonies: config?.settings?.ceremonies || [],
+        models: (config?.settings?.models && Object.keys(config.settings.models).length > 0)
+          ? config.settings.models
+          : DEFAULT_MODELS,
+        missionGenerator: config?.settings?.missionGenerator || { validation: { maxIterations: 3, acceptanceThreshold: 75 } },
         kanbanPort: config?.settings?.kanban?.port || 4174,
         docsPort: config?.settings?.documentation?.port || 4173,
         boardTitle: config?.settings?.kanban?.title || 'AVC Kanban Board',
@@ -100,16 +133,57 @@ export function createSettingsRouter(projectRoot) {
     }
   });
 
-  // PUT /api/settings/ceremonies
+  // PUT /api/settings/ceremonies — also accepts missionGenerator alongside ceremonies
   router.put('/ceremonies', async (req, res) => {
     try {
-      const { ceremonies } = req.body;
+      const { ceremonies, missionGenerator } = req.body;
       if (!Array.isArray(ceremonies)) {
         return res.status(400).json({ error: 'ceremonies must be an array' });
       }
       const config = await readAvcConfig();
       if (!config.settings) config.settings = {};
       config.settings.ceremonies = ceremonies;
+      // Persist missionGenerator validation params if provided
+      if (missionGenerator?.validation && typeof missionGenerator.validation === 'object') {
+        if (!config.settings.missionGenerator) config.settings.missionGenerator = {};
+        config.settings.missionGenerator.validation = {
+          maxIterations: Number(missionGenerator.validation.maxIterations) || 3,
+          acceptanceThreshold: Number(missionGenerator.validation.acceptanceThreshold) || 75,
+        };
+      }
+      await writeAvcConfig(config);
+      res.json({ status: 'ok' });
+    } catch (err) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // PUT /api/settings/models — update pricing for all models
+  router.put('/models', async (req, res) => {
+    try {
+      const { models } = req.body;
+      if (!models || typeof models !== 'object' || Array.isArray(models)) {
+        return res.status(400).json({ error: 'models must be an object' });
+      }
+      const config = await readAvcConfig();
+      if (!config.settings) config.settings = {};
+      // Seed from defaults if models have never been persisted (migration for old projects)
+      if (!config.settings.models || Object.keys(config.settings.models).length === 0) {
+        config.settings.models = JSON.parse(JSON.stringify(DEFAULT_MODELS));
+      }
+      for (const [modelId, data] of Object.entries(models)) {
+        if (!config.settings.models[modelId]) continue; // only update existing models
+        if (data.pricing && typeof data.pricing === 'object') {
+          const today = new Date().toISOString().split('T')[0];
+          config.settings.models[modelId].pricing = {
+            input: Number(data.pricing.input) || 0,
+            output: Number(data.pricing.output) || 0,
+            unit: data.pricing.unit === 'thousand' ? 'thousand' : 'million',
+            source: typeof data.pricing.source === 'string' ? data.pricing.source.trim() : '',
+            lastUpdated: today,
+          };
+        }
+      }
       await writeAvcConfig(config);
       res.json({ status: 'ok' });
     } catch (err) {

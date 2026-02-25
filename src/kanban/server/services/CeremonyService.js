@@ -2,6 +2,7 @@ import path from 'path';
 import fs from 'fs';
 import { fileURLToPath } from 'url';
 import { KanbanLogger } from '../utils/kanban-logger.js';
+import { TokenTracker } from '../../../cli/token-tracker.js';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const agentsPath = path.join(__dirname, '../../../cli/agents');
 
@@ -244,6 +245,31 @@ export class CeremonyService {
       });
       log.finish(true, `score=${finalScore} iterations=${validationsRun}`);
 
+      // Track token usage
+      try {
+        const tracker = new TokenTracker(path.join(this.projectRoot, '.avc'));
+        const genUsage = generatorLLM.getTokenUsage();
+        if (genUsage.totalCalls > 0) {
+          tracker.addExecution('mission-scope', {
+            input: genUsage.inputTokens,
+            output: genUsage.outputTokens,
+            provider,
+            model: modelId,
+          });
+        }
+        const valUsage = validatorLLM.getTokenUsage();
+        if (valUsage.totalCalls > 0) {
+          tracker.addExecution('mission-scope', {
+            input: valUsage.inputTokens,
+            output: valUsage.outputTokens,
+            provider: validatorProvider,
+            model: validatorModelId,
+          });
+        }
+      } catch (trackErr) {
+        log.warn('Failed to track token usage', { error: trackErr.message });
+      }
+
       return returnValue;
 
     } catch (err) {
@@ -409,6 +435,31 @@ export class CeremonyService {
       });
       log.finish(true, `score=${finalScore} iterations=${validationsRun}`);
 
+      // Track token usage
+      try {
+        const tracker = new TokenTracker(path.join(this.projectRoot, '.avc'));
+        const genUsage = generatorLLM.getTokenUsage();
+        if (genUsage.totalCalls > 0) {
+          tracker.addExecution('mission-refine', {
+            input: genUsage.inputTokens,
+            output: genUsage.outputTokens,
+            provider,
+            model: modelId,
+          });
+        }
+        const valUsage = validatorLLM.getTokenUsage();
+        if (valUsage.totalCalls > 0) {
+          tracker.addExecution('mission-refine', {
+            input: valUsage.inputTokens,
+            output: valUsage.outputTokens,
+            provider: validatorProvider,
+            model: validatorModelId,
+          });
+        }
+      } catch (trackErr) {
+        log.warn('Failed to track token usage', { error: trackErr.message });
+      }
+
       return returnValue;
 
     } catch (err) {
@@ -431,6 +482,29 @@ export class CeremonyService {
       log.debug('Calling getDatabaseRecommendation');
       const result = await p.getDatabaseRecommendation(mission, scope, strategy);
       log.info('analyzeDatabase() completed', { resultKeys: Object.keys(result || {}) });
+
+      // Track token usage from TemplateProcessor's internal providers
+      try {
+        const tracker = new TokenTracker(path.join(this.projectRoot, '.avc'));
+        if (p._stageProviders) {
+          for (const providerInstance of Object.values(p._stageProviders)) {
+            if (typeof providerInstance.getTokenUsage === 'function') {
+              const usage = providerInstance.getTokenUsage();
+              if (usage.totalCalls > 0) {
+                tracker.addExecution('analyze-database', {
+                  input: usage.inputTokens,
+                  output: usage.outputTokens,
+                  provider: usage.provider,
+                  model: usage.model,
+                });
+              }
+            }
+          }
+        }
+      } catch (trackErr) {
+        log.warn('Failed to track token usage', { error: trackErr.message });
+      }
+
       log.finish(true);
       return result;
     } catch (err) {
@@ -454,6 +528,29 @@ export class CeremonyService {
       log.debug('Calling getArchitectureRecommendations');
       const result = await p.getArchitectureRecommendations(mission, scope, dbContext, strategy);
       log.info('analyzeArchitecture() completed', { resultKeys: Object.keys(result || {}) });
+
+      // Track token usage from TemplateProcessor's internal providers
+      try {
+        const tracker = new TokenTracker(path.join(this.projectRoot, '.avc'));
+        if (p._stageProviders) {
+          for (const providerInstance of Object.values(p._stageProviders)) {
+            if (typeof providerInstance.getTokenUsage === 'function') {
+              const usage = providerInstance.getTokenUsage();
+              if (usage.totalCalls > 0) {
+                tracker.addExecution('analyze-architecture', {
+                  input: usage.inputTokens,
+                  output: usage.outputTokens,
+                  provider: usage.provider,
+                  model: usage.model,
+                });
+              }
+            }
+          }
+        }
+      } catch (trackErr) {
+        log.warn('Failed to track token usage', { error: trackErr.message });
+      }
+
       log.finish(true);
       return result;
     } catch (err) {
@@ -479,6 +576,29 @@ export class CeremonyService {
       // cloudProvider is null — we let the architecture name carry that context
       const result = await p.prefillQuestions(mission, scope, arch, null, dbContext, strategy);
       log.info('prefillAnswers() completed', { resultKeys: Object.keys(result || {}) });
+
+      // Track token usage from TemplateProcessor's internal providers
+      try {
+        const tracker = new TokenTracker(path.join(this.projectRoot, '.avc'));
+        if (p._stageProviders) {
+          for (const providerInstance of Object.values(p._stageProviders)) {
+            if (typeof providerInstance.getTokenUsage === 'function') {
+              const usage = providerInstance.getTokenUsage();
+              if (usage.totalCalls > 0) {
+                tracker.addExecution('prefill-answers', {
+                  input: usage.inputTokens,
+                  output: usage.outputTokens,
+                  provider: usage.provider,
+                  model: usage.model,
+                });
+              }
+            }
+          }
+        }
+      } catch (trackErr) {
+        log.warn('Failed to track token usage', { error: trackErr.message });
+      }
+
       log.finish(true);
       return result;
     } catch (err) {

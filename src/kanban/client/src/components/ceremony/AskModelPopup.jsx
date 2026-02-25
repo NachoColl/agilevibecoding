@@ -1,6 +1,14 @@
 import { useEffect, useState } from 'react';
+import { AlertTriangle, Settings as SettingsIcon } from 'lucide-react';
 import { getModels, generateMission, refineMission } from '../../lib/api';
 import { useCeremonyStore } from '../../store/ceremonyStore';
+
+const KEY_LABELS = {
+  claude: 'Anthropic API Key (ANTHROPIC_API_KEY)',
+  anthropic: 'Anthropic API Key (ANTHROPIC_API_KEY)',
+  gemini: 'Google Gemini API Key (GEMINI_API_KEY)',
+  openai: 'OpenAI API Key (OPENAI_API_KEY)',
+};
 
 /**
  * IssuesPopup
@@ -189,7 +197,7 @@ function RefinePopup({ onSubmit, onClose }) {
  *   onUse(mission, scope) — called when the user accepts the generated result
  *   onClose()             — called when the user cancels / closes
  */
-export function AskModelPopup({ onUse, onClose }) {
+export function AskModelPopup({ onUse, onClose, onOpenSettings }) {
   const [models, setModels] = useState([]);
   const [selectedModelId, setSelectedModelId] = useState('');
   const [selectedValidatorModelId, setSelectedValidatorModelId] = useState('');
@@ -216,8 +224,22 @@ export function AskModelPopup({ onUse, onClose }) {
       .catch(() => setError('Failed to load available models.'));
   }, []);
 
+  function recheckModels() {
+    getModels()
+      .then((data) => setModels(data))
+      .catch(() => {});
+  }
+
   const selectedModel = models.find((m) => m.modelId === selectedModelId);
   const selectedValidatorModel = models.find((m) => m.modelId === selectedValidatorModelId);
+
+  // Derive missing providers from currently selected models
+  const missingKeyProviders = (() => {
+    const missing = new Set();
+    if (selectedModel && !selectedModel.hasApiKey) missing.add(selectedModel.provider);
+    if (selectedValidatorModel && !selectedValidatorModel.hasApiKey) missing.add(selectedValidatorModel.provider);
+    return [...missing];
+  })();
 
   async function handleGenerate() {
     if (!description.trim() || !selectedModelId || !selectedModel || !selectedValidatorModelId || !selectedValidatorModel) return;
@@ -369,6 +391,44 @@ export function AskModelPopup({ onUse, onClose }) {
                 value={selectedValidatorModelId}
                 onChange={setSelectedValidatorModelId}
               />
+
+              {missingKeyProviders.length > 0 && (
+                <div className="flex flex-col gap-2 p-3 bg-amber-50 border border-amber-200 rounded-lg">
+                  <div className="flex items-start gap-2">
+                    <AlertTriangle className="w-3.5 h-3.5 text-amber-500 flex-shrink-0 mt-0.5" />
+                    <div>
+                      <p className="text-xs font-semibold text-amber-900">API Key Missing</p>
+                      <ul className="mt-1 space-y-0.5">
+                        {missingKeyProviders.map((p) => (
+                          <li key={p} className="flex items-center gap-1.5 text-xs text-amber-800">
+                            <span className="w-1 h-1 rounded-full bg-amber-400 flex-shrink-0" />
+                            {KEY_LABELS[p] || p}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {onOpenSettings && (
+                      <button
+                        type="button"
+                        onClick={onOpenSettings}
+                        className="flex items-center gap-1 text-xs font-medium bg-slate-900 text-white px-2.5 py-1 rounded-md hover:bg-slate-700 transition-colors"
+                      >
+                        <SettingsIcon className="w-3 h-3" />
+                        Settings
+                      </button>
+                    )}
+                    <button
+                      type="button"
+                      onClick={recheckModels}
+                      className="text-xs text-slate-500 hover:text-slate-800 transition-colors"
+                    >
+                      Re-check
+                    </button>
+                  </div>
+                </div>
+              )}
 
               <div>
                 <label className="block text-xs font-medium text-slate-500 mb-1">

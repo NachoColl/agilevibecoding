@@ -12,6 +12,7 @@ import { FileWatcher } from './services/FileWatcher.js';
 import { createWorkItemsRouter } from './routes/work-items.js';
 import { createCeremonyRouter } from './routes/ceremony.js';
 import { createSettingsRouter } from './routes/settings.js';
+import { createCostsRouter } from './routes/costs.js';
 import { setupWebSocket } from './routes/websocket.js';
 import { renderMarkdown } from './utils/markdown.js';
 import { CeremonyService } from './services/CeremonyService.js';
@@ -239,6 +240,10 @@ export class KanbanServer {
     // Ceremony routes
     const ceremonyRouter = createCeremonyRouter(this.ceremonyService);
     this.app.use('/api/ceremony', ceremonyRouter);
+
+    // Costs routes
+    const costsRouter = createCostsRouter(this.projectRoot);
+    this.app.use('/api/costs', costsRouter);
 
     // SPA fallback — serve index.html for any non-API GET
     this.app.get('*', (req, res) => {

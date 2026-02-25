@@ -1,6 +1,6 @@
 import { useEffect, useState, useMemo, useRef } from 'react';
-import { Pencil, Check, X, BookOpen, Settings } from 'lucide-react';
-import { getHealth, getBoardTitle, updateBoardTitle, getDocsUrl, getSettings, getModels } from './lib/api';
+import { Pencil, Check, X, BookOpen, Settings, DollarSign } from 'lucide-react';
+import { getHealth, getBoardTitle, updateBoardTitle, getDocsUrl, getSettings, getModels, getCostSummary } from './lib/api';
 import { useWebSocket } from './hooks/useWebSocket';
 import { useKanbanStore } from './store/kanbanStore';
 import { useFilterStore } from './store/filterStore';
@@ -10,6 +10,7 @@ import { FilterToolbar } from './components/kanban/FilterToolbar';
 import { CardDetailModal } from './components/kanban/CardDetailModal';
 import { SponsorCallModal } from './components/ceremony/SponsorCallModal';
 import { SettingsModal } from './components/settings/SettingsModal';
+import { CostModal } from './components/stats/CostModal';
 import { groupItemsByColumn } from './lib/status-grouping';
 
 function App() {
@@ -28,6 +29,10 @@ function App() {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [settingsSnapshot, setSettingsSnapshot] = useState(null);
   const [modelsSnapshot, setModelsSnapshot] = useState([]);
+
+  // Cost chip + modal state
+  const [costSummary, setCostSummary] = useState(null);
+  const [costModalOpen, setCostModalOpen] = useState(false);
 
   // Zustand stores
   const { workItems, loadWorkItems, loading, error } = useKanbanStore();
@@ -114,6 +119,13 @@ function App() {
       titleInputRef.current?.select();
     }
   }, [editingTitle]);
+
+  // Poll cost summary every 60 seconds
+  useEffect(() => {
+    getCostSummary().then(setCostSummary).catch(() => {});
+    const id = setInterval(() => getCostSummary().then(setCostSummary).catch(() => {}), 60_000);
+    return () => clearInterval(id);
+  }, []);
 
   // ── Title editing handlers ─────────────────────────────────────────────────
 
@@ -280,20 +292,6 @@ function App() {
               </p>
             </div>
             <div className="flex items-center gap-4">
-              {/* Sponsor Call button */}
-              {ceremonyStatus !== 'running' && !loading && workItems.length === 0 && (
-                <button
-                  onClick={() => {
-                    resetWizard();
-                    openWizard();
-                  }}
-                  className="px-3 py-1.5 text-sm font-medium bg-slate-900 text-white rounded-lg hover:bg-slate-700 transition-colors"
-                  title="Start sponsor call ceremony"
-                >
-                  🚀 Start Project
-                </button>
-              )}
-
               {/* Real-time updates status */}
               <div className="flex items-center gap-2">
                 <div
@@ -313,6 +311,21 @@ function App() {
                     : 'No live updates'}
                 </span>
               </div>
+
+              {/* Cost chip */}
+              {costSummary != null && (
+                <button
+                  onClick={() => setCostModalOpen(true)}
+                  className="flex items-center gap-1 text-xs text-slate-500 hover:text-slate-700 border border-slate-200 rounded px-2 py-0.5 hover:border-slate-300 transition-colors"
+                  title="LLM cost this month — click for details"
+                >
+                  <DollarSign className="w-3 h-3" />
+                  {costSummary.totalCost < 0.01 && costSummary.totalCost > 0
+                    ? '< $0.01'
+                    : `$${costSummary.totalCost.toFixed(2)}`}
+                  <span className="text-slate-400">/mo</span>
+                </button>
+              )}
 
               {/* Settings button */}
               <button
@@ -346,7 +359,10 @@ function App() {
       {/* Main Content */}
       <main className="flex-1 overflow-hidden">
         <div className="h-full px-4 sm:px-6 lg:px-8 py-6">
-          <KanbanBoard onCardClick={handleCardClick} />
+          <KanbanBoard
+            onCardClick={handleCardClick}
+            onStartProject={ceremonyStatus !== 'running' ? () => { resetWizard(); openWizard(); } : undefined}
+          />
         </div>
       </main>
 
@@ -373,7 +389,7 @@ function App() {
       />
 
       {/* Sponsor Call Ceremony Modal */}
-      {ceremonyOpen && <SponsorCallModal />}
+      {ceremonyOpen && <SponsorCallModal onOpenSettings={openSettings} />}
 
       {/* Settings Modal */}
       {settingsOpen && settingsSnapshot && (
@@ -384,6 +400,9 @@ function App() {
           onSaved={handleSettingsSaved}
         />
       )}
+
+      {/* Cost Modal */}
+      {costModalOpen && <CostModal onClose={() => setCostModalOpen(false)} />}
     </div>
   );
 }
