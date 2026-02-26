@@ -1,14 +1,17 @@
 import { useEffect, useState, useMemo, useRef } from 'react';
 import { Pencil, Check, X, BookOpen, Settings, DollarSign } from 'lucide-react';
-import { getHealth, getBoardTitle, updateBoardTitle, getDocsUrl, getSettings, getModels, getCostSummary } from './lib/api';
+import { getHealth, getBoardTitle, updateBoardTitle, getDocsUrl, getSettings, getModels, getCostSummary, getProjectStatus } from './lib/api';
 import { useWebSocket } from './hooks/useWebSocket';
 import { useKanbanStore } from './store/kanbanStore';
 import { useFilterStore } from './store/filterStore';
 import { useCeremonyStore } from './store/ceremonyStore';
+import { useSprintPlanningStore } from './store/sprintPlanningStore';
 import { KanbanBoard } from './components/kanban/KanbanBoard';
+import { ProjectFileEditorPopup } from './components/ProjectFileEditorPopup';
 import { FilterToolbar } from './components/kanban/FilterToolbar';
 import { CardDetailModal } from './components/kanban/CardDetailModal';
 import { SponsorCallModal } from './components/ceremony/SponsorCallModal';
+import { SprintPlanningModal } from './components/ceremony/SprintPlanningModal';
 import { SettingsModal } from './components/settings/SettingsModal';
 import { CostModal } from './components/stats/CostModal';
 import { groupItemsByColumn } from './lib/status-grouping';
@@ -34,6 +37,10 @@ function App() {
   const [costSummary, setCostSummary] = useState(null);
   const [costModalOpen, setCostModalOpen] = useState(false);
 
+  // Project file status + editor popup
+  const [projectFilesStatus, setProjectFilesStatus] = useState({ docExists: false, contextExists: false });
+  const [editingProjectFile, setEditingProjectFile] = useState(null); // 'doc' | 'context' | null
+
   // Zustand stores
   const { workItems, loadWorkItems, loading, error } = useKanbanStore();
   const { typeFilters, searchQuery } = useFilterStore();
@@ -49,6 +56,18 @@ function App() {
     appendMissionProgress,
     setWizardStep,
   } = useCeremonyStore();
+
+  const {
+    isOpen:         sprintPlanningOpen,
+    openModal:      openSprintPlanning,
+    closeModal:     closeSprintPlanning,
+    setStep:        setSprintPlanningStep,
+    setStatus:      setSprintPlanningStatus,
+    appendProgress: appendSprintPlanningProgress,
+    setResult:      setSprintPlanningResult,
+    setError:       setSprintPlanningError,
+    status:         sprintPlanningStatus,
+  } = useSprintPlanningStore();
 
   // Get filtered items for navigation
   const filteredItems = useMemo(() => {
@@ -87,6 +106,20 @@ function App() {
         setCeremonyError(message.error);
       } else if (message.type === 'mission:progress') {
         appendMissionProgress({ step: message.step, message: message.message });
+      } else if (message.type === 'cost:update') {
+        getCostSummary().then(setCostSummary).catch(() => {});
+      } else if (message.type === 'sprint-planning:progress') {
+        appendSprintPlanningProgress({ type: 'progress', message: message.message });
+      } else if (message.type === 'sprint-planning:substep') {
+        appendSprintPlanningProgress({ type: 'substep', substep: message.substep, meta: message.meta });
+      } else if (message.type === 'sprint-planning:complete') {
+        setSprintPlanningStatus('complete');
+        setSprintPlanningResult(message.result);
+        setSprintPlanningStep(3);
+        loadWorkItems();
+      } else if (message.type === 'sprint-planning:error') {
+        setSprintPlanningStatus('error');
+        setSprintPlanningError(message.error);
       }
     },
   });
@@ -95,14 +128,16 @@ function App() {
   useEffect(() => {
     const init = async () => {
       try {
-        const [healthData, title, docsUrlData] = await Promise.all([
+        const [healthData, title, docsUrlData, filesStatus] = await Promise.all([
           getHealth(),
           getBoardTitle(),
           getDocsUrl(),
+          getProjectStatus(),
         ]);
         setHealth(healthData);
         setBoardTitle(title);
         setDocsUrl(docsUrlData);
+        setProjectFilesStatus(filesStatus);
         await loadWorkItems();
       } catch (err) {
         console.error('Initialization error:', err);
@@ -361,7 +396,20 @@ function App() {
         <div className="h-full px-4 sm:px-6 lg:px-8 py-6">
           <KanbanBoard
             onCardClick={handleCardClick}
-            onStartProject={ceremonyStatus !== 'running' ? () => { resetWizard(); openWizard(); } : undefined}
+            projectFilesReady={projectFilesStatus.docExists && projectFilesStatus.contextExists}
+            onStartProject={
+              !projectFilesStatus.docExists && !projectFilesStatus.contextExists && ceremonyStatus !== 'running'
+                ? () => { resetWizard(); openWizard(); }
+                : undefined
+            }
+            onEditProjectDoc={() => setEditingProjectFile('doc')}
+            onEditProjectContext={() => setEditingProjectFile('context')}
+            onStartSprintPlanning={
+              projectFilesStatus.docExists && projectFilesStatus.contextExists &&
+              sprintPlanningStatus !== 'running' && ceremonyStatus !== 'running'
+                ? openSprintPlanning
+                : undefined
+            }
           />
         </div>
       </main>
@@ -391,6 +439,9 @@ function App() {
       {/* Sponsor Call Ceremony Modal */}
       {ceremonyOpen && <SponsorCallModal onOpenSettings={openSettings} />}
 
+      {/* Sprint Planning Ceremony Modal */}
+      {sprintPlanningOpen && <SprintPlanningModal onClose={closeSprintPlanning} />}
+
       {/* Settings Modal */}
       {settingsOpen && settingsSnapshot && (
         <SettingsModal
@@ -403,6 +454,14 @@ function App() {
 
       {/* Cost Modal */}
       {costModalOpen && <CostModal onClose={() => setCostModalOpen(false)} />}
+
+      {/* Project File Editor Popup */}
+      {editingProjectFile && (
+        <ProjectFileEditorPopup
+          fileType={editingProjectFile}
+          onClose={() => setEditingProjectFile(null)}
+        />
+      )}
     </div>
   );
 }

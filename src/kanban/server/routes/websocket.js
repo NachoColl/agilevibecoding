@@ -118,8 +118,28 @@ export function setupWebSocket(server, dataStore) {
     broadcast({ type: 'ceremony:error', error });
   }
 
+  function broadcastSprintPlanningProgress(message) {
+    broadcast({ type: 'sprint-planning:progress', message });
+  }
+
+  function broadcastSprintPlanningSubstep(substep, meta) {
+    broadcast({ type: 'sprint-planning:substep', substep, meta });
+  }
+
+  function broadcastSprintPlanningComplete(result) {
+    broadcast({ type: 'sprint-planning:complete', result });
+  }
+
+  function broadcastSprintPlanningError(error) {
+    broadcast({ type: 'sprint-planning:error', error });
+  }
+
   function broadcastMissionProgress(step, message) {
     broadcast({ type: 'mission:progress', step, message });
+  }
+
+  function broadcastCostUpdate() {
+    broadcast({ type: 'cost:update' });
   }
 
   return {
@@ -131,7 +151,12 @@ export function setupWebSocket(server, dataStore) {
     broadcastCeremonySubstep,
     broadcastCeremonyComplete,
     broadcastCeremonyError,
+    broadcastSprintPlanningProgress,
+    broadcastSprintPlanningSubstep,
+    broadcastSprintPlanningComplete,
+    broadcastSprintPlanningError,
     broadcastMissionProgress,
+    broadcastCostUpdate,
     getClientCount: () => clients.size,
   };
 }

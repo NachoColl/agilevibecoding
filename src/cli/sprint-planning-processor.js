@@ -1236,7 +1236,7 @@ ${projectContext}
   }
 
   // Main execution method
-  async execute() {
+  async execute(progressCallback = null) {
     // Initialize ceremony history
     const { CeremonyHistory } = await import('./ceremony-history.js');
     const history = new CeremonyHistory(this.avcPath);
@@ -1269,10 +1269,12 @@ ${projectContext}
 
       // Stage 1: Validate
       sendProgress('Validating prerequisites...');
+      progressCallback?.('Stage 1/8: Validating prerequisites…');
       this.validatePrerequisites();
 
       // Stage 2: Read existing hierarchy
       sendProgress('Analyzing existing project structure...');
+      progressCallback?.('Stage 2/8: Analyzing existing project structure…');
       const { existingEpics, existingStories, maxEpicNum, maxStoryNums, preRunSnapshot } = this.readExistingHierarchy();
 
       if (existingEpics.size > 0) {
@@ -1284,6 +1286,7 @@ ${projectContext}
 
       // Stage 3: Collect scope
       sendProgress('Collecting project scope...');
+      progressCallback?.('Stage 3/8: Collecting project scope…');
       const scope = await this.collectNewScope();
 
       // Read project context and log full content for cross-run comparison
@@ -1298,6 +1301,7 @@ ${projectContext}
 
       // Stage 4: Decompose
       sendProgress('Decomposing scope into Epics and Stories...');
+      progressCallback?.('Stage 4/8: Decomposing scope into Epics and Stories…');
       let hierarchy = await this.decomposeIntoEpicsStories(scope, existingEpics, existingStories, projectContext);
 
       // Log raw LLM output before any validation/modification
@@ -1315,6 +1319,7 @@ ${projectContext}
 
       // Stage 5: Multi-Agent Validation
       sendProgress('Validating Epics and Stories with domain experts...');
+      progressCallback?.('Stage 5/8: Validating with domain experts…');
       hierarchy = await this.validateHierarchy(hierarchy, projectContext);
 
       // Log hierarchy after validation (may have been modified)
@@ -1330,6 +1335,7 @@ ${projectContext}
 
       // Stage 6: Renumber IDs
       sendProgress('Renumbering hierarchy IDs...');
+      progressCallback?.('Stage 6/8: Renumbering hierarchy IDs…');
       hierarchy = this.renumberHierarchy(hierarchy, maxEpicNum, maxStoryNums);
 
       // Clear screen before file writing phase
@@ -1338,6 +1344,8 @@ ${projectContext}
 
       // Stage 7-8: Generate contexts and write files
       sendProgress('Generating context files and writing hierarchy...');
+      progressCallback?.('Stage 7/8: Generating context files…');
+      progressCallback?.('Stage 8/8: Writing hierarchy files…');
       const { epicCount, storyCount } = await this.writeHierarchyFiles(hierarchy, projectContext);
 
       // Stage 9: Summary & Cleanup
@@ -1409,6 +1417,21 @@ ${projectContext}
       }
       this.debug('='.repeat(80) + '\n');
 
+      // Build return result for kanban integration
+      const returnResult = {
+        epicsCreated: epicCount,
+        storiesCreated: storyCount,
+        totalEpics,
+        totalStories,
+        tokenUsage: {
+          input: tokenUsageSummary?.inputTokens || 0,
+          output: tokenUsageSummary?.outputTokens || 0,
+          total: tokenUsageSummary?.totalTokens || 0,
+        },
+        model: this._modelName,
+        provider: this._providerName,
+      };
+
       // Complete ceremony history tracking
       const filesGenerated = [];
       for (const epic of hierarchy.epics) {
@@ -1439,6 +1462,7 @@ ${projectContext}
         }
       });
 
+      return returnResult;
     } catch (error) {
       this.debug('\n========== ERROR OCCURRED ==========');
       this.debug('Error details', {

@@ -181,5 +181,17 @@ export function createCeremonyRouter(ceremonyService) {
     }
   });
 
+  // POST /api/ceremony/sprint-planning/run
+  router.post('/sprint-planning/run', async (req, res) => {
+    try {
+      await ceremonyService.runSprintPlanning();
+      console.log('[ceremony] sprint-planning/run started (fire-and-forget)');
+      res.json({ started: true });
+    } catch (err) {
+      console.error('[ceremony] sprint-planning/run error:', err.message);
+      res.status(400).json({ error: err.message });
+    }
+  });
+
   return router;
 }

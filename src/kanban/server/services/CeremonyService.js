@@ -3,8 +3,8 @@ import fs from 'fs';
 import { fileURLToPath } from 'url';
 import { KanbanLogger } from '../utils/kanban-logger.js';
 import { TokenTracker } from '../../../cli/token-tracker.js';
+import { loadAgent } from '../../../cli/agent-loader.js';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const agentsPath = path.join(__dirname, '../../../cli/agents');
 
 const PROVIDER_KEY_MAP = {
   claude: 'ANTHROPIC_API_KEY',
@@ -94,11 +94,9 @@ export class CeremonyService {
       });
 
       // Load agent files
-      const generatorAgentPath = path.join(agentsPath, 'mission-scope-generator.md');
-      const validatorAgentPath = path.join(agentsPath, 'mission-scope-validator.md');
-      log.debug('Loading agent files', { generatorAgentPath, validatorAgentPath });
-      const generatorAgent = fs.readFileSync(generatorAgentPath, 'utf8');
-      const validatorAgent = fs.readFileSync(validatorAgentPath, 'utf8');
+      log.debug('Loading agent files');
+      const generatorAgent = loadAgent('mission-scope-generator.md', this.projectRoot);
+      const validatorAgent = loadAgent('mission-scope-validator.md', this.projectRoot);
       log.debug('Agent files loaded', {
         generatorBytes: generatorAgent.length,
         validatorBytes: validatorAgent.length,
@@ -312,10 +310,8 @@ export class CeremonyService {
       const generatorLLM = await LLMProvider.create(provider, modelId);
       const validatorLLM = await LLMProvider.create(validatorProvider, validatorModelId);
 
-      const generatorAgentPath = path.join(agentsPath, 'mission-scope-generator.md');
-      const validatorAgentPath = path.join(agentsPath, 'mission-scope-validator.md');
-      const generatorAgent = fs.readFileSync(generatorAgentPath, 'utf8');
-      const validatorAgent = fs.readFileSync(validatorAgentPath, 'utf8');
+      const generatorAgent = loadAgent('mission-scope-generator.md', this.projectRoot);
+      const validatorAgent = loadAgent('mission-scope-validator.md', this.projectRoot);
 
       const emit = (step, message) => {
         log.debug(`[WS emit] ${step}: ${message}`);
@@ -617,6 +613,47 @@ export class CeremonyService {
 
     // Fire-and-forget: caller gets {started:true} immediately
     this._runAsync(requirements);
+  }
+
+  async runSprintPlanning() {
+    if (this.state.status === 'running') {
+      throw new Error('Ceremony already running');
+    }
+    this.state = { status: 'running', progress: [], result: null, error: null };
+    this._runSprintPlanningAsync(); // fire-and-forget
+  }
+
+  async _runSprintPlanningAsync() {
+    const log = new KanbanLogger('sprint-planning-run', this.projectRoot);
+    log.info('_runSprintPlanningAsync() started');
+    try {
+      const { ProjectInitiator } = await import('../../../cli/init.js');
+      const initiator = new ProjectInitiator();
+      const result = await initiator.sprintPlanningWithCallback((msg, substep, meta) => {
+        if (msg) {
+          log.info(`[progress] ${msg}`);
+          this.state.progress.push({ type: 'progress', message: msg });
+          this.websocket?.broadcastSprintPlanningProgress(msg);
+        }
+        if (substep) {
+          log.debug(`[substep] ${substep}`);
+          this.state.progress.push({ type: 'substep', substep, meta: meta || {} });
+          this.websocket?.broadcastSprintPlanningSubstep(substep, meta || {});
+        }
+      });
+      this.state.status = 'complete';
+      this.state.result = result;
+      log.info('_runSprintPlanningAsync() completed', result);
+      log.finish(true);
+      this.websocket?.broadcastSprintPlanningComplete(result);
+      this.websocket?.broadcastRefresh();
+    } catch (err) {
+      this.state.status = 'error';
+      this.state.error = err.message;
+      log.error('_runSprintPlanningAsync() failed', { message: err.message, stack: err.stack });
+      log.finish(false, err.message);
+      this.websocket?.broadcastSprintPlanningError(err.message);
+    }
   }
 
   async _runAsync(requirements) {

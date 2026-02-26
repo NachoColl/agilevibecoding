@@ -251,6 +251,10 @@ class ProjectInitiator {
                 provider: 'claude',
                 model: 'claude-sonnet-4-6'
               }
+            },
+            crossValidation: {
+              enabled: true,
+              maxIterations: 3
             }
           },
           {
@@ -323,6 +327,12 @@ class ProjectInitiator {
             ]
           }
         ],
+        missionGenerator: {
+          validation: {
+            maxIterations: 3,
+            acceptanceThreshold: 75
+          }
+        },
         questionnaire: {
           defaults: {
             MISSION_STATEMENT: null,
@@ -335,13 +345,16 @@ class ProjectInitiator {
         },
         models: {
           // Anthropic Claude models (prices per 1M tokens in USD)
+          // Source: https://www.anthropic.com/pricing
           'claude-opus-4-6': {
             provider: 'claude',
             displayName: 'Claude Opus 4.6',
             pricing: {
               input: 5.00,
               output: 25.00,
-              unit: 'million'
+              unit: 'million',
+              source: 'https://www.anthropic.com/pricing',
+              lastUpdated: '2026-02-24'
             }
           },
           'claude-sonnet-4-6': {
@@ -350,7 +363,9 @@ class ProjectInitiator {
             pricing: {
               input: 3.00,
               output: 15.00,
-              unit: 'million'
+              unit: 'million',
+              source: 'https://www.anthropic.com/pricing',
+              lastUpdated: '2026-02-24'
             }
           },
           'claude-haiku-4-5-20251001': {
@@ -359,18 +374,23 @@ class ProjectInitiator {
             pricing: {
               input: 1.00,
               output: 5.00,
-              unit: 'million'
+              unit: 'million',
+              source: 'https://www.anthropic.com/pricing',
+              lastUpdated: '2026-02-24'
             }
           },
 
           // Google Gemini models (prices per 1M tokens in USD)
+          // Source: https://ai.google.dev/pricing
           'gemini-2.5-pro': {
             provider: 'gemini',
             displayName: 'Gemini 2.5 Pro',
             pricing: {
               input: 1.25,
               output: 10.00,
-              unit: 'million'
+              unit: 'million',
+              source: 'https://ai.google.dev/pricing',
+              lastUpdated: '2026-02-24'
             }
           },
           'gemini-2.5-flash': {
@@ -379,7 +399,9 @@ class ProjectInitiator {
             pricing: {
               input: 0.30,
               output: 2.50,
-              unit: 'million'
+              unit: 'million',
+              source: 'https://ai.google.dev/pricing',
+              lastUpdated: '2026-02-24'
             }
           },
           'gemini-2.5-flash-lite': {
@@ -388,18 +410,23 @@ class ProjectInitiator {
             pricing: {
               input: 0.10,
               output: 0.40,
-              unit: 'million'
+              unit: 'million',
+              source: 'https://ai.google.dev/pricing',
+              lastUpdated: '2026-02-24'
             }
           },
 
           // OpenAI models (prices per 1M tokens in USD)
+          // Source: https://openai.com/api/pricing
           'gpt-5.2': {
             provider: 'openai',
             displayName: 'GPT-5.2',
             pricing: {
               input: 1.75,
               output: 14.00,
-              unit: 'million'
+              unit: 'million',
+              source: 'https://openai.com/api/pricing',
+              lastUpdated: '2026-02-24'
             }
           },
           'gpt-5.1': {
@@ -408,7 +435,9 @@ class ProjectInitiator {
             pricing: {
               input: 1.25,
               output: 10.00,
-              unit: 'million'
+              unit: 'million',
+              source: 'https://openai.com/api/pricing',
+              lastUpdated: '2026-02-24'
             }
           },
           'gpt-5-mini': {
@@ -417,7 +446,9 @@ class ProjectInitiator {
             pricing: {
               input: 0.25,
               output: 2.00,
-              unit: 'million'
+              unit: 'million',
+              source: 'https://openai.com/api/pricing',
+              lastUpdated: '2026-02-24'
             }
           },
           'o4-mini': {
@@ -426,7 +457,9 @@ class ProjectInitiator {
             pricing: {
               input: 1.10,
               output: 4.40,
-              unit: 'million'
+              unit: 'million',
+              source: 'https://openai.com/api/pricing',
+              lastUpdated: '2026-02-24'
             }
           },
           'o3': {
@@ -435,7 +468,9 @@ class ProjectInitiator {
             pricing: {
               input: 2.00,
               output: 8.00,
-              unit: 'million'
+              unit: 'million',
+              source: 'https://openai.com/api/pricing',
+              lastUpdated: '2026-02-24'
             }
           },
           'o3-mini': {
@@ -444,7 +479,9 @@ class ProjectInitiator {
             pricing: {
               input: 0.50,
               output: 2.00,
-              unit: 'million'
+              unit: 'million',
+              source: 'https://openai.com/api/pricing',
+              lastUpdated: '2026-02-24'
             }
           },
           'gpt-5.2-codex': {
@@ -453,7 +490,9 @@ class ProjectInitiator {
             pricing: {
               input: 1.75,
               output: 14.00,
-              unit: 'million'
+              unit: 'million',
+              source: 'https://openai.com/api/pricing',
+              lastUpdated: '2026-02-24'
             }
           }
         }
@@ -1335,6 +1374,21 @@ Documentation for this project will be generated automatically once the project 
 
     await processor.execute();
     fileLog('INFO', 'sprintPlanning() complete', { duration: `${Date.now() - startTime}ms` });
+  }
+
+  /**
+   * Run Sprint Planning ceremony with a progress callback (used by kanban board)
+   * @param {Function|null} progressCallback - Called with (msg, substep, meta) on each stage
+   * @returns {Promise<object>} Result with epicsCreated, storiesCreated, tokenUsage, model
+   */
+  async sprintPlanningWithCallback(progressCallback = null) {
+    fileLog('INFO', 'sprintPlanningWithCallback() called', { projectRoot: this.projectRoot });
+    if (!this.isAvcProject()) {
+      throw new Error('Project not initialized. Run /init first.');
+    }
+    const { SprintPlanningProcessor } = await import('./sprint-planning-processor.js');
+    const processor = new SprintPlanningProcessor();
+    return await processor.execute(progressCallback);
   }
 
   /**

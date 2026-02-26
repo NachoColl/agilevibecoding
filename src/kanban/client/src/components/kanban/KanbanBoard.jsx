@@ -15,7 +15,7 @@ import {
  * Kanban Board Component
  * Main board container with columns and filtering
  */
-export function KanbanBoard({ onCardClick }) {
+export function KanbanBoard({ onCardClick, onStartProject, projectFilesReady, onEditProjectDoc, onEditProjectContext, onStartSprintPlanning }) {
   const [selectedItem, setSelectedItem] = useState(null);
 
   // Zustand stores
@@ -82,13 +82,56 @@ export function KanbanBoard({ onCardClick }) {
     return (
       <div className="flex items-center justify-center py-12">
         <div className="text-center">
-          <div className="text-6xl mb-4">📋</div>
-          <h3 className="text-xl font-semibold text-slate-900 mb-2">
-            No Work Items
-          </h3>
-          <p className="text-slate-600 mb-4">
-            Start by creating epics and stories with /sprint-planning command
-          </p>
+          {onStartProject ? (
+            // Case A: project files missing, ceremony not running
+            <>
+              <div className="text-6xl mb-4">📋</div>
+              <h3 className="text-xl font-semibold text-slate-900 mb-2">No Work Items</h3>
+              <p className="text-sm text-slate-500 mb-4">Run the Sponsor Call ceremony to set up your project.</p>
+              <button
+                onClick={onStartProject}
+                className="px-5 py-2.5 text-sm font-medium bg-slate-900 text-white rounded-lg hover:bg-slate-700 transition-colors"
+              >
+                🚀 Start Project
+              </button>
+            </>
+          ) : projectFilesReady ? (
+            // Case B: files exist, ready for sprint planning
+            <>
+              <div className="text-5xl mb-4">🏃</div>
+              <h3 className="text-lg font-semibold text-slate-900 mb-3">Ready for Sprint Planning</h3>
+              <p className="text-sm text-slate-500 mb-5 max-w-sm">
+                Your project is set up. Review your project files before running sprint planning.
+              </p>
+              <div className="flex items-center justify-center gap-3 mb-6">
+                <button
+                  onClick={onEditProjectDoc}
+                  className="flex items-center gap-2 px-4 py-2 text-sm font-medium border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors text-slate-700"
+                >
+                  📄 Documentation
+                </button>
+                <button
+                  onClick={onEditProjectContext}
+                  className="flex items-center gap-2 px-4 py-2 text-sm font-medium border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors text-slate-700"
+                >
+                  🗺 Context
+                </button>
+              </div>
+              {onStartSprintPlanning ? (
+                <button
+                  onClick={onStartSprintPlanning}
+                  className="px-5 py-2.5 text-sm font-medium bg-slate-900 text-white rounded-lg hover:bg-slate-700 transition-colors"
+                >
+                  🚀 Start Sprint Planning
+                </button>
+              ) : (
+                <p className="text-xs text-slate-400">Sprint planning is running…</p>
+              )}
+            </>
+          ) : (
+            // Case C: ceremony running or status unknown
+            <p className="text-slate-600">Start by creating epics and stories with /sprint-planning command</p>
+          )}
         </div>
       </div>
     );

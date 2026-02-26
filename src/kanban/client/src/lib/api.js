@@ -238,6 +238,10 @@ export async function updateProjectContext(content) {
   return apiFetch('/project/context', { method: 'PUT', body: JSON.stringify({ content }) });
 }
 
+export async function getProjectStatus() {
+  return apiFetch('/project/status');
+}
+
 // ── Settings API ─────────────────────────────────────────────────────────────
 
 export async function getSettings() {
@@ -294,6 +298,10 @@ export async function runCeremony(requirements) {
   });
 }
 
+export async function runSprintPlanning() {
+  return apiFetch('/ceremony/sprint-planning/run', { method: 'POST' });
+}
+
 export async function getModels() {
   return apiFetch('/ceremony/models');
 }
@@ -310,6 +318,27 @@ export async function refineMission(missionStatement, initialScope, refinementRe
     method: 'POST',
     body: JSON.stringify({ missionStatement, initialScope, refinementRequest, modelId, provider, validatorModelId, validatorProvider }),
   });
+}
+
+// ── Agents API ───────────────────────────────────────────────────────────────
+
+export async function getAgentList() {
+  return apiFetch('/settings/agents');
+}
+
+export async function getAgentContent(name) {
+  return apiFetch(`/settings/agents/${encodeURIComponent(name)}`);
+}
+
+export async function saveAgentContent(name, content) {
+  return apiFetch(`/settings/agents/${encodeURIComponent(name)}`, {
+    method: 'PUT',
+    body: JSON.stringify({ content }),
+  });
+}
+
+export async function resetAgent(name) {
+  return apiFetch(`/settings/agents/${encodeURIComponent(name)}`, { method: 'DELETE' });
 }
 
 // ── Costs API ─────────────────────────────────────────────────────────────────
