@@ -1,0 +1,15 @@
+{
+  "agentName": "solver-story-qa",
+  "version": "1.0.0",
+  "description": "Output schema for QA Engineer story solver",
+  "requiredFields": ["id", "name", "userType", "description", "acceptance", "dependencies", "improvementNotes"],
+  "fieldValidation": {
+    "id": { "type": "string" },
+    "name": { "type": "string" },
+    "userType": { "type": "string" },
+    "description": { "type": "string" },
+    "acceptance": { "type": "array", "minLength": 1 },
+    "dependencies": { "type": "array" },
+    "improvementNotes": { "type": "string" }
+  }
+}

@@ -95,20 +95,30 @@ export function ArchitectureStep({ onNext, onBack, analyzing }) {
         >
           ← Back
         </button>
-        <button
-          onClick={onNext}
-          disabled={!selectedArch || analyzing}
-          className="px-5 py-2 bg-slate-900 text-white text-sm font-medium rounded-lg disabled:opacity-40 hover:bg-slate-700 transition-colors flex items-center gap-2"
-        >
-          {analyzing ? (
-            <>
-              <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-              Preparing requirements…
-            </>
-          ) : (
-            'Continue'
-          )}
-        </button>
+        <div className="flex items-center gap-3">
+          <button
+            type="button"
+            onClick={onNext}
+            disabled={analyzing}
+            className="text-sm text-slate-400 hover:text-slate-600 disabled:opacity-40 transition-colors"
+          >
+            Skip — let the model decide
+          </button>
+          <button
+            onClick={onNext}
+            disabled={!selectedArch || analyzing}
+            className="px-5 py-2 bg-slate-900 text-white text-sm font-medium rounded-lg disabled:opacity-40 hover:bg-slate-700 transition-colors flex items-center gap-2"
+          >
+            {analyzing ? (
+              <>
+                <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                Preparing requirements…
+              </>
+            ) : (
+              'Continue'
+            )}
+          </button>
+        </div>
       </div>
     </div>
   );

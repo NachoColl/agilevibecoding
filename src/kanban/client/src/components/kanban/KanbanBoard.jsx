@@ -100,8 +100,11 @@ export function KanbanBoard({ onCardClick, onStartProject, projectFilesReady, on
             <>
               <div className="text-5xl mb-4">🏃</div>
               <h3 className="text-lg font-semibold text-slate-900 mb-3">Ready for Sprint Planning</h3>
-              <p className="text-sm text-slate-500 mb-5 max-w-sm">
-                Your project is set up. Review your project files before running sprint planning.
+              <p className="text-sm text-slate-500 mb-2 max-w-sm">
+                Your project is set up and ready for sprint planning.
+              </p>
+              <p className="text-sm text-slate-700 font-medium mb-5 max-w-sm">
+                Review <code className="bg-slate-100 px-1 rounded text-xs">doc.md</code> and <code className="bg-slate-100 px-1 rounded text-xs">context.md</code> before starting — these files are the foundation of every Epic and Story that will be planned.
               </p>
               <div className="flex items-center justify-center gap-3 mb-6">
                 <button

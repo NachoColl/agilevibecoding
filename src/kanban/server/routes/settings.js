@@ -1,6 +1,12 @@
 import express from 'express';
 import fs from 'fs/promises';
+import { readdirSync, readFileSync, existsSync } from 'fs';
 import path from 'path';
+import { fileURLToPath } from 'url';
+
+const __routeDir = path.dirname(fileURLToPath(import.meta.url));
+const LIB_AGENTS_PATH = path.join(__routeDir, '../../../cli/agents');
+const customAgentsDir = (root) => path.join(root, '.avc', 'customized-agents');
 
 /**
  * Default model catalogue — mirrors the defaults in src/cli/init.js.
@@ -203,6 +209,73 @@ export function createSettingsRouter(projectRoot) {
       if (kanbanPort !== undefined) config.settings.kanban.port = Number(kanbanPort);
       if (docsPort !== undefined) config.settings.documentation.port = Number(docsPort);
       await writeAvcConfig(config);
+      res.json({ status: 'ok' });
+    } catch (err) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // GET /api/settings/agents — list all agent names with customization status
+  router.get('/agents', (req, res) => {
+    try {
+      const names = readdirSync(LIB_AGENTS_PATH).filter(f => f.endsWith('.md')).sort();
+      const customDir = customAgentsDir(projectRoot);
+      const agents = names.map(name => ({
+        name,
+        isCustomized: existsSync(path.join(customDir, name)),
+      }));
+      res.json({ agents });
+    } catch (err) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // GET /api/settings/agents/:name — get agent content (customized or default)
+  router.get('/agents/:name', (req, res) => {
+    const { name } = req.params;
+    if (!name.endsWith('.md') || name.includes('/') || name.includes('\\')) {
+      return res.status(400).json({ error: 'Invalid name' });
+    }
+    try {
+      const customPath = path.join(customAgentsDir(projectRoot), name);
+      const libPath = path.join(LIB_AGENTS_PATH, name);
+      if (!existsSync(libPath)) return res.status(404).json({ error: 'Agent not found' });
+      const isCustomized = existsSync(customPath);
+      const content = readFileSync(isCustomized ? customPath : libPath, 'utf8');
+      const defaultContent = readFileSync(libPath, 'utf8');
+      res.json({ name, content, isCustomized, defaultContent });
+    } catch (err) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // PUT /api/settings/agents/:name — save customized agent
+  router.put('/agents/:name', async (req, res) => {
+    const { name } = req.params;
+    const { content } = req.body;
+    if (!name.endsWith('.md') || name.includes('/') || name.includes('\\')) {
+      return res.status(400).json({ error: 'Invalid name' });
+    }
+    if (typeof content !== 'string') return res.status(400).json({ error: 'content must be a string' });
+    try {
+      const dir = customAgentsDir(projectRoot);
+      await fs.mkdir(dir, { recursive: true });
+      await fs.writeFile(path.join(dir, name), content, 'utf8');
+      res.json({ status: 'ok' });
+    } catch (err) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // DELETE /api/settings/agents/:name — reset to library default
+  router.delete('/agents/:name', async (req, res) => {
+    const { name } = req.params;
+    if (!name.endsWith('.md') || name.includes('/') || name.includes('\\')) {
+      return res.status(400).json({ error: 'Invalid name' });
+    }
+    try {
+      const customPath = path.join(customAgentsDir(projectRoot), name);
+      try { await fs.unlink(customPath); } catch {}
       res.json({ status: 'ok' });
     } catch (err) {
       res.status(500).json({ error: err.message });

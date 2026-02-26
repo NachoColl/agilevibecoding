@@ -1,0 +1,15 @@
+{
+  "agentName": "solver-epic-developer",
+  "version": "1.0.0",
+  "description": "Output schema for Developer epic solver",
+  "requiredFields": ["id", "name", "domain", "description", "features", "dependencies", "improvementNotes"],
+  "fieldValidation": {
+    "id": { "type": "string" },
+    "name": { "type": "string" },
+    "domain": { "type": "string" },
+    "description": { "type": "string" },
+    "features": { "type": "array", "minLength": 1 },
+    "dependencies": { "type": "array" },
+    "improvementNotes": { "type": "string" }
+  }
+}

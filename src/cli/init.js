@@ -265,6 +265,20 @@ class ProjectInitiator {
               decomposition: {
                 provider: 'claude',
                 model: 'claude-opus-4-6'
+              },
+              validation: {
+                provider: 'claude',
+                model: 'claude-sonnet-4-6'
+              },
+              solver: {
+                provider: 'claude',
+                model: 'claude-sonnet-4-6',
+                maxIterations: 3,
+                acceptanceThreshold: 70
+              },
+              'context-generation': {
+                provider: 'claude',
+                model: 'claude-sonnet-4-6'
               }
             },
             agents: [

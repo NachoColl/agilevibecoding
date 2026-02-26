@@ -4,12 +4,14 @@ import { ApiKeysTab } from './ApiKeysTab';
 import { CeremonyModelsTab } from './CeremonyModelsTab';
 import { ServersTab } from './ServersTab';
 import { ModelPricingTab } from './ModelPricingTab';
+import { AgentsTab } from './AgentsTab';
 
 const TABS = [
   { id: 'api-keys',   label: 'API Keys' },
   { id: 'ceremonies', label: 'Ceremony Models' },
   { id: 'pricing',    label: 'Model Pricing' },
   { id: 'servers',    label: 'Servers & Ports' },
+  { id: 'agents',     label: 'Agents' },
 ];
 
 export function SettingsModal({ settings, models, onClose, onSaved }) {
@@ -69,6 +71,7 @@ export function SettingsModal({ settings, models, onClose, onSaved }) {
           {activeTab === 'servers' && (
             <ServersTab settings={settings} onSaved={onSaved} />
           )}
+          {activeTab === 'agents' && <AgentsTab />}
         </div>
       </div>
     </div>

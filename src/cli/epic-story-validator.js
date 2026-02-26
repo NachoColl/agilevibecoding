@@ -3,6 +3,7 @@ import { LLMProvider } from './llm-provider.js';
 import path from 'path';
 import fs from 'fs';
 import { fileURLToPath } from 'url';
+import { loadAgent } from './agent-loader.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -12,6 +13,8 @@ const __dirname = path.dirname(__filename);
  *
  * Orchestrates validation across multiple domain-specific validator agents.
  * Each epic/story is reviewed by 2-8 specialized validators based on domain and features.
+ * After each validator, a paired solver agent improves the epic/story if issues are found,
+ * then the same validator re-validates — up to maxIterations times.
  */
 class EpicStoryValidator {
   constructor(llmProvider, verificationTracker, stagesConfig = null, useSmartSelection = false) {
@@ -101,7 +104,26 @@ class EpicStoryValidator {
   }
 
   /**
+   * Get provider for a specific solver based on solver stage config
+   * @param {string} role - Role name (e.g., 'security')
+   * @returns {Promise<LLMProvider>} LLM provider instance
+   */
+  async getProviderForSolver(role) {
+    const solverConfig = this.validationStageConfig?.solver;
+    if (!solverConfig?.provider) return this.llmProvider;
+
+    const cacheKey = `solver:${solverConfig.provider}:${solverConfig.model}`;
+    if (this._validatorProviders[cacheKey]) return this._validatorProviders[cacheKey];
+
+    const instance = await LLMProvider.create(solverConfig.provider, solverConfig.model);
+    this._validatorProviders[cacheKey] = instance;
+    return instance;
+  }
+
+  /**
    * Validate an Epic with multiple domain validators
+   * Runs validators sequentially; after each validator, if issues exist,
+   * a paired solver improves the epic before the next validator runs.
    * @param {Object} epic - Epic work.json object
    * @param {string} epicContext - Epic context.md content
    * @returns {Object} Aggregated validation result
@@ -131,12 +153,55 @@ class EpicStoryValidator {
     console.log(`   Domain: ${epic.domain}`);
     console.log(`   Validators: ${validators.length} specialized agents\n`);
 
-    // 2. Run all validators in parallel
-    const validationResults = await Promise.all(
-      validators.map(validatorName =>
-        this.runEpicValidator(epic, epicContext, validatorName)
-      )
-    );
+    // Read solver iteration settings
+    const solverConfig = this.validationStageConfig?.solver || {};
+    const maxIterations = solverConfig.maxIterations ?? 3;
+    const acceptanceThreshold = solverConfig.acceptanceThreshold ?? 70;
+
+    const validationResults = [];
+    // Working copy — accumulates improvements from each validator-solver pair
+    // Keep stories array untouched; solver only modifies epic-level fields
+    let workingEpic = { ...epic };
+
+    // Sequential: each validator sees improvements from previous solver
+    for (const validatorName of validators) {
+      let lastResult;
+
+      for (let iter = 0; iter < maxIterations; iter++) {
+        lastResult = await this.runEpicValidator(workingEpic, epicContext, validatorName);
+
+        const acceptable = lastResult.validationStatus !== 'needs-improvement'
+          || (lastResult.overallScore ?? 0) >= acceptanceThreshold;
+
+        if (acceptable || iter + 1 >= maxIterations) break;
+
+        // Run solver to improve the epic
+        console.log(`   ↻ [${validatorName}] issues found — running solver (iter ${iter + 1}/${maxIterations})...`);
+        try {
+          const improved = await this.runEpicSolver(workingEpic, epicContext, lastResult, validatorName);
+          if (improved && improved.id === workingEpic.id) {
+            // Merge only safe epic-level fields
+            workingEpic = {
+              ...workingEpic,
+              description:  improved.description  ?? workingEpic.description,
+              features:     improved.features     ?? workingEpic.features,
+              dependencies: improved.dependencies ?? workingEpic.dependencies,
+            };
+          }
+        } catch (err) {
+          console.warn(`   ⚠ Solver failed for ${validatorName}: ${err.message} — keeping current epic`);
+          break;
+        }
+      }
+
+      validationResults.push(lastResult);
+    }
+
+    // Write accumulated improvements back to the original epic object
+    // (sprint-planning-processor owns the reference; this mutates it in place)
+    epic.description  = workingEpic.description;
+    epic.features     = workingEpic.features;
+    epic.dependencies = workingEpic.dependencies;
 
     // 3. Aggregate results
     const aggregated = this.aggregateValidationResults(validationResults, 'epic');
@@ -153,6 +218,8 @@ class EpicStoryValidator {
 
   /**
    * Validate a Story with multiple domain validators
+   * Runs validators sequentially; after each validator, if issues exist,
+   * a paired solver improves the story before the next validator runs.
    * @param {Object} story - Story work.json object
    * @param {string} storyContext - Story context.md content
    * @param {Object} epic - Parent epic for routing
@@ -183,12 +250,53 @@ class EpicStoryValidator {
     console.log(`   Epic: ${epic.name} (${epic.domain})`);
     console.log(`   Validators: ${validators.length} specialized agents\n`);
 
-    // 2. Run all validators in parallel
-    const validationResults = await Promise.all(
-      validators.map(validatorName =>
-        this.runStoryValidator(story, storyContext, epic, validatorName)
-      )
-    );
+    // Read solver iteration settings
+    const solverConfig = this.validationStageConfig?.solver || {};
+    const maxIterations = solverConfig.maxIterations ?? 3;
+    const acceptanceThreshold = solverConfig.acceptanceThreshold ?? 70;
+
+    const validationResults = [];
+    // Working copy — accumulates improvements from each validator-solver pair
+    let workingStory = { ...story };
+
+    // Sequential: each validator sees improvements from previous solver
+    for (const validatorName of validators) {
+      let lastResult;
+
+      for (let iter = 0; iter < maxIterations; iter++) {
+        lastResult = await this.runStoryValidator(workingStory, storyContext, epic, validatorName);
+
+        const acceptable = lastResult.validationStatus !== 'needs-improvement'
+          || (lastResult.overallScore ?? 0) >= acceptanceThreshold;
+
+        if (acceptable || iter + 1 >= maxIterations) break;
+
+        // Run solver to improve the story
+        console.log(`   ↻ [${validatorName}] issues found — running solver (iter ${iter + 1}/${maxIterations})...`);
+        try {
+          const improved = await this.runStorySolver(workingStory, storyContext, epic, lastResult, validatorName);
+          if (improved && improved.id === workingStory.id) {
+            // Merge only safe story-level fields
+            workingStory = {
+              ...workingStory,
+              description:  improved.description  ?? workingStory.description,
+              acceptance:   improved.acceptance   ?? workingStory.acceptance,
+              dependencies: improved.dependencies ?? workingStory.dependencies,
+            };
+          }
+        } catch (err) {
+          console.warn(`   ⚠ Solver failed for ${validatorName}: ${err.message} — keeping current story`);
+          break;
+        }
+      }
+
+      validationResults.push(lastResult);
+    }
+
+    // Write accumulated improvements back to the original story object
+    story.description  = workingStory.description;
+    story.acceptance   = workingStory.acceptance;
+    story.dependencies = workingStory.dependencies;
 
     // 3. Aggregate results
     const aggregated = this.aggregateValidationResults(validationResults, 'story');
@@ -265,6 +373,131 @@ class EpicStoryValidator {
     rawResult._validatorName = validatorName;
 
     return rawResult;
+  }
+
+  /**
+   * Run a solver agent to improve an epic based on validation issues
+   * @private
+   */
+  async runEpicSolver(epic, epicContext, validationResult, validatorName) {
+    const role = this.extractDomain(validatorName);
+    const agentInstructions = this.loadAgentInstructions(`solver-epic-${role}.md`);
+    const prompt = this.buildEpicSolverPrompt(epic, epicContext, validationResult, validatorName);
+    const provider = await this.getProviderForSolver(role);
+
+    const improved = await provider.generateJSON(prompt, agentInstructions);
+
+    if (this.verificationTracker) {
+      this.verificationTracker.recordCheck(`solver-epic-${role}`, 'epic-solving', true);
+    }
+
+    return improved;
+  }
+
+  /**
+   * Run a solver agent to improve a story based on validation issues
+   * @private
+   */
+  async runStorySolver(story, storyContext, epic, validationResult, validatorName) {
+    const role = this.extractDomain(validatorName);
+    const agentInstructions = this.loadAgentInstructions(`solver-story-${role}.md`);
+    const prompt = this.buildStorySolverPrompt(story, storyContext, epic, validationResult, validatorName);
+    const provider = await this.getProviderForSolver(role);
+
+    const improved = await provider.generateJSON(prompt, agentInstructions);
+
+    if (this.verificationTracker) {
+      this.verificationTracker.recordCheck(`solver-story-${role}`, 'story-solving', true);
+    }
+
+    return improved;
+  }
+
+  /**
+   * Build solver prompt for an Epic
+   * @private
+   */
+  buildEpicSolverPrompt(epic, epicContext, validationResult, validatorName) {
+    const issues = (validationResult.issues || []).filter(i =>
+      i.severity === 'critical' || i.severity === 'major'
+    );
+
+    const role = this.extractDomain(validatorName);
+
+    const issueText = issues.map((issue, i) =>
+      `${i + 1}. [${issue.severity.toUpperCase()}] ${issue.category}: ${issue.description}\n   Fix: ${issue.suggestion}`
+    ).join('\n');
+
+    return `# Epic to Improve
+
+**Epic ID:** ${epic.id}
+**Epic Name:** ${epic.name}
+**Domain:** ${epic.domain}
+**Current Description:** ${epic.description}
+
+**Current Features:**
+${(epic.features || []).map(f => `- ${f}`).join('\n')}
+
+**Current Dependencies:**
+${(epic.dependencies || []).length > 0 ? epic.dependencies.join(', ') : 'None'}
+
+**Epic Context:**
+\`\`\`
+${epicContext}
+\`\`\`
+
+## Issues to Fix (from ${role} review):
+
+${issueText || 'No critical/major issues — improve overall quality.'}
+
+Improve this Epic to address the issues above. Return the complete improved Epic JSON.
+`;
+  }
+
+  /**
+   * Build solver prompt for a Story
+   * @private
+   */
+  buildStorySolverPrompt(story, storyContext, epic, validationResult, validatorName) {
+    const issues = (validationResult.issues || []).filter(i =>
+      i.severity === 'critical' || i.severity === 'major'
+    );
+
+    const role = this.extractDomain(validatorName);
+
+    const issueText = issues.map((issue, i) =>
+      `${i + 1}. [${issue.severity.toUpperCase()}] ${issue.category}: ${issue.description}\n   Fix: ${issue.suggestion}`
+    ).join('\n');
+
+    return `# Story to Improve
+
+**Story ID:** ${story.id}
+**Story Name:** ${story.name}
+**User Type:** ${story.userType}
+**Current Description:** ${story.description}
+
+**Current Acceptance Criteria:**
+${(story.acceptance || []).map((ac, i) => `${i + 1}. ${ac}`).join('\n')}
+
+**Current Dependencies:**
+${(story.dependencies || []).length > 0 ? story.dependencies.join(', ') : 'None'}
+
+**Parent Epic:**
+- Name: ${epic.name}
+- Domain: ${epic.domain}
+- Features: ${(epic.features || []).join(', ')}
+
+**Story Context:**
+\`\`\`
+${storyContext}
+\`\`\`
+
+## Issues to Fix (from ${role} review):
+
+${issueText || 'No critical/major issues — improve overall quality.'}
+
+Improve this Story to address the issues above. Return the complete improved Story JSON.
+`;
   }
 
   /**
@@ -431,21 +664,23 @@ Validate this Story from your domain expertise perspective and return JSON valid
    * @private
    */
   loadAgentInstructions(filename) {
-    const agentPath = path.join(this.agentsPath, filename);
-    if (!fs.existsSync(agentPath)) {
+    try {
+      return loadAgent(filename);
+    } catch (err) {
       throw new Error(`Agent file not found: ${filename}`);
     }
-    return fs.readFileSync(agentPath, 'utf8');
   }
 
 
   /**
-   * Extract domain name from validator name
+   * Extract domain name from validator or solver name
    * @private
    */
   extractDomain(validatorName) {
-    // Extract domain from validator name (e.g., "validator-epic-security" → "security")
-    const match = validatorName.match(/validator-(?:epic|story)-(.+)/);
+    // Extract domain from validator/solver name
+    // e.g., "validator-epic-security" → "security"
+    // e.g., "solver-epic-security" → "security"
+    const match = validatorName.match(/(?:validator|solver)-(?:epic|story)-(.+)/);
     return match ? match[1] : 'unknown';
   }
 

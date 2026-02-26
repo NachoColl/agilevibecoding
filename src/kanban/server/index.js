@@ -189,6 +189,14 @@ export class KanbanServer {
       res.json({ status: 'ok' });
     });
 
+    this.app.get('/api/project/status', async (req, res) => {
+      const [docExists, contextExists] = await Promise.all([
+        fs.access(path.join(projectPath, 'doc.md')).then(() => true).catch(() => false),
+        fs.access(path.join(projectPath, 'context.md')).then(() => true).catch(() => false),
+      ]);
+      res.json({ docExists, contextExists });
+    });
+
     // Settings router (GET /api/settings + PUT sub-routes)
     const settingsRouter = createSettingsRouter(this.projectRoot);
     this.app.use('/api/settings', settingsRouter);
@@ -360,6 +368,27 @@ export class KanbanServer {
 
     docWatcher.on('error', (err) => {
       console.error('[doc-watcher] Error:', err.message);
+    });
+
+    // Watch token-history.json → broadcast cost:update so the dashboard
+    // chip refreshes immediately after any API call writes token usage.
+    const tokenHistoryPath = path.join(this.projectRoot, '.avc', 'token-history.json');
+    const tokenWatcher = chokidar.watch(tokenHistoryPath, {
+      persistent: true,
+      ignoreInitial: true,
+      usePolling: true,
+      interval: 1000,
+      awaitWriteFinish: { stabilityThreshold: 300, pollInterval: 100 },
+    });
+
+    tokenWatcher.on('change', () => {
+      if (this.websocket) {
+        this.websocket.broadcastCostUpdate();
+      }
+    });
+
+    tokenWatcher.on('error', (err) => {
+      console.error('[token-watcher] Error:', err.message);
     });
   }
 

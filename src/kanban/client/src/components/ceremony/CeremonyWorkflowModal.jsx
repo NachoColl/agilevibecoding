@@ -1,10 +1,10 @@
 import { useState } from 'react';
-import { X, ExternalLink } from 'lucide-react';
-
-const AGENT_BASE_URL = 'https://agilevibecoding.org/agents';
+import { X, Pencil } from 'lucide-react';
+import { AgentEditorPopup } from '../settings/AgentEditorPopup';
 
 // Human-readable labels for agent slugs
 const AGENT_LABELS = {
+  // Sponsor Call
   'mission-scope-generator':         'Mission Scope Generator',
   'mission-scope-validator':         'Mission Scope Validator',
   'suggestion-ux-researcher':        'UX Researcher',
@@ -20,6 +20,56 @@ const AGENT_LABELS = {
   'validator-context':               'Context Validator',
   'cross-validator-doc-to-context':  'Doc → Context Validator',
   'cross-validator-context-to-doc':  'Context → Doc Validator',
+  // Sprint Planning
+  'epic-story-decomposer':                'Epic/Story Decomposer',
+  'validator-selector':                   'Validator Selector',
+  'feature-context-generator':            'Context Generator',
+  'validator-epic-solution-architect':    'Solution Architect (Epic)',
+  'validator-epic-developer':             'Developer (Epic)',
+  'validator-epic-security':              'Security (Epic)',
+  'validator-epic-backend':               'Backend (Epic)',
+  'validator-epic-frontend':              'Frontend (Epic)',
+  'validator-epic-ux':                    'UX (Epic)',
+  'validator-story-developer':            'Developer (Story)',
+  'validator-story-qa':                   'QA (Story)',
+  'validator-story-test-architect':       'Test Architect (Story)',
+  'validator-story-solution-architect':   'Solution Architect (Story)',
+  'validator-story-security':             'Security (Story)',
+  'validator-story-backend':              'Backend (Story)',
+  'validator-story-frontend':             'Frontend (Story)',
+  'validator-story-ux':                   'UX (Story)',
+  // Sprint Planning — Epic Solvers
+  'solver-epic-solution-architect':   'Solver: Solution Architect (Epic)',
+  'solver-epic-developer':            'Solver: Developer (Epic)',
+  'solver-epic-security':             'Solver: Security (Epic)',
+  'solver-epic-devops':               'Solver: DevOps (Epic)',
+  'solver-epic-cloud':                'Solver: Cloud (Epic)',
+  'solver-epic-backend':              'Solver: Backend (Epic)',
+  'solver-epic-database':             'Solver: Database (Epic)',
+  'solver-epic-api':                  'Solver: API (Epic)',
+  'solver-epic-frontend':             'Solver: Frontend (Epic)',
+  'solver-epic-ui':                   'Solver: UI (Epic)',
+  'solver-epic-ux':                   'Solver: UX (Epic)',
+  'solver-epic-mobile':               'Solver: Mobile (Epic)',
+  'solver-epic-data':                 'Solver: Data (Epic)',
+  'solver-epic-qa':                   'Solver: QA (Epic)',
+  'solver-epic-test-architect':       'Solver: Test Architect (Epic)',
+  // Sprint Planning — Story Solvers
+  'solver-story-solution-architect':  'Solver: Solution Architect (Story)',
+  'solver-story-developer':           'Solver: Developer (Story)',
+  'solver-story-security':            'Solver: Security (Story)',
+  'solver-story-devops':              'Solver: DevOps (Story)',
+  'solver-story-cloud':               'Solver: Cloud (Story)',
+  'solver-story-backend':             'Solver: Backend (Story)',
+  'solver-story-database':            'Solver: Database (Story)',
+  'solver-story-api':                 'Solver: API (Story)',
+  'solver-story-frontend':            'Solver: Frontend (Story)',
+  'solver-story-ui':                  'Solver: UI (Story)',
+  'solver-story-ux':                  'Solver: UX (Story)',
+  'solver-story-mobile':              'Solver: Mobile (Story)',
+  'solver-story-data':                'Solver: Data (Story)',
+  'solver-story-qa':                  'Solver: QA (Story)',
+  'solver-story-test-architect':      'Solver: Test Architect (Story)',
 };
 
 // ── Step type config ──────────────────────────────────────────────────────────
@@ -30,7 +80,9 @@ const STEP_TYPE_CONFIG = {
   refine:   { label: 'Refine',         cls: 'bg-orange-50 text-orange-700 border-orange-200' },
   input:    { label: 'User Input',     cls: 'bg-purple-50 text-purple-700 border-purple-200' },
   cross:    { label: 'Cross-validate', cls: 'bg-indigo-50 text-indigo-700 border-indigo-200' },
-  output:   { label: 'Output',         cls: 'bg-emerald-50 text-emerald-700 border-emerald-200' },
+  output:   { label: 'Write',          cls: 'bg-emerald-50 text-emerald-700 border-emerald-200' },
+  read:     { label: 'Read',           cls: 'bg-sky-50 text-sky-700 border-sky-200' },
+  process:  { label: 'Process',        cls: 'bg-slate-50 text-slate-600 border-slate-200' },
 };
 
 const PHASE_COLOR_CONFIG = {
@@ -208,6 +260,7 @@ function buildSponsorCallPhases(ceremony, missionGenValidation) {
           model:    ceremony.stages?.context?.model,
           stageKey: 'context',
           agent:    'project-context-generator',
+          files:    [{ name: 'doc.md', direction: 'in', note: 'generated doc.md content used to derive context' }],
         },
         {
           type:             'loop-group',
@@ -257,22 +310,187 @@ function buildSponsorCallPhases(ceremony, missionGenValidation) {
       label: 'Output',
       color: 'emerald',
       steps: [
-        { type: 'output', label: '.avc/project/doc.md written' },
-        { type: 'output', label: '.avc/project/context.md written' },
+        { type: 'output', label: '.avc/project/doc.md written',     files: [{ name: 'project/doc.md',     direction: 'out' }] },
+        { type: 'output', label: '.avc/project/context.md written', files: [{ name: 'project/context.md', direction: 'out' }] },
       ],
     },
   ];
 }
 
-function buildSprintPlanningPhases(_c) { return null; }
+function buildSprintPlanningPhases(ceremony) {
+  // Stages that aren't explicitly configured fall back to ceremony.defaultModel
+  const fallbackModel = ceremony.defaultModel;
+  const solverMaxIter  = ceremony.stages?.solver?.maxIterations   ?? 3;
+  const solverThreshold = ceremony.stages?.solver?.acceptanceThreshold ?? 70;
+
+  return [
+    {
+      id: 'scope',
+      label: 'Scope Collection',
+      color: 'blue',
+      steps: [
+        {
+          type:  'read',
+          label: 'Read project scope',
+          files: [{ name: 'project/doc.md', direction: 'in', note: '.avc/project/doc.md — scope section extracted and sent to decomposer' }],
+        },
+        {
+          type:  'read',
+          label: 'Load project background context — passed to all LLM stages',
+          files: [{ name: 'project/context.md', direction: 'in', note: '.avc/project/context.md — read once, forwarded as background to decomposition, validation & context generation' }],
+        },
+        { type: 'read', label: 'Analyse existing Epics & Stories (deduplication baseline)' },
+      ],
+    },
+    {
+      id: 'decomposition',
+      label: 'Decomposition',
+      color: 'purple',
+      steps: [
+        {
+          type:     'generate',
+          label:    'Decompose scope into Epics and Stories',
+          model:    ceremony.stages?.decomposition?.model ?? fallbackModel,
+          stageKey: 'decomposition',
+          agent:    'epic-story-decomposer',
+          files:    [
+            { name: 'project/doc.md',     direction: 'in', note: 'scope text extracted from doc.md' },
+            { name: 'project/context.md', direction: 'in', note: 'background context forwarded from scope collection' },
+          ],
+        },
+      ],
+    },
+    {
+      id: 'validation',
+      label: 'Multi-Agent Validation (Iterative)',
+      color: 'amber',
+      // Per-validator iteration loop: each validator runs, if issues found a paired
+      // solver improves the epic/story, then the same validator re-validates.
+      // Validators run sequentially so each one sees improvements from previous pairs.
+      steps: [
+        {
+          type:          'loop-group',
+          loopParamType: 'sprintSolver',
+          loop: {
+            max:       solverMaxIter,
+            threshold: solverThreshold,
+          },
+          steps: [
+            {
+              type:     'validate',
+              label:    'Validate each Epic with domain expert validators (sequential)',
+              model:    ceremony.stages?.validation?.model ?? fallbackModel,
+              stageKey: 'validation',
+              agents: [
+                { slug: 'validator-epic-solution-architect', note: 'always runs' },
+                { slug: 'validator-epic-developer',          note: 'always runs' },
+                { slug: 'validator-epic-security',           note: 'always runs' },
+                { slug: 'validator-epic-backend',            note: '+ domain validators selected per project' },
+              ],
+              files: [{ name: 'project/context.md', direction: 'in', note: 'project background context injected into every validation prompt' }],
+            },
+            {
+              type:     'refine',
+              label:    'Solve issues — improve Epic description, features, dependencies',
+              model:    ceremony.stages?.solver?.model ?? fallbackModel,
+              stageKey: 'solver',
+              agents: [
+                { slug: 'solver-epic-solution-architect', note: 'paired with validator-epic-solution-architect' },
+                { slug: 'solver-epic-developer',          note: 'paired with validator-epic-developer' },
+                { slug: 'solver-epic-security',           note: 'paired with validator-epic-security' },
+                { slug: 'solver-epic-backend',            note: 'paired with each domain validator' },
+              ],
+            },
+          ],
+        },
+        {
+          type:          'loop-group',
+          loopParamType: 'sprintSolver',
+          loopParamReadOnly: true,
+          loop: {
+            max:       solverMaxIter,
+            threshold: solverThreshold,
+          },
+          steps: [
+            {
+              type:     'validate',
+              label:    'Validate each Story with domain expert validators (sequential)',
+              model:    ceremony.stages?.validation?.model ?? fallbackModel,
+              stageKey: 'validation',
+              agents: [
+                { slug: 'validator-story-developer',      note: 'always runs' },
+                { slug: 'validator-story-qa',             note: 'always runs' },
+                { slug: 'validator-story-test-architect', note: 'always runs' },
+                { slug: 'validator-story-backend',        note: '+ domain validators selected per project' },
+              ],
+              files: [{ name: 'project/context.md', direction: 'in', note: 'project background context injected into every validation prompt' }],
+            },
+            {
+              type:     'refine',
+              label:    'Solve issues — improve Story description, acceptance criteria, dependencies',
+              model:    ceremony.stages?.solver?.model ?? fallbackModel,
+              stageKey: 'solver',
+              agents: [
+                { slug: 'solver-story-developer',      note: 'paired with validator-story-developer' },
+                { slug: 'solver-story-qa',             note: 'paired with validator-story-qa' },
+                { slug: 'solver-story-test-architect', note: 'paired with validator-story-test-architect' },
+                { slug: 'solver-story-backend',        note: 'paired with each domain validator' },
+              ],
+            },
+          ],
+        },
+      ],
+    },
+    {
+      id: 'context',
+      label: 'Context Generation',
+      color: 'green',
+      steps: [
+        {
+          type:     'generate',
+          label:    'Generate context files for each Epic and Story',
+          model:    ceremony.stages?.['context-generation']?.model ?? fallbackModel,
+          stageKey: 'context-generation',
+          agent:    'feature-context-generator',
+          files:    [{ name: 'project/context.md', direction: 'in', note: 'project background context injected into every context generation prompt' }],
+        },
+      ],
+    },
+    {
+      id: 'output',
+      label: 'Output',
+      color: 'emerald',
+      steps: [
+        { type: 'process', label: 'Renumber hierarchy IDs' },
+        {
+          type:  'output',
+          label: 'Write Epic files',
+          files: [
+            { name: '{epic}/work.json',  direction: 'out' },
+            { name: '{epic}/doc.md',     direction: 'out', note: 'stub — filled in by agent work' },
+            { name: '{epic}/context.md', direction: 'out', note: 'generated by feature-context-generator' },
+          ],
+        },
+        {
+          type:  'output',
+          label: 'Write Story files',
+          files: [
+            { name: '{story}/work.json',  direction: 'out' },
+            { name: '{story}/context.md', direction: 'out', note: 'generated by feature-context-generator' },
+          ],
+        },
+      ],
+    },
+  ];
+}
 function buildContextRetroPhases(_c)   { return null; }
 function buildSeedPhases(_c)           { return null; }
 
 const CEREMONY_WORKFLOWS = {
   'sponsor-call':          buildSponsorCallPhases,
-  'sprint-planning':       (_c, _m) => buildSprintPlanningPhases(_c),
-  'context-retrospective': (_c, _m) => buildContextRetroPhases(_c),
-  'seed':                  (_c, _m) => buildSeedPhases(_c),
+  'sprint-planning':       (c) => buildSprintPlanningPhases(c),
+  'context-retrospective': (_c) => buildContextRetroPhases(_c),
+  'seed':                  (_c) => buildSeedPhases(_c),
 };
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -307,23 +525,22 @@ function ModelSelectInline({ value, models, onChange }) {
 
 // ── Agent link ────────────────────────────────────────────────────────────────
 
-function AgentLink({ slug }) {
+function AgentLink({ slug, onOpen }) {
   const label = AGENT_LABELS[slug] || slug;
   return (
-    <a
-      href={`${AGENT_BASE_URL}/${slug}`}
-      target="_blank"
-      rel="noopener noreferrer"
+    <button
+      type="button"
+      onClick={() => onOpen(slug)}
       className="inline-flex items-center gap-1 text-[10px] font-medium text-blue-600 hover:text-blue-800 bg-blue-50 hover:bg-blue-100 border border-blue-200 hover:border-blue-300 px-1.5 py-0.5 rounded transition-colors whitespace-nowrap"
-      title={`View ${label} agent documentation`}
+      title={`Edit ${label} agent instructions`}
     >
       {label}
-      <ExternalLink className="w-2.5 h-2.5 flex-shrink-0" />
-    </a>
+      <Pencil className="w-2.5 h-2.5 flex-shrink-0" />
+    </button>
   );
 }
 
-function AgentLinks({ step }) {
+function AgentLinks({ step, onOpenAgent }) {
   const items = step.agents
     ? step.agents.map((a) => (typeof a === 'string' ? { slug: a, note: null } : a))
     : step.agent
@@ -338,7 +555,7 @@ function AgentLinks({ step }) {
     return (
       <div className="flex items-center gap-1 mt-1.5 flex-wrap">
         <span className="text-[10px] text-slate-400 font-medium mr-0.5">Agent</span>
-        {items.map(({ slug }) => <AgentLink key={slug} slug={slug} />)}
+        {items.map(({ slug }) => <AgentLink key={slug} slug={slug} onOpen={onOpenAgent} />)}
       </div>
     );
   }
@@ -349,11 +566,40 @@ function AgentLinks({ step }) {
       <div className="mt-1 flex flex-col gap-1">
         {items.map(({ slug, note }) => (
           <div key={slug} className="flex items-center gap-2 flex-wrap">
-            <AgentLink slug={slug} />
+            <AgentLink slug={slug} onOpen={onOpenAgent} />
             {note && <span className="text-[10px] text-slate-400 italic">{note}</span>}
           </div>
         ))}
       </div>
+    </div>
+  );
+}
+
+// ── File tags ─────────────────────────────────────────────────────────────────
+// Renders small ← filename (input) / → filename (output) badges on step cards.
+// Steps can carry a `files` array: [{ name, direction: 'in'|'out', note? }]
+
+function FileTags({ files }) {
+  if (!files || files.length === 0) return null;
+  return (
+    <div className="flex items-center gap-1 mt-1.5 flex-wrap">
+      {files.map((f, i) => {
+        const isIn = f.direction === 'in';
+        return (
+          <span
+            key={i}
+            className={`inline-flex items-center gap-0.5 text-[10px] font-mono font-medium px-1.5 py-0.5 rounded border whitespace-nowrap ${
+              isIn
+                ? 'bg-sky-50 text-sky-700 border-sky-200'
+                : 'bg-emerald-50 text-emerald-700 border-emerald-200'
+            }`}
+            title={f.note}
+          >
+            <span className="font-sans mr-0.5">{isIn ? '←' : '→'}</span>
+            {f.name}
+          </span>
+        );
+      })}
     </div>
   );
 }
@@ -371,42 +617,45 @@ function StepBadge({ type }) {
 
 // ── Plain step card ───────────────────────────────────────────────────────────
 
-function StepCard({ step, models, editable, onStageModelChange, onValidationModelChange }) {
-  const showModel  = step.type !== 'input' && step.type !== 'output';
+function StepCard({ step, models, editable, onStageModelChange, onValidationModelChange, onOpenAgent }) {
+  const showModel  = !['input', 'output', 'read', 'process'].includes(step.type);
   const canEdit    = editable && !step.sharedWith && (step.stageKey || step.validationKey);
 
   return (
-    <div className="flex gap-3 items-baseline bg-white border border-slate-200 rounded-lg px-3 py-2.5 shadow-sm">
-      <div className="flex-shrink-0">
+    <div className="flex gap-3 items-start bg-white border border-slate-200 rounded-lg px-3 py-2.5 shadow-sm">
+      <div className="flex-shrink-0 pt-0.5">
         <StepBadge type={step.type} />
       </div>
       <div className="min-w-0 flex-1">
-        <p className="text-xs text-slate-800 leading-snug">{step.label}</p>
+        <div className="flex items-start gap-2">
+          <p className="text-xs text-slate-800 leading-snug flex-1">{step.label}</p>
 
-        {showModel && (
-          step.sharedWith ? (
-            <p className="text-[10px] text-slate-400 italic mt-0.5">↑ same model as {step.sharedWith}</p>
-          ) : canEdit ? (
-            <div className="flex items-center gap-1 mt-1">
-              <span className="text-[10px] text-slate-400">⬡</span>
-              <ModelSelectInline
-                value={step.model}
-                models={models}
-                onChange={(modelId) => {
-                  if (step.stageKey) onStageModelChange(step.stageKey, modelId);
-                  else onValidationModelChange(step.validationKey, modelId);
-                }}
-              />
-            </div>
-          ) : (
-            <p className="text-xs text-slate-400 mt-0.5">
-              <span className="mr-1">⬡</span>
-              {step.note ? step.note : resolveModelName(step.model, models)}
-            </p>
-          )
-        )}
+          {showModel && (
+            step.sharedWith ? (
+              <p className="text-[10px] text-slate-400 italic flex-shrink-0 mt-0.5">↑ {step.sharedWith}</p>
+            ) : canEdit ? (
+              <div className="flex items-center gap-1 flex-shrink-0">
+                <span className="text-[10px] text-slate-400">⬡</span>
+                <ModelSelectInline
+                  value={step.model}
+                  models={models}
+                  onChange={(modelId) => {
+                    if (step.stageKey) onStageModelChange(step.stageKey, modelId);
+                    else onValidationModelChange(step.validationKey, modelId);
+                  }}
+                />
+              </div>
+            ) : (
+              <p className="text-[10px] text-slate-400 flex-shrink-0 mt-0.5">
+                <span className="mr-1">⬡</span>
+                {step.note ? step.note : resolveModelName(step.model, models)}
+              </p>
+            )
+          )}
+        </div>
 
-        <AgentLinks step={step} />
+        <AgentLinks step={step} onOpenAgent={onOpenAgent} />
+        <FileTags files={step.files} />
       </div>
     </div>
   );
@@ -414,7 +663,7 @@ function StepCard({ step, models, editable, onStageModelChange, onValidationMode
 
 // ── Loop group card ───────────────────────────────────────────────────────────
 
-function LoopGroupCard({ group, models, editable, onStageModelChange, onValidationModelChange, onLoopParamChange }) {
+function LoopGroupCard({ group, models, editable, onStageModelChange, onValidationModelChange, onLoopParamChange, onOpenAgent }) {
   const { loop, steps }   = group;
   const isIndigo          = steps.some((s) => s.type === 'cross');
   const c                 = isIndigo ? LOOP_C.indigo : LOOP_C.amber;
@@ -534,6 +783,7 @@ function LoopGroupCard({ group, models, editable, onStageModelChange, onValidati
                 editable={editable}
                 onStageModelChange={onStageModelChange}
                 onValidationModelChange={onValidationModelChange}
+                onOpenAgent={onOpenAgent}
               />
               {i < steps.length - 1 && (
                 <div className="flex items-center gap-2 my-1.5 ml-3">
@@ -597,6 +847,7 @@ export function CeremonyWorkflowModal({
   );
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState(null);
+  const [openAgentSlug, setOpenAgentSlug] = useState(null);
 
   // Phases rebuild from draft every render — always reflect current edits
   const buildPhases = ceremony?.name ? CEREMONY_WORKFLOWS[ceremony.name] : null;
@@ -656,6 +907,14 @@ export function CeremonyWorkflowModal({
       setDraft((prev) => ({
         ...prev,
         crossValidation: { ...(prev.crossValidation || {}), [field]: value },
+      }));
+    } else if (loopParamType === 'sprintSolver') {
+      setDraft((prev) => ({
+        ...prev,
+        stages: {
+          ...prev.stages,
+          solver: { ...(prev.stages?.solver || {}), [field]: value },
+        },
       }));
     }
   };
@@ -732,6 +991,7 @@ export function CeremonyWorkflowModal({
                         onStageModelChange={updateStageModel}
                         onValidationModelChange={updateValidationModel}
                         onLoopParamChange={updateLoopParam}
+                        onOpenAgent={setOpenAgentSlug}
                       />
                     ) : (
                       <StepCard
@@ -740,6 +1000,7 @@ export function CeremonyWorkflowModal({
                         editable={isEditable}
                         onStageModelChange={updateStageModel}
                         onValidationModelChange={updateValidationModel}
+                        onOpenAgent={setOpenAgentSlug}
                       />
                     )}
                     {si < phase.steps.length - 1 && <Connector />}
@@ -784,6 +1045,13 @@ export function CeremonyWorkflowModal({
           </div>
         )}
       </div>
+
+      {openAgentSlug && (
+        <AgentEditorPopup
+          agentName={`${openAgentSlug}.md`}
+          onClose={() => setOpenAgentSlug(null)}
+        />
+      )}
     </div>
   );
 }

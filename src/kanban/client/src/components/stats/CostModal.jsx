@@ -111,49 +111,51 @@ export function CostModal({ onClose }) {
 
         {/* Scrollable body */}
         <div className="overflow-y-auto flex-1 px-6 py-4 flex flex-col gap-5">
-          {/* Time range tabs */}
-          <div className="flex items-center gap-2 flex-wrap">
-            {RANGE_TABS.map((tab) => (
+          {/* Time range tabs — always 2 rows */}
+          <div className="flex flex-col gap-1.5">
+            {/* Row 1: preset buttons + Custom */}
+            <div className="flex items-center gap-2">
+              {RANGE_TABS.map((tab) => (
+                <button
+                  key={tab.value}
+                  onClick={() => setRangeMode(String(tab.value))}
+                  className={`px-3 py-1 rounded text-sm font-medium transition-colors ${
+                    rangeMode === String(tab.value)
+                      ? 'bg-blue-600 text-white'
+                      : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                  }`}
+                >
+                  {tab.label}
+                </button>
+              ))}
               <button
-                key={tab.value}
-                onClick={() => setRangeMode(String(tab.value))}
+                onClick={() => setRangeMode('custom')}
                 className={`px-3 py-1 rounded text-sm font-medium transition-colors ${
-                  rangeMode === String(tab.value)
+                  rangeMode === 'custom'
                     ? 'bg-blue-600 text-white'
                     : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
                 }`}
               >
-                {tab.label}
+                Custom
               </button>
-            ))}
-            <button
-              onClick={() => setRangeMode('custom')}
-              className={`px-3 py-1 rounded text-sm font-medium transition-colors ${
-                rangeMode === 'custom'
-                  ? 'bg-blue-600 text-white'
-                  : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-              }`}
-            >
-              Custom
-            </button>
+            </div>
 
-            {rangeMode === 'custom' && (
-              <div className="flex items-center gap-2 ml-1">
-                <input
-                  type="date"
-                  value={customFrom}
-                  onChange={(e) => setCustomFrom(e.target.value)}
-                  className="text-sm border border-slate-300 rounded px-2 py-0.5 text-slate-700"
-                />
-                <span className="text-slate-400 text-sm">to</span>
-                <input
-                  type="date"
-                  value={customTo}
-                  onChange={(e) => setCustomTo(e.target.value)}
-                  className="text-sm border border-slate-300 rounded px-2 py-0.5 text-slate-700"
-                />
-              </div>
-            )}
+            {/* Row 2: date inputs — always rendered to keep height constant */}
+            <div className={`flex items-center gap-2 ${rangeMode !== 'custom' ? 'invisible' : ''}`}>
+              <input
+                type="date"
+                value={customFrom}
+                onChange={(e) => setCustomFrom(e.target.value)}
+                className="text-sm border border-slate-300 rounded px-2 py-0.5 text-slate-700"
+              />
+              <span className="text-slate-400 text-sm">to</span>
+              <input
+                type="date"
+                value={customTo}
+                onChange={(e) => setCustomTo(e.target.value)}
+                className="text-sm border border-slate-300 rounded px-2 py-0.5 text-slate-700"
+              />
+            </div>
           </div>
 
           {/* Loading */}

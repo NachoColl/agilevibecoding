@@ -58,15 +58,15 @@ function App() {
   } = useCeremonyStore();
 
   const {
-    isOpen:         sprintPlanningOpen,
-    openModal:      openSprintPlanning,
-    closeModal:     closeSprintPlanning,
-    setStep:        setSprintPlanningStep,
-    setStatus:      setSprintPlanningStatus,
+    isOpen: sprintPlanningOpen,
+    openModal: openSprintPlanning,
+    closeModal: closeSprintPlanning,
+    setStep: setSprintPlanningStep,
+    setStatus: setSprintPlanningStatus,
     appendProgress: appendSprintPlanningProgress,
-    setResult:      setSprintPlanningResult,
-    setError:       setSprintPlanningError,
-    status:         sprintPlanningStatus,
+    setResult: setSprintPlanningResult,
+    setError: setSprintPlanningError,
+    status: sprintPlanningStatus,
   } = useSprintPlanningStore();
 
   // Get filtered items for navigation
@@ -107,7 +107,7 @@ function App() {
       } else if (message.type === 'mission:progress') {
         appendMissionProgress({ step: message.step, message: message.message });
       } else if (message.type === 'cost:update') {
-        getCostSummary().then(setCostSummary).catch(() => {});
+        getCostSummary().then(setCostSummary).catch(() => { });
       } else if (message.type === 'sprint-planning:progress') {
         appendSprintPlanningProgress({ type: 'progress', message: message.message });
       } else if (message.type === 'sprint-planning:substep') {
@@ -157,8 +157,8 @@ function App() {
 
   // Poll cost summary every 60 seconds
   useEffect(() => {
-    getCostSummary().then(setCostSummary).catch(() => {});
-    const id = setInterval(() => getCostSummary().then(setCostSummary).catch(() => {}), 60_000);
+    getCostSummary().then(setCostSummary).catch(() => { });
+    const id = setInterval(() => getCostSummary().then(setCostSummary).catch(() => { }), 60_000);
     return () => clearInterval(id);
   }, []);
 
@@ -330,20 +330,19 @@ function App() {
               {/* Real-time updates status */}
               <div className="flex items-center gap-2">
                 <div
-                  className={`w-2 h-2 rounded-full ${
-                    wsStatus === 'connected'
+                  className={`w-2 h-2 rounded-full ${wsStatus === 'connected'
                       ? 'bg-green-500 animate-pulse'
                       : wsStatus === 'connecting'
-                      ? 'bg-amber-400 animate-pulse'
-                      : 'bg-slate-400'
-                  }`}
+                        ? 'bg-amber-400 animate-pulse'
+                        : 'bg-slate-400'
+                    }`}
                 ></div>
                 <span className="text-sm text-slate-500">
                   {wsStatus === 'connected'
                     ? 'Live updates'
                     : wsStatus === 'connecting'
-                    ? 'Connecting...'
-                    : 'No live updates'}
+                      ? 'Connecting...'
+                      : 'No live updates'}
                 </span>
               </div>
 
@@ -356,8 +355,8 @@ function App() {
                 >
                   <DollarSign className="w-3 h-3" />
                   {costSummary.totalCost < 0.01 && costSummary.totalCost > 0
-                    ? '< $0.01'
-                    : `$${costSummary.totalCost.toFixed(2)}`}
+                    ? '< 0.01'
+                    : costSummary.totalCost.toFixed(2)}
                   <span className="text-slate-400">/mo</span>
                 </button>
               )}
@@ -406,7 +405,7 @@ function App() {
             onEditProjectContext={() => setEditingProjectFile('context')}
             onStartSprintPlanning={
               projectFilesStatus.docExists && projectFilesStatus.contextExists &&
-              sprintPlanningStatus !== 'running' && ceremonyStatus !== 'running'
+                sprintPlanningStatus !== 'running' && ceremonyStatus !== 'running'
                 ? openSprintPlanning
                 : undefined
             }
@@ -422,7 +421,7 @@ function App() {
           rel="noopener noreferrer"
           className="text-blue-600 hover:text-blue-700 hover:underline"
         >
-          Powered by AVC
+          Powered by Agile Vive Coding
         </a>
       </footer>
 

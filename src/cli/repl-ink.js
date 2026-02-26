@@ -604,7 +604,6 @@ const CommandSelector = ({ onSelect, onCancel, filter }) => {
     {
       name: 'Ceremonies',
       commands: [
-        { label: '/sprint-planning    Create Epics and Stories', value: '/sprint-planning', aliases: ['/sp'] },
         { label: '/seed <story-id>    Create Tasks and Subtasks', value: '/seed', aliases: [] }
       ]
     },
@@ -1986,7 +1985,6 @@ const App = () => {
   // Available commands for Tab completion (including aliases)
   const allCommands = [
     '/init', '/i',
-    '/sprint-planning', '/sp',
     '/seed',
     '/status', '/s',
     '/models', '/m',
@@ -2135,7 +2133,6 @@ const App = () => {
       // For other commands, only create logger if .avc already exists
       const loggedCommands = [
         '/init',
-        '/sprint-planning',
         '/seed',
         '/status',
         '/models',
@@ -2189,16 +2186,6 @@ const App = () => {
             sendProgress('Initializing project structure...');
             await runInit();
             fileLog('INFO', '/init complete', { duration: `${Date.now() - t0}ms` });
-            break;
-          }
-
-          case '/sprint-planning':
-          case '/sp': {
-            const t0 = Date.now();
-            fileLog('INFO', '/sprint-planning handler called', { cwd: process.cwd(), avcExists });
-            sendProgress('Expanding project structure...');
-            await runSprintPlanning();
-            fileLog('INFO', '/sprint-planning complete', { duration: `${Date.now() - t0}ms` });
             break;
           }
 
@@ -2366,7 +2353,6 @@ const App = () => {
       {
         title: 'Ceremonies',
         cmds: [
-          ['/sprint-planning (/sp)', 'Expand project into Epics and Stories'],
           ['/seed <story-id>', 'Generate tasks for a story'],
         ]
       },
@@ -2500,23 +2486,6 @@ const App = () => {
       sendIndented(`${gray('Kanban Board  ')} http://localhost:${kanbanPort}`, 1);
       sendIndented(`${gray('Documentation ')} http://localhost:${docPort}`, 1);
       sendOutput('');
-    } finally {
-      endCommand();
-    }
-  };
-
-  const runSprintPlanning = async () => {
-    const initiator = new ProjectInitiator();
-
-    startCommand('sprint-planning');
-
-    try {
-      if (!initiator.isAvcProject()) {
-        sendError(getProjectNotInitializedMessage());
-        sendOutput('');
-        return;
-      }
-      await initiator.sprintPlanning();
     } finally {
       endCommand();
     }
@@ -2852,7 +2821,7 @@ const App = () => {
 
       // Next steps
       sendOutput('');
-      sendInfo('Next: review docs, then run /sprint-planning to create Epics and Stories');
+      sendInfo('Next: review docs, then use the Kanban board (/kanban) to run Sprint Planning');
 
       // Auto-start documentation server (skipped in mock/test mode)
       if (!process.env.AVC_LLM_MOCK) {

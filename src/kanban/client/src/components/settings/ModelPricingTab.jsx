@@ -155,18 +155,16 @@ export function ModelPricingTab({ settings, onSaved }) {
                 <span className="text-slate-400">
                   {UNIT_OPTIONS.find((o) => o.value === p.unit)?.label}
                 </span>
-              </div>
 
-              {/* Source URL */}
-              <div className="mt-3 flex items-center gap-2">
-                <label className="text-xs text-slate-500 font-medium shrink-0">Source</label>
-                <div className="flex items-center gap-1.5 flex-1">
+                {/* Source URL row — aligned with price inputs */}
+                <label className="text-slate-600 font-medium">Source</label>
+                <div className="col-span-2 flex items-center gap-1.5">
                   <input
                     type="url"
                     value={p.source}
-                    onChange={(e) => update(modelId, 'source', e.target.value)}
+                    readOnly
                     placeholder="https://provider.com/pricing"
-                    className="flex-1 rounded-md border border-slate-300 px-2 py-1 text-xs text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500 min-w-0"
+                    className="flex-1 rounded-md border border-slate-200 bg-slate-50 px-2 py-1.5 text-xs text-slate-500 cursor-default focus:outline-none min-w-0"
                   />
                   {p.source && (
                     <a

@@ -7,7 +7,7 @@ import { cn } from '../../lib/utils';
 
 /**
  * Filter Toolbar Component
- * Provides filtering controls for work items
+ * Provides filtering controls for work items in a single compact row
  */
 export function FilterToolbar() {
   const [searchInput, setSearchInput] = useState('');
@@ -69,57 +69,62 @@ export function FilterToolbar() {
 
   return (
     <div className="bg-white border-b border-slate-200 shadow-sm">
-      <div className="max-w-full px-4 py-3">
-        <div className="flex flex-wrap items-center justify-between gap-4 mb-3">
-          {/* Left: Type Filters */}
-          <div className="flex items-center gap-3">
-            <span className="text-sm font-medium text-slate-700 flex items-center gap-2">
-              <Filter className="w-4 h-4" />
-              Show:
-            </span>
+      <div className="max-w-full px-4 py-2">
+        <div className="flex items-center justify-between gap-3">
 
-            {/* All/None toggle */}
+          {/* Left: Type Filters + Group By (single row) */}
+          <div className="flex items-center gap-2 min-w-0">
+
+            {/* Filter icon doubles as toggle-all button */}
             <button
               onClick={() => setAllTypeFilters(!allTypesActive)}
               className={cn(
-                'px-3 py-1.5 rounded-md text-sm font-medium transition-colors',
+                'p-1.5 rounded-md transition-colors flex-shrink-0',
                 allTypesActive
-                  ? 'bg-blue-100 text-blue-700 hover:bg-blue-200'
+                  ? 'text-blue-600 hover:bg-blue-50'
                   : anyTypesActive
-                  ? 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-                  : 'bg-slate-100 text-slate-400 hover:bg-slate-200'
+                  ? 'text-slate-500 hover:bg-slate-100'
+                  : 'text-slate-400 hover:bg-slate-100'
               )}
+              title={allTypesActive ? 'Deselect all types' : 'Select all types'}
             >
-              {allTypesActive ? 'Deselect All' : 'Select All'}
+              <Filter className="w-4 h-4" />
             </button>
 
             {/* Type filter buttons */}
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1">
               {typeOptions.map(({ key, label, icon }) => (
                 <button
                   key={key}
                   onClick={() => toggleTypeFilter(key)}
                   className={cn(
-                    'px-3 py-1.5 rounded-md text-sm font-medium transition-colors',
-                    'flex items-center gap-1.5',
+                    'px-2.5 py-1 rounded-md text-xs font-medium transition-colors',
+                    'flex items-center gap-1',
                     typeFilters[key]
                       ? 'bg-blue-100 text-blue-700 hover:bg-blue-200'
                       : 'bg-slate-100 text-slate-400 hover:bg-slate-200'
                   )}
                 >
-                  <span>{icon}</span>
+                  <span className="text-sm leading-none">{icon}</span>
                   <span>{label}</span>
                 </button>
               ))}
             </div>
+
+            {/* Divider */}
+            <div className="w-px h-5 bg-slate-200 flex-shrink-0" />
+
+            {/* Group By inline */}
+            <GroupingSelector />
           </div>
 
           {/* Right: Search + Actions */}
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 flex-shrink-0">
+
             {/* Column visibility dropdown */}
             <div className="relative group">
-              <button className="px-3 py-1.5 rounded-md text-sm font-medium bg-slate-100 text-slate-700 hover:bg-slate-200 transition-colors flex items-center gap-2">
-                <Eye className="w-4 h-4" />
+              <button className="px-2.5 py-1 rounded-md text-xs font-medium bg-slate-100 text-slate-700 hover:bg-slate-200 transition-colors flex items-center gap-1.5">
+                <Eye className="w-3.5 h-3.5" />
                 Columns
               </button>
 
@@ -169,20 +174,20 @@ export function FilterToolbar() {
 
             {/* Search input */}
             <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" />
               <input
                 type="text"
-                placeholder="Search work items..."
+                placeholder="Search..."
                 value={searchInput}
                 onChange={handleSearchChange}
-                className="pl-10 pr-10 py-1.5 w-64 border border-slate-200 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="pl-8 pr-7 py-1 w-44 border border-slate-200 rounded-md text-xs focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               />
               {searchInput && (
                 <button
                   onClick={handleClearSearch}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                  className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
                 >
-                  <X className="w-4 h-4" />
+                  <X className="w-3.5 h-3.5" />
                 </button>
               )}
             </div>
@@ -192,29 +197,24 @@ export function FilterToolbar() {
               onClick={refresh}
               disabled={loading}
               className={cn(
-                'p-2 rounded-md transition-colors',
+                'p-1.5 rounded-md transition-colors',
                 loading
                   ? 'bg-slate-100 text-slate-400 cursor-not-allowed'
                   : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
               )}
               title="Refresh"
             >
-              <RefreshCw className={cn('w-4 h-4', loading && 'animate-spin')} />
+              <RefreshCw className={cn('w-3.5 h-3.5', loading && 'animate-spin')} />
             </button>
 
             {/* Reset filters button */}
             <button
               onClick={resetFilters}
-              className="px-3 py-1.5 rounded-md text-sm font-medium bg-slate-100 text-slate-700 hover:bg-slate-200 transition-colors"
+              className="px-2.5 py-1 rounded-md text-xs font-medium bg-slate-100 text-slate-700 hover:bg-slate-200 transition-colors"
             >
               Reset
             </button>
           </div>
-        </div>
-
-        {/* Second Row: Grouping Selector */}
-        <div className="flex items-center">
-          <GroupingSelector />
         </div>
       </div>
     </div>

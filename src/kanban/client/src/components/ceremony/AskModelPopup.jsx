@@ -1,7 +1,13 @@
 import { useEffect, useState } from 'react';
 import { AlertTriangle, Settings as SettingsIcon } from 'lucide-react';
-import { getModels, generateMission, refineMission } from '../../lib/api';
+import { getModels, getSettings, generateMission, refineMission } from '../../lib/api';
 import { useCeremonyStore } from '../../store/ceremonyStore';
+
+// Maps model provider → apiKeys key returned by getSettings()
+function normalizeProvider(p = '') {
+  if (p === 'claude') return 'anthropic';
+  return p;
+}
 
 const KEY_LABELS = {
   claude: 'Anthropic API Key (ANTHROPIC_API_KEY)',
@@ -211,33 +217,44 @@ export function AskModelPopup({ onUse, onClose, onOpenSettings }) {
   const { missionProgressLog, clearMissionProgress } = useCeremonyStore();
   const latestProgress = missionProgressLog[missionProgressLog.length - 1] ?? null;
 
+  const [apiKeyStatus, setApiKeyStatus] = useState(null); // { anthropic: { isSet }, gemini: { isSet }, openai: { isSet } }
+
   useEffect(() => {
-    getModels()
-      .then((data) => {
+    Promise.all([getModels(), getSettings()])
+      .then(([data, settings]) => {
         setModels(data);
-        const firstReady = data.find((m) => m.hasApiKey);
+        setApiKeyStatus(settings.apiKeys ?? {});
+        // Auto-select first model whose provider has an API key
+        const firstReady = data.find((m) => settings.apiKeys?.[normalizeProvider(m.provider)]?.isSet);
         const generatorId = firstReady ? firstReady.modelId : (data.length > 0 ? data[0].modelId : '');
         setSelectedModelId(generatorId);
-        const otherReady = data.find((m) => m.hasApiKey && m.modelId !== generatorId);
+        const otherReady = data.find(
+          (m) => settings.apiKeys?.[normalizeProvider(m.provider)]?.isSet && m.modelId !== generatorId
+        );
         setSelectedValidatorModelId(otherReady ? otherReady.modelId : generatorId);
       })
       .catch(() => setError('Failed to load available models.'));
   }, []);
 
-  function recheckModels() {
-    getModels()
-      .then((data) => setModels(data))
+  function recheckKeys() {
+    getSettings()
+      .then((s) => setApiKeyStatus(s.apiKeys ?? {}))
       .catch(() => {});
   }
 
   const selectedModel = models.find((m) => m.modelId === selectedModelId);
   const selectedValidatorModel = models.find((m) => m.modelId === selectedValidatorModelId);
 
-  // Derive missing providers from currently selected models
+  // Derive missing providers from currently selected models using settings key status
   const missingKeyProviders = (() => {
+    if (!apiKeyStatus) return [];
     const missing = new Set();
-    if (selectedModel && !selectedModel.hasApiKey) missing.add(selectedModel.provider);
-    if (selectedValidatorModel && !selectedValidatorModel.hasApiKey) missing.add(selectedValidatorModel.provider);
+    if (selectedModel && !apiKeyStatus[normalizeProvider(selectedModel.provider)]?.isSet) {
+      missing.add(selectedModel.provider);
+    }
+    if (selectedValidatorModel && !apiKeyStatus[normalizeProvider(selectedValidatorModel.provider)]?.isSet) {
+      missing.add(selectedValidatorModel.provider);
+    }
     return [...missing];
   })();
 
@@ -314,8 +331,7 @@ export function AskModelPopup({ onUse, onClose, onOpenSettings }) {
     description.trim().length > 0 &&
     !!selectedModelId &&
     !!selectedValidatorModelId &&
-    selectedModel?.hasApiKey !== false &&
-    selectedValidatorModel?.hasApiKey !== false;
+    missingKeyProviders.length === 0;
 
   // Shared model dropdown markup
   function ModelSelect({ label, value, onChange }) {
@@ -421,7 +437,7 @@ export function AskModelPopup({ onUse, onClose, onOpenSettings }) {
                     )}
                     <button
                       type="button"
-                      onClick={recheckModels}
+                      onClick={recheckKeys}
                       className="text-xs text-slate-500 hover:text-slate-800 transition-colors"
                     >
                       Re-check

@@ -30,8 +30,8 @@ export function CompleteStep({ onClose }) {
     r.cost?.total != null
       ? `$${r.cost.total.toFixed(4)}`
       : r.cost
-      ? `$${Object.values(r.cost).reduce((a, v) => a + (typeof v === 'number' ? v : 0), 0).toFixed(4)}`
-      : '—';
+        ? `$${Object.values(r.cost).reduce((a, v) => a + (typeof v === 'number' ? v : 0), 0).toFixed(4)}`
+        : '—';
 
   const files = r.outputPath && r.contextPath
     ? [r.outputPath, r.contextPath]
@@ -40,7 +40,6 @@ export function CompleteStep({ onClose }) {
   return (
     <div className="space-y-6">
       <div className="text-center">
-        <div className="text-5xl mb-3">✅</div>
         <h2 className="text-xl font-semibold text-slate-900">Documentation Generated!</h2>
         <p className="text-sm text-slate-500 mt-1">
           Your project documentation is ready. The kanban board will refresh automatically.

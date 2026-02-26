@@ -12,48 +12,46 @@ export function GroupingSelector() {
   const groupingOptions = [
     {
       value: 'status',
-      label: 'By Status',
+      label: 'Status',
       icon: LayoutGrid,
       description: 'Traditional kanban columns',
     },
     {
       value: 'epic',
-      label: 'By Epic',
+      label: 'Epic',
       icon: Package,
       description: 'Hierarchical epic sections',
     },
     {
       value: 'type',
-      label: 'By Type',
+      label: 'Type',
       icon: Box,
       description: 'Separate boards by type',
     },
   ];
 
   return (
-    <div className="flex items-center gap-2">
-      <span className="text-sm font-medium text-slate-700">Group by:</span>
-      <div className="flex items-center gap-1 bg-slate-100 rounded-md p-1">
-        {groupingOptions.map(({ value, label, icon: Icon }) => {
-          const isActive = groupBy === value;
+    <div className="flex items-center gap-0.5 bg-slate-100 rounded-md p-0.5">
+      {groupingOptions.map(({ value, label, icon: Icon, description }) => {
+        const isActive = groupBy === value;
 
-          return (
-            <button
-              key={value}
-              onClick={() => setGroupBy(value)}
-              className={cn(
-                'flex items-center gap-2 px-3 py-1.5 rounded-md text-sm font-medium transition-all',
-                isActive
-                  ? 'bg-white text-slate-900 shadow-sm'
-                  : 'text-slate-600 hover:bg-slate-200'
-              )}
-            >
-              <Icon className="w-4 h-4" />
-              <span>{label}</span>
-            </button>
-          );
-        })}
-      </div>
+        return (
+          <button
+            key={value}
+            onClick={() => setGroupBy(value)}
+            title={description}
+            className={cn(
+              'flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium transition-all',
+              isActive
+                ? 'bg-white text-slate-900 shadow-sm'
+                : 'text-slate-600 hover:bg-slate-200'
+            )}
+          >
+            <Icon className="w-3.5 h-3.5" />
+            <span>{label}</span>
+          </button>
+        );
+      })}
     </div>
   );
 }

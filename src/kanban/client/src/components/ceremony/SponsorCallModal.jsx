@@ -78,7 +78,7 @@ function StepProgress({ currentStep, hasDb }) {
   const displayCurrent = getDisplayIndex(currentStep);
 
   return (
-    <div className="flex items-center gap-1 flex-wrap">
+    <div className="flex items-center gap-1 flex-nowrap overflow-x-auto pb-0.5">
       {visibleSteps.map((s, idx) => {
         const displayIdx = idx + 1;
         const isDone = displayCurrent > displayIdx;
@@ -296,13 +296,13 @@ export function SponsorCallModal({ onClose, onOpenSettings }) {
       <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-2xl mx-4 max-h-[90vh] flex flex-col">
         {/* Header */}
         <div className="flex items-start justify-between px-6 pt-5 pb-4 border-b border-slate-200 flex-shrink-0">
-          <div>
+          <div className="min-w-0 flex-1">
             <h1 className="text-base font-semibold text-slate-900">Sponsor Call Ceremony</h1>
             <div className="mt-2">
               <StepProgress currentStep={wizardStep} hasDb={hasDb} />
             </div>
           </div>
-          <div className="flex items-center gap-3 ml-4 mt-0.5">
+          <div className="flex items-center gap-3 ml-4 mt-0.5 flex-shrink-0">
             {ceremonyStatus !== 'running' && (
               <button
                 type="button"
@@ -317,7 +317,7 @@ export function SponsorCallModal({ onClose, onOpenSettings }) {
                     setWorkflowOpen(true);
                   } catch {}
                 }}
-                className="flex items-center gap-1 text-xs text-slate-400 hover:text-blue-500 transition-colors"
+                className="flex items-center gap-1 text-xs text-slate-400 hover:text-blue-500 transition-colors whitespace-nowrap"
                 title="View ceremony workflow"
               >
                 <Info className="w-3.5 h-3.5" />
@@ -382,8 +382,13 @@ export function SponsorCallModal({ onClose, onOpenSettings }) {
         </div>
 
         {/* Status bar — always rendered to prevent height flicker */}
-        <div className="flex-shrink-0 border-t border-slate-100 px-6 h-8 flex items-center">
-          <p className="text-xs text-slate-400 truncate">{analyzingMessage}</p>
+        <div className="flex-shrink-0 border-t border-slate-100 px-6 h-8 flex items-center gap-2">
+          {analyzingMessage && (
+            <span className="w-3 h-3 border-2 border-blue-300 border-t-blue-600 rounded-full animate-spin flex-shrink-0" />
+          )}
+          <p className={`text-xs truncate ${analyzingMessage ? 'text-blue-600 font-medium' : 'text-slate-400'}`}>
+            {analyzingMessage}
+          </p>
         </div>
       </div>
 

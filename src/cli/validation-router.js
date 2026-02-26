@@ -1,6 +1,7 @@
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { loadAgent } from './agent-loader.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -300,10 +301,9 @@ class ValidationRouter {
     }
 
     // Load validator selector agent
-    const agentPath = path.join(this.agentsPath, 'validator-selector.md');
     let agentInstructions;
     try {
-      agentInstructions = fs.readFileSync(agentPath, 'utf8');
+      agentInstructions = loadAgent('validator-selector.md');
     } catch (error) {
       console.warn(`Could not load validator-selector agent: ${error.message}`);
       return [];

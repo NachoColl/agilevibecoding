@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
 import { X, Info } from 'lucide-react';
 import { useSprintPlanningStore } from '../../store/sprintPlanningStore';
-import { runSprintPlanning, getProjectDocRaw } from '../../lib/api';
+import { runSprintPlanning, getSettings, getModels, saveCeremonies } from '../../lib/api';
+import { CeremonyWorkflowModal } from './CeremonyWorkflowModal';
 
 // ── Step progress header ─────────────────────────────────────────────────────
 
@@ -54,61 +55,21 @@ function Stat({ label, value }) {
 // ── Step 1: Ready ─────────────────────────────────────────────────────────────
 
 function ReadyStep({ onStart }) {
-  const [scopePreview, setScopePreview] = useState('');
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    let cancelled = false;
-    getProjectDocRaw()
-      .then((raw) => {
-        if (cancelled) return;
-        // Try to extract Initial Scope / Scope section
-        const scopeMatch = raw.match(/##\s+(?:Initial\s+)?Scope\b[^\n]*\n([\s\S]*?)(?=\n##|$)/i);
-        if (scopeMatch) {
-          setScopePreview(scopeMatch[1].trim().slice(0, 500));
-        } else {
-          setScopePreview(raw.trim().slice(0, 400));
-        }
-      })
-      .catch(() => {
-        if (!cancelled) setScopePreview('(Could not load doc.md)');
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false);
-      });
-    return () => { cancelled = true; };
-  }, []);
-
   return (
     <div className="space-y-5">
       <div>
         <h2 className="text-xl font-semibold text-slate-900">Ready to Plan</h2>
         <p className="text-sm text-slate-500 mt-1">
-          Decompose your project documentation into Epics and Stories using multi-agent AI.
+          AI will decompose your project documentation into Epics and Stories using multi-agent analysis.
         </p>
-      </div>
-
-      <div>
-        <p className="text-xs font-medium text-slate-500 mb-2">Scope Preview (from doc.md)</p>
-        {loading ? (
-          <div className="flex items-center gap-2 py-4">
-            <span className="w-4 h-4 border-2 border-blue-300 border-t-blue-600 rounded-full animate-spin" />
-            <span className="text-xs text-slate-400">Loading…</span>
-          </div>
-        ) : (
-          <pre className="bg-slate-50 border border-slate-200 rounded-lg p-3 text-xs text-slate-600 overflow-auto max-h-48 whitespace-pre-wrap font-mono">
-            {scopePreview || '(no content)'}
-          </pre>
-        )}
       </div>
 
       <div className="flex justify-center pt-2">
         <button
           onClick={onStart}
-          disabled={loading}
-          className="px-6 py-2.5 text-sm font-medium bg-slate-900 text-white rounded-lg hover:bg-slate-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+          className="px-6 py-2.5 text-sm font-medium bg-slate-900 text-white rounded-lg hover:bg-slate-700 transition-colors"
         >
-          🚀 Start Sprint Planning
+          Start
         </button>
       </div>
     </div>
@@ -291,6 +252,11 @@ export function SprintPlanningModal({ onClose }) {
     closeModal,
   } = useSprintPlanningStore();
 
+  const [workflowOpen, setWorkflowOpen] = useState(false);
+  const [workflowCeremony, setWorkflowCeremony] = useState(null);
+  const [workflowModels, setWorkflowModels] = useState([]);
+  const [workflowAllCeremonies, setWorkflowAllCeremonies] = useState([]);
+
   if (!isOpen) return null;
 
   const handleClose = () => {
@@ -309,6 +275,25 @@ export function SprintPlanningModal({ onClose }) {
       setStatus('error');
       setError(err.message);
     }
+  };
+
+  const openWorkflow = async () => {
+    try {
+      const [s, m] = await Promise.all([getSettings(), getModels()]);
+      const sc = s.ceremonies?.find((c) => c.name === 'sprint-planning') ?? { name: 'sprint-planning' };
+      setWorkflowCeremony(sc);
+      setWorkflowModels(m);
+      setWorkflowAllCeremonies(s.ceremonies || []);
+      setWorkflowOpen(true);
+    } catch {}
+  };
+
+  const handleWorkflowSave = async (updatedCeremony) => {
+    const base = workflowAllCeremonies.length > 0 ? workflowAllCeremonies : [updatedCeremony];
+    const next = base.map((c) => c.name === updatedCeremony.name ? updatedCeremony : c);
+    await saveCeremonies(next, null);
+    setWorkflowCeremony(updatedCeremony);
+    setWorkflowAllCeremonies(next);
   };
 
   const renderStep = () => {
@@ -341,6 +326,17 @@ export function SprintPlanningModal({ onClose }) {
           <div className="flex items-center gap-3 ml-4 mt-0.5 flex-shrink-0">
             {status !== 'running' && (
               <button
+                type="button"
+                onClick={openWorkflow}
+                className="flex items-center gap-1 text-xs text-slate-400 hover:text-blue-500 transition-colors whitespace-nowrap"
+                title="View ceremony workflow"
+              >
+                <Info className="w-3.5 h-3.5" />
+                How it works
+              </button>
+            )}
+            {status !== 'running' && (
+              <button
                 onClick={handleClose}
                 className="text-slate-400 hover:text-slate-600 transition-colors"
               >
@@ -365,6 +361,16 @@ export function SprintPlanningModal({ onClose }) {
           )}
         </div>
       </div>
+
+      {workflowOpen && workflowCeremony && (
+        <CeremonyWorkflowModal
+          ceremony={workflowCeremony}
+          models={workflowModels}
+          readOnly={status === 'running'}
+          onSave={status !== 'running' ? handleWorkflowSave : undefined}
+          onClose={() => setWorkflowOpen(false)}
+        />
+      )}
     </div>
   );
 }

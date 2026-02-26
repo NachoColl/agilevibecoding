@@ -8,6 +8,7 @@ import { TokenTracker } from './token-tracker.js';
 import { VerificationTracker } from './verification-tracker.js';
 import { fileURLToPath } from 'url';
 import { sendError, sendWarning, sendSuccess, sendInfo, sendOutput, sendIndented, sendSectionHeader, sendProgress } from './messaging-api.js';
+import { loadAgent } from './agent-loader.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -671,13 +672,12 @@ Please carefully follow the output format requirements to avoid these issues.
       return null;
     }
 
-    const agentPath = path.join(this.agentsPath, agentFile);
-    if (!fs.existsSync(agentPath)) {
+    try {
+      return loadAgent(agentFile, path.dirname(this.avcPath));
+    } catch {
       sendWarning(`Agent file not found: ${agentFile}`);
       return null;
     }
-
-    return fs.readFileSync(agentPath, 'utf8');
   }
 
   /**
@@ -1174,24 +1174,31 @@ Return the enhanced markdown document.`;
       }
     }
 
+    // Compute total stages based on what will actually run for this ceremony
+    const _scValidation = this.ceremonyName === 'sponsor-call' && this.isValidationEnabled();
+    const _scCrossVal = this.ceremonyName === 'sponsor-call' && this.isCrossValidationEnabled();
+    const _T = 5 + (_scValidation ? 2 : 0) + (_scCrossVal ? 1 : 0);
+    let _s = 0;
+
     // Report questionnaire completion (with delay for UI update)
-    await this.reportProgressWithDelay('Stage 1/5: Processing questionnaire answers...', 'Processed questionnaire responses');
+    await this.reportProgressWithDelay(`Stage ${++_s}/${_T}: Processing questionnaire answers...`, 'Processed questionnaire responses');
 
     // 5. Replace variables in template
-    await this.reportProgressWithDelay('Stage 2/5: Preparing project template...', 'Template preparation complete');
+    await this.reportProgressWithDelay(`Stage ${++_s}/${_T}: Preparing project template...`, 'Template preparation complete');
     this.reportSubstep('Reading template: project.md');
     const templateWithValues = this.replaceVariables(templateContent, collectedValues);
     this.reportSubstep('Replaced 6 template variables');
 
     // Preparation complete
-    await this.reportProgressWithDelay('Stage 3/5: Preparing for documentation generation...', 'Ready to generate documentation');
+    await this.reportProgressWithDelay(`Stage ${++_s}/${_T}: Preparing for documentation generation...`, 'Ready to generate documentation');
 
     // 6. Enhance document with LLM
-    await this.reportProgressWithDelay('Stage 4/5: Creating project documentation...', 'Created project documentation');
+    await this.reportProgressWithDelay(`Stage ${++_s}/${_T}: Creating project documentation...`, 'Created project documentation');
     let finalDocument = await this.generateFinalDocument(templateWithValues, collectedValues);
 
     // 7. Validate and improve documentation (if validation enabled)
     if (this.ceremonyName === 'sponsor-call' && this.isValidationEnabled()) {
+      await this.reportProgressWithDelay(`Stage ${++_s}/${_T}: Validating documentation...`, 'Documentation validation complete');
       finalDocument = await this.iterativeValidation(finalDocument, 'documentation', collectedValues);
     }
 
@@ -1205,11 +1212,12 @@ Return the enhanced markdown document.`;
       }
 
       if (this.llmProvider && typeof this.llmProvider.generateJSON === 'function') {
-        await this.reportProgressWithDelay('Stage 5/5: Creating context scope...', 'Created context scope');
+        await this.reportProgressWithDelay(`Stage ${++_s}/${_T}: Creating context scope...`, 'Created context scope');
         contextContent = await this.generateProjectContextContent(collectedValues);
 
         // 9. Validate and improve context (if validation enabled)
         if (this.isValidationEnabled()) {
+          await this.reportProgressWithDelay(`Stage ${++_s}/${_T}: Validating context...`, 'Context validation complete');
           contextContent = await this.iterativeValidation(contextContent, 'context', collectedValues, finalDocument);
         }
 
@@ -1242,7 +1250,7 @@ Return the enhanced markdown document.`;
 
         // 9d. Cross-validate doc.md ↔ context.md for mutual consistency
         if (this.isCrossValidationEnabled()) {
-          this.reportSubstep('Cross-validating doc.md and context.md for mutual consistency...');
+          await this.reportProgressWithDelay(`Stage ${++_s}/${_T}: Cross-validating documents...`, 'Cross-validation complete');
           try {
             const crossResult = await this.crossValidateDocAndContext(
               finalDocument, contextContent, collectedValues
@@ -1410,10 +1418,7 @@ Return the enhanced markdown document.`;
 
       // Read agent instructions
       this.reportSubstep('Reading agent: project-context-generator.md');
-      const projectContextGeneratorAgent = fs.readFileSync(
-        path.join(this.agentsPath, 'project-context-generator.md'),
-        'utf8'
-      );
+      const projectContextGeneratorAgent = loadAgent('project-context-generator.md', path.dirname(this.avcPath));
 
       // Generate project context
       this.reportSubstep('Generating project context (target: ~500 tokens)...');
@@ -1474,18 +1479,9 @@ Return the enhanced markdown document.`;
     sendSectionHeader('Generating project hierarchy...');
 
     // Read agent instructions
-    const epicStoryDecomposerAgent = fs.readFileSync(
-      path.join(this.agentsPath, 'epic-story-decomposer.md'),
-      'utf8'
-    );
-    const projectContextGeneratorAgent = fs.readFileSync(
-      path.join(this.agentsPath, 'project-context-generator.md'),
-      'utf8'
-    );
-    const featureContextGeneratorAgent = fs.readFileSync(
-      path.join(this.agentsPath, 'feature-context-generator.md'),
-      'utf8'
-    );
+    const epicStoryDecomposerAgent = loadAgent('epic-story-decomposer.md', path.dirname(this.avcPath));
+    const projectContextGeneratorAgent = loadAgent('project-context-generator.md', path.dirname(this.avcPath));
+    const featureContextGeneratorAgent = loadAgent('feature-context-generator.md', path.dirname(this.avcPath));
 
     // 1. Decompose into Epics and Stories
     sendInfo('Stage 5/7: Decomposing features into Epics and Stories...');
@@ -1788,7 +1784,7 @@ Return your response as JSON following the exact structure specified in your ins
 
       // Generate and write Epic context.md
       const epicContext = await this.generateContext('epic', epic.id, { ...collectedValues, epic },
-        fs.readFileSync(path.join(this.agentsPath, 'feature-context-generator.md'), 'utf8')
+        loadAgent('feature-context-generator.md', path.dirname(this.avcPath))
       );
       fs.writeFileSync(
         path.join(epicDir, 'context.md'),
@@ -1838,7 +1834,7 @@ Return your response as JSON following the exact structure specified in your ins
 
         // Generate and write Story context.md
         const storyContext = await this.generateContext('story', story.id, { ...collectedValues, epic, story },
-          fs.readFileSync(path.join(this.agentsPath, 'feature-context-generator.md'), 'utf8')
+          loadAgent('feature-context-generator.md', path.dirname(this.avcPath))
         );
         fs.writeFileSync(
           path.join(storyDir, 'context.md'),
@@ -2696,10 +2692,7 @@ Return your response as JSON following the exact structure specified in your ins
 
       // Read agent instructions
       debug('Loading architecture-recommender.md agent');
-      const architectureRecommenderAgent = fs.readFileSync(
-        path.join(this.agentsPath, 'architecture-recommender.md'),
-        'utf8'
-      );
+      const architectureRecommenderAgent = loadAgent('architecture-recommender.md', path.dirname(this.avcPath));
 
       // Build prompt
       let prompt = `Given the following project definition:
@@ -2872,10 +2865,7 @@ Return your response as JSON following the exact structure specified in your ins
 
       // Read agent instructions
       debug('Loading database-recommender.md agent');
-      const databaseRecommenderAgent = fs.readFileSync(
-        path.join(this.agentsPath, 'database-recommender.md'),
-        'utf8'
-      );
+      const databaseRecommenderAgent = loadAgent('database-recommender.md', path.dirname(this.avcPath));
 
       // Build prompt with deployment strategy context
       let prompt = `Given the following project definition:
@@ -2981,10 +2971,7 @@ Return your response as JSON following the exact structure specified in your ins
 
       // Read agent instructions
       debug('Loading database-deep-dive.md agent');
-      const databaseDeepDiveAgent = fs.readFileSync(
-        path.join(this.agentsPath, 'database-deep-dive.md'),
-        'utf8'
-      );
+      const databaseDeepDiveAgent = loadAgent('database-deep-dive.md', path.dirname(this.avcPath));
 
       // Build prompt
       const prompt = `Given the following project definition and user requirements:
@@ -3067,10 +3054,7 @@ Return your response as JSON following the exact structure specified in your ins
 
       // Read agent instructions
       debug('Loading question-prefiller.md agent');
-      const questionPrefillerAgent = fs.readFileSync(
-        path.join(this.agentsPath, 'question-prefiller.md'),
-        'utf8'
-      );
+      const questionPrefillerAgent = loadAgent('question-prefiller.md', path.dirname(this.avcPath));
 
       // Build prompt
       let prompt = `Given the following project context:
@@ -3296,10 +3280,7 @@ Return your response as JSON following the exact structure specified in your ins
 
       // Read agent instructions
       debug('Loading migration-guide-generator.md agent');
-      const migrationGuideAgent = fs.readFileSync(
-        path.join(this.agentsPath, 'migration-guide-generator.md'),
-        'utf8'
-      );
+      const migrationGuideAgent = loadAgent('migration-guide-generator.md', path.dirname(this.avcPath));
 
       // Build comprehensive prompt
       this.reportSubstep('Generating cloud migration guide (this may take 30-60 seconds)...');

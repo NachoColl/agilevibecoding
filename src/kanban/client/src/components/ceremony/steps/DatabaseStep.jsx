@@ -1,3 +1,4 @@
+import { Info } from 'lucide-react';
 import { useCeremonyStore } from '../../../store/ceremonyStore';
 
 /** Convert a monetary string like "$150-280/month" into a relative $ tier. */
@@ -140,6 +141,16 @@ export function DatabaseStep({ onNext, onBack, analyzing }) {
         </div>
       )}
 
+      <div className="flex items-start gap-2 px-1 py-2 text-xs text-slate-400">
+        <Info className="w-3.5 h-3.5 flex-shrink-0 mt-0.5 text-slate-300" />
+        <p>
+          The SQL and NoSQL candidates above are AI-suggested based on your mission and scope —
+          specific technology (e.g. PostgreSQL vs MySQL, MongoDB vs DynamoDB) and configuration
+          will be refined during architecture analysis. Skipping lets the model choose the best fit autonomously,
+          which may include a vector database, a time-series store, or no database at all.
+        </p>
+      </div>
+
       <div className="flex items-center justify-between pt-2">
         <button
           type="button"
@@ -149,20 +160,30 @@ export function DatabaseStep({ onNext, onBack, analyzing }) {
         >
           ← Back
         </button>
-        <button
-          onClick={onNext}
-          disabled={!dbChoice || analyzing}
-          className="px-5 py-2 bg-slate-900 text-white text-sm font-medium rounded-lg disabled:opacity-40 hover:bg-slate-700 transition-colors flex items-center gap-2"
-        >
-          {analyzing ? (
-            <>
-              <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-              Analyzing...
-            </>
-          ) : (
-            'Continue'
-          )}
-        </button>
+        <div className="flex items-center gap-3">
+          <button
+            type="button"
+            onClick={onNext}
+            disabled={analyzing}
+            className="text-sm text-slate-400 hover:text-slate-600 disabled:opacity-40 transition-colors"
+          >
+            Skip — let the model decide
+          </button>
+          <button
+            onClick={onNext}
+            disabled={!dbChoice || analyzing}
+            className="px-5 py-2 bg-slate-900 text-white text-sm font-medium rounded-lg disabled:opacity-40 hover:bg-slate-700 transition-colors flex items-center gap-2"
+          >
+            {analyzing ? (
+              <>
+                <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                Analyzing...
+              </>
+            ) : (
+              'Continue'
+            )}
+          </button>
+        </div>
       </div>
     </div>
   );
