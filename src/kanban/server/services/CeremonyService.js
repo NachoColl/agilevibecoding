@@ -109,6 +109,7 @@ export class CeremonyService {
       status: this.state.status,
       runningType: this._runningType,
       processId: this._activeProcessId,
+      progress: this.state.progress,
       result: this.state.result,
       error: this.state.error,
     };

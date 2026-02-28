@@ -124,6 +124,8 @@ export const useCeremonyStore = create((set, get) => ({
       progressLog: [...state.progressLog, entry],
     })),
 
+  setProgressLog: (entries) => set({ progressLog: Array.isArray(entries) ? entries : [] }),
+
   appendMissionProgress: (entry) =>
     set((state) => ({
       missionProgressLog: [...state.missionProgressLog, entry],

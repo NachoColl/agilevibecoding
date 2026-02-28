@@ -41,6 +41,13 @@ export const useProcessStore = create((set, get) => ({
             : p
         );
         set({ processes: updated });
+        // Auto-remove cancelled processes after a brief moment so the chip disappears
+        // rather than staying permanently grayed out (user must manually clear others).
+        if (message.status === 'cancelled') {
+          setTimeout(() => {
+            set(s => ({ processes: s.processes.filter(p => p.id !== message.processId) }));
+          }, 1000);
+        }
         break;
       }
     }

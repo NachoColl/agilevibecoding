@@ -21,6 +21,7 @@ export const useSprintPlanningStore = create((set) => ({
   setStatus:      (status)    => set({ status }),
   setPaused:      (isPaused)  => set({ isPaused }),
   appendProgress: (entry)     => set((s) => ({ progressLog: [...s.progressLog, entry] })),
+  setProgressLog: (entries)   => set({ progressLog: Array.isArray(entries) ? entries : [] }),
   setResult:      (result)    => set({ result }),
   setError:       (error)     => set({ error }),
   setProcessId:   (processId) => set({ processId }),

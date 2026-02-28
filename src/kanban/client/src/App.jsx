@@ -57,6 +57,7 @@ function App() {
     setCeremonyError,
     appendProgress,
     appendMissionProgress,
+    setProgressLog: setCeremonyProgressLog,
     setWizardStep,
     setPaused: setCeremonyPaused,
     setProcessId: setCeremonyProcessId,
@@ -69,6 +70,7 @@ function App() {
     setStep: setSprintPlanningStep,
     setStatus: setSprintPlanningStatus,
     appendProgress: appendSprintPlanningProgress,
+    setProgressLog: setSprintPlanningProgressLog,
     setResult: setSprintPlanningResult,
     setError: setSprintPlanningError,
     status: sprintPlanningStatus,
@@ -166,9 +168,11 @@ function App() {
           if (cs.runningType === 'sprint-planning') {
             setSprintPlanningStatus('running');
             if (cs.processId) setSprintPlanningProcessId(cs.processId);
+            if (cs.progress?.length) setSprintPlanningProgressLog(cs.progress);
           } else if (cs.runningType === 'sponsor-call') {
             setCeremonyStatus('running');
             if (cs.processId) setCeremonyProcessId(cs.processId);
+            if (cs.progress?.length) setCeremonyProgressLog(cs.progress);
           }
         }
       }
@@ -197,9 +201,11 @@ function App() {
           if (ceremonyState.runningType === 'sprint-planning') {
             setSprintPlanningStatus('running');
             if (ceremonyState.processId) setSprintPlanningProcessId(ceremonyState.processId);
+            if (ceremonyState.progress?.length) setSprintPlanningProgressLog(ceremonyState.progress);
           } else if (ceremonyState.runningType === 'sponsor-call') {
             setCeremonyStatus('running');
             if (ceremonyState.processId) setCeremonyProcessId(ceremonyState.processId);
+            if (ceremonyState.progress?.length) setCeremonyProgressLog(ceremonyState.progress);
           }
         }
 

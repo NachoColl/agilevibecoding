@@ -1916,7 +1916,7 @@ const App = () => {
   // Note: launchKanbanServer is defined later in this component body — this works because
   // useEffect callbacks run after the full render cycle, by which point all consts are set.
   useEffect(() => {
-    const timer = setTimeout(() => {
+    const timer = setTimeout(async () => {
       const initiator = new ProjectInitiator();
       if (!initiator.isAvcProject()) return;
 
@@ -1925,10 +1925,38 @@ const App = () => {
       // Kanban — start using simple spawn (same as runInit), not forkProcess.
       // IPC-based launch (launchKanbanServer) is reserved for when the user explicitly
       // runs /kanban so that ceremony workers become children of the CLI process.
-      const existingKanban = manager.getRunningProcesses().find(p => p.name === 'Kanban Board Server');
       const kanbanManager = new KanbanServerManager();
-      const kanbanPort = kanbanManager.getPort();
+      let kanbanPort = kanbanManager.getPort();
+
+      // Guard against kanban port colliding with docs port (can happen if user previously
+      // typed the wrong port in the port-conflict prompt). Auto-fix by resetting to 4174.
+      const docPortCheck = new DocumentationBuilder(process.cwd()).getPort();
+      if (kanbanPort === docPortCheck) {
+        // Pick a port that doesn't match the docs port (4174 is default; use 4175 if docs is 4174)
+        const fixedPort = (docPortCheck !== 4174) ? 4174 : 4175;
+        try {
+          const avcJsonPath = path.join(process.cwd(), '.avc', 'avc.json');
+          let cfg = {};
+          try { cfg = JSON.parse(readFileSync(avcJsonPath, 'utf8')); } catch (_) {}
+          if (!cfg.settings) cfg.settings = {};
+          if (!cfg.settings.kanban) cfg.settings.kanban = {};
+          cfg.settings.kanban.port = fixedPort;
+          writeFileSync(avcJsonPath, JSON.stringify(cfg, null, 2), 'utf8');
+        } catch (_) {}
+        kanbanPort = fixedPort;
+      }
+
+      const existingKanban = manager.getRunningProcesses().find(p => p.name === 'Kanban Board Server');
       if (!existingKanban) {
+        // Kill any stale kanban process from a previous CLI session so we get the right port
+        try {
+          const kanbanPortInUse = await kanbanManager.isPortInUse(kanbanPort);
+          if (kanbanPortInUse) {
+            const staleKanban = await kanbanManager.findProcessUsingPort(kanbanPort);
+            if (staleKanban) await kanbanManager.killProcess(staleKanban.pid);
+            await new Promise(resolve => setTimeout(resolve, 500));
+          }
+        } catch (_) {}
         try {
           const kanbanServerPath = path.join(__dirname, '..', 'kanban', 'server', 'start.js');
           manager.startProcess({
@@ -1947,6 +1975,17 @@ const App = () => {
         const docPort = builder.getPort();
         const existingDocs = manager.getRunningProcesses().find(p => p.name === 'Documentation Server');
         if (!existingDocs) {
+          // Kill any stale VitePress from a previous CLI session — without this, VitePress
+          // auto-increments its port (e.g. 4173→4174) and collides with the kanban server,
+          // making both banner URLs point to the documentation.
+          try {
+            const docPortInUse = await builder.isPortInUse(docPort);
+            if (docPortInUse) {
+              const staleDoc = await builder.findProcessUsingPort(docPort);
+              if (staleDoc) await builder.killProcess(staleDoc.pid);
+              await new Promise(resolve => setTimeout(resolve, 500));
+            }
+          } catch (_) {}
           try {
             manager.startProcess({
               name: 'Documentation Server',
@@ -5294,6 +5333,14 @@ const App = () => {
         if (!newPort || newPort < 1024 || newPort > 65535) {
           setKanbanPortConflictInput('');
           // Don't cancel — keep prompt open so user can retry
+          return;
+        }
+
+        // Prevent setting kanban port to the same value as the docs port
+        const docsPortForCheck = new DocumentationBuilder(process.cwd()).getPort();
+        if (newPort === docsPortForCheck) {
+          setKanbanPortConflictInput('');
+          outputBuffer.append(`Port ${newPort} is already used by the documentation server — choose a different port.\n`);
           return;
         }
 
