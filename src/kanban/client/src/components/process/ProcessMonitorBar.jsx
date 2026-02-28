@@ -45,7 +45,7 @@ export function ProcessMonitorBar() {
 
   return (
     <div className="flex items-center gap-2 px-4 py-1.5 bg-white border-b border-slate-200 flex-shrink-0 flex-wrap">
-      <Activity className="w-3.5 h-3.5 text-slate-400 flex-shrink-0" />
+      <Activity className="w-4 h-4 text-slate-400 flex-shrink-0" />
 
       {processes.map(p => (
         <button

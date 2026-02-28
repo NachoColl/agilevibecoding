@@ -79,7 +79,7 @@ export function FilterToolbar() {
             <button
               onClick={() => setAllTypeFilters(!allTypesActive)}
               className={cn(
-                'p-1.5 rounded-md transition-colors flex-shrink-0',
+                '-ml-1.5 p-1.5 rounded-md transition-colors flex-shrink-0',
                 allTypesActive
                   ? 'text-blue-600 hover:bg-blue-50'
                   : anyTypesActive
