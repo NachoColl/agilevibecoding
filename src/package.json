@@ -66,6 +66,7 @@
     "ink": "^6.7.0",
     "ink-select-input": "^6.0.0",
     "ink-spinner": "^5.0.0",
+    "jsonrepair": "^3.13.2",
     "marked": "^15.0.6",
     "openai": "^6.19.0",
     "react": "^19.0.0",

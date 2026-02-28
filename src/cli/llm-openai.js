@@ -1,4 +1,5 @@
 import OpenAI from 'openai';
+import { jsonrepair } from 'jsonrepair';
 import { LLMProvider } from './llm-provider.js';
 import { getMaxTokensForModel } from './llm-token-limits.js';
 
@@ -116,8 +117,13 @@ export class OpenAIProvider extends LLMProvider {
 
       try {
         return JSON.parse(jsonStr);
-      } catch (error) {
-        throw new Error(`Failed to parse JSON response: ${error.message}\n\nResponse was:\n${response}`);
+      } catch (firstError) {
+        if (jsonStr.startsWith('{') || jsonStr.startsWith('[')) {
+          try {
+            return JSON.parse(jsonrepair(jsonStr));
+          } catch { /* fall through to throw */ }
+        }
+        throw new Error(`Failed to parse JSON response: ${firstError.message}\n\nResponse was:\n${response}`);
       }
     } else {
       // Chat Completions API: Use native JSON mode
@@ -170,8 +176,13 @@ export class OpenAIProvider extends LLMProvider {
 
       try {
         return JSON.parse(jsonStr);
-      } catch (error) {
-        throw new Error(`Failed to parse JSON response: ${error.message}\n\nResponse was:\n${content}`);
+      } catch (firstError) {
+        if (jsonStr.startsWith('{') || jsonStr.startsWith('[')) {
+          try {
+            return JSON.parse(jsonrepair(jsonStr));
+          } catch { /* fall through to throw */ }
+        }
+        throw new Error(`Failed to parse JSON response: ${firstError.message}\n\nResponse was:\n${content}`);
       }
     }
   }
