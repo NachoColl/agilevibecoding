@@ -11,6 +11,7 @@ import {
 import { getCostHistory } from '../../lib/api';
 
 const RANGE_TABS = [
+  { label: 'Today', value: 'today' },
   { label: '7 days', value: 7 },
   { label: '30 days', value: 30 },
   { label: '90 days', value: 90 },
@@ -40,7 +41,7 @@ function formatCeremonyName(name) {
 }
 
 export function CostModal({ onClose }) {
-  const [rangeMode, setRangeMode] = useState('30');
+  const [rangeMode, setRangeMode] = useState('today');
   const [customFrom, setCustomFrom] = useState('');
   const [customTo, setCustomTo] = useState('');
   const [data, setData] = useState(null);
@@ -52,7 +53,10 @@ export function CostModal({ onClose }) {
     setData(null);
 
     let rangeArg;
-    if (rangeMode === 'custom') {
+    if (rangeMode === 'today') {
+      const today = new Date().toISOString().split('T')[0];
+      rangeArg = { from: today, to: today };
+    } else if (rangeMode === 'custom') {
       if (!customFrom || !customTo) {
         setLoading(false);
         return;
