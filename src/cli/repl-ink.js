@@ -1922,12 +1922,22 @@ const App = () => {
 
       const manager = getProcessManager();
 
-      // Kanban — always start (or reconnect to already-running managed process)
+      // Kanban — start using simple spawn (same as runInit), not forkProcess.
+      // IPC-based launch (launchKanbanServer) is reserved for when the user explicitly
+      // runs /kanban so that ceremony workers become children of the CLI process.
       const existingKanban = manager.getRunningProcesses().find(p => p.name === 'Kanban Board Server');
       const kanbanManager = new KanbanServerManager();
       const kanbanPort = kanbanManager.getPort();
       if (!existingKanban) {
-        try { launchKanbanServer(kanbanPort); } catch (_) {}
+        try {
+          const kanbanServerPath = path.join(__dirname, '..', 'kanban', 'server', 'start.js');
+          manager.startProcess({
+            name: 'Kanban Board Server',
+            command: 'node',
+            args: [kanbanServerPath, process.cwd(), String(kanbanPort)],
+            cwd: process.cwd(),
+          });
+        } catch (_) {}
       }
       setAutoStartedKanbanUrl(`http://localhost:${kanbanPort}`);
 
