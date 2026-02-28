@@ -1,4 +1,4 @@
-import { Info } from 'lucide-react';
+import { Info, BarChart2 } from 'lucide-react';
 import { useCeremonyStore } from '../../../store/ceremonyStore';
 
 /** Convert a monetary string like "$150-280/month" into a relative $ tier. */
@@ -125,17 +125,29 @@ export function DatabaseStep({ onNext, onBack, analyzing }) {
       )}
 
       {dbResult.keyMetrics && (
-        <div className="bg-slate-50 rounded-lg border border-slate-200 px-4 py-3">
-          <p className="text-xs font-medium text-slate-500 mb-1">Project metrics considered</p>
-          <div className="grid grid-cols-3 gap-2 text-xs text-slate-600 items-start">
+        <div className="rounded-xl border border-slate-200 bg-slate-50 overflow-hidden">
+          <div className="flex items-center gap-1.5 px-4 py-2 border-b border-slate-200 bg-white">
+            <BarChart2 className="w-3.5 h-3.5 text-slate-400" />
+            <span className="text-xs font-semibold text-slate-500">Project metrics analysed</span>
+          </div>
+          <div className="flex divide-x divide-slate-200">
             {dbResult.keyMetrics.estimatedReadWriteRatio && (
-              <div><span className="font-medium text-slate-500">R/W </span>{dbResult.keyMetrics.estimatedReadWriteRatio}</div>
+              <div className="flex-1 px-4 py-3">
+                <p className="text-[10px] font-medium text-slate-400 uppercase tracking-wide mb-1">Read / Write ratio</p>
+                <p className="text-sm font-semibold text-slate-700">{dbResult.keyMetrics.estimatedReadWriteRatio}</p>
+              </div>
             )}
             {dbResult.keyMetrics.expectedThroughput && (
-              <div><span className="font-medium text-slate-500">Throughput </span>{dbResult.keyMetrics.expectedThroughput}</div>
+              <div className="flex-1 px-4 py-3">
+                <p className="text-[10px] font-medium text-slate-400 uppercase tracking-wide mb-1">Expected throughput</p>
+                <p className="text-sm font-semibold text-slate-700">{dbResult.keyMetrics.expectedThroughput}</p>
+              </div>
             )}
             {dbResult.keyMetrics.dataComplexity && (
-              <div><span className="font-medium text-slate-500">Complexity </span>{dbResult.keyMetrics.dataComplexity}</div>
+              <div className="flex-1 px-4 py-3">
+                <p className="text-[10px] font-medium text-slate-400 uppercase tracking-wide mb-1">Data complexity</p>
+                <p className="text-sm font-semibold text-slate-700">{dbResult.keyMetrics.dataComplexity}</p>
+              </div>
             )}
           </div>
         </div>
