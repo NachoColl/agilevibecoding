@@ -96,6 +96,7 @@ class SeedProcessor {
   async initializeLLMProvider() {
     try {
       this.llmProvider = await LLMProvider.create(this._providerName, this._modelName);
+      this.llmProvider.onCall((delta) => this.tokenTracker.addIncremental(this.ceremonyName, delta));
       return this.llmProvider;
     } catch (error) {
       sendWarning(`Could not initialize ${this._providerName} provider`);
@@ -625,11 +626,8 @@ Return your response as JSON following the exact structure specified in your ins
         sendIndented(`Total: ${usage.totalTokens.toLocaleString()} tokens`, 1);
         sendIndented(`API Calls: ${usage.totalCalls}`, 1);
 
-        this.tokenTracker.addExecution(this.ceremonyName, {
-          input: usage.inputTokens,
-          output: usage.outputTokens
-        });
-        this.debug('[INFO] Token history saved to .avc/token-history.json');
+        this.tokenTracker.finalizeRun(this.ceremonyName);
+        this.debug('[INFO] Token history finalized in .avc/token-history.json');
         sendSuccess('Token history updated');
       }
 

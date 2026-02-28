@@ -1,5 +1,6 @@
 import path from 'path';
 import fs from 'fs';
+import { fork } from 'child_process';
 import { fileURLToPath } from 'url';
 import { KanbanLogger } from '../utils/kanban-logger.js';
 import { TokenTracker } from '../../../cli/token-tracker.js';
@@ -23,6 +24,80 @@ export class CeremonyService {
     this.projectRoot = projectRoot;
     this.state = { status: 'idle', progress: [], result: null, error: null };
     this.websocket = null;
+    this._paused = false;
+    this._cancelled = false;
+    this._runningType = null;      // 'sprint-planning' | 'sponsor-call'
+    this._activeProcessId = null;  // processId of the currently running ceremony worker
+    this._preRunSnapshot = [];     // dirs that existed before sprint-planning run
+    this._activeChild = null;      // forked ChildProcess (if fork-based run)
+  }
+
+  pause() {
+    this._paused = true;
+    if (this._activeChild) {
+      // Fork-based: send IPC; worker will reply with { type: 'paused' } which triggers broadcast
+      try { this._activeChild.send({ type: 'pause' }); } catch (_) {}
+    } else {
+      // In-process: broadcast immediately
+      if (this._runningType === 'sprint-planning') this.websocket?.broadcastSprintPlanningPaused();
+      else this.websocket?.broadcastCeremonyPaused();
+    }
+  }
+
+  resume() {
+    this._paused = false;
+    if (this._activeChild) {
+      try { this._activeChild.send({ type: 'resume' }); } catch (_) {}
+    } else {
+      if (this._runningType === 'sprint-planning') this.websocket?.broadcastSprintPlanningResumed();
+      else this.websocket?.broadcastCeremonyResumed();
+    }
+  }
+
+  cancel() {
+    this._cancelled = true;
+    if (this._activeChild) {
+      try { this._activeChild.send({ type: 'cancel' }); } catch (_) {}
+    }
+    const isSprintPlanning = this._runningType === 'sprint-planning';
+    const msg = 'Waiting for current LLM call to finish…';
+    this.state.progress.push({ type: 'detail', detail: msg });
+    if (isSprintPlanning) this.websocket?.broadcastSprintPlanningDetail(msg);
+    else this.websocket?.broadcastCeremonyDetail(msg);
+  }
+
+  forceReset() {
+    this._cancelled = true;
+    this._paused = false;
+    if (this._activeChild) {
+      try { this._activeChild.send({ type: 'cancel' }); } catch (_) {}
+      const child = this._activeChild;
+      setTimeout(() => { try { child.kill('SIGTERM'); } catch (_) {} }, 3000);
+      this._activeChild = null;
+    }
+    const wasRunningType = this._runningType;
+    this._runningType = null;
+    this._activeProcessId = null;
+    this.state = { status: 'idle', progress: [], result: null, error: null };
+    // Broadcast to whichever ceremony was running (or both if unknown)
+    if (wasRunningType === 'sprint-planning' || !wasRunningType) {
+      this.websocket?.broadcastSprintPlanningCancelled();
+    }
+    if (wasRunningType === 'sponsor-call' || !wasRunningType) {
+      this.websocket?.broadcastCeremonyCancelled();
+    }
+  }
+
+  _cleanupCancelledSprintPlanning() {
+    const projectDir = path.join(this.projectRoot, '.avc', 'project');
+    if (!fs.existsSync(projectDir)) return;
+    const current = fs.readdirSync(projectDir);
+    const toDelete = current.filter(d => !this._preRunSnapshot.includes(d));
+    for (const d of toDelete) {
+      try {
+        fs.rmSync(path.join(projectDir, d), { recursive: true, force: true });
+      } catch (_) {}
+    }
   }
 
   setWebSocket(ws) {
@@ -32,6 +107,8 @@ export class CeremonyService {
   getStatus() {
     return {
       status: this.state.status,
+      runningType: this._runningType,
+      processId: this._activeProcessId,
       result: this.state.result,
       error: this.state.error,
     };
@@ -604,11 +681,251 @@ export class CeremonyService {
     }
   }
 
+  // ── Fork-based ceremony execution ───────────────────────────────────────────
+
+  /**
+   * Shared dispatcher for worker IPC messages.
+   * Used both by the direct-fork path (child.on('message')) and the
+   * IPC relay path (handleWorkerMessage called from start.js).
+   * @param {object} msg - Worker IPC message
+   * @param {object} record - ProcessRegistry record
+   * @param {ProcessRegistry} registry
+   */
+  _dispatchWorkerMessage(msg, record, registry) {
+    const entry = { ts: Date.now(), level: 'info', text: msg.message || msg.substep || msg.detail || '' };
+    const isSP = record.type === 'sprint-planning';
+    switch (msg.type) {
+      case 'progress':
+        registry.appendLog(record.id, entry);
+        this.state.progress.push({ type: 'progress', message: msg.message });
+        if (isSP) this.websocket?.broadcastSprintPlanningProgress(msg.message);
+        else this.websocket?.broadcastCeremonyProgress(msg.message);
+        break;
+      case 'substep':
+        entry.level = 'detail'; entry.text = msg.substep;
+        registry.appendLog(record.id, entry);
+        this.state.progress.push({ type: 'substep', substep: msg.substep, meta: msg.meta });
+        if (isSP) this.websocket?.broadcastSprintPlanningSubstep(msg.substep, msg.meta);
+        else this.websocket?.broadcastCeremonySubstep(msg.substep, msg.meta);
+        break;
+      case 'detail':
+        entry.level = 'detail'; entry.text = msg.detail;
+        registry.appendLog(record.id, entry);
+        this.state.progress.push({ type: 'detail', detail: msg.detail });
+        if (isSP) this.websocket?.broadcastSprintPlanningDetail(msg.detail);
+        else this.websocket?.broadcastCeremonyDetail(msg.detail);
+        break;
+      case 'paused':
+        registry.setStatus(record.id, 'paused');
+        if (isSP) this.websocket?.broadcastSprintPlanningPaused();
+        else this.websocket?.broadcastCeremonyPaused();
+        break;
+      case 'resumed':
+        registry.setStatus(record.id, 'running');
+        if (isSP) this.websocket?.broadcastSprintPlanningResumed();
+        else this.websocket?.broadcastCeremonyResumed();
+        break;
+      case 'complete':
+        this.state.status = 'complete';
+        this.state.result = msg.result;
+        this._activeChild = null;
+        this._activeProcessId = null;
+        registry.setStatus(record.id, 'complete', { result: msg.result });
+        if (isSP) this.websocket?.broadcastSprintPlanningComplete(msg.result);
+        else this.websocket?.broadcastCeremonyComplete(msg.result);
+        this.websocket?.broadcastRefresh();
+        break;
+      case 'cancelled':
+        if (isSP) this._cleanupCancelledSprintPlanning();
+        this.state.status = 'idle';
+        this._activeChild = null;
+        this._activeProcessId = null;
+        registry.setStatus(record.id, 'cancelled');
+        if (isSP) this.websocket?.broadcastSprintPlanningCancelled();
+        else this.websocket?.broadcastCeremonyCancelled();
+        break;
+      case 'error':
+        this.state.status = 'error';
+        this.state.error = msg.error;
+        this._activeChild = null;
+        this._activeProcessId = null;
+        registry.setStatus(record.id, 'error', { error: msg.error });
+        if (isSP) this.websocket?.broadcastSprintPlanningError(msg.error);
+        else this.websocket?.broadcastCeremonyError(msg.error);
+        break;
+    }
+  }
+
+  // ── Public relay entry-points (called from start.js when running as CLI fork) ─
+
+  /** Relay a worker IPC message received via CLI → Kanban IPC channel. */
+  handleWorkerMessage(processId, msg) {
+    const record = this._registry?.getByProcessId(processId);
+    if (record) this._dispatchWorkerMessage(msg, record, this._registry);
+  }
+
+  /** Relay worker exit notification received via CLI → Kanban IPC channel. */
+  handleWorkerExit(processId, code) {
+    const record = this._registry?.getByProcessId(processId);
+    if (!record) return;
+    this._activeChild = null;
+    this._activeProcessId = null;
+    const isSP = record.type === 'sprint-planning';
+    if (this._runningType === record.type && this.state.status === 'running') {
+      const error = `Worker exited unexpectedly (code ${code})`;
+      this._registry.setStatus(record.id, 'error', { error });
+      this.state.status = 'error';
+      this.state.error = error;
+      if (isSP) this.websocket?.broadcastSprintPlanningError(error);
+      else this.websocket?.broadcastCeremonyError(error);
+    }
+    this._runningType = null;
+  }
+
+  /** Called when CLI confirms it has forked the worker (informational). */
+  handleWorkerStarted(processId, pid) {
+    // Worker forked by CLI — no additional action required in Kanban
+  }
+
+  /**
+   * Run sprint planning in a forked child process.
+   * When running as a fork of the CLI (process.connected), uses IPC relay mode:
+   * the CLI forks the worker and relays messages via its IPC channel.
+   * @param {ProcessRegistry} registry
+   * @returns {string} processId
+   */
+  async runSprintPlanningInProcess(registry) {
+    if (this.state.status === 'running') {
+      throw new Error('Ceremony already running');
+    }
+
+    const projectDir = path.join(this.projectRoot, '.avc', 'project');
+    this._preRunSnapshot = fs.existsSync(projectDir) ? fs.readdirSync(projectDir) : [];
+    this._paused = false;
+    this._cancelled = false;
+    this._runningType = 'sprint-planning';
+    this.state = { status: 'running', progress: [], result: null, error: null };
+
+    const record = registry.create('sprint-planning', 'Sprint Planning');
+    this._registry = registry;
+    this._activeProcessId = record.id;
+
+    if (process.connected) {
+      // IPC relay mode — proxy stands in for the worker child so that pause/resume/cancel
+      // continue to work unchanged; actual forking is delegated to the CLI process.
+      const proxy = {
+        send: (m) => { try { process.send({ type: 'ceremony:control', action: m.type, processId: record.id }); } catch (_) {} },
+        kill: (s) => { try { process.send({ type: 'ceremony:kill', signal: s, processId: record.id }); } catch (_) {} },
+      };
+      this._activeChild = proxy;
+      registry.attach(record.id, proxy);
+      process.send({ type: 'ceremony:fork', ceremonyType: 'sprint-planning', processId: record.id });
+      return record.id;
+    }
+
+    // Standalone fallback — direct fork (used for tests / manual server launch)
+    const workerPath = path.join(__dirname, '../workers/sprint-planning-worker.js');
+    const child = fork(workerPath, [], {
+      stdio: ['ignore', 'pipe', 'pipe', 'ipc'],
+      env: { ...process.env },
+    });
+    child.stdout?.on('data', d => process.stdout.write(d));
+    child.stderr?.on('data', d => process.stderr.write(d));
+
+    registry.attach(record.id, child);
+    this._activeChild = child;
+    child.send({ type: 'init' });
+
+    child.on('message', (msg) => this._dispatchWorkerMessage(msg, record, registry));
+
+    child.on('exit', (code) => {
+      this._activeChild = null;
+      this._activeProcessId = null;
+      if (this._runningType === 'sprint-planning' && this.state.status === 'running') {
+        registry.setStatus(record.id, 'error', { error: `Worker exited unexpectedly (code ${code})` });
+        this.state.status = 'error';
+        this.state.error = `Worker exited unexpectedly (code ${code})`;
+        this.websocket?.broadcastSprintPlanningError(this.state.error);
+      }
+      this._runningType = null;
+    });
+
+    return record.id;
+  }
+
+  /**
+   * Run sponsor call in a forked child process.
+   * When running as a fork of the CLI (process.connected), uses IPC relay mode.
+   * @param {ProcessRegistry} registry
+   * @param {object} requirements - All 7 template variables
+   * @returns {string} processId
+   */
+  async runSponsorCallInProcess(registry, requirements) {
+    if (this.state.status === 'running') {
+      throw new Error('Ceremony already running');
+    }
+
+    this._paused = false;
+    this._cancelled = false;
+    this._runningType = 'sponsor-call';
+    this.state = { status: 'running', progress: [], result: null, error: null };
+
+    const record = registry.create('sponsor-call', 'Sponsor Call');
+    this._registry = registry;
+    this._activeProcessId = record.id;
+
+    if (process.connected) {
+      // IPC relay mode
+      const proxy = {
+        send: (m) => { try { process.send({ type: 'ceremony:control', action: m.type, processId: record.id }); } catch (_) {} },
+        kill: (s) => { try { process.send({ type: 'ceremony:kill', signal: s, processId: record.id }); } catch (_) {} },
+      };
+      this._activeChild = proxy;
+      registry.attach(record.id, proxy);
+      process.send({ type: 'ceremony:fork', ceremonyType: 'sponsor-call', processId: record.id, requirements });
+      return record.id;
+    }
+
+    // Standalone fallback — direct fork
+    const workerPath = path.join(__dirname, '../workers/sponsor-call-worker.js');
+    const child = fork(workerPath, [], {
+      stdio: ['ignore', 'pipe', 'pipe', 'ipc'],
+      env: { ...process.env },
+    });
+    child.stdout?.on('data', d => process.stdout.write(d));
+    child.stderr?.on('data', d => process.stderr.write(d));
+
+    registry.attach(record.id, child);
+    this._activeChild = child;
+    child.send({ type: 'init', requirements });
+
+    child.on('message', (msg) => this._dispatchWorkerMessage(msg, record, registry));
+
+    child.on('exit', (code) => {
+      this._activeChild = null;
+      this._activeProcessId = null;
+      if (this._runningType === 'sponsor-call' && this.state.status === 'running') {
+        registry.setStatus(record.id, 'error', { error: `Worker exited unexpectedly (code ${code})` });
+        this.state.status = 'error';
+        this.state.error = `Worker exited unexpectedly (code ${code})`;
+        this.websocket?.broadcastCeremonyError(this.state.error);
+      }
+      this._runningType = null;
+    });
+
+    return record.id;
+  }
+
+  // ── Legacy in-process ceremony execution (kept for backward compat) ──────────
+
   async run(requirements) {
     if (this.state.status === 'running') {
       throw new Error('Ceremony already running');
     }
 
+    this._paused = false;
+    this._cancelled = false;
+    this._runningType = 'sponsor-call';
     this.state = { status: 'running', progress: [], result: null, error: null };
 
     // Fire-and-forget: caller gets {started:true} immediately
@@ -619,6 +936,11 @@ export class CeremonyService {
     if (this.state.status === 'running') {
       throw new Error('Ceremony already running');
     }
+    const projectDir = path.join(this.projectRoot, '.avc', 'project');
+    this._preRunSnapshot = fs.existsSync(projectDir) ? fs.readdirSync(projectDir) : [];
+    this._paused = false;
+    this._cancelled = false;
+    this._runningType = 'sprint-planning';
     this.state = { status: 'running', progress: [], result: null, error: null };
     this._runSprintPlanningAsync(); // fire-and-forget
   }
@@ -629,7 +951,12 @@ export class CeremonyService {
     try {
       const { ProjectInitiator } = await import('../../../cli/init.js');
       const initiator = new ProjectInitiator();
-      const result = await initiator.sprintPlanningWithCallback((msg, substep, meta) => {
+      const progressCallback = async (msg, substep, meta) => {
+        if (this._cancelled) throw new Error('CEREMONY_CANCELLED');
+        while (this._paused) {
+          await new Promise(r => setTimeout(r, 200));
+          if (this._cancelled) throw new Error('CEREMONY_CANCELLED');
+        }
         if (msg) {
           log.info(`[progress] ${msg}`);
           this.state.progress.push({ type: 'progress', message: msg });
@@ -640,7 +967,13 @@ export class CeremonyService {
           this.state.progress.push({ type: 'substep', substep, meta: meta || {} });
           this.websocket?.broadcastSprintPlanningSubstep(substep, meta || {});
         }
-      });
+        if (meta?.detail) {
+          log.debug(`[detail] ${meta.detail}`);
+          this.state.progress.push({ type: 'detail', detail: meta.detail });
+          this.websocket?.broadcastSprintPlanningDetail(meta.detail);
+        }
+      };
+      const result = await initiator.sprintPlanningWithCallback(progressCallback);
       this.state.status = 'complete';
       this.state.result = result;
       log.info('_runSprintPlanningAsync() completed', result);
@@ -648,11 +981,19 @@ export class CeremonyService {
       this.websocket?.broadcastSprintPlanningComplete(result);
       this.websocket?.broadcastRefresh();
     } catch (err) {
-      this.state.status = 'error';
-      this.state.error = err.message;
-      log.error('_runSprintPlanningAsync() failed', { message: err.message, stack: err.stack });
-      log.finish(false, err.message);
-      this.websocket?.broadcastSprintPlanningError(err.message);
+      if (err.message === 'CEREMONY_CANCELLED') {
+        this._cleanupCancelledSprintPlanning();
+        this.state.status = 'idle';
+        log.info('_runSprintPlanningAsync() cancelled by user');
+        log.finish(true, 'cancelled');
+        this.websocket?.broadcastSprintPlanningCancelled();
+      } else {
+        this.state.status = 'error';
+        this.state.error = err.message;
+        log.error('_runSprintPlanningAsync() failed', { message: err.message, stack: err.stack });
+        log.finish(false, err.message);
+        this.websocket?.broadcastSprintPlanningError(err.message);
+      }
     }
   }
 
@@ -668,7 +1009,12 @@ export class CeremonyService {
       const initiator = new ProjectInitiator();
       log.debug('ProjectInitiator created');
 
-      const result = await initiator.sponsorCallWithAnswers(requirements, (msg, substep, meta) => {
+      const progressCallback = async (msg, substep, meta) => {
+        if (this._cancelled) throw new Error('CEREMONY_CANCELLED');
+        while (this._paused) {
+          await new Promise(r => setTimeout(r, 200));
+          if (this._cancelled) throw new Error('CEREMONY_CANCELLED');
+        }
         if (msg) {
           log.info(`[progress] ${msg}`);
           this.state.progress.push({ type: 'progress', message: msg });
@@ -679,7 +1025,14 @@ export class CeremonyService {
           this.state.progress.push({ type: 'substep', substep, meta: meta || {} });
           this.websocket?.broadcastCeremonySubstep(substep, meta || {});
         }
-      });
+        if (meta?.detail) {
+          log.debug(`[detail] ${meta.detail}`);
+          this.state.progress.push({ type: 'detail', detail: meta.detail });
+          this.websocket?.broadcastCeremonyDetail(meta.detail);
+        }
+      };
+
+      const result = await initiator.sponsorCallWithAnswers(requirements, progressCallback);
 
       this.state.status = 'complete';
       this.state.result = result;
@@ -691,11 +1044,18 @@ export class CeremonyService {
       this.websocket?.broadcastCeremonyComplete(result);
       this.websocket?.broadcastRefresh();
     } catch (err) {
-      this.state.status = 'error';
-      this.state.error = err.message;
-      log.error('_runAsync() failed', { message: err.message, stack: err.stack });
-      log.finish(false, err.message);
-      this.websocket?.broadcastCeremonyError(err.message);
+      if (err.message === 'CEREMONY_CANCELLED') {
+        this.state.status = 'idle';
+        log.info('_runAsync() cancelled by user');
+        log.finish(true, 'cancelled');
+        this.websocket?.broadcastCeremonyCancelled();
+      } else {
+        this.state.status = 'error';
+        this.state.error = err.message;
+        log.error('_runAsync() failed', { message: err.message, stack: err.stack });
+        log.finish(false, err.message);
+        this.websocket?.broadcastCeremonyError(err.message);
+      }
     }
   }
 }

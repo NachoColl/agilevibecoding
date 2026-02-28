@@ -149,7 +149,7 @@ function buildSponsorCallPhases(ceremony, missionGenValidation) {
           loopParamType: 'missionGen',
           loop: {
             max:       missionGenValidation?.maxIterations ?? 3,
-            threshold: missionGenValidation?.acceptanceThreshold ?? 75,
+            threshold: missionGenValidation?.acceptanceThreshold ?? 90,
           },
           steps: [
             {
@@ -227,7 +227,7 @@ function buildSponsorCallPhases(ceremony, missionGenValidation) {
           loopParamType: 'docContext',
           loop: {
             max:       ceremony.validation?.maxIterations ?? 100,
-            threshold: ceremony.validation?.acceptanceThreshold ?? 75,
+            threshold: ceremony.validation?.acceptanceThreshold ?? 90,
           },
           steps: [
             {
@@ -268,7 +268,7 @@ function buildSponsorCallPhases(ceremony, missionGenValidation) {
           loopParamReadOnly: true,
           loop: {
             max:       ceremony.validation?.maxIterations ?? 100,
-            threshold: ceremony.validation?.acceptanceThreshold ?? 75,
+            threshold: ceremony.validation?.acceptanceThreshold ?? 90,
           },
           steps: [
             {
@@ -321,7 +321,7 @@ function buildSprintPlanningPhases(ceremony) {
   // Stages that aren't explicitly configured fall back to ceremony.defaultModel
   const fallbackModel = ceremony.defaultModel;
   const solverMaxIter  = ceremony.stages?.solver?.maxIterations   ?? 3;
-  const solverThreshold = ceremony.stages?.solver?.acceptanceThreshold ?? 70;
+  const solverThreshold = ceremony.stages?.solver?.acceptanceThreshold ?? 90;
 
   return [
     {
@@ -549,20 +549,9 @@ function AgentLinks({ step, onOpenAgent }) {
 
   if (items.length === 0) return null;
 
-  const hasNotes = items.some((a) => a.note);
-
-  if (!hasNotes) {
-    return (
-      <div className="flex items-center gap-1 mt-1.5 flex-wrap">
-        <span className="text-[10px] text-slate-400 font-medium mr-0.5">Agent</span>
-        {items.map(({ slug }) => <AgentLink key={slug} slug={slug} onOpen={onOpenAgent} />)}
-      </div>
-    );
-  }
-
   return (
     <div className="mt-1.5">
-      <span className="text-[10px] text-slate-400 font-medium">Agent</span>
+      <span className="text-[10px] text-slate-400 font-medium">Agent(s)</span>
       <div className="mt-1 flex flex-col gap-1">
         {items.map(({ slug, note }) => (
           <div key={slug} className="flex items-center gap-2 flex-wrap">
@@ -579,10 +568,10 @@ function AgentLinks({ step, onOpenAgent }) {
 // Renders small ← filename (input) / → filename (output) badges on step cards.
 // Steps can carry a `files` array: [{ name, direction: 'in'|'out', note? }]
 
-function FileTags({ files }) {
+function FileTags({ files, className = '' }) {
   if (!files || files.length === 0) return null;
   return (
-    <div className="flex items-center gap-1 mt-1.5 flex-wrap">
+    <div className={`flex items-center gap-1 flex-wrap ${className}`}>
       {files.map((f, i) => {
         const isIn = f.direction === 'in';
         return (
@@ -618,44 +607,43 @@ function StepBadge({ type }) {
 // ── Plain step card ───────────────────────────────────────────────────────────
 
 function StepCard({ step, models, editable, onStageModelChange, onValidationModelChange, onOpenAgent }) {
-  const showModel  = !['input', 'output', 'read', 'process'].includes(step.type);
-  const canEdit    = editable && !step.sharedWith && (step.stageKey || step.validationKey);
+  const showModel = !['input', 'output', 'read', 'process'].includes(step.type);
+  const canEdit   = editable && !step.sharedWith && (step.stageKey || step.validationKey);
 
   return (
-    <div className="flex gap-3 items-start bg-white border border-slate-200 rounded-lg px-3 py-2.5 shadow-sm">
-      <div className="flex-shrink-0 pt-0.5">
-        <StepBadge type={step.type} />
-      </div>
-      <div className="min-w-0 flex-1">
-        <div className="flex items-start gap-2">
-          <p className="text-xs text-slate-800 leading-snug flex-1">{step.label}</p>
+    <div className="bg-white border border-slate-200 rounded-lg px-3 py-2.5 shadow-sm">
 
-          {showModel && (
-            step.sharedWith ? (
-              <p className="text-[10px] text-slate-400 italic flex-shrink-0 mt-0.5">↑ {step.sharedWith}</p>
-            ) : canEdit ? (
-              <div className="flex items-center gap-1 flex-shrink-0">
-                <span className="text-[10px] text-slate-400">⬡</span>
-                <ModelSelectInline
-                  value={step.model}
-                  models={models}
-                  onChange={(modelId) => {
-                    if (step.stageKey) onStageModelChange(step.stageKey, modelId);
-                    else onValidationModelChange(step.validationKey, modelId);
-                  }}
-                />
-              </div>
-            ) : (
-              <p className="text-[10px] text-slate-400 flex-shrink-0 mt-0.5">
-                <span className="mr-1">⬡</span>
-                {step.note ? step.note : resolveModelName(step.model, models)}
-              </p>
-            )
-          )}
+      {/* Row 1: badge + file tags (flex-1) + model — all vertically centred */}
+      <div className="flex items-center gap-2">
+        <div className="flex-shrink-0">
+          <StepBadge type={step.type} />
         </div>
+        <FileTags files={step.files} className="flex-1 min-w-0" />
+        {showModel && (
+          step.sharedWith ? (
+            <p className="text-[10px] text-slate-400 italic flex-shrink-0">↑ {step.sharedWith}</p>
+          ) : canEdit ? (
+            <ModelSelectInline
+              value={step.model}
+              models={models}
+              onChange={(modelId) => {
+                if (step.stageKey) onStageModelChange(step.stageKey, modelId);
+                else onValidationModelChange(step.validationKey, modelId);
+              }}
+            />
+          ) : (
+            <p className="text-[10px] text-slate-400 flex-shrink-0">
+              {step.note ? step.note : resolveModelName(step.model, models)}
+            </p>
+          )
+        )}
+      </div>
 
+      {/* Row 2: description + agents — tiny left indent */}
+      <p className="text-xs text-slate-700 leading-snug text-left mt-2 pl-1">{step.label}</p>
+
+      <div className="pl-1">
         <AgentLinks step={step} onOpenAgent={onOpenAgent} />
-        <FileTags files={step.files} />
       </div>
     </div>
   );
@@ -843,7 +831,7 @@ export function CeremonyWorkflowModal({
 }) {
   const [draft, setDraft] = useState(() => JSON.parse(JSON.stringify(ceremony || {})));
   const [missionGenDraft, setMissionGenDraft] = useState(() =>
-    JSON.parse(JSON.stringify(missionGenValidation || { maxIterations: 3, acceptanceThreshold: 75 }))
+    JSON.parse(JSON.stringify(missionGenValidation || { maxIterations: 3, acceptanceThreshold: 90 }))
   );
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState(null);
@@ -936,7 +924,7 @@ export function CeremonyWorkflowModal({
 
   const handleCancel = () => {
     setDraft(JSON.parse(JSON.stringify(ceremony || {})));
-    setMissionGenDraft(JSON.parse(JSON.stringify(missionGenValidation || { maxIterations: 3, acceptanceThreshold: 75 })));
+    setMissionGenDraft(JSON.parse(JSON.stringify(missionGenValidation || { maxIterations: 3, acceptanceThreshold: 90 })));
     onClose();
   };
 

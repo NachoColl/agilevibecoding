@@ -41,7 +41,8 @@ describe('TemplateProcessor with LLM Integration', () => {
       const createSpy = vi.spyOn(LLMProvider, 'create').mockResolvedValue({
         providerName: 'claude',
         model: 'claude-sonnet-4-5-20250929',
-        generate: vi.fn().mockResolvedValue('Suggested value')
+        generate: vi.fn().mockResolvedValue('Suggested value'),
+        onCall: vi.fn()
       });
 
       expect(processor.llmProvider).toBeNull();
@@ -72,7 +73,8 @@ describe('TemplateProcessor with LLM Integration', () => {
       const createSpy = vi.spyOn(LLMProvider, 'create').mockResolvedValue({
         providerName: 'gemini',
         model: 'gemini-2.5-flash',
-        generate: vi.fn().mockResolvedValue('ok')
+        generate: vi.fn().mockResolvedValue('ok'),
+        onCall: vi.fn()
       });
 
       await processor.initializeLLMProvider();
@@ -361,7 +363,8 @@ describe('TemplateProcessor with LLM Integration', () => {
       const createSpy = vi.spyOn(LLMProvider, 'create').mockResolvedValue({
         providerName: 'openai',
         model: 'gpt-5.2-chat-latest',
-        generate: vi.fn().mockResolvedValue('Suggested value')
+        generate: vi.fn().mockResolvedValue('Suggested value'),
+        onCall: vi.fn()
       });
 
       await processor.initializeLLMProvider();

@@ -9,6 +9,9 @@ export class LLMProvider {
       totalCalls: 0
     };
 
+    // Per-call token callbacks (fired synchronously after each _trackTokens call)
+    this._callCallbacks = [];
+
     // Retry configuration
     this.retryConfig = {
       maxRetries: retryConfig.maxRetries || 5,
@@ -163,14 +166,31 @@ export class LLMProvider {
   }
 
   /**
-   * Track token usage from API response
+   * Register a callback to be fired synchronously after every LLM API call.
+   * Receives { input, output, provider, model } delta for that single call.
+   * @param {Function} fn - Callback function
+   */
+  onCall(fn) {
+    this._callCallbacks.push(fn);
+  }
+
+  /**
+   * Track token usage from API response and fire per-call callbacks.
    * @param {Object} usage - Usage object from API response
    */
   _trackTokens(usage) {
     if (usage) {
-      this.tokenUsage.inputTokens += usage.input_tokens || usage.inputTokens || usage.promptTokenCount || usage.prompt_tokens || 0;
-      this.tokenUsage.outputTokens += usage.output_tokens || usage.outputTokens || usage.candidatesTokenCount || usage.completion_tokens || 0;
+      const deltaIn  = usage.input_tokens  || usage.inputTokens  || usage.promptTokenCount    || usage.prompt_tokens    || 0;
+      const deltaOut = usage.output_tokens || usage.outputTokens || usage.candidatesTokenCount || usage.completion_tokens || 0;
+      this.tokenUsage.inputTokens  += deltaIn;
+      this.tokenUsage.outputTokens += deltaOut;
       this.tokenUsage.totalCalls++;
+      if (this._callCallbacks.length > 0 && (deltaIn > 0 || deltaOut > 0)) {
+        const delta = { input: deltaIn, output: deltaOut, provider: this.providerName, model: this.model };
+        for (const fn of this._callCallbacks) {
+          try { fn(delta); } catch (_) {}
+        }
+      }
     }
   }
 

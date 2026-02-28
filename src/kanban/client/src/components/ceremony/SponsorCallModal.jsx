@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { X, Info, AlertTriangle, Settings as SettingsIcon } from 'lucide-react';
+import { X, Info, AlertTriangle, Settings as SettingsIcon, ArrowDownToLine } from 'lucide-react';
 import { useCeremonyStore } from '../../store/ceremonyStore';
 import {
   analyzeDatabase,
@@ -9,6 +9,9 @@ import {
   getSettings,
   getModels,
   saveCeremonies,
+  pauseCeremony,
+  resumeCeremony,
+  cancelCeremony,
 } from '../../lib/api';
 import { CeremonyWorkflowModal } from './CeremonyWorkflowModal';
 
@@ -126,6 +129,7 @@ export function SponsorCallModal({ onClose, onOpenSettings }) {
     applyPrefill,
     requirements,
     ceremonyStatus,
+    isPaused,
     setCeremonyStatus,
     setCeremonyResult,
     setCeremonyError,
@@ -133,9 +137,12 @@ export function SponsorCallModal({ onClose, onOpenSettings }) {
     startRun,
     resetWizard,
     closeWizard,
+    setProcessId,
   } = useCeremonyStore();
 
   const [analyzingMessage, setAnalyzingMessage] = useState('');
+  const [showCancelConfirm, setShowCancelConfirm] = useState(false);
+  const [transitioning, setTransitioning] = useState(null); // null | 'pausing' | 'cancelling'
   const [workflowOpen, setWorkflowOpen] = useState(false);
   const [workflowCeremony, setWorkflowCeremony] = useState(null);
   const [workflowModels, setWorkflowModels] = useState([]);
@@ -177,9 +184,33 @@ export function SponsorCallModal({ onClose, onOpenSettings }) {
     recheckKeys();
   };
 
+  // Clear transitioning state when WS events arrive
+  useEffect(() => {
+    if (transitioning === 'pausing' && isPaused) setTransitioning(null);
+  }, [isPaused, transitioning]);
+
+  useEffect(() => {
+    if (transitioning === 'cancelling' && ceremonyStatus === 'idle') setTransitioning(null);
+  }, [ceremonyStatus, transitioning]);
+
   if (!isOpen) return null;
 
   const hasDb = dbResult?.hasDatabaseNeeds === true;
+
+  const handlePause = async () => {
+    setTransitioning('pausing');
+    try { await pauseCeremony(); } catch (_) {}
+  };
+
+  const handleResume = async () => {
+    try { await resumeCeremony(); } catch (_) {}
+  };
+
+  const handleConfirmCancel = async () => {
+    setShowCancelConfirm(false);
+    setTransitioning('cancelling');
+    try { await cancelCeremony(); } catch (_) {}
+  };
 
   // Close handler
   const handleClose = () => {
@@ -255,7 +286,8 @@ export function SponsorCallModal({ onClose, onOpenSettings }) {
     try {
       startRun();
       setWizardStep(6);
-      await runCeremony(requirements);
+      const result = await runCeremony(requirements);
+      if (result?.processId) setProcessId(result.processId);
     } catch (err) {
       console.error('Run ceremony error:', err);
       setCeremonyStatus('error');
@@ -276,7 +308,14 @@ export function SponsorCallModal({ onClose, onOpenSettings }) {
       case 5:
         return <ReviewAnswersStep onNext={handleReviewNext} onBack={() => setWizardStep(4)} />;
       case 6:
-        return <RunningStep />;
+        return (
+          <RunningStep
+            transitioning={transitioning}
+            onPause={handlePause}
+            onResume={handleResume}
+            onCancel={() => setShowCancelConfirm(true)}
+          />
+        );
       case 7:
         return <CompleteStep onClose={handleClose} />;
       default:
@@ -294,6 +333,32 @@ export function SponsorCallModal({ onClose, onOpenSettings }) {
 
       {/* Modal */}
       <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-2xl mx-4 max-h-[90vh] flex flex-col">
+        {/* Cancel confirmation overlay */}
+        {showCancelConfirm && (
+          <div className="absolute inset-0 z-10 flex items-center justify-center bg-white/90 rounded-2xl">
+            <div className="bg-white border border-slate-200 rounded-xl shadow-lg p-6 max-w-sm mx-4 text-center space-y-4">
+              <p className="text-base font-semibold text-slate-900">Stop documentation generation?</p>
+              <p className="text-sm text-slate-500">
+                You can restart the ceremony later. Any files written so far will be kept.
+              </p>
+              <div className="flex gap-3 justify-center pt-1">
+                <button
+                  onClick={() => setShowCancelConfirm(false)}
+                  className="px-4 py-2 text-sm rounded-lg border border-slate-200 text-slate-700 hover:bg-slate-50"
+                >
+                  Keep Running
+                </button>
+                <button
+                  onClick={handleConfirmCancel}
+                  className="px-4 py-2 text-sm rounded-lg bg-red-600 text-white hover:bg-red-700"
+                >
+                  Cancel Run
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Header */}
         <div className="flex items-start justify-between px-6 pt-5 pb-4 border-b border-slate-200 flex-shrink-0">
           <div className="min-w-0 flex-1">
@@ -322,6 +387,17 @@ export function SponsorCallModal({ onClose, onOpenSettings }) {
               >
                 <Info className="w-3.5 h-3.5" />
                 How it works
+              </button>
+            )}
+            {ceremonyStatus === 'running' && wizardStep === 6 && (
+              <button
+                type="button"
+                onClick={closeWizard}
+                className="flex items-center gap-1.5 text-xs font-medium text-slate-500 hover:text-slate-700 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-md px-2.5 py-1.5 transition-colors whitespace-nowrap"
+                title="Hide this window — ceremony keeps running in the background"
+              >
+                <ArrowDownToLine className="w-3.5 h-3.5" />
+                Run in Background
               </button>
             )}
             {ceremonyStatus !== 'running' && (

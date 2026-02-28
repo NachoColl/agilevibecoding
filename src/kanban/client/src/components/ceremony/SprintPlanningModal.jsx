@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
-import { X, Info } from 'lucide-react';
+import { X, Info, ArrowDownToLine } from 'lucide-react';
 import { useSprintPlanningStore } from '../../store/sprintPlanningStore';
-import { runSprintPlanning, getSettings, getModels, saveCeremonies } from '../../lib/api';
+import { runSprintPlanning, getSettings, getModels, saveCeremonies, pauseCeremony, resumeCeremony, cancelCeremony, resetCeremony } from '../../lib/api';
 import { CeremonyWorkflowModal } from './CeremonyWorkflowModal';
 
 // ── Step progress header ─────────────────────────────────────────────────────
@@ -84,21 +84,52 @@ function parseStageNumber(message) {
   return null;
 }
 
-function RunningStep() {
-  const { progressLog, status, error } = useSprintPlanningStore();
+// Group flat progressLog into a 3-level hierarchy:
+//   Level 1 — stage headers  (type:'progress')
+//   Level 2 — substeps       (type:'substep')  → { text, details[] }
+//   Level 3 — details        (type:'detail')   → appended to last substep's details[]
+//             If no substep exists yet, details go into group.orphanDetails[]
+function buildStageGroups(progressLog) {
+  const groups = [];
+  for (const entry of progressLog) {
+    if (entry.type === 'progress') {
+      groups.push({ message: entry.message, substeps: [], orphanDetails: [] });
+    } else if (entry.type === 'substep' && groups.length > 0) {
+      groups[groups.length - 1].substeps.push({ text: entry.substep, details: [] });
+    } else if (entry.type === 'detail' && groups.length > 0) {
+      const group = groups[groups.length - 1];
+      const substeps = group.substeps;
+      if (substeps.length > 0) {
+        substeps[substeps.length - 1].details.push(entry.detail);
+      } else {
+        group.orphanDetails.push(entry.detail);
+      }
+    }
+  }
+  return groups;
+}
+
+function RunningStep({ transitioning, onPause, onResume, onCancel }) {
+  const { progressLog, status, error, isPaused, setStatus, setStep, setError } = useSprintPlanningStore();
   const logBottomRef = useRef(null);
+
+  const handleForceReset = async () => {
+    try { await resetCeremony(); } catch (_) {}
+    setStatus('idle');
+    setStep(1);
+    setError(null);
+  };
 
   useEffect(() => {
     logBottomRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [progressLog]);
 
-  const progressMessages = progressLog.filter((e) => e.type === 'progress');
-  const substepMessages = progressLog.filter((e) => e.type === 'substep');
+  const stageGroups = buildStageGroups(progressLog);
 
   let currentStage = null;
   let totalStages = 8;
-  for (const p of [...progressMessages].reverse()) {
-    const parsed = parseStageNumber(p.message);
+  for (const g of [...stageGroups].reverse()) {
+    const parsed = parseStageNumber(g.message);
     if (parsed) {
       currentStage = parsed.current;
       totalStages = parsed.total;
@@ -107,9 +138,10 @@ function RunningStep() {
   }
 
   const progressPct = currentStage ? Math.round((currentStage / totalStages) * 100) : 5;
-  const latestProgress = progressMessages[progressMessages.length - 1]?.message || 'Starting…';
+  const latestProgress = stageGroups[stageGroups.length - 1]?.message || 'Starting…';
 
   if (status === 'error') {
+    const isAlreadyRunning = error?.includes('already running');
     return (
       <div className="space-y-4">
         <h2 className="text-xl font-semibold text-slate-900">Sprint Planning Failed</h2>
@@ -117,10 +149,29 @@ function RunningStep() {
           <p className="text-sm font-medium text-red-700 mb-1">Error</p>
           <p className="text-sm text-red-600">{error || 'An unknown error occurred.'}</p>
         </div>
-        <p className="text-sm text-slate-500">
-          Check that your API key is configured correctly in your project's{' '}
-          <code className="bg-slate-100 px-1 rounded">.env</code> file.
-        </p>
+        {isAlreadyRunning ? (
+          <div className="space-y-3">
+            <p className="text-sm text-slate-500">
+              A ceremony is already running on the server. You can force-stop it and reset the state — this will discard any in-progress work.
+            </p>
+            <button
+              onClick={handleForceReset}
+              className="px-4 py-2 text-sm rounded-lg bg-red-600 text-white hover:bg-red-700 transition-colors"
+            >
+              Force Stop &amp; Reset
+            </button>
+          </div>
+        ) : error === 'Not found' ? (
+          <p className="text-sm text-slate-500">
+            The server may be running an older version. Run{' '}
+            <code className="bg-slate-100 px-1 rounded">/kanban</code> in the AVC terminal to restart it, then try again.
+          </p>
+        ) : (
+          <p className="text-sm text-slate-500">
+            Check that your API key is configured correctly in your project's{' '}
+            <code className="bg-slate-100 px-1 rounded">.env</code> file.
+          </p>
+        )}
       </div>
     );
   }
@@ -147,29 +198,94 @@ function RunningStep() {
         </div>
       </div>
 
-      <div className="bg-slate-900 rounded-lg p-4 h-56 overflow-y-auto font-mono text-xs">
-        {progressMessages.length === 0 && substepMessages.length === 0 ? (
+      <div className="bg-slate-900 rounded-lg p-4 h-64 overflow-y-auto font-mono text-xs">
+        {stageGroups.length === 0 ? (
           <p className="text-slate-400 animate-pulse">Initializing…</p>
         ) : (
-          <div className="space-y-0.5">
-            {progressMessages.map((entry, i) => (
-              <p key={`p-${i}`} className="text-blue-400">
-                ▸ {entry.message}
-              </p>
-            ))}
-            {substepMessages.slice(-20).map((entry, i) => (
-              <p key={`s-${i}`} className="text-slate-300">
-                {'  '}{entry.substep}
-              </p>
-            ))}
+          <div className="space-y-2">
+            {stageGroups.map((group, gi) => {
+              const isActive = gi === stageGroups.length - 1 && status === 'running';
+              return (
+                <div key={gi}>
+                  {/* Stage header */}
+                  <div className="flex items-center gap-1.5">
+                    {isActive ? (
+                      <span className="inline-block w-3 h-3 border border-blue-400 border-t-blue-200 rounded-full animate-spin flex-shrink-0" />
+                    ) : (
+                      <span className="text-green-500 flex-shrink-0">✓</span>
+                    )}
+                    <span className={isActive ? 'text-blue-300 font-medium' : 'text-slate-400'}>
+                      {group.message}
+                    </span>
+                  </div>
+                  {/* Orphan details — arrived before any substep in this group */}
+                  {group.orphanDetails?.length > 0 && (
+                    <div className="ml-5 mt-0.5 space-y-0.5 border-l border-slate-700 pl-2">
+                      {group.orphanDetails.map((d, di) => (
+                        <p key={di} className="text-slate-500">{d}</p>
+                      ))}
+                    </div>
+                  )}
+                  {/* Substeps (Level 2) + Details (Level 3) */}
+                  {group.substeps.length > 0 && (
+                    <div className="ml-5 mt-0.5 space-y-0.5 border-l border-slate-700 pl-2">
+                      {group.substeps.map((sub, si) => (
+                        <div key={si}>
+                          <p className="text-slate-400">{sub.text}</p>
+                          {sub.details.length > 0 && (
+                            <div className="ml-3 mt-0.5 space-y-0.5 border-l border-slate-700 pl-2">
+                              {sub.details.map((d, di) => (
+                                <p key={di} className="text-slate-500">{d}</p>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+            {transitioning === 'cancelling' && (
+              <div className="flex items-center gap-1.5 mt-1">
+                <span className="inline-block w-3 h-3 border border-red-400 border-t-red-200 rounded-full animate-spin flex-shrink-0" />
+                <span className="text-red-400 font-medium">Cancelling…</span>
+              </div>
+            )}
             <div ref={logBottomRef} />
           </div>
         )}
       </div>
 
-      <p className="text-xs text-slate-400 text-center animate-pulse">
-        Please keep this window open while sprint planning runs…
-      </p>
+      <div className="flex items-center justify-end gap-2 pt-2">
+        {transitioning === 'pausing' ? (
+          <span className="flex items-center gap-1.5 text-xs text-slate-400"><span className="inline-block w-3 h-3 border border-slate-400 border-t-slate-200 rounded-full animate-spin" />Pausing…</span>
+        ) : transitioning === 'cancelling' ? (
+          <span className="flex items-center gap-1.5 text-xs text-red-400"><span className="inline-block w-3 h-3 border border-red-400 border-t-red-200 rounded-full animate-spin" />Cancelling…</span>
+        ) : !isPaused ? (
+          <button
+            onClick={onPause}
+            className="px-4 py-2 text-sm rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 transition-colors"
+          >
+            ⏸ Pause
+          </button>
+        ) : (
+          <button
+            onClick={onResume}
+            className="px-4 py-2 text-sm rounded-lg border border-amber-300 bg-amber-50 text-amber-700 hover:bg-amber-100 transition-colors"
+          >
+            ▶ Resume
+          </button>
+        )}
+        {!transitioning && (
+          <button
+            onClick={onCancel}
+            className="px-4 py-2 text-sm rounded-lg border border-red-200 text-red-600 hover:bg-red-50 transition-colors"
+          >
+            ✕ Cancel
+          </button>
+        )}
+      </div>
     </div>
   );
 }
@@ -246,16 +362,20 @@ export function SprintPlanningModal({ onClose }) {
     isOpen,
     step,
     status,
+    isPaused,
     setStep,
     setStatus,
     setError,
     closeModal,
+    setProcessId,
   } = useSprintPlanningStore();
 
   const [workflowOpen, setWorkflowOpen] = useState(false);
   const [workflowCeremony, setWorkflowCeremony] = useState(null);
   const [workflowModels, setWorkflowModels] = useState([]);
   const [workflowAllCeremonies, setWorkflowAllCeremonies] = useState([]);
+  const [showCancelConfirm, setShowCancelConfirm] = useState(false);
+  const [transitioning, setTransitioning] = useState(null); // null | 'pausing' | 'cancelling'
 
   if (!isOpen) return null;
 
@@ -269,7 +389,8 @@ export function SprintPlanningModal({ onClose }) {
     setStatus('running');
     setStep(2);
     try {
-      await runSprintPlanning();
+      const result = await runSprintPlanning();
+      if (result?.processId) setProcessId(result.processId);
       // Completion is handled via WebSocket in App.jsx
     } catch (err) {
       setStatus('error');
@@ -296,10 +417,41 @@ export function SprintPlanningModal({ onClose }) {
     setWorkflowAllCeremonies(next);
   };
 
+  const handlePause = async () => {
+    setTransitioning('pausing');
+    try { await pauseCeremony(); } catch (_) {}
+  };
+
+  const handleResume = async () => {
+    try { await resumeCeremony(); } catch (_) {}
+  };
+
+  const handleConfirmCancel = async () => {
+    setShowCancelConfirm(false);
+    setTransitioning('cancelling');
+    try { await cancelCeremony(); } catch (_) {}
+  };
+
+  // Clear transitioning state when WS events arrive (isPaused / status change)
+  useEffect(() => {
+    if (transitioning === 'pausing' && isPaused) setTransitioning(null);
+  }, [isPaused, transitioning]);
+
+  useEffect(() => {
+    if (transitioning === 'cancelling' && status === 'idle') setTransitioning(null);
+  }, [status, transitioning]);
+
   const renderStep = () => {
     switch (step) {
       case 1: return <ReadyStep onStart={handleStart} />;
-      case 2: return <RunningStep />;
+      case 2: return (
+        <RunningStep
+          transitioning={transitioning}
+          onPause={handlePause}
+          onResume={handleResume}
+          onCancel={() => setShowCancelConfirm(true)}
+        />
+      );
       case 3: return <CompleteStep onClose={handleClose} />;
       default: return null;
     }
@@ -315,6 +467,32 @@ export function SprintPlanningModal({ onClose }) {
 
       {/* Modal */}
       <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-2xl mx-4 max-h-[90vh] flex flex-col">
+        {/* Cancel confirmation overlay */}
+        {showCancelConfirm && (
+          <div className="absolute inset-0 z-10 flex items-center justify-center bg-white/90 rounded-2xl">
+            <div className="bg-white border border-slate-200 rounded-xl shadow-lg p-6 max-w-sm mx-4 text-center space-y-4">
+              <p className="text-base font-semibold text-slate-900">Cancel sprint planning?</p>
+              <p className="text-sm text-slate-500">
+                Any epics and stories created in this run will be permanently deleted.
+              </p>
+              <div className="flex gap-3 justify-center pt-1">
+                <button
+                  onClick={() => setShowCancelConfirm(false)}
+                  className="px-4 py-2 text-sm rounded-lg border border-slate-200 text-slate-700 hover:bg-slate-50"
+                >
+                  Keep Running
+                </button>
+                <button
+                  onClick={handleConfirmCancel}
+                  className="px-4 py-2 text-sm rounded-lg bg-red-600 text-white hover:bg-red-700"
+                >
+                  Cancel Run
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Header */}
         <div className="flex items-start justify-between px-6 pt-5 pb-4 border-b border-slate-200 flex-shrink-0">
           <div className="min-w-0 flex-1">
@@ -333,6 +511,17 @@ export function SprintPlanningModal({ onClose }) {
               >
                 <Info className="w-3.5 h-3.5" />
                 How it works
+              </button>
+            )}
+            {status === 'running' && (
+              <button
+                type="button"
+                onClick={closeModal}
+                className="flex items-center gap-1.5 text-xs font-medium text-slate-500 hover:text-slate-700 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-md px-2.5 py-1.5 transition-colors whitespace-nowrap"
+                title="Hide this window — ceremony keeps running in the background"
+              >
+                <ArrowDownToLine className="w-3.5 h-3.5" />
+                Run in Background
               </button>
             )}
             {status !== 'running' && (

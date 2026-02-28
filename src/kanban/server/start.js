@@ -29,7 +29,21 @@ process.on('SIGINT', shutdown);
 process.on('SIGTERM', shutdown);
 
 // Start server
-server.start().catch((error) => {
+server.start().then(() => {
+  // When launched as a fork of the AVC CLI, wire incoming relay messages so that
+  // ceremony worker events (forwarded by the CLI) reach CeremonyService.
+  if (process.connected) {
+    process.on('message', (msg) => {
+      if (msg.type === 'ceremony:worker-msg') {
+        server.ceremonyService.handleWorkerMessage(msg.processId, msg.msg);
+      } else if (msg.type === 'ceremony:worker-exit') {
+        server.ceremonyService.handleWorkerExit(msg.processId, msg.code);
+      } else if (msg.type === 'ceremony:started') {
+        server.ceremonyService.handleWorkerStarted(msg.processId, msg.pid);
+      }
+    });
+  }
+}).catch((error) => {
   console.error('Failed to start kanban server:', error);
   process.exit(1);
 });

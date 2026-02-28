@@ -17,7 +17,7 @@ const __dirname = path.dirname(__filename);
  * then the same validator re-validates — up to maxIterations times.
  */
 class EpicStoryValidator {
-  constructor(llmProvider, verificationTracker, stagesConfig = null, useSmartSelection = false) {
+  constructor(llmProvider, verificationTracker, stagesConfig = null, useSmartSelection = false, progressCallback = null) {
     this.llmProvider = llmProvider;
     this.verificationTracker = verificationTracker;
 
@@ -35,6 +35,40 @@ class EpicStoryValidator {
 
     // Smart selection flag
     this.useSmartSelection = useSmartSelection;
+
+    // Progress callback for UI detail emissions
+    this.progressCallback = progressCallback;
+
+    // Per-call token callback (propagated to all created providers)
+    this._tokenCallback = null;
+  }
+
+  /**
+   * Register a callback to be fired after every LLM API call made by this validator.
+   * Propagates to all provider instances created by this validator.
+   * @param {Function} fn - Receives { input, output, provider, model }
+   */
+  setTokenCallback(fn) {
+    this._tokenCallback = fn;
+  }
+
+  /** Emit a Level-3 detail line to the UI (fire-and-forget safe) */
+  async _detail(msg) {
+    await this.progressCallback?.(null, null, { detail: msg });
+  }
+
+  /**
+   * Wrap an async LLM call with a periodic elapsed-time heartbeat.
+   * Emits a detail message every `intervalMs` ms while the call runs,
+   * so the UI always shows activity during long LLM operations.
+   */
+  _withHeartbeat(fn, getMsg, intervalMs = 5000) {
+    const startTime = Date.now();
+    const timer = setInterval(() => {
+      const elapsed = Math.round((Date.now() - startTime) / 1000);
+      this._detail(getMsg(elapsed)).catch(() => {});
+    }, intervalMs);
+    return fn().finally(() => clearInterval(timer));
   }
 
   /**
@@ -98,6 +132,7 @@ class EpicStoryValidator {
 
     // Create new provider
     const providerInstance = await LLMProvider.create(provider, model);
+    if (this._tokenCallback) providerInstance.onCall(this._tokenCallback);
     this._validatorProviders[cacheKey] = providerInstance;
 
     return providerInstance;
@@ -116,6 +151,7 @@ class EpicStoryValidator {
     if (this._validatorProviders[cacheKey]) return this._validatorProviders[cacheKey];
 
     const instance = await LLMProvider.create(solverConfig.provider, solverConfig.model);
+    if (this._tokenCallback) instance.onCall(this._tokenCallback);
     this._validatorProviders[cacheKey] = instance;
     return instance;
   }
@@ -156,7 +192,9 @@ class EpicStoryValidator {
     // Read solver iteration settings
     const solverConfig = this.validationStageConfig?.solver || {};
     const maxIterations = solverConfig.maxIterations ?? 3;
-    const acceptanceThreshold = solverConfig.acceptanceThreshold ?? 70;
+    const acceptanceThreshold = solverConfig.acceptanceThreshold ?? 90;
+
+    await this._detail(`${validators.length} validator${validators.length !== 1 ? 's' : ''}: ${validators.map(v => this.extractDomain(v)).join(', ')}`);
 
     const validationResults = [];
     // Working copy — accumulates improvements from each validator-solver pair
@@ -164,21 +202,49 @@ class EpicStoryValidator {
     let workingEpic = { ...epic };
 
     // Sequential: each validator sees improvements from previous solver
-    for (const validatorName of validators) {
+    for (let vi = 0; vi < validators.length; vi++) {
+      const validatorName = validators[vi];
+      const role = this.extractDomain(validatorName);
       let lastResult;
 
       for (let iter = 0; iter < maxIterations; iter++) {
-        lastResult = await this.runEpicValidator(workingEpic, epicContext, validatorName);
+        const iterLabel = iter === 0 ? 'calling validator…' : `re-validating (iter ${iter + 1})…`;
+        await this._detail(`[${vi + 1}/${validators.length}] ${role} — ${iterLabel}`);
 
-        const acceptable = lastResult.validationStatus !== 'needs-improvement'
-          || (lastResult.overallScore ?? 0) >= acceptanceThreshold;
+        lastResult = await this._withHeartbeat(
+          () => this.runEpicValidator(workingEpic, epicContext, validatorName),
+          (elapsed) => {
+            if (elapsed < 15) return `   [${vi + 1}/${validators.length}] ${role} — reviewing requirements…`;
+            if (elapsed < 30) return `   [${vi + 1}/${validators.length}] ${role} — analyzing concerns…`;
+            if (elapsed < 45) return `   [${vi + 1}/${validators.length}] ${role} — checking best practices…`;
+            if (elapsed < 60) return `   [${vi + 1}/${validators.length}] ${role} — validating compliance…`;
+            return `   [${vi + 1}/${validators.length}] ${role} — still validating… (${elapsed}s)`;
+          },
+          10000
+        );
+
+        const score = lastResult.overallScore ?? 0;
+        const issueCount = (lastResult.issues || []).length;
+        const acceptable = lastResult.validationStatus !== 'needs-improvement' || score >= acceptanceThreshold;
+        const issueStr = issueCount > 0 ? ` · ${issueCount} issue${issueCount !== 1 ? 's' : ''}` : '';
+        await this._detail(`   Score: ${score}/100${issueStr} — ${acceptable ? '✓ accepted' : `⚠ below threshold (${acceptanceThreshold})`}`);
 
         if (acceptable || iter + 1 >= maxIterations) break;
 
         // Run solver to improve the epic
+        await this._detail(`   ↻ Running ${role} solver…`);
         console.log(`   ↻ [${validatorName}] issues found — running solver (iter ${iter + 1}/${maxIterations})...`);
         try {
-          const improved = await this.runEpicSolver(workingEpic, epicContext, lastResult, validatorName);
+          const improved = await this._withHeartbeat(
+            () => this.runEpicSolver(workingEpic, epicContext, lastResult, validatorName),
+            (elapsed) => {
+              if (elapsed < 20) return `   ↻ ${role} solver — applying improvements…`;
+              if (elapsed < 40) return `   ↻ ${role} solver — refining epic quality…`;
+              if (elapsed < 60) return `   ↻ ${role} solver — finalizing changes…`;
+              return `   ↻ ${role} solver — still running… (${elapsed}s)`;
+            },
+            20000
+          );
           if (improved && improved.id === workingEpic.id) {
             // Merge only safe epic-level fields
             workingEpic = {
@@ -187,9 +253,11 @@ class EpicStoryValidator {
               features:     improved.features     ?? workingEpic.features,
               dependencies: improved.dependencies ?? workingEpic.dependencies,
             };
+            await this._detail(`   → Improvements applied`);
           }
         } catch (err) {
           console.warn(`   ⚠ Solver failed for ${validatorName}: ${err.message} — keeping current epic`);
+          await this._detail(`   ⚠ Solver failed: ${err.message}`);
           break;
         }
       }
@@ -209,6 +277,8 @@ class EpicStoryValidator {
     // 4. Determine overall status
     aggregated.overallStatus = this.determineOverallStatus(validationResults);
     aggregated.readyToPublish = aggregated.overallStatus !== 'needs-improvement';
+
+    await this._detail(`Overall: ${aggregated.readyToPublish ? '✓ passed' : '⚠ needs improvement'} · avg ${aggregated.averageScore}/100`);
 
     // 5. Store for feedback loop
     this.storeValidationFeedback(epic.id, aggregated);
@@ -253,28 +323,58 @@ class EpicStoryValidator {
     // Read solver iteration settings
     const solverConfig = this.validationStageConfig?.solver || {};
     const maxIterations = solverConfig.maxIterations ?? 3;
-    const acceptanceThreshold = solverConfig.acceptanceThreshold ?? 70;
+    const acceptanceThreshold = solverConfig.acceptanceThreshold ?? 90;
+
+    await this._detail(`${validators.length} validator${validators.length !== 1 ? 's' : ''}: ${validators.map(v => this.extractDomain(v)).join(', ')}`);
 
     const validationResults = [];
     // Working copy — accumulates improvements from each validator-solver pair
     let workingStory = { ...story };
 
     // Sequential: each validator sees improvements from previous solver
-    for (const validatorName of validators) {
+    for (let vi = 0; vi < validators.length; vi++) {
+      const validatorName = validators[vi];
+      const role = this.extractDomain(validatorName);
       let lastResult;
 
       for (let iter = 0; iter < maxIterations; iter++) {
-        lastResult = await this.runStoryValidator(workingStory, storyContext, epic, validatorName);
+        const iterLabel = iter === 0 ? 'calling validator…' : `re-validating (iter ${iter + 1})…`;
+        await this._detail(`[${vi + 1}/${validators.length}] ${role} — ${iterLabel}`);
 
-        const acceptable = lastResult.validationStatus !== 'needs-improvement'
-          || (lastResult.overallScore ?? 0) >= acceptanceThreshold;
+        lastResult = await this._withHeartbeat(
+          () => this.runStoryValidator(workingStory, storyContext, epic, validatorName),
+          (elapsed) => {
+            if (elapsed < 15) return `   [${vi + 1}/${validators.length}] ${role} — reviewing story…`;
+            if (elapsed < 30) return `   [${vi + 1}/${validators.length}] ${role} — checking acceptance criteria…`;
+            if (elapsed < 45) return `   [${vi + 1}/${validators.length}] ${role} — validating scope…`;
+            if (elapsed < 60) return `   [${vi + 1}/${validators.length}] ${role} — reviewing dependencies…`;
+            return `   [${vi + 1}/${validators.length}] ${role} — still validating… (${elapsed}s)`;
+          },
+          10000
+        );
+
+        const score = lastResult.overallScore ?? 0;
+        const issueCount = (lastResult.issues || []).length;
+        const acceptable = lastResult.validationStatus !== 'needs-improvement' || score >= acceptanceThreshold;
+        const issueStr = issueCount > 0 ? ` · ${issueCount} issue${issueCount !== 1 ? 's' : ''}` : '';
+        await this._detail(`   Score: ${score}/100${issueStr} — ${acceptable ? '✓ accepted' : `⚠ below threshold (${acceptanceThreshold})`}`);
 
         if (acceptable || iter + 1 >= maxIterations) break;
 
         // Run solver to improve the story
+        await this._detail(`   ↻ Running ${role} solver…`);
         console.log(`   ↻ [${validatorName}] issues found — running solver (iter ${iter + 1}/${maxIterations})...`);
         try {
-          const improved = await this.runStorySolver(workingStory, storyContext, epic, lastResult, validatorName);
+          const improved = await this._withHeartbeat(
+            () => this.runStorySolver(workingStory, storyContext, epic, lastResult, validatorName),
+            (elapsed) => {
+              if (elapsed < 20) return `   ↻ ${role} solver — improving story…`;
+              if (elapsed < 40) return `   ↻ ${role} solver — refining acceptance criteria…`;
+              if (elapsed < 60) return `   ↻ ${role} solver — finalizing improvements…`;
+              return `   ↻ ${role} solver — still running… (${elapsed}s)`;
+            },
+            20000
+          );
           if (improved && improved.id === workingStory.id) {
             // Merge only safe story-level fields
             workingStory = {
@@ -283,9 +383,11 @@ class EpicStoryValidator {
               acceptance:   improved.acceptance   ?? workingStory.acceptance,
               dependencies: improved.dependencies ?? workingStory.dependencies,
             };
+            await this._detail(`   → Improvements applied`);
           }
         } catch (err) {
           console.warn(`   ⚠ Solver failed for ${validatorName}: ${err.message} — keeping current story`);
+          await this._detail(`   ⚠ Solver failed: ${err.message}`);
           break;
         }
       }
@@ -304,6 +406,8 @@ class EpicStoryValidator {
     // 4. Determine overall status
     aggregated.overallStatus = this.determineOverallStatus(validationResults);
     aggregated.readyToPublish = aggregated.overallStatus !== 'needs-improvement';
+
+    await this._detail(`Overall: ${aggregated.readyToPublish ? '✓ passed' : '⚠ needs improvement'} · avg ${aggregated.averageScore}/100`);
 
     // 5. Store for feedback loop
     this.storeValidationFeedback(story.id, aggregated);

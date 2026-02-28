@@ -239,7 +239,7 @@ class ProjectInitiator {
             validation: {
               enabled: true,
               maxIterations: 100,
-              acceptanceThreshold: 75,
+              acceptanceThreshold: 90,
               skipOnCriticalIssues: false,
               provider: 'claude',
               model: 'claude-sonnet-4-6',
@@ -274,7 +274,7 @@ class ProjectInitiator {
                 provider: 'claude',
                 model: 'claude-sonnet-4-6',
                 maxIterations: 3,
-                acceptanceThreshold: 70
+                acceptanceThreshold: 90
               },
               'context-generation': {
                 provider: 'claude',
@@ -344,7 +344,7 @@ class ProjectInitiator {
         missionGenerator: {
           validation: {
             maxIterations: 3,
-            acceptanceThreshold: 75
+            acceptanceThreshold: 90
           }
         },
         questionnaire: {
@@ -959,17 +959,14 @@ Documentation for this project will be generated automatically once the project 
   async generateProjectDocument(progress = null, progressPath = null, nonInteractive = false, progressCallback = null) {
     const processor = new TemplateProcessor('sponsor-call', progressPath || this.sponsorCallProgressPath, nonInteractive);
 
-    // Set progress callback if provided
+    // Set before await so processor is reachable even if processTemplate throws
+    this._lastTemplateProcessor = processor;
+
     if (progressCallback) {
       processor.setProgressCallback(progressCallback);
     }
 
-    const result = await processor.processTemplate(progress);
-
-    // Store processor for token usage retrieval
-    this._lastTemplateProcessor = processor;
-
-    return result;
+    return await processor.processTemplate(progress);
   }
 
   /**
@@ -1247,7 +1244,7 @@ Documentation for this project will be generated automatically once the project 
       fileLog('INFO', 'generateProjectDocument() complete', { resultKeys: result ? Object.keys(result) : [] });
 
       // Notify progress during cleanup
-      if (progressCallback) progressCallback(null, 'Calculating token usage costs...');
+      if (progressCallback) await progressCallback(null, 'Calculating token usage costs...');
 
       // Get token usage from template processor
       const tokenUsage = this.getLastTokenUsage();
@@ -1266,7 +1263,7 @@ Documentation for this project will be generated automatically once the project 
       );
 
       // Mark execution as completed with metadata
-      if (progressCallback) progressCallback(null, 'Saving ceremony history...');
+      if (progressCallback) await progressCallback(null, 'Saving ceremony history...');
       history.completeExecution('sponsor-call', executionId, 'success', {
         answers,
         filesGenerated: [
@@ -1284,14 +1281,14 @@ Documentation for this project will be generated automatically once the project 
       });
 
       // Mark progress as completed and clean up
-      if (progressCallback) progressCallback(null, 'Finalizing ceremony...');
+      if (progressCallback) await progressCallback(null, 'Finalizing ceremony...');
       progress.stage = 'completed';
       progress.lastUpdate = new Date().toISOString();
       this.writeProgress(progress, progressPath);
       this.clearProgress(progressPath);
 
       // Emit a final main progress message so the UI log clearly shows completion
-      if (progressCallback) progressCallback('✓ Documentation generated successfully!');
+      if (progressCallback) await progressCallback('✓ Documentation generated successfully!');
 
       fileLog('INFO', 'sponsorCallWithAnswers() complete', {
         duration: `${Date.now() - startTime}ms`,
@@ -1306,16 +1303,27 @@ Documentation for this project will be generated automatically once the project 
       return result;
 
     } catch (error) {
-      fileLog('ERROR', 'sponsorCallWithAnswers() failed', {
-        error: error.message,
-        stack: error.stack,
-        duration: `${Date.now() - startTime}ms`,
-      });
+      const isCancelled = error.message === 'CEREMONY_CANCELLED';
 
-      // Mark execution as aborted on error
+      // Save any tokens spent before cancellation/error
+      try {
+        this._lastTemplateProcessor?.saveCurrentTokenTracking();
+      } catch (trackErr) {
+        fileLog('WARN', 'Could not save partial token tracking', { error: trackErr.message });
+      }
+
+      if (!isCancelled) {
+        fileLog('ERROR', 'sponsorCallWithAnswers() failed', {
+          error: error.message,
+          stack: error.stack,
+          duration: `${Date.now() - startTime}ms`,
+        });
+      }
+
+      // Mark execution as aborted on error/cancel
       history.completeExecution('sponsor-call', executionId, 'abrupt-termination', {
         answers,
-        stage: 'llm-generation',
+        stage: isCancelled ? 'cancelled' : 'llm-generation',
         error: error.message
       });
 

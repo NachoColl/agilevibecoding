@@ -11,11 +11,13 @@ import { HierarchyBuilder } from './services/HierarchyBuilder.js';
 import { FileWatcher } from './services/FileWatcher.js';
 import { createWorkItemsRouter } from './routes/work-items.js';
 import { createCeremonyRouter } from './routes/ceremony.js';
+import { createProcessesRouter } from './routes/processes.js';
 import { createSettingsRouter } from './routes/settings.js';
 import { createCostsRouter } from './routes/costs.js';
 import { setupWebSocket } from './routes/websocket.js';
 import { renderMarkdown } from './utils/markdown.js';
 import { CeremonyService } from './services/CeremonyService.js';
+import { ProcessRegistry } from './services/ProcessRegistry.js';
 
 /**
  * KanbanServer
@@ -44,8 +46,9 @@ export class KanbanServer {
     // Data store
     this.hierarchy = null;
 
-    // Ceremony service
+    // Ceremony service + process registry
     this.ceremonyService = new CeremonyService(projectRoot);
+    this.processRegistry = new ProcessRegistry();
 
     // Express app
     this.app = express();
@@ -246,8 +249,12 @@ export class KanbanServer {
     this.app.use('/api/work-items', workItemsRouter);
 
     // Ceremony routes
-    const ceremonyRouter = createCeremonyRouter(this.ceremonyService);
+    const ceremonyRouter = createCeremonyRouter(this.ceremonyService, this.processRegistry);
     this.app.use('/api/ceremony', ceremonyRouter);
+
+    // Process monitor routes
+    const processesRouter = createProcessesRouter(this.processRegistry);
+    this.app.use('/api/processes', processesRouter);
 
     // Costs routes
     const costsRouter = createCostsRouter(this.projectRoot);
@@ -431,11 +438,23 @@ export class KanbanServer {
       // Create HTTP server
       this.server = http.createServer(this.app);
 
-      // Setup WebSocket
-      this.websocket = setupWebSocket(this.server, this);
+      // Setup WebSocket (pass processRegistry for init message to new clients)
+      this.websocket = setupWebSocket(this.server, this, this.processRegistry, this.ceremonyService);
 
       // Wire ceremony service to WebSocket for broadcasting
       this.ceremonyService.setWebSocket(this.websocket);
+
+      // Wire ProcessRegistry events → WebSocket broadcasts
+      this.processRegistry.on('created', (record) => {
+        this.websocket?.broadcastProcessStarted(record);
+      });
+      this.processRegistry.on('status', (processId, status, record) => {
+        this.websocket?.broadcastProcessStatus(processId, status, {
+          result: record.result,
+          error: record.error,
+          endedAt: record.endedAt,
+        });
+      });
 
       // Setup file watcher
       this.setupFileWatcher();

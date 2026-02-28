@@ -1,4 +1,4 @@
-import { spawn } from 'child_process';
+import { spawn, fork } from 'child_process';
 import { EventEmitter } from 'events';
 
 /**
@@ -71,6 +71,63 @@ export class BackgroundProcessManager extends EventEmitter {
     this.emit('process-started', { id, name });
 
     return id;
+  }
+
+  /**
+   * Fork a background process with an IPC channel.
+   * Identical metadata schema to startProcess(); also registers an IPC message handler.
+   * @param {string} name - Human-readable name
+   * @param {string} modulePath - Absolute path to the Node.js module to fork
+   * @param {string[]} args - Module arguments
+   * @param {Function} onMessage - Called with each IPC message from the child
+   * @returns {{ id: string, child: ChildProcess }}
+   */
+  forkProcess(name, modulePath, args = [], onMessage) {
+    const id = `${this.sanitizeName(name)}-${Date.now()}`;
+
+    const child = fork(modulePath, args, {
+      stdio: ['ignore', 'pipe', 'pipe', 'ipc'],
+    });
+
+    const metadata = {
+      id,
+      name,
+      command: modulePath,
+      pid: child.pid,
+      status: 'running',
+      startTime: new Date().toISOString(),
+      exitCode: null,
+      exitSignal: null,
+      output: [],
+      process: child
+    };
+
+    this.processes.set(id, metadata);
+
+    // Capture stdout / stderr (same as startProcess)
+    child.stdout?.on('data', (data) => {
+      this.appendOutput(id, 'stdout', data.toString());
+    });
+
+    child.stderr?.on('data', (data) => {
+      this.appendOutput(id, 'stderr', data.toString());
+    });
+
+    // Handle process exit / error
+    child.on('exit', (code, signal) => {
+      this.handleProcessExit(id, code, signal);
+    });
+
+    child.on('error', (error) => {
+      this.handleProcessError(id, error);
+    });
+
+    // Register IPC message handler
+    if (onMessage) child.on('message', onMessage);
+
+    this.emit('process-started', { id, name });
+
+    return { id, child };
   }
 
   /**

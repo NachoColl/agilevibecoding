@@ -5,7 +5,7 @@ import express from 'express';
  * Handles all /api/ceremony/* endpoints for the sponsor-call wizard.
  * @param {CeremonyService} ceremonyService
  */
-export function createCeremonyRouter(ceremonyService) {
+export function createCeremonyRouter(ceremonyService, processRegistry) {
   const router = express.Router();
 
   // GET /api/ceremony/status — current ceremony state
@@ -172,9 +172,9 @@ export function createCeremonyRouter(ceremonyService) {
       return res.status(400).json({ error: 'requirements.MISSION_STATEMENT is required' });
     }
     try {
-      await ceremonyService.run(requirements);
-      console.log('[ceremony] run started (fire-and-forget)');
-      res.json({ started: true });
+      const processId = await ceremonyService.runSponsorCallInProcess(processRegistry, requirements);
+      console.log('[ceremony] run started in process', processId);
+      res.json({ started: true, processId });
     } catch (err) {
       console.error('[ceremony] run error:', err.message);
       res.status(500).json({ error: err.message });
@@ -184,13 +184,37 @@ export function createCeremonyRouter(ceremonyService) {
   // POST /api/ceremony/sprint-planning/run
   router.post('/sprint-planning/run', async (req, res) => {
     try {
-      await ceremonyService.runSprintPlanning();
-      console.log('[ceremony] sprint-planning/run started (fire-and-forget)');
-      res.json({ started: true });
+      const processId = await ceremonyService.runSprintPlanningInProcess(processRegistry);
+      console.log('[ceremony] sprint-planning/run started in process', processId);
+      res.json({ started: true, processId });
     } catch (err) {
       console.error('[ceremony] sprint-planning/run error:', err.message);
       res.status(400).json({ error: err.message });
     }
+  });
+
+  // POST /api/ceremony/pause
+  router.post('/pause', (req, res) => {
+    ceremonyService.pause();
+    res.json({ ok: true });
+  });
+
+  // POST /api/ceremony/resume
+  router.post('/resume', (req, res) => {
+    ceremonyService.resume();
+    res.json({ ok: true });
+  });
+
+  // POST /api/ceremony/cancel
+  router.post('/cancel', (req, res) => {
+    ceremonyService.cancel();
+    res.json({ ok: true });
+  });
+
+  // POST /api/ceremony/reset — force-stop any running ceremony and reset state immediately
+  router.post('/reset', (req, res) => {
+    ceremonyService.forceReset();
+    res.json({ ok: true });
   });
 
   return router;

@@ -132,9 +132,9 @@ class TemplateProcessor {
   /**
    * Report progress to callback and log activity
    */
-  reportProgress(message, activity = null) {
+  async reportProgress(message, activity = null) {
     if (this.progressCallback) {
-      this.progressCallback(message);
+      await this.progressCallback(message);
     }
     if (activity) {
       this.activityLog.push(activity);
@@ -146,9 +146,19 @@ class TemplateProcessor {
    * @param {string} substep - The substep message
    * @param {Object} metadata - Additional metadata (tokensUsed, filesCreated)
    */
-  reportSubstep(substep, metadata = {}) {
+  async reportSubstep(substep, metadata = {}) {
     if (this.progressCallback) {
-      this.progressCallback(null, substep, metadata);
+      await this.progressCallback(null, substep, metadata);
+    }
+  }
+
+  /**
+   * Report a level-3 detail line to callback
+   * @param {string} detail - The detail message
+   */
+  async reportDetail(detail) {
+    if (this.progressCallback) {
+      await this.progressCallback(null, null, { detail });
     }
   }
 
@@ -160,7 +170,7 @@ class TemplateProcessor {
    * @param {number} delayMs - Delay in milliseconds (default 50ms)
    */
   async reportProgressWithDelay(message, activity = null, delayMs = 50) {
-    this.reportProgress(message, activity);
+    await this.reportProgress(message, activity);
     // Only delay in non-interactive mode (REPL UI) to allow UI re-renders
     if (!this.nonInteractive && this.progressCallback) {
       await new Promise(resolve => setTimeout(resolve, delayMs));
@@ -525,12 +535,26 @@ Please carefully follow the output format requirements to avoid these issues.
   }
 
   /**
+   * Register a per-call token callback on a provider instance.
+   * Saves tokens to disk after every LLM API call for crash-safe accounting.
+   * @param {LLMProvider} provider - Provider to register on
+   * @param {string} ceremonyType - Ceremony type key (e.g., 'sponsor-call')
+   */
+  _registerTokenCallback(provider, ceremonyType) {
+    if (!provider) return;
+    provider.onCall((delta) => {
+      this.tokenTracker.addIncremental(ceremonyType, delta);
+    });
+  }
+
+  /**
    * Initialize LLM provider
    */
   async initializeLLMProvider() {
     try {
       // Initialize main provider
       this.llmProvider = await LLMProvider.create(this._providerName, this._modelName);
+      this._registerTokenCallback(this.llmProvider, this.ceremonyName);
       debug(`Using ${this._providerName} (${this._modelName}) for generation`);
 
       // Initialize validation provider if validation is enabled
@@ -540,6 +564,7 @@ Please carefully follow the output format requirements to avoid these issues.
           this._validationProvider,
           this._validationModel
         );
+        this._registerTokenCallback(this.validationLLMProvider, `${this.ceremonyName}-validation`);
       }
 
       return this.llmProvider;
@@ -570,6 +595,7 @@ Please carefully follow the output format requirements to avoid these issues.
 
     // Create new provider
     const providerInstance = await LLMProvider.create(provider, model);
+    this._registerTokenCallback(providerInstance, this.ceremonyName);
     this._stageProviders[cacheKey] = providerInstance;
 
     debug(`Using ${provider} (${model}) for ${stageName}`);
@@ -597,6 +623,7 @@ Please carefully follow the output format requirements to avoid these issues.
 
     // Create new provider
     const providerInstance = await LLMProvider.create(provider, model);
+    this._registerTokenCallback(providerInstance, `${this.ceremonyName}-validation`);
     this._validationProviders[cacheKey] = providerInstance;
 
     debug(`Using ${provider} (${model}) for ${validationType} validation`);
@@ -615,7 +642,7 @@ Please carefully follow the output format requirements to avoid these issues.
     const startTime = Date.now();
     const timer = setInterval(() => {
       const elapsed = Math.round((Date.now() - startTime) / 1000);
-      this.reportSubstep(getMessageFn(elapsed));
+      this.reportDetail(getMessageFn(elapsed)).catch(() => {});
     }, intervalMs);
     try {
       return await fn();
@@ -903,12 +930,20 @@ ${questionnaire.TECHNICAL_EXCLUSIONS}
         userPrompt = this.enhancePromptWithFeedback(userPrompt, 'project-documentation-creator');
 
         this.reportSubstep('Generating Project Brief (this may take 20-30 seconds)...');
+        await this.reportDetail(`Sending to ${provider.providerName || 'LLM'} (${provider.model || ''})…`);
         const enhanced = await this.withHeartbeat(
           () => this.retryWithBackoff(
             () => provider.generate(userPrompt, 4096, agentInstructions),
             'document enhancement'
           ),
-          (elapsed) => `Generating Project Brief… (${elapsed}s elapsed)`
+          (elapsed) => {
+            if (elapsed < 15) return 'Structuring project documentation…';
+            if (elapsed < 30) return 'Writing mission and scope sections…';
+            if (elapsed < 45) return 'Generating technical architecture…';
+            if (elapsed < 60) return 'Finalizing project brief…';
+            return `Generating Project Brief… (${elapsed}s)`;
+          },
+          15000
         );
 
         // Report token usage after generation
@@ -920,6 +955,7 @@ ${questionnaire.TECHNICAL_EXCLUSIONS}
               output: usage.outputTokens
             }
           });
+          await this.reportDetail(`${usage.inputTokens.toLocaleString()} in · ${usage.outputTokens.toLocaleString()} out tokens`);
         }
 
         // Post-process verification
@@ -960,13 +996,24 @@ Please review and enhance this document to ensure:
 Return the enhanced markdown document.`;
 
         this.reportSubstep('Generating Project Brief (this may take 20-30 seconds)...');
+        await this.reportDetail(`Sending to ${provider.providerName || 'LLM'} (${provider.model || ''})…`);
         const enhanced = await this.withHeartbeat(
           () => this.retryWithBackoff(
             () => provider.generate(legacyPrompt, 4096),
             'document enhancement (legacy)'
           ),
-          (elapsed) => `Generating Project Brief… (${elapsed}s elapsed)`
+          (elapsed) => {
+            if (elapsed < 15) return 'Structuring project documentation…';
+            if (elapsed < 30) return 'Writing mission and scope sections…';
+            if (elapsed < 45) return 'Generating technical architecture…';
+            return `Generating Project Brief… (${elapsed}s)`;
+          },
+          15000
         );
+        if (provider && typeof provider.getTokenUsage === 'function') {
+          const usage = provider.getTokenUsage();
+          await this.reportDetail(`${usage.inputTokens.toLocaleString()} in · ${usage.outputTokens.toLocaleString()} out tokens`);
+        }
         debug('generateFinalDocument complete (legacy path)', { duration: `${Date.now() - t0}ms`, resultLength: enhanced?.length });
         return enhanced;
       }
@@ -1289,88 +1336,7 @@ Return the enhanced markdown document.`;
     let tokenUsage = null;
     let cost = null;
     if (this.ceremonyName === 'sponsor-call') {
-      // Aggregate token usage from all stage-specific providers
-      let totalInput = 0;
-      let totalOutput = 0;
-      let totalCalls = 0;
-      const stageBreakdown = {};
-
-      // Collect from all stage providers
-      if (this._stageProviders) {
-        for (const [cacheKey, provider] of Object.entries(this._stageProviders)) {
-          if (typeof provider.getTokenUsage === 'function') {
-            const usage = provider.getTokenUsage();
-            totalInput += usage.inputTokens || 0;
-            totalOutput += usage.outputTokens || 0;
-            totalCalls += usage.totalCalls || 0;
-
-            // Extract stage name from cache key (format: "stageName:provider:model")
-            const stageName = cacheKey.split(':')[0];
-            stageBreakdown[stageName] = {
-              input: usage.inputTokens,
-              output: usage.outputTokens,
-              calls: usage.totalCalls
-            };
-          }
-        }
-      }
-
-      // Collect from validation providers
-      if (this._validationProviders) {
-        for (const [cacheKey, provider] of Object.entries(this._validationProviders)) {
-          if (typeof provider.getTokenUsage === 'function') {
-            const usage = provider.getTokenUsage();
-            totalInput += usage.inputTokens || 0;
-            totalOutput += usage.outputTokens || 0;
-            totalCalls += usage.totalCalls || 0;
-
-            // Extract validation type from cache key (format: "validation:type:provider:model")
-            const validationType = cacheKey.split(':')[1];
-            stageBreakdown[`validation:${validationType}`] = {
-              input: usage.inputTokens,
-              output: usage.outputTokens,
-              calls: usage.totalCalls
-            };
-          }
-        }
-      }
-
-      // Fallback to legacy llmProvider if no stage providers used
-      if (totalInput === 0 && totalOutput === 0 && this.llmProvider && typeof this.llmProvider.getTokenUsage === 'function') {
-        const usage = this.llmProvider.getTokenUsage();
-        totalInput = usage.inputTokens;
-        totalOutput = usage.outputTokens;
-        totalCalls = usage.totalCalls;
-      }
-
-      tokenUsage = {
-        input: totalInput,
-        output: totalOutput,
-        total: totalInput + totalOutput,
-        calls: totalCalls,
-        stageBreakdown: stageBreakdown
-      };
-
-      // Calculate cost (estimated based on primary provider)
-      cost = this.tokenTracker.calculateCost(
-        totalInput,
-        totalOutput,
-        this._modelName
-      );
-
-      // Track in token history
-      this.tokenTracker.addExecution(this.ceremonyName, {
-        input: totalInput,
-        output: totalOutput
-      }, this._modelName);
-
-      // Store usage for ceremony history
-      this._lastTokenUsage = {
-        inputTokens: totalInput,
-        outputTokens: totalOutput,
-        totalTokens: totalInput + totalOutput,
-        totalCalls: totalCalls
-      };
+      ({ tokenUsage, cost } = this.saveCurrentTokenTracking());
     }
 
     // 12. Return comprehensive result
@@ -1422,12 +1388,19 @@ Return the enhanced markdown document.`;
 
       // Generate project context
       this.reportSubstep('Generating project context (target: ~500 tokens)...');
+      await this.reportDetail(`Sending to ${provider.providerName || 'LLM'} (${provider.model || ''})…`);
       const projectContext = await this.withHeartbeat(
         () => this.retryWithBackoff(
           () => this.generateContextWithProvider(provider, 'project', 'project', collectedValues, projectContextGeneratorAgent),
           'project context'
         ),
-        (elapsed) => `Generating project context… (${elapsed}s elapsed)`
+        (elapsed) => {
+          if (elapsed < 15) return 'Synthesizing project goals and constraints…';
+          if (elapsed < 30) return 'Generating technical context summary…';
+          if (elapsed < 45) return 'Documenting domain and stack context…';
+          return `Generating project context… (${elapsed}s)`;
+        },
+        15000
       );
 
       // Report token usage and validation
@@ -1439,6 +1412,7 @@ Return the enhanced markdown document.`;
             output: usage.outputTokens
           }
         });
+        await this.reportDetail(`${usage.inputTokens.toLocaleString()} in · ${usage.outputTokens.toLocaleString()} out tokens`);
       }
 
       // Post-process verification
@@ -1458,6 +1432,72 @@ Return the enhanced markdown document.`;
       sendWarning(`Could not generate context: ${error.message}`);
       return null;
     }
+  }
+
+  /**
+   * Aggregate token usage from all providers, write to token-history.json, and cache on this instance.
+   * Safe to call at any point (success or partial/cancelled run).
+   * @returns {{ tokenUsage: Object|null, cost: Object|null }}
+   */
+  saveCurrentTokenTracking() {
+    let totalInput = 0;
+    let totalOutput = 0;
+    let totalCalls = 0;
+    const stageBreakdown = {};
+
+    if (this._stageProviders) {
+      for (const [cacheKey, provider] of Object.entries(this._stageProviders)) {
+        if (typeof provider.getTokenUsage === 'function') {
+          const usage = provider.getTokenUsage();
+          totalInput += usage.inputTokens || 0;
+          totalOutput += usage.outputTokens || 0;
+          totalCalls += usage.totalCalls || 0;
+          const stageName = cacheKey.split(':')[0];
+          stageBreakdown[stageName] = { input: usage.inputTokens, output: usage.outputTokens, calls: usage.totalCalls };
+        }
+      }
+    }
+
+    if (this._validationProviders) {
+      for (const [cacheKey, provider] of Object.entries(this._validationProviders)) {
+        if (typeof provider.getTokenUsage === 'function') {
+          const usage = provider.getTokenUsage();
+          totalInput += usage.inputTokens || 0;
+          totalOutput += usage.outputTokens || 0;
+          totalCalls += usage.totalCalls || 0;
+          const validationType = cacheKey.split(':')[1];
+          stageBreakdown[`validation:${validationType}`] = { input: usage.inputTokens, output: usage.outputTokens, calls: usage.totalCalls };
+        }
+      }
+    }
+
+    if (totalInput === 0 && totalOutput === 0 && this.llmProvider && typeof this.llmProvider.getTokenUsage === 'function') {
+      const usage = this.llmProvider.getTokenUsage();
+      totalInput = usage.inputTokens || 0;
+      totalOutput = usage.outputTokens || 0;
+      totalCalls = usage.totalCalls || 0;
+    }
+
+    if (totalInput === 0 && totalOutput === 0) return { tokenUsage: null, cost: null };
+
+    const cost = this.tokenTracker.calculateCost(totalInput, totalOutput, this._modelName);
+
+    this._lastTokenUsage = {
+      inputTokens: totalInput,
+      outputTokens: totalOutput,
+      totalTokens: totalInput + totalOutput,
+      totalCalls: totalCalls
+    };
+
+    const tokenUsage = {
+      input: totalInput,
+      output: totalOutput,
+      total: totalInput + totalOutput,
+      calls: totalCalls,
+      stageBreakdown: stageBreakdown
+    };
+
+    return { tokenUsage, cost };
   }
 
   /**
@@ -1573,23 +1613,11 @@ Return the enhanced markdown document.`;
         console.log(`     Calls: ${totalCalls}`);
       }
 
-      // Save token history for main provider
-      this.tokenTracker.addExecution(this.ceremonyName, {
-        provider: this._providerName,
-        model: this._modelName,
-        input: mainUsage.inputTokens,
-        output: mainUsage.outputTokens
-      });
+      // Finalize run — tokens already saved per-call via addIncremental
+      this.tokenTracker.finalizeRun(this.ceremonyName);
 
-      // Save token history for validation provider
       if (this.validationLLMProvider) {
-        const validationUsage = this.validationLLMProvider.getTokenUsage();
-        this.tokenTracker.addExecution(`${this.ceremonyName}-validation`, {
-          provider: this._validationProvider,
-          model: this._validationModel,
-          input: validationUsage.inputTokens,
-          output: validationUsage.outputTokens
-        });
+        this.tokenTracker.finalizeRun(`${this.ceremonyName}-validation`);
       }
 
       sendSuccess('Token history updated');
@@ -1894,7 +1922,7 @@ Return your response as JSON following the exact structure specified in your ins
       return ceremony?.validation || {
         enabled: true,
         maxIterations: 3,
-        acceptanceThreshold: 75,
+        acceptanceThreshold: 90,
         skipOnCriticalIssues: false
       };
     } catch (error) {
@@ -1902,7 +1930,7 @@ Return your response as JSON following the exact structure specified in your ins
       return {
         enabled: true,
         maxIterations: 3,
-        acceptanceThreshold: 75,
+        acceptanceThreshold: 90,
         skipOnCriticalIssues: false
       };
     }
@@ -2312,7 +2340,7 @@ Return your response as JSON following the exact structure specified in your ins
   async iterativeValidation(content, type, questionnaire, contextContent = null) {
     const settings = this.getValidationSettings();
     const maxIterations = settings.maxIterations || 100;
-    const threshold = settings.acceptanceThreshold || 75;
+    const threshold = settings.acceptanceThreshold || 90;
 
     let currentContent = content;
     let iteration = 0;
@@ -2321,9 +2349,19 @@ Return your response as JSON following the exact structure specified in your ins
       // Report validation iteration progress
       const validationType = type === 'documentation' ? 'Project Brief structure' : 'project context';
       this.reportSubstep(`Validation ${iteration + 1}/${maxIterations}: Validating ${validationType}...`);
-      const validation = type === 'documentation'
-        ? await this.validateDocument(currentContent, questionnaire, contextContent)
-        : await this.validateContext(currentContent, 'project', questionnaire);
+      await this.reportDetail(`Calling ${this.validationLLMProvider?.model || 'LLM'} to validate…`);
+      const validation = await this.withHeartbeat(
+        () => type === 'documentation'
+          ? this.validateDocument(currentContent, questionnaire, contextContent)
+          : this.validateContext(currentContent, 'project', questionnaire),
+        (elapsed) => {
+          if (elapsed < 15) return `Checking structure and completeness…`;
+          if (elapsed < 30) return `Reviewing content quality…`;
+          if (elapsed < 45) return `Analyzing gaps and issues…`;
+          return `Validating ${validationType}… (${elapsed}s)`;
+        },
+        15000
+      );
 
       this.reportSubstep('Analyzing validation results...');
 
@@ -2336,6 +2374,7 @@ Return your response as JSON following the exact structure specified in your ins
             output: usage.outputTokens
           }
         });
+        await this.reportDetail(`${usage.inputTokens.toLocaleString()} in · ${usage.outputTokens.toLocaleString()} out tokens`);
       }
 
       // Log validation results to debug (not console)
@@ -2350,18 +2389,22 @@ Return your response as JSON following the exact structure specified in your ins
         flowGaps: flowGaps.length
       });
 
+      await this.reportDetail(`Score: ${validation.overallScore ?? '?'}/100 — ${allIssues.length} issue(s) found`);
+
       // Check if ready
       const isReady = type === 'documentation'
         ? validation.readyForPublication
         : validation.readyForUse;
 
       if (isReady && validation.overallScore >= threshold) {
+        await this.reportDetail(`✓ Accepted (score ≥ ${threshold})`);
         debug(`${type === 'context' ? 'context scope' : type} passed validation`);
         break;
       }
 
       // Check if max iterations reached
       if (iteration + 1 >= maxIterations) {
+        await this.reportDetail(`Max iterations reached — accepting current version`);
         debug('Max iterations reached. Accepting current version.');
         break;
       }
@@ -2370,9 +2413,19 @@ Return your response as JSON following the exact structure specified in your ins
       debug(`Improving ${type === 'context' ? 'context scope' : type} based on feedback`);
       const improvementType = type === 'documentation' ? 'Project Brief' : 'project context';
       this.reportSubstep(`Improving ${improvementType} based on validation...`);
-      currentContent = type === 'documentation'
-        ? await this.improveDocument(currentContent, validation, questionnaire)
-        : await this.improveContext(currentContent, validation, 'project', questionnaire);
+      await this.reportDetail(`Calling ${this.validationLLMProvider?.model || 'LLM'} to improve…`);
+      currentContent = await this.withHeartbeat(
+        () => type === 'documentation'
+          ? this.improveDocument(currentContent, validation, questionnaire)
+          : this.improveContext(currentContent, validation, 'project', questionnaire),
+        (elapsed) => {
+          if (elapsed < 15) return `Applying structural improvements…`;
+          if (elapsed < 30) return `Enhancing content quality…`;
+          if (elapsed < 45) return `Resolving identified issues…`;
+          return `Improving ${improvementType}… (${elapsed}s)`;
+        },
+        15000
+      );
 
       // Report token usage after improvement
       if (this.validationLLMProvider && typeof this.validationLLMProvider.getTokenUsage === 'function') {
@@ -2383,6 +2436,7 @@ Return your response as JSON following the exact structure specified in your ins
             output: usage.outputTokens
           }
         });
+        await this.reportDetail(`${usage.inputTokens.toLocaleString()} in · ${usage.outputTokens.toLocaleString()} out tokens`);
       } else {
         this.reportSubstep('Applying improvements...');
       }
@@ -2436,6 +2490,7 @@ Return your response as JSON following the exact structure specified in your ins
     if (!providerInstance) {
       try {
         providerInstance = await LLMProvider.create(provider, model);
+        this._registerTokenCallback(providerInstance, this.ceremonyName);
         this._stageProviders[cacheKey] = providerInstance;
         debug(`Created cross-validation provider: ${provider} (${model})`);
       } catch (error) {
@@ -2611,6 +2666,7 @@ Return your response as JSON following the exact structure specified in your ins
 
       // Pass A: doc → context (check context.md against doc.md)
       this.reportSubstep(`Pass A: Checking context.md against doc.md (${models.length} model(s) in parallel)...`);
+      await this.reportDetail(`Calling ${models.map(m => m.model).join(', ')} to cross-validate…`);
       const resultA = await this.runMultiModelCrossValidation(
         'doc-to-context',
         { doc: currentDoc, context: currentContext },
@@ -2620,17 +2676,21 @@ Return your response as JSON following the exact structure specified in your ins
 
       if (resultA.hasIssues) {
         issueCount += resultA.issues.length;
+        await this.reportDetail(`${resultA.issues.length} inconsistency(s) found in context.md`);
         this.reportSubstep(`Found ${resultA.issues.length} issue(s) in context.md — healing...`);
         debug('Cross-validation Pass A issues', resultA.issues);
         currentContext = await this.healWithCrossValidation(
           'context', currentContext, resultA.issues, currentDoc, questionnaire
         );
+        await this.reportDetail(`context.md healed`);
       } else {
+        await this.reportDetail(`context.md consistent with doc.md ✓`);
         this.reportSubstep('Pass A: context.md is consistent with doc.md ✓');
       }
 
       // Pass B: context → doc (check doc.md against context.md)
       this.reportSubstep(`Pass B: Checking doc.md against context.md (${models.length} model(s) in parallel)...`);
+      await this.reportDetail(`Calling ${models.map(m => m.model).join(', ')} to cross-validate…`);
       const resultB = await this.runMultiModelCrossValidation(
         'context-to-doc',
         { doc: currentDoc, context: currentContext },
@@ -2640,12 +2700,15 @@ Return your response as JSON following the exact structure specified in your ins
 
       if (resultB.hasIssues) {
         issueCount += resultB.issues.length;
+        await this.reportDetail(`${resultB.issues.length} inconsistency(s) found in doc.md`);
         this.reportSubstep(`Found ${resultB.issues.length} issue(s) in doc.md — healing...`);
         debug('Cross-validation Pass B issues', resultB.issues);
         currentDoc = await this.healWithCrossValidation(
           'doc', currentDoc, resultB.issues, currentContext, questionnaire
         );
+        await this.reportDetail(`doc.md healed`);
       } else {
+        await this.reportDetail(`doc.md consistent with context.md ✓`);
         this.reportSubstep('Pass B: doc.md is consistent with context.md ✓');
       }
 

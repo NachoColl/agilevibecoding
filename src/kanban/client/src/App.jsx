@@ -1,14 +1,16 @@
 import { useEffect, useState, useMemo, useRef } from 'react';
 import { Pencil, Check, X, BookOpen, Settings, DollarSign } from 'lucide-react';
-import { getHealth, getBoardTitle, updateBoardTitle, getDocsUrl, getSettings, getModels, getCostSummary, getProjectStatus } from './lib/api';
+import { getHealth, getBoardTitle, updateBoardTitle, getDocsUrl, getSettings, getModels, getCostSummary, getProjectStatus, getCeremonyStatus } from './lib/api';
 import { useWebSocket } from './hooks/useWebSocket';
 import { useKanbanStore } from './store/kanbanStore';
 import { useFilterStore } from './store/filterStore';
 import { useCeremonyStore } from './store/ceremonyStore';
 import { useSprintPlanningStore } from './store/sprintPlanningStore';
+import { useProcessStore } from './store/processStore';
 import { KanbanBoard } from './components/kanban/KanbanBoard';
 import { ProjectFileEditorPopup } from './components/ProjectFileEditorPopup';
 import { FilterToolbar } from './components/kanban/FilterToolbar';
+import { ProcessMonitorBar } from './components/process/ProcessMonitorBar';
 import { CardDetailModal } from './components/kanban/CardDetailModal';
 import { SponsorCallModal } from './components/ceremony/SponsorCallModal';
 import { SprintPlanningModal } from './components/ceremony/SprintPlanningModal';
@@ -39,6 +41,7 @@ function App() {
 
   // Project file status + editor popup
   const [projectFilesStatus, setProjectFilesStatus] = useState({ docExists: false, contextExists: false });
+  const [projectFilesLoaded, setProjectFilesLoaded] = useState(false);
   const [editingProjectFile, setEditingProjectFile] = useState(null); // 'doc' | 'context' | null
 
   // Zustand stores
@@ -55,6 +58,8 @@ function App() {
     appendProgress,
     appendMissionProgress,
     setWizardStep,
+    setPaused: setCeremonyPaused,
+    setProcessId: setCeremonyProcessId,
   } = useCeremonyStore();
 
   const {
@@ -67,7 +72,11 @@ function App() {
     setResult: setSprintPlanningResult,
     setError: setSprintPlanningError,
     status: sprintPlanningStatus,
+    setPaused: setSprintPlanningPaused,
+    setProcessId: setSprintPlanningProcessId,
   } = useSprintPlanningStore();
+
+  const { handleProcessMessage } = useProcessStore();
 
   // Get filtered items for navigation
   const filteredItems = useMemo(() => {
@@ -96,6 +105,8 @@ function App() {
         appendProgress({ type: 'progress', message: message.message });
       } else if (message.type === 'ceremony:substep') {
         appendProgress({ type: 'substep', substep: message.substep, meta: message.meta });
+      } else if (message.type === 'ceremony:detail') {
+        appendProgress({ type: 'detail', detail: message.detail });
       } else if (message.type === 'ceremony:complete') {
         setCeremonyStatus('complete');
         setCeremonyResult(message.result);
@@ -112,6 +123,8 @@ function App() {
         appendSprintPlanningProgress({ type: 'progress', message: message.message });
       } else if (message.type === 'sprint-planning:substep') {
         appendSprintPlanningProgress({ type: 'substep', substep: message.substep, meta: message.meta });
+      } else if (message.type === 'sprint-planning:detail') {
+        appendSprintPlanningProgress({ type: 'detail', detail: message.detail });
       } else if (message.type === 'sprint-planning:complete') {
         setSprintPlanningStatus('complete');
         setSprintPlanningResult(message.result);
@@ -120,6 +133,44 @@ function App() {
       } else if (message.type === 'sprint-planning:error') {
         setSprintPlanningStatus('error');
         setSprintPlanningError(message.error);
+      } else if (message.type === 'sprint-planning:paused') {
+        setSprintPlanningPaused(true);
+      } else if (message.type === 'sprint-planning:resumed') {
+        setSprintPlanningPaused(false);
+      } else if (message.type === 'sprint-planning:cancelled') {
+        setSprintPlanningStatus('idle');
+        setSprintPlanningStep(1);
+        setSprintPlanningPaused(false);
+      } else if (message.type === 'ceremony:paused') {
+        setCeremonyPaused(true);
+      } else if (message.type === 'ceremony:resumed') {
+        setCeremonyPaused(false);
+      } else if (message.type === 'ceremony:cancelled') {
+        setCeremonyStatus('idle');
+        setWizardStep(1);
+        setCeremonyPaused(false);
+      } else if (message.type === 'process:started') {
+        handleProcessMessage(message);
+        if (message.processType === 'sprint-planning') {
+          setSprintPlanningProcessId(message.processId);
+        } else if (message.processType === 'sponsor-call') {
+          setCeremonyProcessId(message.processId);
+        }
+      } else if (message.type === 'process:list' || message.type === 'process:status') {
+        handleProcessMessage(message);
+      } else if (message.type === 'ceremony:sync') {
+        // Server sends this on WebSocket connect when a ceremony is already running.
+        // Restores client state without requiring an HTTP round-trip.
+        const cs = message.ceremonyStatus;
+        if (cs?.status === 'running') {
+          if (cs.runningType === 'sprint-planning') {
+            setSprintPlanningStatus('running');
+            if (cs.processId) setSprintPlanningProcessId(cs.processId);
+          } else if (cs.runningType === 'sponsor-call') {
+            setCeremonyStatus('running');
+            if (cs.processId) setCeremonyProcessId(cs.processId);
+          }
+        }
       }
     },
   });
@@ -128,16 +179,32 @@ function App() {
   useEffect(() => {
     const init = async () => {
       try {
-        const [healthData, title, docsUrlData, filesStatus] = await Promise.all([
+        const [healthData, title, docsUrlData, filesStatus, ceremonyState] = await Promise.all([
           getHealth(),
           getBoardTitle(),
           getDocsUrl(),
           getProjectStatus(),
+          getCeremonyStatus().catch(() => null),
         ]);
         setHealth(healthData);
         setBoardTitle(title);
         setDocsUrl(docsUrlData);
         setProjectFilesStatus(filesStatus);
+
+        // Restore running ceremony state BEFORE revealing projectFilesLoaded so the
+        // board never shows "Start" buttons for an already-running ceremony.
+        if (ceremonyState?.status === 'running') {
+          if (ceremonyState.runningType === 'sprint-planning') {
+            setSprintPlanningStatus('running');
+            if (ceremonyState.processId) setSprintPlanningProcessId(ceremonyState.processId);
+          } else if (ceremonyState.runningType === 'sponsor-call') {
+            setCeremonyStatus('running');
+            if (ceremonyState.processId) setCeremonyProcessId(ceremonyState.processId);
+          }
+        }
+
+        setProjectFilesLoaded(true);
+
         await loadWorkItems();
       } catch (err) {
         console.error('Initialization error:', err);
@@ -331,10 +398,10 @@ function App() {
               <div className="flex items-center gap-2">
                 <div
                   className={`w-2 h-2 rounded-full ${wsStatus === 'connected'
-                      ? 'bg-green-500 animate-pulse'
-                      : wsStatus === 'connecting'
-                        ? 'bg-amber-400 animate-pulse'
-                        : 'bg-slate-400'
+                    ? 'bg-green-500 animate-pulse'
+                    : wsStatus === 'connecting'
+                      ? 'bg-amber-400 animate-pulse'
+                      : 'bg-slate-400'
                     }`}
                 ></div>
                 <span className="text-sm text-slate-500">
@@ -390,6 +457,9 @@ function App() {
       {/* Filter Toolbar */}
       <FilterToolbar />
 
+      {/* Process Monitor Bar */}
+      <ProcessMonitorBar />
+
       {/* Main Content */}
       <main className="flex-1 overflow-hidden">
         <div className="h-full px-4 sm:px-6 lg:px-8 py-6">
@@ -397,31 +467,34 @@ function App() {
             onCardClick={handleCardClick}
             projectFilesReady={projectFilesStatus.docExists && projectFilesStatus.contextExists}
             onStartProject={
-              !projectFilesStatus.docExists && !projectFilesStatus.contextExists && ceremonyStatus !== 'running'
+              projectFilesLoaded &&
+                !projectFilesStatus.docExists && !projectFilesStatus.contextExists && ceremonyStatus !== 'running'
                 ? () => { resetWizard(); openWizard(); }
                 : undefined
             }
             onEditProjectDoc={() => setEditingProjectFile('doc')}
             onEditProjectContext={() => setEditingProjectFile('context')}
             onStartSprintPlanning={
-              projectFilesStatus.docExists && projectFilesStatus.contextExists &&
+              projectFilesLoaded &&
+                projectFilesStatus.docExists && projectFilesStatus.contextExists &&
                 sprintPlanningStatus !== 'running' && ceremonyStatus !== 'running'
                 ? openSprintPlanning
                 : undefined
             }
+            sponsorCallRunning={ceremonyStatus === 'running'}
           />
         </div>
       </main>
 
       {/* Footer */}
       <footer className="bg-white border-t border-slate-200 py-4 text-center text-sm text-slate-500 flex-shrink-0">
-        <a
+        Powered by <a
           href="https://agilevibecoding.org"
           target="_blank"
           rel="noopener noreferrer"
           className="text-blue-600 hover:text-blue-700 hover:underline"
         >
-          Powered by Agile Vive Coding
+          Agile Vibe Coding
         </a>
       </footer>
 

@@ -6,7 +6,7 @@ import { WebSocketServer } from 'ws';
  * @param {object} dataStore - Data store with work items
  * @returns {WebSocketServer}
  */
-export function setupWebSocket(server, dataStore) {
+export function setupWebSocket(server, dataStore, processRegistry = null, ceremonyService = null) {
   const wss = new WebSocketServer({ server, path: '/ws' });
 
   const clients = new Set();
@@ -25,6 +25,19 @@ export function setupWebSocket(server, dataStore) {
         },
       })
     );
+
+    // Send current process list so the client is immediately in sync
+    if (processRegistry) {
+      ws.send(JSON.stringify({ type: 'process:list', processes: processRegistry.list() }));
+    }
+
+    // Send current ceremony status so the client restores running state on reconnect
+    if (ceremonyService) {
+      const ceremonyStatus = ceremonyService.getStatus();
+      if (ceremonyStatus.status === 'running') {
+        ws.send(JSON.stringify({ type: 'ceremony:sync', ceremonyStatus }));
+      }
+    }
 
     // Handle client messages
     ws.on('message', (message) => {
@@ -142,6 +155,52 @@ export function setupWebSocket(server, dataStore) {
     broadcast({ type: 'cost:update' });
   }
 
+  function broadcastSprintPlanningPaused() {
+    broadcast({ type: 'sprint-planning:paused' });
+  }
+
+  function broadcastSprintPlanningResumed() {
+    broadcast({ type: 'sprint-planning:resumed' });
+  }
+
+  function broadcastSprintPlanningCancelled() {
+    broadcast({ type: 'sprint-planning:cancelled' });
+  }
+
+  function broadcastSprintPlanningDetail(detail) {
+    broadcast({ type: 'sprint-planning:detail', detail });
+  }
+
+  function broadcastCeremonyDetail(detail) {
+    broadcast({ type: 'ceremony:detail', detail });
+  }
+
+  function broadcastCeremonyPaused() {
+    broadcast({ type: 'ceremony:paused' });
+  }
+
+  function broadcastCeremonyResumed() {
+    broadcast({ type: 'ceremony:resumed' });
+  }
+
+  function broadcastCeremonyCancelled() {
+    broadcast({ type: 'ceremony:cancelled' });
+  }
+
+  function broadcastProcessStarted(record) {
+    broadcast({
+      type: 'process:started',
+      processId: record.id,
+      processType: record.type,
+      label: record.label,
+      startedAt: record.startedAt,
+    });
+  }
+
+  function broadcastProcessStatus(processId, status, extra = {}) {
+    broadcast({ type: 'process:status', processId, status, ...extra });
+  }
+
   return {
     wss,
     broadcast,
@@ -151,12 +210,22 @@ export function setupWebSocket(server, dataStore) {
     broadcastCeremonySubstep,
     broadcastCeremonyComplete,
     broadcastCeremonyError,
+    broadcastCeremonyPaused,
+    broadcastCeremonyResumed,
+    broadcastCeremonyCancelled,
     broadcastSprintPlanningProgress,
     broadcastSprintPlanningSubstep,
+    broadcastSprintPlanningDetail,
     broadcastSprintPlanningComplete,
     broadcastSprintPlanningError,
+    broadcastSprintPlanningPaused,
+    broadcastSprintPlanningResumed,
+    broadcastSprintPlanningCancelled,
+    broadcastCeremonyDetail,
     broadcastMissionProgress,
     broadcastCostUpdate,
+    broadcastProcessStarted,
+    broadcastProcessStatus,
     getClientCount: () => clients.size,
   };
 }

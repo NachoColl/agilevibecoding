@@ -144,11 +144,15 @@ export class TokenTracker {
         model: tokens.model || modelId || 'unknown'
       };
 
-      // Calculate cost if model provided
+      // Calculate cost: prefer per-model pricing from avc.json, fall back to provider estimate
       let costData = null;
       const effectiveModelId = tokens.model || modelId;
       if (effectiveModelId) {
         costData = this.calculateCost(tokenData.input, tokenData.output, effectiveModelId);
+      }
+      // If no per-model pricing configured but provider sent a pre-computed estimate, use it
+      if ((!costData || costData.total === 0) && tokens.estimatedCost) {
+        costData = { input: 0, output: 0, total: tokens.estimatedCost };
       }
 
       console.log(`   → Tracking tokens for ${ceremonyType}: ${tokenData.input} input, ${tokenData.output} output (${tokenData.provider})`);
@@ -189,9 +193,92 @@ export class TokenTracker {
   }
 
   /**
-   * Update aggregations for a given scope (totals or ceremony-type)
+   * Record tokens from a single LLM API call without incrementing the executions counter.
+   * Called after every individual LLM call so tokens are persisted crash-safely.
+   * @param {string} ceremonyType - e.g., 'sprint-planning'
+   * @param {Object} delta - { input, output, provider, model, estimatedCost? }
    */
-  _updateAggregation(scope, dateKey, weekKey, monthKey, tokenData, timestamp, costData = null) {
+  addIncremental(ceremonyType, delta) {
+    if (!delta.input && !delta.output) return;
+    try {
+      this.load();
+      const now = new Date();
+      const dateKey = now.toISOString().split('T')[0];
+      const weekKey = this._getWeekKey(now);
+      const monthKey = dateKey.substring(0, 7);
+      const timestamp = now.toISOString();
+
+      const tokenData = {
+        input: delta.input || 0,
+        output: delta.output || 0,
+        total: (delta.input || 0) + (delta.output || 0),
+        provider: delta.provider || 'unknown',
+        model: delta.model || 'unknown'
+      };
+
+      let costData = null;
+      if (delta.model) {
+        costData = this.calculateCost(tokenData.input, tokenData.output, delta.model);
+      }
+      if ((!costData || costData.total === 0) && delta.estimatedCost) {
+        costData = { input: 0, output: 0, total: delta.estimatedCost };
+      }
+
+      if (!this.data[ceremonyType]) {
+        this.data[ceremonyType] = {
+          daily: {}, weekly: {}, monthly: {},
+          allTime: { input: 0, output: 0, total: 0, executions: 0, cost: { input: 0, output: 0, total: 0 } }
+        };
+      }
+
+      this._updateAggregation(this.data.totals, dateKey, weekKey, monthKey, tokenData, timestamp, costData, false);
+      this._updateAggregation(this.data[ceremonyType], dateKey, weekKey, monthKey, tokenData, timestamp, costData, false);
+      this.data.lastUpdated = timestamp;
+      this._writeData(this.data);
+    } catch (error) {
+      console.error(`addIncremental failed: ${error.message}`);
+    }
+  }
+
+  /**
+   * Increment executions counter to mark a completed run.
+   * Call this once per ceremony run after all LLM calls are done.
+   * Tokens are already persisted by addIncremental() — this only bumps the count.
+   * @param {string} ceremonyType - e.g., 'sprint-planning'
+   */
+  finalizeRun(ceremonyType) {
+    try {
+      this.load();
+      const now = new Date();
+      const dateKey = now.toISOString().split('T')[0];
+      const weekKey = this._getWeekKey(now);
+      const monthKey = dateKey.substring(0, 7);
+      const timestamp = now.toISOString();
+
+      if (!this.data[ceremonyType]) {
+        this.data[ceremonyType] = {
+          daily: {}, weekly: {}, monthly: {},
+          allTime: { input: 0, output: 0, total: 0, executions: 0, cost: { input: 0, output: 0, total: 0 } }
+        };
+      }
+
+      // Zero-token update — only increments executions counters
+      const zero = { input: 0, output: 0, total: 0, provider: 'unknown', model: 'unknown' };
+      this._updateAggregation(this.data.totals, dateKey, weekKey, monthKey, zero, timestamp, null, true);
+      this._updateAggregation(this.data[ceremonyType], dateKey, weekKey, monthKey, zero, timestamp, null, true);
+      this.data.lastUpdated = timestamp;
+      this._writeData(this.data);
+      console.log(`   → Ceremony run finalized for ${ceremonyType}`);
+    } catch (error) {
+      console.error(`finalizeRun failed: ${error.message}`);
+    }
+  }
+
+  /**
+   * Update aggregations for a given scope (totals or ceremony-type)
+   * @param {boolean} incExec - Whether to increment executions counters (default true)
+   */
+  _updateAggregation(scope, dateKey, weekKey, monthKey, tokenData, timestamp, costData = null, incExec = true) {
     // Update daily
     if (!scope.daily[dateKey]) {
       scope.daily[dateKey] = {
@@ -206,7 +293,7 @@ export class TokenTracker {
     scope.daily[dateKey].input += tokenData.input;
     scope.daily[dateKey].output += tokenData.output;
     scope.daily[dateKey].total += tokenData.total;
-    scope.daily[dateKey].executions++;
+    if (incExec) scope.daily[dateKey].executions++;
     if (costData) {
       scope.daily[dateKey].cost.input += costData.input;
       scope.daily[dateKey].cost.output += costData.output;
@@ -227,7 +314,7 @@ export class TokenTracker {
     scope.weekly[weekKey].input += tokenData.input;
     scope.weekly[weekKey].output += tokenData.output;
     scope.weekly[weekKey].total += tokenData.total;
-    scope.weekly[weekKey].executions++;
+    if (incExec) scope.weekly[weekKey].executions++;
     if (costData) {
       scope.weekly[weekKey].cost.input += costData.input;
       scope.weekly[weekKey].cost.output += costData.output;
@@ -248,7 +335,7 @@ export class TokenTracker {
     scope.monthly[monthKey].input += tokenData.input;
     scope.monthly[monthKey].output += tokenData.output;
     scope.monthly[monthKey].total += tokenData.total;
-    scope.monthly[monthKey].executions++;
+    if (incExec) scope.monthly[monthKey].executions++;
     if (costData) {
       scope.monthly[monthKey].cost.input += costData.input;
       scope.monthly[monthKey].cost.output += costData.output;
@@ -259,7 +346,7 @@ export class TokenTracker {
     scope.allTime.input += tokenData.input;
     scope.allTime.output += tokenData.output;
     scope.allTime.total += tokenData.total;
-    scope.allTime.executions++;
+    if (incExec) scope.allTime.executions++;
 
     // Initialize cost tracking if not present
     if (!scope.allTime.cost) {

@@ -84,10 +84,11 @@ function renderLogo(text) {
 }
 
 // Banner component with ASCII art logo
-const Banner = () => {
+const Banner = ({ kanbanUrl = null, docsUrl = null }) => {
   const version = getVersion();
   const agileLines = renderLogo('AGILE');
   const vibeLines = renderLogo('VIBE CODING');
+  const hasServices = kanbanUrl || docsUrl;
 
   return React.createElement(Box, { flexDirection: 'column' },
     React.createElement(Text, null, ' '),
@@ -103,6 +104,18 @@ const Banner = () => {
     React.createElement(Text, null, ' '),
     React.createElement(Text, { bold: true, color: 'red' }, 'UNDER DEVELOPMENT - DO NOT USE'),
     React.createElement(Text, null, ' '),
+    hasServices && React.createElement(Box, { flexDirection: 'column' },
+      React.createElement(Text, { bold: true }, 'Running services:'),
+      kanbanUrl && React.createElement(Text, null,
+        React.createElement(Text, { dimColor: true }, '  Kanban  '),
+        React.createElement(Text, { color: 'cyan' }, kanbanUrl)
+      ),
+      docsUrl && React.createElement(Text, null,
+        React.createElement(Text, { dimColor: true }, '  Docs    '),
+        React.createElement(Text, { color: 'cyan' }, docsUrl)
+      ),
+      React.createElement(Text, null, ' ')
+    ),
     React.createElement(Text, { dimColor: true }, 'Type / to see commands (check https://agilevibecoding.org to learn how to use AVC framework)'),
     React.createElement(Text, null, ' ')
   );
@@ -1754,6 +1767,9 @@ const App = () => {
   const [kanbanPortConflictInput, setKanbanPortConflictInput] = useState('');
   const [kanbanPortConflictInfo, setKanbanPortConflictInfo] = useState(null); // { pid, command, port, suggestedPort }
 
+  // Active ceremony workers keyed by ProcessRegistry processId (scoped to Kanban session)
+  const activeWorkersRef = useRef(null);
+
   // Background process state
   const [backgroundProcesses, setBackgroundProcesses] = useState(new Map());
   const [processViewerActive, setProcessViewerActive] = useState(false);
@@ -1815,6 +1831,10 @@ const App = () => {
 
   // Track if user has interacted (to hide Banner permanently after first interaction)
   const [hasInteracted, setHasInteracted] = useState(false);
+
+  // URLs of services auto-started on startup (set when project is already initialized)
+  const [autoStartedKanbanUrl, setAutoStartedKanbanUrl] = useState(null);
+  const [autoStartedDocsUrl, setAutoStartedDocsUrl] = useState(null);
 
   // Model configuration state
   const [modelConfigActive, setModelConfigActive] = useState(false);
@@ -1889,6 +1909,48 @@ const App = () => {
         // Silently fail
       });
     }, 5000); // Wait 5 seconds after startup to avoid blocking
+  }, []);
+
+  // Auto-start kanban + docs servers when launching into an already-initialized project.
+  // Uses a 1500ms delay so the initial render settles before we start background processes.
+  // Note: launchKanbanServer is defined later in this component body — this works because
+  // useEffect callbacks run after the full render cycle, by which point all consts are set.
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      const initiator = new ProjectInitiator();
+      if (!initiator.isAvcProject()) return;
+
+      const manager = getProcessManager();
+
+      // Kanban — always start (or reconnect to already-running managed process)
+      const existingKanban = manager.getRunningProcesses().find(p => p.name === 'Kanban Board Server');
+      const kanbanManager = new KanbanServerManager();
+      const kanbanPort = kanbanManager.getPort();
+      if (!existingKanban) {
+        try { launchKanbanServer(kanbanPort); } catch (_) {}
+      }
+      setAutoStartedKanbanUrl(`http://localhost:${kanbanPort}`);
+
+      // Documentation — start only if the docs directory has been set up
+      const builder = new DocumentationBuilder(process.cwd());
+      if (builder.hasDocumentation()) {
+        const docPort = builder.getPort();
+        const existingDocs = manager.getRunningProcesses().find(p => p.name === 'Documentation Server');
+        if (!existingDocs) {
+          try {
+            manager.startProcess({
+              name: 'Documentation Server',
+              command: 'npx',
+              args: ['vitepress', 'dev', '--port', String(docPort)],
+              cwd: builder.docsDir
+            });
+          } catch (_) {}
+        }
+        setAutoStartedDocsUrl(`http://localhost:${docPort}`);
+      }
+    }, 1500);
+
+    return () => clearTimeout(timer);
   }, []);
 
   // Auto-save questionnaire progress every 30 seconds
@@ -3652,6 +3714,93 @@ const App = () => {
     }
   };
 
+  /**
+   * Fork the Kanban server via IPC and set up ceremony worker relay.
+   * Returns { id, child } from BackgroundProcessManager.forkProcess().
+   * Also wires up worker lifecycle so that:
+   *   - Kanban → CLI: ceremony:fork requests fork a worker
+   *   - CLI → Kanban: ceremony:worker-msg / ceremony:worker-exit relay IPC
+   *   - On kanban exit: all active workers are gracefully cancelled
+   */
+  const launchKanbanServer = (port) => {
+    const manager = getProcessManager();
+    const kanbanServerPath = path.join(__dirname, '..', 'kanban', 'server', 'start.js');
+
+    // Fresh worker map for this kanban session
+    const activeWorkers = new Map();
+    activeWorkersRef.current = activeWorkers;
+
+    const { id, child: kanbanChild } = manager.forkProcess(
+      'Kanban Board Server',
+      kanbanServerPath,
+      [process.cwd(), String(port)],
+      (msg) => {
+        // ── ceremony:fork — CLI forks the worker on behalf of Kanban ──────────
+        if (msg.type === 'ceremony:fork') {
+          const { ceremonyType, processId, requirements } = msg;
+          const workerFile = ceremonyType === 'sprint-planning'
+            ? 'sprint-planning-worker.js'
+            : 'sponsor-call-worker.js';
+          const workerLabel = ceremonyType === 'sprint-planning'
+            ? 'Sprint Planning Worker'
+            : 'Sponsor Call Worker';
+          const workerPath = path.join(
+            __dirname, '..', 'kanban', 'server', 'workers', workerFile
+          );
+
+          const { child: workerChild } = manager.forkProcess(
+            workerLabel,
+            workerPath,
+            [],
+            (workerMsg) => {
+              // Relay worker IPC message to Kanban
+              try { kanbanChild.send({ type: 'ceremony:worker-msg', processId, msg: workerMsg }); } catch (_) {}
+            }
+          );
+
+          // Relay worker exit to Kanban
+          workerChild.on('exit', (code) => {
+            activeWorkers.delete(processId);
+            try { kanbanChild.send({ type: 'ceremony:worker-exit', processId, code }); } catch (_) {}
+          });
+
+          activeWorkers.set(processId, workerChild);
+
+          // Send init message to worker (requirements are only needed for sponsor-call)
+          workerChild.send({ type: 'init', ...(requirements != null ? { requirements } : {}) });
+
+          // Notify Kanban that the worker is live
+          try { kanbanChild.send({ type: 'ceremony:started', processId, pid: workerChild.pid }); } catch (_) {}
+
+        // ── ceremony:control — pause / resume / cancel ────────────────────────
+        } else if (msg.type === 'ceremony:control') {
+          const worker = activeWorkers.get(msg.processId);
+          if (worker) try { worker.send({ type: msg.action }); } catch (_) {}
+
+        // ── ceremony:kill — force kill a worker ───────────────────────────────
+        } else if (msg.type === 'ceremony:kill') {
+          const worker = activeWorkers.get(msg.processId);
+          if (worker) {
+            try { worker.kill(msg.signal || 'SIGTERM'); } catch (_) {}
+            activeWorkers.delete(msg.processId);
+          }
+        }
+      }
+    );
+
+    // When Kanban exits, gracefully shut down all active ceremony workers
+    kanbanChild.on('exit', () => {
+      for (const worker of activeWorkers.values()) {
+        try { worker.send({ type: 'cancel' }); } catch (_) {}
+        setTimeout(() => { try { worker.kill('SIGTERM'); } catch (_) {} }, 5000);
+      }
+      activeWorkers.clear();
+      activeWorkersRef.current = null;
+    });
+
+    return { id, child: kanbanChild };
+  };
+
   const runKanban = async () => {
     startCommand('kanban');
     try {
@@ -3753,16 +3902,10 @@ const App = () => {
         }
       }
 
-      // Start kanban server in background
-      const kanbanServerPath = path.join(__dirname, '..', 'kanban', 'server', 'start.js');
+      // Fork kanban server with IPC (enables ceremony worker relay)
       sendProgress('Starting AVC Kanban Board server...');
 
-      const processId = manager.startProcess({
-        name: 'Kanban Board Server',
-        command: 'node',
-        args: [kanbanServerPath, process.cwd(), String(port)],
-        cwd: process.cwd()
-      });
+      const { id: processId } = launchKanbanServer(port);
 
       sendSuccess('Kanban board started');
       sendIndented(`${gray('URL'.padEnd(6))} http://localhost:${port}`, 1);
@@ -5093,16 +5236,8 @@ const App = () => {
         setIsExecuting(true);
         setExecutingMessage('Starting AVC Kanban Board server...');
 
-        const manager = getProcessManager();
-        const kanbanServerPath = path.join(__dirname, '..', 'kanban', 'server', 'start.js');
-
         try {
-          const processId = manager.startProcess({
-            name: 'Kanban Board Server',
-            command: 'node',
-            args: [kanbanServerPath, process.cwd(), String(targetPort)],
-            cwd: process.cwd()
-          });
+          const { id: processId } = launchKanbanServer(targetPort);
 
           outputBuffer.append(
             `Kanban board started\n` +
@@ -5770,7 +5905,7 @@ const App = () => {
     // Layer 1: committed output — Static commits items once, never tracked by Ink's height counter
     React.createElement(StaticOutput, { items: outputItems }),
     // Layer 2: interactive section — Ink only tracks this small (1-20 line) area
-    !hasInteracted && mode !== 'selector' && React.createElement(Banner),
+    !hasInteracted && mode !== 'selector' && React.createElement(Banner, { kanbanUrl: autoStartedKanbanUrl, docsUrl: autoStartedDocsUrl }),
     renderOutput(),
     renderProcessViewer(),
     renderSelector(),

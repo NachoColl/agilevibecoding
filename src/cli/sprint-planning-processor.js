@@ -205,14 +205,69 @@ class SprintPlanningProcessor {
     // Create new provider
     this.debug(`Creating new provider for ${stageName}: ${provider} (${model})`);
     const providerInstance = await LLMProvider.create(provider, model);
+    this._registerTokenCallback(providerInstance);
     this._stageProviders[cacheKey] = providerInstance;
 
     return providerInstance;
   }
 
+  /**
+   * Run an async LLM fn with a periodic elapsed-time heartbeat detail message.
+   * Keeps the UI updated while waiting for long LLM calls to complete.
+   */
+  async _withProgressHeartbeat(fn, getMsg, progressCallback, intervalMs = 5000) {
+    const startTime = Date.now();
+    const timer = setInterval(() => {
+      const elapsed = Math.round((Date.now() - startTime) / 1000);
+      progressCallback?.(null, null, { detail: getMsg(elapsed) })?.catch?.(() => {});
+    }, intervalMs);
+    try {
+      return await fn();
+    } finally {
+      clearInterval(timer);
+    }
+  }
+
+  /**
+   * Aggregate token usage across all provider instances:
+   * - this.llmProvider (Stage 5 validation fallback)
+   * - this._stageProviders (Stage 4 decomposition, Stage 7 context-gen)
+   * - this._validator._validatorProviders (Stage 5 per-validator providers)
+   */
+  _aggregateAllTokenUsage() {
+    const totals = { inputTokens: 0, outputTokens: 0, totalTokens: 0, totalCalls: 0, estimatedCost: 0 };
+    const add = (provider) => {
+      if (!provider) return;
+      const u = provider.getTokenUsage();
+      totals.inputTokens += u.inputTokens || 0;
+      totals.outputTokens += u.outputTokens || 0;
+      totals.totalTokens += u.totalTokens || (u.inputTokens || 0) + (u.outputTokens || 0);
+      totals.totalCalls += u.totalCalls || 0;
+      totals.estimatedCost += u.estimatedCost || 0;
+    };
+    add(this.llmProvider);
+    for (const p of Object.values(this._stageProviders)) add(p);
+    if (this._validator) {
+      for (const p of Object.values(this._validator._validatorProviders)) add(p);
+    }
+    return totals;
+  }
+
+  /**
+   * Register a per-call token callback on a provider instance.
+   * Each LLM API call fires addIncremental() so tokens are persisted crash-safely.
+   */
+  _registerTokenCallback(provider) {
+    if (!provider) return;
+    provider.onCall((delta) => {
+      this.tokenTracker.addIncremental(this.ceremonyName, delta);
+    });
+  }
+
   async initializeLLMProvider() {
     try {
       this.llmProvider = await LLMProvider.create(this._providerName, this._modelName);
+      this._registerTokenCallback(this.llmProvider);
       return this.llmProvider;
     } catch (error) {
       this.debug(`Could not initialize ${this._providerName} provider`);
@@ -486,7 +541,7 @@ class SprintPlanningProcessor {
   }
 
   // STAGE 4: Decompose into Epics + Stories
-  async decomposeIntoEpicsStories(scope, existingEpics, existingStories, projectContext) {
+  async decomposeIntoEpicsStories(scope, existingEpics, existingStories, projectContext, progressCallback = null) {
     this.debugStage(4, 'Decompose into Epics + Stories');
 
     this.debug('Stage 1/3: Decomposing scope into Epics and Stories');
@@ -496,6 +551,7 @@ class SprintPlanningProcessor {
     const { provider: providerName, model: modelName } = this.getProviderForStage('decomposition');
 
     this.debug('Using provider for decomposition', { provider: providerName, model: modelName });
+    await progressCallback?.(null, `Using model: ${modelName}`, {});
 
     // Read agent instructions
     const agentPath = path.join(this.agentsPath, 'epic-story-decomposer.md');
@@ -543,6 +599,12 @@ Return your response as JSON following the exact structure specified in your ins
       totalPromptSize: prompt.length
     });
 
+    const existingNote = existingEpicNames.length > 0
+      ? ` (skipping ${existingEpicNames.length} existing epics)`
+      : '';
+    await progressCallback?.(null, `Calling LLM to decompose scope${existingNote}…`, {});
+    await progressCallback?.(null, null, { detail: `Sending to ${providerName} (${modelName})…` });
+
     // Log full decomposition prompt for duplicate detection analysis
     this.debug('\n' + '='.repeat(80));
     this.debug('FULL DECOMPOSITION PROMPT:');
@@ -563,9 +625,21 @@ Return your response as JSON following the exact structure specified in your ins
 
         this.debug('Sending request to LLM API...');
 
-        const result = await this.retryWithBackoff(
-          () => provider.generateJSON(prompt, epicStoryDecomposerAgent),
-          'Epic/Story decomposition'
+        const result = await this._withProgressHeartbeat(
+          () => this.retryWithBackoff(
+            () => provider.generateJSON(prompt, epicStoryDecomposerAgent),
+            'Epic/Story decomposition'
+          ),
+          (elapsed) => {
+            if (elapsed < 20) return 'Reading scope and project context…';
+            if (elapsed < 40) return 'Identifying domain boundaries…';
+            if (elapsed < 60) return 'Structuring epics and stories…';
+            if (elapsed < 80) return 'Refining decomposition…';
+            if (elapsed < 100) return 'Finalizing work item hierarchy…';
+            return `Still decomposing… (${elapsed}s)`;
+          },
+          progressCallback,
+          20000  // 20s interval — phase messages change each tick
         );
 
         // Log token usage
@@ -575,6 +649,7 @@ Return your response as JSON following the exact structure specified in your ins
           output: usage.outputTokens,
           total: usage.totalTokens
         });
+        await progressCallback?.(null, null, { detail: `${usage.inputTokens.toLocaleString()} in · ${usage.outputTokens.toLocaleString()} out tokens` });
 
         this.debug(`Response content (${usage.outputTokens} tokens)`, {
           epicCount: result.epics?.length || 0,
@@ -598,6 +673,12 @@ Return your response as JSON following the exact structure specified in your ins
       throw new Error('Invalid decomposition response: missing epics array');
     }
 
+    const totalStories = hierarchy.epics.reduce((sum, e) => sum + (e.stories?.length || 0), 0);
+    await progressCallback?.(null, `Decomposed into ${hierarchy.epics.length} epics, ${totalStories} stories`, {});
+    for (const epic of hierarchy.epics) {
+      await progressCallback?.(null, `  ${epic.name} (${epic.stories?.length || 0} stories)`, {});
+    }
+
     this.debug('Parsed hierarchy', {
       epics: hierarchy.epics.map(e => ({
         id: e.id,
@@ -612,7 +693,7 @@ Return your response as JSON following the exact structure specified in your ins
   }
 
   // STAGE 5: Multi-Agent Validation
-  async validateHierarchy(hierarchy, projectContext) {
+  async validateHierarchy(hierarchy, projectContext, progressCallback = null) {
     this.debugStage(5, 'Multi-Agent Validation');
 
     // Initialize default LLM provider if not already done (for fallback)
@@ -631,12 +712,18 @@ Return your response as JSON following the exact structure specified in your ins
       this.llmProvider,
       this.verificationTracker,
       this.stagesConfig,
-      useSmartSelection
+      useSmartSelection,
+      progressCallback
     );
+    this._validator = validator;
+    this._validator.setTokenCallback((delta) => {
+      this.tokenTracker.addIncremental(this.ceremonyName, delta);
+    });
 
     // Validate each epic
     for (const epic of hierarchy.epics) {
       this.debug(`\nValidating Epic: ${epic.id} "${epic.name}"`);
+      await progressCallback?.(null, `Validating Epic: ${epic.name}`, {});
 
       // Generate epic context for validation
       const epicContext = await this.generateEpicContext(epic, projectContext);
@@ -656,6 +743,7 @@ Return your response as JSON following the exact structure specified in your ins
       // Validate each story under this epic
       for (const story of epic.stories || []) {
         this.debug(`\nValidating Story: ${story.id} "${story.name}"`);
+        await progressCallback?.(null, `  Validating story: ${story.name}`, {});
 
         // Generate story context for validation
         const storyContext = await this.generateStoryContext(story, epic, projectContext);
@@ -980,7 +1068,7 @@ ${projectContext}
   }
 
   // STAGE 7-8: Write hierarchy files
-  async writeHierarchyFiles(hierarchy, projectContext) {
+  async writeHierarchyFiles(hierarchy, projectContext, progressCallback = null) {
     this.debugStage(7, 'Generate Contexts & Write Files');
 
     this.debug('Stage 2/3: Generating context files');
@@ -997,6 +1085,7 @@ ${projectContext}
     let storyCount = 0;
 
     for (const epic of hierarchy.epics) {
+      await progressCallback?.(null, `Writing Epic: ${epic.name}`, {});
       const epicDir = path.join(this.projectPath, epic.id);
 
       this.debug(`Creating Epic directory: ${epicDir}`);
@@ -1011,10 +1100,22 @@ ${projectContext}
       this.debug(`Writing ${docPath} (${docContent.length} bytes)`);
 
       // Generate and write Epic context.md
-      const epicContext = await this.retryWithBackoff(
-        () => this.generateContext('epic', epic.id, { projectContext, epic }, featureContextGeneratorAgent),
-        `Epic ${epic.id} context`
+      await progressCallback?.(null, null, { detail: `Calling context generator for epic…` });
+      const epicContext = await this._withProgressHeartbeat(
+        () => this.retryWithBackoff(
+          () => this.generateContext('epic', epic.id, { projectContext, epic }, featureContextGeneratorAgent),
+          `Epic ${epic.id} context`
+        ),
+        (elapsed) => {
+          if (elapsed < 15) return 'Analyzing epic scope and features…';
+          if (elapsed < 30) return 'Generating implementation context…';
+          if (elapsed < 45) return 'Documenting dependencies and constraints…';
+          return `Generating epic context… (${elapsed}s)`;
+        },
+        progressCallback,
+        15000
       );
+      await progressCallback?.(null, null, { detail: `Context: ${epicContext.contextMarkdown.length.toLocaleString()} chars` });
       const contextPath = path.join(epicDir, 'context.md');
       fs.writeFileSync(contextPath, epicContext.contextMarkdown, 'utf8');
       this.debug(`Writing ${contextPath} (${epicContext.contextMarkdown.length} bytes)`);
@@ -1046,6 +1147,7 @@ ${projectContext}
 
       // Write Story files (nested under epic)
       for (const story of epic.stories || []) {
+        await progressCallback?.(null, `  Writing story: ${story.name}`, {});
         const storyDir = path.join(epicDir, story.id);
 
         this.debug(`Creating Story directory: ${storyDir}`);
@@ -1060,10 +1162,22 @@ ${projectContext}
         this.debug(`Writing ${storyDocPath} (${storyDocContent.length} bytes)`);
 
         // Generate and write Story context.md
-        const storyContext = await this.retryWithBackoff(
-          () => this.generateContext('story', story.id, { projectContext, epic, story }, featureContextGeneratorAgent),
-          `Story ${story.id} context`
+        await progressCallback?.(null, null, { detail: `Calling context generator for story…` });
+        const storyContext = await this._withProgressHeartbeat(
+          () => this.retryWithBackoff(
+            () => this.generateContext('story', story.id, { projectContext, epic, story }, featureContextGeneratorAgent),
+            `Story ${story.id} context`
+          ),
+          (elapsed) => {
+            if (elapsed < 15) return 'Analyzing story requirements and user flow…';
+            if (elapsed < 30) return 'Generating implementation guidance…';
+            if (elapsed < 45) return 'Documenting acceptance context…';
+            return `Generating story context… (${elapsed}s)`;
+          },
+          progressCallback,
+          15000
         );
+        await progressCallback?.(null, null, { detail: `Context: ${storyContext.contextMarkdown.length.toLocaleString()} chars` });
         const storyContextPath = path.join(storyDir, 'context.md');
         fs.writeFileSync(storyContextPath, storyContext.contextMarkdown, 'utf8');
         this.debug(`Writing ${storyContextPath} (${storyContext.contextMarkdown.length} bytes)`);
@@ -1269,12 +1383,12 @@ ${projectContext}
 
       // Stage 1: Validate
       sendProgress('Validating prerequisites...');
-      progressCallback?.('Stage 1/8: Validating prerequisites…');
+      await progressCallback?.('Stage 1/8: Validating prerequisites…');
       this.validatePrerequisites();
 
       // Stage 2: Read existing hierarchy
       sendProgress('Analyzing existing project structure...');
-      progressCallback?.('Stage 2/8: Analyzing existing project structure…');
+      await progressCallback?.('Stage 2/8: Analyzing existing project structure…');
       const { existingEpics, existingStories, maxEpicNum, maxStoryNums, preRunSnapshot } = this.readExistingHierarchy();
 
       if (existingEpics.size > 0) {
@@ -1286,7 +1400,7 @@ ${projectContext}
 
       // Stage 3: Collect scope
       sendProgress('Collecting project scope...');
-      progressCallback?.('Stage 3/8: Collecting project scope…');
+      await progressCallback?.('Stage 3/8: Collecting project scope…');
       const scope = await this.collectNewScope();
 
       // Read project context and log full content for cross-run comparison
@@ -1301,8 +1415,8 @@ ${projectContext}
 
       // Stage 4: Decompose
       sendProgress('Decomposing scope into Epics and Stories...');
-      progressCallback?.('Stage 4/8: Decomposing scope into Epics and Stories…');
-      let hierarchy = await this.decomposeIntoEpicsStories(scope, existingEpics, existingStories, projectContext);
+      await progressCallback?.('Stage 4/8: Decomposing scope into Epics and Stories…');
+      let hierarchy = await this.decomposeIntoEpicsStories(scope, existingEpics, existingStories, projectContext, progressCallback);
 
       // Log raw LLM output before any validation/modification
       this.debugSection('POST-DECOMPOSE: Raw LLM Output (before validation)');
@@ -1319,8 +1433,8 @@ ${projectContext}
 
       // Stage 5: Multi-Agent Validation
       sendProgress('Validating Epics and Stories with domain experts...');
-      progressCallback?.('Stage 5/8: Validating with domain experts…');
-      hierarchy = await this.validateHierarchy(hierarchy, projectContext);
+      await progressCallback?.('Stage 5/8: Validating with domain experts…');
+      hierarchy = await this.validateHierarchy(hierarchy, projectContext, progressCallback);
 
       // Log hierarchy after validation (may have been modified)
       this.debugSection('POST-VALIDATION: Hierarchy after domain-expert validation');
@@ -1335,7 +1449,7 @@ ${projectContext}
 
       // Stage 6: Renumber IDs
       sendProgress('Renumbering hierarchy IDs...');
-      progressCallback?.('Stage 6/8: Renumbering hierarchy IDs…');
+      await progressCallback?.('Stage 6/8: Renumbering hierarchy IDs…');
       hierarchy = this.renumberHierarchy(hierarchy, maxEpicNum, maxStoryNums);
 
       // Clear screen before file writing phase
@@ -1344,9 +1458,9 @@ ${projectContext}
 
       // Stage 7-8: Generate contexts and write files
       sendProgress('Generating context files and writing hierarchy...');
-      progressCallback?.('Stage 7/8: Generating context files…');
-      progressCallback?.('Stage 8/8: Writing hierarchy files…');
-      const { epicCount, storyCount } = await this.writeHierarchyFiles(hierarchy, projectContext);
+      await progressCallback?.('Stage 7/8: Generating context files…');
+      await progressCallback?.('Stage 8/8: Writing hierarchy files…');
+      const { epicCount, storyCount } = await this.writeHierarchyFiles(hierarchy, projectContext, progressCallback);
 
       // Stage 9: Summary & Cleanup
       this.debugStage(9, 'Summary & Cleanup');
@@ -1359,23 +1473,15 @@ ${projectContext}
 
       sendOutput(`Created ${epicCount} Epics, ${storyCount} Stories. Total: ${totalEpics} Epics, ${totalStories} Stories.`);
 
-      // Track token usage
+      // Track token usage — aggregate across all provider instances
+      const aggregated = this._aggregateAllTokenUsage();
       let tokenUsageSummary = null;
-      if (this.llmProvider) {
-        const usage = this.llmProvider.getTokenUsage();
-        tokenUsageSummary = {
-          inputTokens: usage.inputTokens,
-          outputTokens: usage.outputTokens,
-          totalTokens: usage.totalTokens,
-          totalCalls: usage.totalCalls
-        };
-        this.debug('Token usage', tokenUsageSummary);
+      if (aggregated.totalCalls > 0 || aggregated.inputTokens > 0) {
+        tokenUsageSummary = aggregated;
+        this.debug('Token usage (all providers)', tokenUsageSummary);
 
-        this.tokenTracker.addExecution(this.ceremonyName, {
-          input: usage.inputTokens,
-          output: usage.outputTokens
-        });
-        this.debug('Token tracking saved to .avc/token-history.json');
+        this.tokenTracker.finalizeRun(this.ceremonyName);
+        this.debug('Token tracking finalized in .avc/token-history.json');
       }
 
       sendOutput('Run /seed <story-id> to decompose a Story into Tasks.');
@@ -1446,10 +1552,10 @@ ${projectContext}
 
       history.completeExecution('sprint-planning', executionId, 'success', {
         filesGenerated,
-        tokenUsage: this.llmProvider ? {
-          input: this.llmProvider.getTokenUsage().inputTokens,
-          output: this.llmProvider.getTokenUsage().outputTokens,
-          total: this.llmProvider.getTokenUsage().totalTokens
+        tokenUsage: tokenUsageSummary ? {
+          input: tokenUsageSummary.inputTokens,
+          output: tokenUsageSummary.outputTokens,
+          total: tokenUsageSummary.totalTokens
         } : null,
         model: this._modelName,
         provider: this._providerName,
@@ -1464,29 +1570,41 @@ ${projectContext}
 
       return returnResult;
     } catch (error) {
-      this.debug('\n========== ERROR OCCURRED ==========');
-      this.debug('Error details', {
-        message: error.message,
-        stack: error.stack,
-        name: error.name
-      });
+      const isCancelled = error.message === 'CEREMONY_CANCELLED';
 
-      // Dump application state at failure
-      this.debug('Application state at failure', {
-        ceremonyName: this.ceremonyName,
-        provider: this._providerName,
-        model: this._modelName,
-        projectPath: this.projectPath,
-        currentWorkingDir: process.cwd(),
-        nodeVersion: process.version,
-        platform: process.platform
-      });
+      // Track tokens even for cancelled/error runs — tokens were spent up to this point
+      try {
+        const aggregated = this._aggregateAllTokenUsage();
+        if (aggregated.totalCalls > 0 || aggregated.inputTokens > 0) {
+          this.tokenTracker.finalizeRun(this.ceremonyName);
+          this.debug('Token tracking finalized (partial run)', aggregated);
+        }
+      } catch (trackErr) {
+        this.debug('Could not save token tracking on error', { error: trackErr.message });
+      }
 
-      sendError(`Project expansion failed: ${error.message}`);
+      if (!isCancelled) {
+        this.debug('\n========== ERROR OCCURRED ==========');
+        this.debug('Error details', {
+          message: error.message,
+          stack: error.stack,
+          name: error.name
+        });
+        this.debug('Application state at failure', {
+          ceremonyName: this.ceremonyName,
+          provider: this._providerName,
+          model: this._modelName,
+          projectPath: this.projectPath,
+          currentWorkingDir: process.cwd(),
+          nodeVersion: process.version,
+          platform: process.platform
+        });
+        sendError(`Project expansion failed: ${error.message}`);
+      }
 
       // Mark execution as aborted on error
       history.completeExecution('sprint-planning', executionId, 'abrupt-termination', {
-        stage: 'error',
+        stage: isCancelled ? 'cancelled' : 'error',
         error: error.message
       });
 

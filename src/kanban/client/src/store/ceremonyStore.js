@@ -49,12 +49,20 @@ export const useCeremonyStore = create((set, get) => ({
   ceremonyStatus: 'idle',   // 'idle' | 'running' | 'complete' | 'error'
   ceremonyResult: null,
   ceremonyError: null,
+  isPaused: false,
+  processId: null,          // active fork processId (set after run starts)
 
   // ── Actions ────────────────────────────────────────────────────────────────
 
   openWizard: () => set({ isOpen: true }),
 
   closeWizard: () => set({ isOpen: false }),
+
+  // Reopen without resetting state — used by ProcessMonitorBar chip click
+  reopenWizard: () => set((s) => ({
+    isOpen: true,
+    wizardStep: s.ceremonyStatus === 'complete' ? 7 : 6,
+  })),
 
   resetWizard: () =>
     set({
@@ -128,6 +136,10 @@ export const useCeremonyStore = create((set, get) => ({
   setCeremonyResult: (ceremonyResult) => set({ ceremonyResult }),
 
   setCeremonyError: (ceremonyError) => set({ ceremonyError }),
+
+  setPaused: (isPaused) => set({ isPaused }),
+
+  setProcessId: (processId) => set({ processId }),
 
   // Sync requirements from prefill result + step 1-2 data
   applyPrefill: (prefillResult, strategy, mission, initialScope) => {

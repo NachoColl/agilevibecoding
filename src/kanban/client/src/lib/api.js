@@ -302,6 +302,11 @@ export async function runSprintPlanning() {
   return apiFetch('/ceremony/sprint-planning/run', { method: 'POST' });
 }
 
+export const pauseCeremony  = () => apiFetch('/ceremony/pause',  { method: 'POST' });
+export const resumeCeremony = () => apiFetch('/ceremony/resume', { method: 'POST' });
+export const cancelCeremony = () => apiFetch('/ceremony/cancel', { method: 'POST' });
+export const resetCeremony  = () => apiFetch('/ceremony/reset',  { method: 'POST' });
+
 export async function getModels() {
   return apiFetch('/ceremony/models');
 }
@@ -339,6 +344,20 @@ export async function saveAgentContent(name, content) {
 
 export async function resetAgent(name) {
   return apiFetch(`/settings/agents/${encodeURIComponent(name)}`, { method: 'DELETE' });
+}
+
+// ── Processes API ─────────────────────────────────────────────────────────────
+
+export async function getProcesses() {
+  return apiFetch('/processes');
+}
+
+export async function killProcess(id) {
+  return apiFetch(`/processes/${encodeURIComponent(id)}`, { method: 'DELETE' });
+}
+
+export async function clearCompletedProcesses() {
+  return apiFetch('/processes', { method: 'DELETE' });
 }
 
 // ── Costs API ─────────────────────────────────────────────────────────────────

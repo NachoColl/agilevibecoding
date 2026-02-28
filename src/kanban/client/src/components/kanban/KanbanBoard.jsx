@@ -15,7 +15,7 @@ import {
  * Kanban Board Component
  * Main board container with columns and filtering
  */
-export function KanbanBoard({ onCardClick, onStartProject, projectFilesReady, onEditProjectDoc, onEditProjectContext, onStartSprintPlanning }) {
+export function KanbanBoard({ onCardClick, onStartProject, projectFilesReady, onEditProjectDoc, onEditProjectContext, onStartSprintPlanning, sponsorCallRunning }) {
   const [selectedItem, setSelectedItem] = useState(null);
 
   // Zustand stores
@@ -96,7 +96,7 @@ export function KanbanBoard({ onCardClick, onStartProject, projectFilesReady, on
               </button>
             </>
           ) : projectFilesReady ? (
-            // Case B: files exist, ready for sprint planning
+            // Case B: files exist, ready for sprint planning (or sprint planning is running)
             <>
               <div className="text-5xl mb-4">🏃</div>
               <h3 className="text-lg font-semibold text-slate-900 mb-3">Ready for Sprint Planning</h3>
@@ -131,10 +131,16 @@ export function KanbanBoard({ onCardClick, onStartProject, projectFilesReady, on
                 <p className="text-xs text-slate-400">Sprint planning is running…</p>
               )}
             </>
-          ) : (
-            // Case C: ceremony running or status unknown
-            <p className="text-slate-600">Start by creating epics and stories with /sprint-planning command</p>
-          )}
+          ) : sponsorCallRunning ? (
+            // Case C: no project files yet, sponsor call ceremony is running
+            <>
+              <div className="text-5xl mb-4">📋</div>
+              <h3 className="text-lg font-semibold text-slate-900 mb-3">Sponsor Call is running…</h3>
+              <p className="text-sm text-slate-500 max-w-sm">
+                The Sponsor Call ceremony is generating your project definition. Work items will appear here once it completes.
+              </p>
+            </>
+          ) : null}
         </div>
       </div>
     );
