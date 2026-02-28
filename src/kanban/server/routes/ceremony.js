@@ -1,4 +1,6 @@
 import express from 'express';
+import fs from 'fs';
+import path from 'path';
 
 /**
  * Ceremony Router
@@ -214,6 +216,39 @@ export function createCeremonyRouter(ceremonyService, processRegistry) {
   // POST /api/ceremony/reset — force-stop any running ceremony and reset state immediately
   router.post('/reset', (req, res) => {
     ceremonyService.forceReset();
+    res.json({ ok: true });
+  });
+
+  // ── Sponsor-call draft (resume support) ────────────────────────────────────
+
+  const draftFilePath = () =>
+    path.join(ceremonyService.projectRoot, '.avc', 'sponsor-call-draft.json');
+
+  // GET /api/ceremony/sponsor-call/draft
+  router.get('/sponsor-call/draft', (req, res) => {
+    try {
+      const content = fs.readFileSync(draftFilePath(), 'utf8');
+      res.json(JSON.parse(content));
+    } catch (_) {
+      res.status(404).json({ draft: null });
+    }
+  });
+
+  // PUT /api/ceremony/sponsor-call/draft
+  router.put('/sponsor-call/draft', (req, res) => {
+    try {
+      const data = { ...req.body, savedAt: new Date().toISOString() };
+      fs.writeFileSync(draftFilePath(), JSON.stringify(data, null, 2));
+      res.json({ ok: true });
+    } catch (err) {
+      console.error('[ceremony] draft save error:', err.message);
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // DELETE /api/ceremony/sponsor-call/draft
+  router.delete('/sponsor-call/draft', (req, res) => {
+    try { fs.unlinkSync(draftFilePath()); } catch (_) {}
     res.json({ ok: true });
   });
 

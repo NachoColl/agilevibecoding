@@ -12,6 +12,9 @@ import {
   pauseCeremony,
   resumeCeremony,
   cancelCeremony,
+  getSponsorCallDraft,
+  saveSponsorCallDraft,
+  deleteSponsorCallDraft,
 } from '../../lib/api';
 import { CeremonyWorkflowModal } from './CeremonyWorkflowModal';
 
@@ -90,7 +93,7 @@ function StepProgress({ currentStep, hasDb }) {
         return (
           <div key={s.id} className="flex items-center gap-1">
             <div
-              className={`flex items-center gap-1 text-xs px-2 py-0.5 rounded-full ${
+              className={`flex items-center gap-1 text-xs px-2 py-0.5 rounded-full whitespace-nowrap ${
                 isCurrent
                   ? 'bg-blue-600 text-white font-medium'
                   : isDone
@@ -138,6 +141,13 @@ export function SponsorCallModal({ onClose, onOpenSettings }) {
     resetWizard,
     closeWizard,
     setProcessId,
+    setStrategy,
+    setMission,
+    setInitialScope,
+    setDbChoice,
+    setSelectedArch,
+    setPrefillResult,
+    setRequirements,
   } = useCeremonyStore();
 
   const [analyzingMessage, setAnalyzingMessage] = useState('');
@@ -149,6 +159,8 @@ export function SponsorCallModal({ onClose, onOpenSettings }) {
   const [workflowMissionGenValidation, setWorkflowMissionGenValidation] = useState(null);
   const [workflowAllCeremonies, setWorkflowAllCeremonies] = useState([]);
   const [apiKeyCheck, setApiKeyCheck] = useState({ loading: true, missing: [] });
+  const [showResumePrompt, setShowResumePrompt] = useState(false);
+  const [draftData, setDraftData] = useState(null);
 
   // Check required API keys when the modal opens
   useEffect(() => {
@@ -163,11 +175,68 @@ export function SponsorCallModal({ onClose, onOpenSettings }) {
     return () => { cancelled = true; };
   }, []);
 
+  // Check for an existing draft when the wizard opens at step 1 (fresh open / post-refresh)
+  // Only show resume prompt when ceremony is idle (not during a running ceremony reopen)
+  useEffect(() => {
+    if (!isOpen || wizardStep !== 1 || ceremonyStatus !== 'idle') return;
+    let cancelled = false;
+    getSponsorCallDraft().then((draft) => {
+      if (!cancelled && draft && draft.wizardStep && draft.wizardStep > 1) {
+        setDraftData(draft);
+        setShowResumePrompt(true);
+      }
+    });
+    return () => { cancelled = true; };
+  }, [isOpen]); // eslint-disable-line react-hooks/exhaustive-deps
+
   const recheckKeys = () => {
     setApiKeyCheck({ loading: true, missing: [] });
     getSettings()
       .then((s) => setApiKeyCheck({ loading: false, missing: computeMissingProviders(s) }))
       .catch(() => setApiKeyCheck({ loading: false, missing: [] }));
+  };
+
+  // Snapshot current wizard state and persist to server
+  const saveDraft = (overrides = {}) => {
+    const snap = useCeremonyStore.getState();
+    saveSponsorCallDraft({
+      wizardStep: snap.wizardStep,
+      strategy: snap.strategy,
+      mission: snap.mission,
+      initialScope: snap.initialScope,
+      dbResult: snap.dbResult,
+      dbChoice: snap.dbChoice,
+      archOptions: snap.archOptions,
+      selectedArch: snap.selectedArch,
+      prefillResult: snap.prefillResult,
+      requirements: snap.requirements,
+      ...overrides,
+    }).catch(() => {});
+  };
+
+  const handleResumeDraft = () => {
+    const d = draftData;
+    setShowResumePrompt(false);
+    setDraftData(null);
+    if (!d) return;
+    // Restore all wizard fields from draft
+    if (d.strategy != null)     setStrategy(d.strategy);
+    if (d.mission != null)      setMission(d.mission);
+    if (d.initialScope != null) setInitialScope(d.initialScope);
+    if (d.dbResult != null)     setDbResult(d.dbResult);
+    if (d.dbChoice != null)     setDbChoice(d.dbChoice);
+    if (d.archOptions != null)  setArchOptions(d.archOptions);
+    if (d.selectedArch != null) setSelectedArch(d.selectedArch);
+    if (d.prefillResult != null) setPrefillResult(d.prefillResult);
+    if (d.requirements != null) setRequirements(d.requirements);
+    setWizardStep(d.wizardStep);
+  };
+
+  const handleStartFresh = () => {
+    setShowResumePrompt(false);
+    setDraftData(null);
+    deleteSponsorCallDraft();
+    resetWizard();
   };
 
   const handleWorkflowSave = async (updatedCeremony, updatedMG) => {
@@ -229,12 +298,14 @@ export function SponsorCallModal({ onClose, onOpenSettings }) {
 
       if (dbData.hasDatabaseNeeds) {
         setWizardStep(3); // Show database step
+        saveDraft({ wizardStep: 3, dbResult: dbData });
       } else {
         // Skip database step — go straight to architecture
         setAnalyzingMessage('Analysing architecture options…');
         const archData = await analyzeArchitecture(mission, initialScope, null, strategy);
         setArchOptions(archData);
         setWizardStep(4);
+        saveDraft({ wizardStep: 4, dbResult: dbData, archOptions: archData });
       }
     } catch (err) {
       console.error('Mission analysis error:', err);
@@ -254,6 +325,7 @@ export function SponsorCallModal({ onClose, onOpenSettings }) {
       const archData = await analyzeArchitecture(mission, initialScope, dbContext, strategy);
       setArchOptions(archData);
       setWizardStep(4);
+      saveDraft({ wizardStep: 4, archOptions: archData });
     } catch (err) {
       console.error('Architecture analysis error:', err);
       alert(`Analysis failed: ${err.message}`);
@@ -272,6 +344,8 @@ export function SponsorCallModal({ onClose, onOpenSettings }) {
       const prefill = await prefillAnswers(mission, initialScope, selectedArch, dbContext, strategy);
       applyPrefill(prefill, strategy, mission, initialScope);
       setWizardStep(5);
+      // Save after applyPrefill updates requirements in the store
+      setTimeout(() => saveDraft({ wizardStep: 5, prefillResult: prefill }), 0);
     } catch (err) {
       console.error('Prefill error:', err);
       alert(`Prefill failed: ${err.message}`);
@@ -283,6 +357,7 @@ export function SponsorCallModal({ onClose, onOpenSettings }) {
 
   // Step 5 → Run ceremony → Step 6
   const handleReviewNext = async () => {
+    deleteSponsorCallDraft(); // ceremony is starting — draft no longer needed
     try {
       startRun();
       setWizardStep(6);
@@ -298,7 +373,14 @@ export function SponsorCallModal({ onClose, onOpenSettings }) {
   const renderStep = () => {
     switch (wizardStep) {
       case 1:
-        return <DeploymentStep onNext={() => setWizardStep(2)} />;
+        return (
+          <DeploymentStep
+            onNext={() => {
+              setWizardStep(2);
+              saveDraft({ wizardStep: 2 });
+            }}
+          />
+        );
       case 2:
         return <MissionStep onNext={handleMissionNext} onBack={() => setWizardStep(1)} analyzing={analyzing} onOpenSettings={onOpenSettings} />;
       case 3:
@@ -332,7 +414,35 @@ export function SponsorCallModal({ onClose, onOpenSettings }) {
       />
 
       {/* Modal */}
-      <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-2xl mx-4 max-h-[90vh] flex flex-col">
+      <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-3xl mx-4 max-h-[90vh] flex flex-col">
+        {/* Resume draft overlay */}
+        {showResumePrompt && (
+          <div className="absolute inset-0 z-10 flex items-center justify-center bg-white/90 rounded-2xl">
+            <div className="bg-white border border-slate-200 rounded-xl shadow-lg p-6 max-w-sm mx-4 text-center space-y-4">
+              <p className="text-base font-semibold text-slate-900">Resume previous session?</p>
+              <p className="text-sm text-slate-500">
+                A previous wizard session was saved
+                {draftData?.savedAt ? ` on ${new Date(draftData.savedAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}` : ''}.
+                Would you like to continue where you left off?
+              </p>
+              <div className="flex gap-3 justify-center pt-1">
+                <button
+                  onClick={handleStartFresh}
+                  className="px-4 py-2 text-sm rounded-lg border border-slate-200 text-slate-700 hover:bg-slate-50"
+                >
+                  Start Fresh
+                </button>
+                <button
+                  onClick={handleResumeDraft}
+                  className="px-4 py-2 text-sm rounded-lg bg-blue-600 text-white hover:bg-blue-700"
+                >
+                  Resume
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Cancel confirmation overlay */}
         {showCancelConfirm && (
           <div className="absolute inset-0 z-10 flex items-center justify-center bg-white/90 rounded-2xl">

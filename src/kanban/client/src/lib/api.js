@@ -325,6 +325,29 @@ export async function refineMission(missionStatement, initialScope, refinementRe
   });
 }
 
+// ── Sponsor-call draft (resume support) ──────────────────────────────────────
+
+export async function getSponsorCallDraft() {
+  try {
+    return await apiFetch('/ceremony/sponsor-call/draft');
+  } catch (_) {
+    return null;
+  }
+}
+
+export async function saveSponsorCallDraft(data) {
+  return apiFetch('/ceremony/sponsor-call/draft', {
+    method: 'PUT',
+    body: JSON.stringify(data),
+  });
+}
+
+export async function deleteSponsorCallDraft() {
+  try {
+    return await apiFetch('/ceremony/sponsor-call/draft', { method: 'DELETE' });
+  } catch (_) {}
+}
+
 // ── Agents API ───────────────────────────────────────────────────────────────
 
 export async function getAgentList() {
