@@ -29,9 +29,14 @@ function elapsed(startedAt, endedAt) {
 export function ProcessMonitorBar() {
   const { processes, clearCompleted } = useProcessStore();
 
-  if (processes.length === 0) return null;
+  // Sponsor call runs only once — hide its chip once it's no longer running
+  const visibleProcesses = processes.filter(p =>
+    !(p.type === 'sponsor-call' && p.status !== 'running')
+  );
 
-  const hasCompleted = processes.some(p =>
+  if (visibleProcesses.length === 0) return null;
+
+  const hasCompleted = visibleProcesses.some(p =>
     ['complete', 'error', 'cancelled'].includes(p.status)
   );
 
@@ -47,7 +52,7 @@ export function ProcessMonitorBar() {
     <div className="flex items-center gap-2 px-4 py-1.5 bg-white border-b border-slate-200 flex-shrink-0 flex-wrap">
       <Activity className="w-4 h-4 text-slate-400 flex-shrink-0" />
 
-      {processes.map(p => (
+      {visibleProcesses.map(p => (
         <button
           key={p.id}
           onClick={() => handleChipClick(p)}
