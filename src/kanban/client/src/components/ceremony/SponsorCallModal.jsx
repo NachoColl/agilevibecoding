@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { X, Info, AlertTriangle, Settings as SettingsIcon, ArrowDownToLine } from 'lucide-react';
+import { X, Info, AlertTriangle, Settings as SettingsIcon } from 'lucide-react';
 import { useCeremonyStore } from '../../store/ceremonyStore';
 import {
   analyzeDatabase,
@@ -396,6 +396,7 @@ export function SponsorCallModal({ onClose, onOpenSettings }) {
             onPause={handlePause}
             onResume={handleResume}
             onCancel={() => setShowCancelConfirm(true)}
+            onBackground={closeWizard}
           />
         );
       case 7:
@@ -497,17 +498,6 @@ export function SponsorCallModal({ onClose, onOpenSettings }) {
               >
                 <Info className="w-3.5 h-3.5" />
                 How it works
-              </button>
-            )}
-            {ceremonyStatus === 'running' && wizardStep === 6 && (
-              <button
-                type="button"
-                onClick={closeWizard}
-                className="flex items-center gap-1.5 text-xs font-medium text-slate-500 hover:text-slate-700 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-md px-2.5 py-1.5 transition-colors whitespace-nowrap"
-                title="Hide this window — ceremony keeps running in the background"
-              >
-                <ArrowDownToLine className="w-3.5 h-3.5" />
-                Run in Background
               </button>
             )}
             {ceremonyStatus !== 'running' && (
