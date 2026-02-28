@@ -114,6 +114,7 @@ function App() {
         setCeremonyResult(message.result);
         setWizardStep(7);
         loadWorkItems();
+        getProjectStatus().then(setProjectFilesStatus).catch(() => {});
       } else if (message.type === 'ceremony:error') {
         setCeremonyStatus('error');
         setCeremonyError(message.error);
