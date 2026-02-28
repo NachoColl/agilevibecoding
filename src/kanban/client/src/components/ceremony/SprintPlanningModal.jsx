@@ -308,6 +308,26 @@ function RunningStep({ transitioning, onPause, onResume, onCancel, onBackground 
 
 // ── Step 3: Complete ──────────────────────────────────────────────────────────
 
+const EXAMPLE_ISSUES = [
+  { stage: 'Project Documentation', ruleId: 'fix-header-formatting',    name: 'Fix Header Spacing',                 severity: 'major'  },
+  { stage: 'Project Documentation', ruleId: 'add-section-spacing',      name: 'Add Section Spacing',                severity: 'minor'  },
+  { stage: 'Project Context',       ruleId: 'token-count-too-short',    name: 'Expand If Too Short',                severity: 'major'  },
+  { stage: 'Project Context',       ruleId: 'no-redundant-info',        name: 'Remove Truly Redundant Information', severity: 'minor'  },
+  { stage: 'Context Validation',    ruleId: 'fix-unclosed-code-blocks', name: 'Fix Unclosed Code Blocks',           severity: 'major'  },
+];
+
+function IssueTag({ severity }) {
+  const cls =
+    severity === 'critical' ? 'bg-red-100 text-red-700' :
+    severity === 'major'    ? 'bg-amber-100 text-amber-700' :
+                              'bg-slate-100 text-slate-500';
+  return (
+    <span className={`flex-shrink-0 px-1.5 py-0.5 rounded text-[10px] font-semibold uppercase ${cls}`}>
+      {severity}
+    </span>
+  );
+}
+
 function CompleteStep({ onClose }) {
   const { result } = useSprintPlanningStore();
   const r = result || {};
@@ -359,24 +379,27 @@ function CompleteStep({ onClose }) {
         </p>
       )}
 
-      {r.validationIssues?.length > 0 && (
-        <div>
-          <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2">Quality fixes applied</p>
-          <div className="space-y-1.5">
-            {r.validationIssues.map((issue, i) => (
-              <div key={i} className="flex items-center gap-2 text-xs bg-amber-50 border border-amber-100 rounded-md px-3 py-2">
-                <span className={`flex-shrink-0 px-1.5 py-0.5 rounded text-[10px] font-semibold uppercase ${
-                  issue.severity === 'critical' ? 'bg-red-100 text-red-700' :
-                  issue.severity === 'major'    ? 'bg-amber-100 text-amber-700' :
-                                                  'bg-slate-100 text-slate-500'
-                }`}>{issue.severity}</span>
-                <span className="text-slate-400 flex-shrink-0">{issue.stage}</span>
-                <span className="text-slate-600">{issue.name}</span>
-              </div>
-            ))}
+      {(() => {
+        const isExample = r.validationIssues === undefined;
+        const issues = r.validationIssues ?? EXAMPLE_ISSUES;
+        return issues.length > 0 ? (
+          <div>
+            <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2">
+              Quality fixes applied
+              {isExample && <span className="ml-2 normal-case font-normal text-slate-300">(example preview)</span>}
+            </p>
+            <div className="space-y-1.5">
+              {issues.map((issue, i) => (
+                <div key={i} className="flex items-center gap-2 text-xs bg-amber-50 border border-amber-100 rounded-md px-3 py-2">
+                  <IssueTag severity={issue.severity} />
+                  <span className="text-slate-400 flex-shrink-0">{issue.stage}</span>
+                  <span className="text-slate-600">{issue.name}</span>
+                </div>
+              ))}
+            </div>
           </div>
-        </div>
-      )}
+        ) : null;
+      })()}
 
       <div className="flex justify-center pt-2">
         <button
