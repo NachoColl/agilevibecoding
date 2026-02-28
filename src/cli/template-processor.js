@@ -69,6 +69,9 @@ class TemplateProcessor {
     // Track verification feedback for agent learning
     this.verificationFeedback = {};
 
+    // Collect validation issues for final ceremony summary
+    this.validationIssues = [];
+
     // Read ceremony-specific configuration
     const { provider, model, validationConfig, stagesConfig } = this.readCeremonyConfig(ceremonyName);
     this._providerName = provider;
@@ -975,6 +978,11 @@ ${questionnaire.TECHNICAL_EXCLUSIONS}
             ruleName: rule.name,
             severity: rule.severity
           }));
+
+          // Collect for final ceremony summary
+          for (const rule of verificationResult.rulesApplied) {
+            this.validationIssues.push({ stage: 'Project Documentation', ruleId: rule.id, name: rule.name, severity: rule.severity });
+          }
         }
 
         debug('generateFinalDocument complete (agent path)', { duration: `${Date.now() - t0}ms`, resultLength: verificationResult.content?.length });
@@ -1363,7 +1371,8 @@ Return the enhanced markdown document.`;
       activities: this.activityLog,
       tokenUsage: tokenUsage,
       cost: cost,
-      model: this._modelName
+      model: this._modelName,
+      validationIssues: this.validationIssues
     };
   }
 
@@ -1425,6 +1434,11 @@ Return the enhanced markdown document.`;
 
       if (verificationResult.rulesApplied.length > 0) {
         this.reportSubstep(`Applied ${verificationResult.rulesApplied.length} context fixes`);
+
+        // Collect for final ceremony summary
+        for (const rule of verificationResult.rulesApplied) {
+          this.validationIssues.push({ stage: 'Project Context', ruleId: rule.id, name: rule.name, severity: rule.severity });
+        }
       }
 
       return verificationResult.content;
@@ -2046,6 +2060,11 @@ Return your response as JSON following the exact structure specified in your ins
         severity: rule.severity
       }));
 
+      // Collect for final ceremony summary
+      for (const rule of verificationResult.rulesApplied) {
+        this.validationIssues.push({ stage: 'Documentation Validation', ruleId: rule.id, name: rule.name, severity: rule.severity });
+      }
+
       // Parse corrected JSON back to object
       console.log('[DEBUG] validateDocument - Attempting to parse verification result as JSON');
 
@@ -2154,6 +2173,11 @@ Return your response as JSON following the exact structure specified in your ins
         ruleName: rule.name,
         severity: rule.severity
       }));
+
+      // Collect for final ceremony summary
+      for (const rule of verificationResult.rulesApplied) {
+        this.validationIssues.push({ stage: 'Context Validation', ruleId: rule.id, name: rule.name, severity: rule.severity });
+      }
 
       // Parse corrected JSON back to object
       console.log('[DEBUG] validateContext - Attempting to parse verification result as JSON');

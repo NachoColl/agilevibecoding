@@ -1536,6 +1536,7 @@ ${projectContext}
         },
         model: this._modelName,
         provider: this._providerName,
+        validationIssues: [],
       };
 
       // Complete ceremony history tracking
