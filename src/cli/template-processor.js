@@ -1387,7 +1387,7 @@ Return the enhanced markdown document.`;
       const projectContextGeneratorAgent = loadAgent('project-context-generator.md', path.dirname(this.avcPath));
 
       // Generate project context
-      this.reportSubstep('Generating project context (target: ~500 tokens)...');
+      this.reportSubstep('Generating project context...');
       await this.reportDetail(`Sending to ${provider.providerName || 'LLM'} (${provider.model || ''})…`);
       const projectContext = await this.withHeartbeat(
         () => this.retryWithBackoff(

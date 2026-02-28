@@ -7,22 +7,23 @@
     {
       "id": "token-count-too-long",
       "name": "Shorten If Too Long",
-      "enabled": true,
+      "enabled": false,
       "severity": "major",
-      "description": "Context should not exceed 600 tokens",
+      "description": "Disabled — project context has no upper token limit; the agent targets 800-3500 tokens depending on project complexity",
       "check": {
-        "prompt": "Estimate token count (4 characters ≈ 1 token).\n\nTarget: 400-600 tokens\n\nCONTENT:\n{content}\n\nIs this MORE THAN 600 tokens?\n\nRespond ONLY 'YES' or 'NO'.",
+        "prompt": "Respond ONLY 'NO'.",
         "expectedResponse": "YES|NO",
         "maxTokens": 10
       },
       "fix": {
-        "prompt": "Content is TOO LONG (>600 tokens). Shorten to ~500 tokens.\n\nStrategy:\n- Remove redundant information\n- Combine similar points\n- Use concise language\n- Keep only essential details\n\nTarget: ~500 tokens (2000 characters)\n\nCONTENT:\n{content}\n\nReturn ONLY the shortened content.",
+        "prompt": "",
         "returnFormat": "text",
-        "maxTokens": 4096
+        "maxTokens": 10
       },
       "metadata": {
         "category": "validation",
-        "addedVersion": "0.1.2"
+        "addedVersion": "0.1.2",
+        "disabledVersion": "0.1.0"
       }
     },
     {
@@ -32,12 +33,12 @@
       "severity": "major",
       "description": "Context should be at least 400 tokens",
       "check": {
-        "prompt": "Estimate token count (4 characters ≈ 1 token).\n\nTarget: 400-600 tokens\n\nCONTENT:\n{content}\n\nIs this LESS THAN 400 tokens?\n\nRespond ONLY 'YES' or 'NO'.",
+        "prompt": "Estimate token count (4 characters ≈ 1 token).\n\nMinimum: 400 tokens\n\nCONTENT:\n{content}\n\nIs this LESS THAN 400 tokens?\n\nRespond ONLY 'YES' or 'NO'.",
         "expectedResponse": "YES|NO",
         "maxTokens": 10
       },
       "fix": {
-        "prompt": "Content is TOO SHORT (<400 tokens). Expand to ~500 tokens.\n\nStrategy:\n- Expand key technical points\n- Add relevant architectural details\n- Clarify technical decisions\n- Include important constraints\n\nTarget: ~500 tokens (2000 characters)\n\nCONTENT:\n{content}\n\nReturn ONLY the expanded content.",
+        "prompt": "Content is TOO SHORT (<400 tokens). Expand with accurate technical details.\n\nStrategy:\n- Expand key technical points\n- Add relevant architectural details\n- Clarify technical decisions\n- Include important constraints\n\nCONTENT:\n{content}\n\nReturn ONLY the expanded content.",
         "returnFormat": "text",
         "maxTokens": 4096
       },
@@ -48,17 +49,17 @@
     },
     {
       "id": "no-redundant-info",
-      "name": "Remove Redundant Information",
+      "name": "Remove Truly Redundant Information",
       "enabled": true,
       "severity": "minor",
-      "description": "Remove overly detailed information",
+      "description": "Remove genuinely duplicated content — NOT rich technical content like schemas or state machines",
       "check": {
-        "prompt": "Check if context contains overly detailed or redundant information.\n\nContext should be:\n- Concise scope definition\n- Key boundaries\n- Essential technical decisions\n\nContext should NOT be:\n- Detailed feature descriptions\n- Full user stories\n- Complete specifications\n\nCONTENT:\n{content}\n\nIs this overly detailed or redundant?\n\nRespond ONLY 'YES' or 'NO'.",
+        "prompt": "Check if context contains genuinely DUPLICATED content — the exact same fact stated twice or more.\n\nDo NOT flag as redundant:\n- Technology Stack details\n- Database schema tables and columns\n- State machine transitions\n- Environment variable lists\n- Security, API, and architecture conventions\n- Domain model entity definitions\n\nOnly flag YES if the same specific fact appears multiple times in different sections.\n\nCONTENT:\n{content}\n\nIs there genuinely duplicated content (same fact stated more than once)?\n\nRespond ONLY 'YES' or 'NO'.",
         "expectedResponse": "YES|NO",
         "maxTokens": 10
       },
       "fix": {
-        "prompt": "Remove redundant and overly detailed information.\n\nStrategy:\n- Remove detailed feature descriptions (keep high-level)\n- Remove duplicates\n- Condense verbose explanations\n- Keep: scope, boundaries, key decisions, constraints\n\nCONTENT:\n{content}\n\nReturn ONLY the refined content.",
+        "prompt": "Remove only genuinely duplicated content (same fact stated more than once).\n\nDo NOT remove:\n- Database schema, state machines, or domain model entries\n- Security or API convention rules\n- Environment variables\n- Technology stack details\n\nOnly consolidate truly repeated statements.\n\nCONTENT:\n{content}\n\nReturn ONLY the refined content.",
         "returnFormat": "text",
         "maxTokens": 4096
       },
@@ -154,43 +155,45 @@
     {
       "id": "ensure-in-scope-defined",
       "name": "Ensure In-Scope Defined",
-      "enabled": true,
+      "enabled": false,
       "severity": "critical",
-      "description": "Context must define what IS in scope",
+      "description": "Disabled — current agent generates technical architecture sections (Technology Stack, Domain Model, Database Schema, etc.), not scope lists",
       "check": {
-        "prompt": "Check if context clearly defines what IS IN SCOPE.\n\nLook for section or content that lists included items.\n\nCONTENT:\n{content}\n\nIs IN SCOPE clearly defined?\n\nRespond ONLY 'YES' (if clear) or 'NO' (if missing/unclear).",
+        "prompt": "Respond ONLY 'YES'.",
         "expectedResponse": "YES|NO",
         "maxTokens": 10
       },
       "fix": {
-        "prompt": "Add or improve IN SCOPE definition.\n\nAdd section:\n## Scope\n\n### In Scope\n- [Infer from existing content what is included]\n- [Be specific]\n\nPreserve all existing content.\n\nCONTENT:\n{content}\n\nReturn ONLY the improved content.",
+        "prompt": "",
         "returnFormat": "text",
-        "maxTokens": 4096
+        "maxTokens": 10
       },
       "metadata": {
         "category": "content",
-        "addedVersion": "0.1.2"
+        "addedVersion": "0.1.2",
+        "disabledVersion": "0.1.0"
       }
     },
     {
       "id": "ensure-out-of-scope-defined",
       "name": "Ensure Out-of-Scope Defined",
-      "enabled": true,
+      "enabled": false,
       "severity": "critical",
-      "description": "Context must define what is OUT of scope",
+      "description": "Disabled — current agent generates Technical Exclusions section only when explicit exclusions are stated; scope listing is no longer part of this template",
       "check": {
-        "prompt": "Check if context clearly defines what is OUT OF SCOPE (explicitly excluded).\n\nLook for section listing excluded items.\n\nCONTENT:\n{content}\n\nIs OUT OF SCOPE clearly defined?\n\nRespond ONLY 'YES' (if clear) or 'NO' (if missing/unclear).",
+        "prompt": "Respond ONLY 'YES'.",
         "expectedResponse": "YES|NO",
         "maxTokens": 10
       },
       "fix": {
-        "prompt": "Add or improve OUT OF SCOPE definition.\n\nAdd or enhance section:\n### Out of Scope\n- [List what is explicitly excluded]\n- [Mention related features NOT included]\n\nPreserve all existing content.\n\nCONTENT:\n{content}\n\nReturn ONLY the improved content.",
+        "prompt": "",
         "returnFormat": "text",
-        "maxTokens": 4096
+        "maxTokens": 10
       },
       "metadata": {
         "category": "content",
-        "addedVersion": "0.1.2"
+        "addedVersion": "0.1.2",
+        "disabledVersion": "0.1.0"
       }
     },
     {
