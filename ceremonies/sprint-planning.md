@@ -7,7 +7,6 @@ The **Sprint Planning** ceremony decomposes your project scope into domain-based
 **Input**
 
 - Project documentation (`.avc/project/doc.md`)
-- Project context (`.avc/project/context.md`)
 - Existing Epics/Stories (optional)
 
 **Output**
@@ -15,12 +14,10 @@ The **Sprint Planning** ceremony decomposes your project scope into domain-based
 ```
 .avc/project/
 ├── context-0001/              # Epic
-│   ├── doc.md                 # Epic documentation stub
-│   ├── context.md             # Epic context (~800 tokens)
+│   ├── doc.md                 # Epic documentation (distributed from project)
 │   └── work.json              # Epic metadata
 └── context-0001-0001/         # Story
-    ├── doc.md                 # Story documentation stub
-    ├── context.md             # Story context (~1500 tokens)
+    ├── doc.md                 # Story documentation (distributed from epic)
     └── work.json              # Story metadata
 ```
 
@@ -31,7 +28,7 @@ The **Sprint Planning** ceremony decomposes your project scope into domain-based
 
 ## Ceremony Workflow
 
-The Sprint Planning ceremony reads your Initial Scope and project context, then uses AI agents to decompose it into Epics (3-7 domain groupings) and Stories (2-8 deliverable capabilities per Epic) with automatic duplicate detection.
+The Sprint Planning ceremony reads your project documentation, then uses AI agents to decompose it into Epics (3-7 domain groupings) and Stories (2-8 deliverable capabilities per Epic) with automatic duplicate detection.
 
 ```mermaid
 sequenceDiagram
@@ -41,7 +38,7 @@ sequenceDiagram
     participant ProjFS as Project Files
     participant HierFS as Hierarchy
     participant Decomp as Decomposer
-    participant CtxGen as Context Gen
+    participant DocDist as Doc Distributor
     participant OutFS as File System
 
     User->>REPL: /sprint-planning
@@ -49,8 +46,7 @@ sequenceDiagram
 
     Note over Proc: Stage 1: Validate
     Proc->>ProjFS: Check doc.md exists?
-    Proc->>ProjFS: Check context.md exists?
-    alt Missing files
+    alt Missing file
         Proc-->>User: Run /sponsor-call first
     end
 
@@ -60,9 +56,7 @@ sequenceDiagram
 
     Note over Proc: Stage 3: Collect Scope
     Proc->>ProjFS: Read doc.md
-    ProjFS-->>Proc: Initial Scope section
-    Proc->>ProjFS: Read context.md
-    ProjFS-->>Proc: Project context
+    ProjFS-->>Proc: Project documentation
 
     Note over Proc: Stage 4: Decompose
     Proc->>Decomp: Generate Epics/Stories
@@ -81,20 +75,19 @@ sequenceDiagram
     Note over Proc: Stage 6: Renumber IDs
     Proc->>Proc: Assign context-XXXX IDs
 
-    Note over Proc: Stage 7-8: Generate & Write
+    Note over Proc: Stage 7: Distribute & Write
     loop For each Epic
-        Proc->>CtxGen: Generate Epic context
-        CtxGen-->>Proc: context.md
-        Proc->>OutFS: Write Epic files
+        Proc->>DocDist: Distribute doc content (project → epic)
+        DocDist-->>Proc: epic doc.md + updated project doc.md
     end
-
     loop For each Story
-        Proc->>CtxGen: Generate Story context
-        CtxGen-->>Proc: context.md
-        Proc->>OutFS: Write Story files
+        Proc->>DocDist: Distribute doc content (epic → story)
+        DocDist-->>Proc: story doc.md + updated epic doc.md
     end
+    Proc->>OutFS: Write all Epic + Story files
+    Proc->>OutFS: Write updated project doc.md
 
-    Note over Proc: Stage 9: Track Tokens
+    Note over Proc: Stage 8: Track Tokens
     Proc->>Proc: Record token usage
 
     Proc->>User: Ceremony complete
@@ -109,7 +102,6 @@ The ceremony reads the Initial Scope from your project documentation and decompo
 
 Before decomposition, the ceremony verifies:
 - Project documentation exists (`.avc/project/doc.md`)
-- Project context exists (`.avc/project/context.md`)
 - Initial Scope section is present in documentation
 
 **Duplicate Detection**
@@ -210,14 +202,13 @@ After decomposition, each Epic and Story is validated by 2-8 specialized domain 
 - **Consistency**: Requirements don't conflict, align with project context
 - **Best Practices**: Industry standards followed, anti-patterns avoided
 
-#### Context Generation Agents
+#### Documentation Distribution Agent
 
-Each Epic and Story receives a dedicated context file that inherits from the project context.
+Each Epic and Story receives a `doc.md` populated by moving relevant content from its parent document, following a move-not-copy principle that keeps parent docs lightweight.
 
 | Agent | Purpose |
 |-------|---------|
-| [Feature Context Generator](/agents/feature-context-generator) | Generates Epic context.md files (~800 tokens) with domain-specific patterns and architectural guidance |
-| [Feature Context Generator](/agents/feature-context-generator) | Generates Story context.md files (~1500 tokens) with user journey details and acceptance criteria context |
+| [Doc Distributor](/agents/doc-distributor) | Extracts domain-specific content from parent `doc.md` into the child's `doc.md`, removes it from the parent, and elaborates with implementation notes |
 
 
 ## LLM Model Configuration
@@ -241,11 +232,11 @@ The Sprint Planning ceremony uses LLMs for three distinct stages. Configure mode
   - **Feature** - Inferred from keywords (varies per story) → Use Gemini 2.0 Flash
 - **Configure:** `/models` → Sprint Planning → Validation → [Type]
 
-#### Stage 7-8: Context Generation
-- **Purpose:** Generate context.md files for each Epic and Story
+#### Stage 7: Documentation Distribution
+- **Purpose:** Move and elaborate doc content from parent to each Epic and Story
 - **Call count:** ~25 calls (~3 epics + ~22 stories)
-- **Recommended:** Gemini 2.0 Flash (efficient, reliable context generation)
-- **Configure:** `/models` → Sprint Planning → Context Generation
+- **Recommended:** Claude Sonnet 4.6 (focused extraction and writing)
+- **Configure:** `/models` → Sprint Planning → Doc Distribution
 
 ### Cost Optimization Example
 
@@ -281,9 +272,9 @@ The Sprint Planning ceremony uses LLMs for three distinct stages. Configure mode
           }
         }
       },
-      "context-generation": {
-        "provider": "gemini",
-        "model": "gemini-2.0-flash-exp"
+      "doc-distribution": {
+        "provider": "claude",
+        "model": "claude-sonnet-4-6"
       }
     }
   }
@@ -292,13 +283,13 @@ The Sprint Planning ceremony uses LLMs for three distinct stages. Configure mode
 
 **Cost Breakdown:**
 ```
-Decomposition:       1 × $0.003   = $0.003
+Decomposition:        1 × $0.003   = $0.003
 Universal Validation: 30 × $0.025  = $0.75   (critical validators)
 Domain Validation:    90 × $0.003  = $0.27   (domain-specific)
 Feature Validation:   25 × $0.003  = $0.075  (keyword-based)
-Context Generation:   25 × $0.003  = $0.075  (epic + story contexts)
+Doc Distribution:     25 × $0.025  = $0.625  (epic + story doc.md)
 ────────────────────────────────────────────
-Total:                             ~$1.17 per ceremony (73% savings)
+Total:                             ~$1.72 per ceremony (60% savings)
 ```
 
 ### Configuration Steps
@@ -316,7 +307,7 @@ Total:                             ~$1.17 per ceremony (73% savings)
      - Universal → Claude Sonnet 4 (highest quality for critical validators)
      - Domain → Gemini 2.0 Flash (efficient for domain checks)
      - Feature → Gemini 2.0 Flash (fast for keyword-based validation)
-   - Context Generation → Gemini 2.0 Flash
+   - Doc Distribution → Claude Sonnet 4.6
 
 4. **Configuration is saved to `.avc/avc.json`**
 
@@ -354,9 +345,9 @@ Edit `.avc/avc.json` directly:
               }
             }
           },
-          "context-generation": {
-            "provider": "gemini",
-            "model": "gemini-2.0-flash-exp"
+          "doc-distribution": {
+            "provider": "claude",
+            "model": "claude-sonnet-4-6"
           }
         }
       }
@@ -372,13 +363,13 @@ Edit `.avc/avc.json` directly:
 
 **Epic Structure**
 ```bash
-cat .avc/project/context-0001/context.md
+cat .avc/project/context-0001/doc.md
 cat .avc/project/context-0001/work.json
 ```
 
 **Story Structure**
 ```bash
-cat .avc/project/context-0001-0001/context.md
+cat .avc/project/context-0001-0001/doc.md
 cat .avc/project/context-0001-0001/work.json
 ```
 
@@ -403,6 +394,6 @@ Logs include:
 - Existing hierarchy scan results
 - Initial Scope extraction
 - LLM decomposition request/response
-- Context generation for each Epic/Story
+- Doc distribution for each Epic/Story
 - File write operations
 - Error stack traces
