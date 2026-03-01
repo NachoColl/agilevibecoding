@@ -187,7 +187,7 @@ class EpicStoryValidator {
 
     console.log(`\n🔍 Validating Epic: ${epic.name}`);
     console.log(`   Domain: ${epic.domain}`);
-    console.log(`   Validators: ${validators.length} specialized agents\n`);
+    console.log(`   Validators (${validators.length}): ${validators.map(v => this.extractDomain(v)).join(', ')}\n`);
 
     // Read solver iteration settings
     const solverConfig = this.validationStageConfig?.solver || {};
@@ -224,16 +224,28 @@ class EpicStoryValidator {
         );
 
         const score = lastResult.overallScore ?? 0;
-        const issueCount = (lastResult.issues || []).length;
+        const allIssues = lastResult.issues || [];
+        const critCount = allIssues.filter(i => i.severity === 'critical').length;
+        const majCount = allIssues.filter(i => i.severity === 'major').length;
         const acceptable = lastResult.validationStatus !== 'needs-improvement' || score >= acceptanceThreshold;
-        const issueStr = issueCount > 0 ? ` · ${issueCount} issue${issueCount !== 1 ? 's' : ''}` : '';
+        const issueStr = allIssues.length > 0 ? ` · ${allIssues.length} issue${allIssues.length !== 1 ? 's' : ''}` : '';
         await this._detail(`   Score: ${score}/100${issueStr} — ${acceptable ? '✓ accepted' : `⚠ below threshold (${acceptanceThreshold})`}`);
+
+        // Diagnostic log — goes to sprint-planning log file via CommandLogger
+        console.log(`   [${vi + 1}/${validators.length}] ${validatorName} iter=${iter + 1} score=${score}/100 status=${lastResult.validationStatus} (critical=${critCount} major=${majCount} minor=${allIssues.length - critCount - majCount})`);
+        allIssues.forEach(issue => {
+          const cat = issue.category ? `[${issue.category}] ` : '';
+          const sug = issue.suggestion ? ` → ${issue.suggestion}` : '';
+          console.log(`     [${(issue.severity || 'unknown').toUpperCase()}] ${cat}${issue.description || '(no description)'}${sug}`);
+        });
 
         if (acceptable || iter + 1 >= maxIterations) break;
 
         // Run solver to improve the epic
         await this._detail(`   ↻ Running ${role} solver…`);
-        console.log(`   ↻ [${validatorName}] issues found — running solver (iter ${iter + 1}/${maxIterations})...`);
+        console.log(`   ↻ [${validatorName}] below threshold — running solver (iter ${iter + 1}/${maxIterations})...`);
+        const descBefore = (workingEpic.description || '').slice(0, 100);
+        const featuresBefore = (workingEpic.features || []).join(' | ').slice(0, 100);
         try {
           const improved = await this._withHeartbeat(
             () => this.runEpicSolver(workingEpic, epicContext, lastResult, validatorName),
@@ -253,7 +265,16 @@ class EpicStoryValidator {
               features:     improved.features     ?? workingEpic.features,
               dependencies: improved.dependencies ?? workingEpic.dependencies,
             };
+            const descAfter = (workingEpic.description || '').slice(0, 100);
+            const featuresAfter = (workingEpic.features || []).join(' | ').slice(0, 100);
+            console.log(`   ↻ Solver applied — desc changed: ${descBefore !== descAfter}, features changed: ${featuresBefore !== featuresAfter}`);
+            if (descBefore !== descAfter) {
+              console.log(`     before: ${descBefore}`);
+              console.log(`     after:  ${descAfter}`);
+            }
             await this._detail(`   → Improvements applied`);
+          } else {
+            console.log(`   ↻ Solver returned no valid improvement (id mismatch or empty)`);
           }
         } catch (err) {
           console.warn(`   ⚠ Solver failed for ${validatorName}: ${err.message} — keeping current epic`);
@@ -279,6 +300,10 @@ class EpicStoryValidator {
     aggregated.readyToPublish = aggregated.overallStatus !== 'needs-improvement';
 
     await this._detail(`Overall: ${aggregated.readyToPublish ? '✓ passed' : '⚠ needs improvement'} · avg ${aggregated.averageScore}/100`);
+    console.log(`   Epic "${epic.name}" summary: avg=${aggregated.averageScore}/100 readyToPublish=${aggregated.readyToPublish} critical=${aggregated.criticalIssues.length} major=${aggregated.majorIssues.length}`);
+    aggregated.validatorResults.forEach(vr => {
+      console.log(`     ${this.extractDomain(vr.validator)}: ${vr.score}/100 (${vr.status})`);
+    });
 
     // 5. Store for feedback loop
     this.storeValidationFeedback(epic.id, aggregated);
@@ -318,7 +343,7 @@ class EpicStoryValidator {
 
     console.log(`\n🔍 Validating Story: ${story.name}`);
     console.log(`   Epic: ${epic.name} (${epic.domain})`);
-    console.log(`   Validators: ${validators.length} specialized agents\n`);
+    console.log(`   Validators (${validators.length}): ${validators.map(v => this.extractDomain(v)).join(', ')}\n`);
 
     // Read solver iteration settings
     const solverConfig = this.validationStageConfig?.solver || {};
@@ -354,16 +379,28 @@ class EpicStoryValidator {
         );
 
         const score = lastResult.overallScore ?? 0;
-        const issueCount = (lastResult.issues || []).length;
+        const allIssues = lastResult.issues || [];
+        const critCount = allIssues.filter(i => i.severity === 'critical').length;
+        const majCount = allIssues.filter(i => i.severity === 'major').length;
         const acceptable = lastResult.validationStatus !== 'needs-improvement' || score >= acceptanceThreshold;
-        const issueStr = issueCount > 0 ? ` · ${issueCount} issue${issueCount !== 1 ? 's' : ''}` : '';
+        const issueStr = allIssues.length > 0 ? ` · ${allIssues.length} issue${allIssues.length !== 1 ? 's' : ''}` : '';
         await this._detail(`   Score: ${score}/100${issueStr} — ${acceptable ? '✓ accepted' : `⚠ below threshold (${acceptanceThreshold})`}`);
+
+        // Diagnostic log — goes to sprint-planning log file via CommandLogger
+        console.log(`   [${vi + 1}/${validators.length}] ${validatorName} iter=${iter + 1} score=${score}/100 status=${lastResult.validationStatus} (critical=${critCount} major=${majCount} minor=${allIssues.length - critCount - majCount})`);
+        allIssues.forEach(issue => {
+          const cat = issue.category ? `[${issue.category}] ` : '';
+          const sug = issue.suggestion ? ` → ${issue.suggestion}` : '';
+          console.log(`     [${(issue.severity || 'unknown').toUpperCase()}] ${cat}${issue.description || '(no description)'}${sug}`);
+        });
 
         if (acceptable || iter + 1 >= maxIterations) break;
 
         // Run solver to improve the story
         await this._detail(`   ↻ Running ${role} solver…`);
-        console.log(`   ↻ [${validatorName}] issues found — running solver (iter ${iter + 1}/${maxIterations})...`);
+        console.log(`   ↻ [${validatorName}] below threshold — running solver (iter ${iter + 1}/${maxIterations})...`);
+        const descBefore = (workingStory.description || '').slice(0, 100);
+        const acBefore = (workingStory.acceptance || []).join(' | ').slice(0, 100);
         try {
           const improved = await this._withHeartbeat(
             () => this.runStorySolver(workingStory, storyContext, epic, lastResult, validatorName),
@@ -383,7 +420,16 @@ class EpicStoryValidator {
               acceptance:   improved.acceptance   ?? workingStory.acceptance,
               dependencies: improved.dependencies ?? workingStory.dependencies,
             };
+            const descAfter = (workingStory.description || '').slice(0, 100);
+            const acAfter = (workingStory.acceptance || []).join(' | ').slice(0, 100);
+            console.log(`   ↻ Solver applied — desc changed: ${descBefore !== descAfter}, ac changed: ${acBefore !== acAfter}`);
+            if (descBefore !== descAfter) {
+              console.log(`     before: ${descBefore}`);
+              console.log(`     after:  ${descAfter}`);
+            }
             await this._detail(`   → Improvements applied`);
+          } else {
+            console.log(`   ↻ Solver returned no valid improvement (id mismatch or empty)`);
           }
         } catch (err) {
           console.warn(`   ⚠ Solver failed for ${validatorName}: ${err.message} — keeping current story`);
@@ -408,6 +454,10 @@ class EpicStoryValidator {
     aggregated.readyToPublish = aggregated.overallStatus !== 'needs-improvement';
 
     await this._detail(`Overall: ${aggregated.readyToPublish ? '✓ passed' : '⚠ needs improvement'} · avg ${aggregated.averageScore}/100`);
+    console.log(`   Story "${story.name}" summary: avg=${aggregated.averageScore}/100 readyToPublish=${aggregated.readyToPublish} critical=${aggregated.criticalIssues.length} major=${aggregated.majorIssues.length}`);
+    aggregated.validatorResults.forEach(vr => {
+      console.log(`     ${this.extractDomain(vr.validator)}: ${vr.score}/100 (${vr.status})`);
+    });
 
     // 5. Store for feedback loop
     this.storeValidationFeedback(story.id, aggregated);
