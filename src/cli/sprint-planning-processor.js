@@ -712,6 +712,10 @@ Return your response as JSON following the exact structure specified in your ins
     this._validator = validator;
     this._validator.setTokenCallback((delta) => {
       this.tokenTracker.addIncremental(this.ceremonyName, delta);
+      if (delta.model) {
+        const cost = this.tokenTracker.calculateCost(delta.input, delta.output, delta.model);
+        this._runningCost += cost?.total ?? 0;
+      }
     });
 
     // Validate each epic
