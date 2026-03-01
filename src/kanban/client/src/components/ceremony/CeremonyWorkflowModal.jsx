@@ -568,14 +568,7 @@ function LoopGroupCard({ group, models, editable, onStageModelChange, onValidati
   const c                 = isIndigo ? LOOP_C.indigo : LOOP_C.amber;
   const hasMulti          = steps.length > 1;
 
-  const validateStep  = steps.find((s) => s.type === 'validate' || s.type === 'cross');
-  const refineStep    = steps.find((s) => s.type === 'refine');
-  const validatorModel = validateStep?.model;
-  const refinerModel   = refineStep?.model;
-  const sameModel      = validatorModel && refinerModel && validatorModel === refinerModel;
-
-  const canEditLoop      = editable && group.loopParamType && !group.loopParamReadOnly;
-  const canEditValidator = editable && !isIndigo && validateStep?.validationKey;
+  const canEditLoop = editable && group.loopParamType && !group.loopParamReadOnly;
 
   return (
     <div className={`rounded-xl border-2 border-dashed ${c.border} overflow-hidden`}>
@@ -623,53 +616,6 @@ function LoopGroupCard({ group, models, editable, onStageModelChange, onValidati
           )}
         </div>
       </div>
-
-      {/* ── Model strip ── */}
-      {(validatorModel || refinerModel) && (
-        <div className={`${c.hdr} border-b border-dashed ${c.hdrBorder} px-3 py-2 flex items-center gap-2 flex-wrap`}>
-          <span className={`text-xs font-semibold ${c.subtext} mr-1`}>Models in loop:</span>
-
-          {validatorModel && (
-            canEditValidator ? (
-              <span className={`flex items-center gap-1.5 text-xs font-medium ${c.chip} px-2 py-1 rounded-lg`}>
-                <span className="text-sm">⚖</span>
-                <span className="opacity-60">Validator</span>
-                <ModelSelectInline
-                  value={validatorModel}
-                  models={models}
-                  onChange={(modelId) => onValidationModelChange(validateStep.validationKey, modelId)}
-                />
-              </span>
-            ) : (
-              <span className={`flex items-center gap-1.5 text-xs font-medium ${c.chip} px-2.5 py-1 rounded-lg`}>
-                <span className="text-sm">⚖</span>
-                <span className="opacity-60">Validator</span>
-                <span className="font-semibold">{resolveModelName(validatorModel, models)}</span>
-              </span>
-            )
-          )}
-
-          {hasMulti && (
-            editable && !isIndigo ? (
-              <>
-                <span className={`text-lg font-bold ${c.arrow}`}>⇄</span>
-                <span className={`text-xs ${c.subtext} italic`}>Refiner: ↑ same as generate step</span>
-              </>
-            ) : refinerModel && !sameModel ? (
-              <>
-                <span className={`text-lg font-bold ${c.arrow}`}>⇄</span>
-                <span className={`flex items-center gap-1.5 text-xs font-medium ${c.chip} px-2.5 py-1 rounded-lg`}>
-                  <span className="text-sm">✎</span>
-                  <span className="opacity-60">Refiner</span>
-                  <span className="font-semibold">{resolveModelName(refinerModel, models)}</span>
-                </span>
-              </>
-            ) : sameModel ? (
-              <span className={`text-xs ${c.subtext} italic`}>same model for both roles</span>
-            ) : null
-          )}
-        </div>
-      )}
 
       {/* ── Steps + right-side loop arrow ── */}
       <div className={`${c.bg} p-3 flex gap-2 items-stretch`}>
