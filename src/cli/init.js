@@ -1258,6 +1258,9 @@ Documentation for this project will be generated automatically once the project 
         estimatedCost: result?.cost?.total,
       });
 
+      // Persist answers and generate Q&A documentation page (non-fatal)
+      this.saveProjectBriefAnswers(answers);
+
       // Return result for display in REPL
       return result;
 
@@ -1747,6 +1750,114 @@ Documentation for this project will be generated automatically once the project 
     }
 
     return contents;
+  }
+
+  /**
+   * Save sponsor-call Q&A answers to avc.json and generate VitePress Q&A page.
+   * Wrapped in try/catch — failures are non-fatal.
+   */
+  saveProjectBriefAnswers(answers) {
+    try {
+      // Normalize: CLI path has top-level keys; Kanban path may nest under .requirements
+      const qa = answers.MISSION_STATEMENT ? answers : (answers.requirements || answers);
+
+      // Read current avc.json and persist answers
+      const config = JSON.parse(fs.readFileSync(this.avcConfigPath, 'utf8'));
+      if (!config.settings) config.settings = {};
+      if (!config.settings.projectBrief) config.settings.projectBrief = {};
+      config.settings.projectBrief.answers = {
+        MISSION_STATEMENT: qa.MISSION_STATEMENT || null,
+        TARGET_USERS: qa.TARGET_USERS || null,
+        INITIAL_SCOPE: qa.INITIAL_SCOPE || null,
+        DEPLOYMENT_TARGET: qa.DEPLOYMENT_TARGET || null,
+        TECHNICAL_CONSIDERATIONS: qa.TECHNICAL_CONSIDERATIONS || null,
+        TECHNICAL_EXCLUSIONS: qa.TECHNICAL_EXCLUSIONS || null,
+        SECURITY_AND_COMPLIANCE_REQUIREMENTS: qa.SECURITY_AND_COMPLIANCE_REQUIREMENTS || null,
+      };
+      config.settings.projectBrief.savedAt = new Date().toISOString();
+      fs.writeFileSync(this.avcConfigPath, JSON.stringify(config, null, 2), 'utf8');
+
+      fileLog('INFO', 'saveProjectBriefAnswers() — answers persisted to avc.json');
+
+      this.generateQADocumentationPage(qa);
+    } catch (error) {
+      fileLog('WARN', 'saveProjectBriefAnswers() failed (non-fatal)', { error: error.message });
+    }
+  }
+
+  /**
+   * Generate .avc/documentation/questions-and-answers.md with the sponsor-call answers.
+   * No-ops silently if the documentation directory doesn't exist yet.
+   */
+  generateQADocumentationPage(qa) {
+    const docDir = path.join(this.avcDir, 'documentation');
+    if (!fs.existsSync(docDir)) {
+      fileLog('INFO', 'generateQADocumentationPage() — documentation dir not found, skipping');
+      return;
+    }
+
+    const lines = ['# Questions & Answers', ''];
+    lines.push('Sponsor-call questionnaire answers captured during project brief generation.', '');
+
+    lines.push('## Mission Statement', '');
+    lines.push(qa.MISSION_STATEMENT || '_Not provided._', '');
+
+    lines.push('## Initial Scope', '');
+    lines.push(qa.INITIAL_SCOPE || '_Not provided._', '');
+
+    lines.push('## Target Users', '');
+    lines.push(qa.TARGET_USERS || '_Not provided._', '');
+
+    lines.push('## Deployment Target', '');
+    lines.push(qa.DEPLOYMENT_TARGET || '_Not provided._', '');
+
+    lines.push('## Technical Considerations', '');
+    lines.push(qa.TECHNICAL_CONSIDERATIONS || '_Not provided._', '');
+
+    if (qa.TECHNICAL_EXCLUSIONS) {
+      lines.push('## Technical Exclusions', '');
+      lines.push(qa.TECHNICAL_EXCLUSIONS, '');
+    }
+
+    lines.push('## Security & Compliance Requirements', '');
+    lines.push(qa.SECURITY_AND_COMPLIANCE_REQUIREMENTS || '_Not provided._', '');
+
+    const qaPath = path.join(docDir, 'questions-and-answers.md');
+    fs.writeFileSync(qaPath, lines.join('\n'), 'utf8');
+
+    fileLog('INFO', 'generateQADocumentationPage() — written', { qaPath });
+
+    this.addQAToVitePressConfig();
+  }
+
+  /**
+   * Insert "Questions & Answers" into the VitePress sidebar, immediately after "Project Brief".
+   * Idempotent — skips if already present.
+   */
+  addQAToVitePressConfig() {
+    const configPath = path.join(this.avcDir, 'documentation', '.vitepress', 'config.mts');
+    if (!fs.existsSync(configPath)) {
+      fileLog('INFO', 'addQAToVitePressConfig() — config.mts not found, skipping');
+      return;
+    }
+
+    let content = fs.readFileSync(configPath, 'utf8');
+
+    if (content.includes('questions-and-answers')) {
+      fileLog('INFO', 'addQAToVitePressConfig() — already present, skipping');
+      return;
+    }
+
+    // Insert after the Project Brief link line
+    const projectBriefLine = "{ text: 'Project Brief', link: '/' }";
+    const qaLine = "{ text: 'Questions & Answers', link: '/questions-and-answers' }";
+    content = content.replace(
+      projectBriefLine,
+      `${projectBriefLine},\n          ${qaLine}`
+    );
+
+    fs.writeFileSync(configPath, content, 'utf8');
+    fileLog('INFO', 'addQAToVitePressConfig() — sidebar updated', { configPath });
   }
 
   /**
