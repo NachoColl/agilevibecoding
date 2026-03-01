@@ -101,3 +101,12 @@ Return a JSON object with this exact structure:
 - If the mission and scope are excellent, say so — don't invent issues
 - `improvementPriorities` lists the most impactful fixes, ordered by impact (highest first)
 - `strengths` lists specific things done well (be concrete, not generic praise)
+
+## CRITICAL: issues[] must contain ONLY actual remaining problems
+
+- **NEVER** put resolution notes, fix confirmations, or "no issues found" entries in `issues[]`
+- **NEVER** describe what a previous iteration changed or fixed — that is not an issue
+- **NEVER** add entries like "The refinement was applied successfully" or "No action required"
+- If there are no problems, `issues` **must be an empty array `[]`**
+- Every entry in `issues[]` must describe a specific defect that **still exists** in the current text
+- Positive observations belong in `strengths[]`, not `issues[]`

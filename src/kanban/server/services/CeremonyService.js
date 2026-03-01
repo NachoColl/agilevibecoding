@@ -305,12 +305,18 @@ export class CeremonyService {
       }
 
       const finalScore = validationResult ? Number(validationResult.overallScore) || 0 : null;
+      // Only surface issues when the final score did NOT pass the threshold.
+      // A passing validation may still return "resolution notes" in issues[] — those are
+      // misleading when shown to the user as if they were real problems.
+      const finalIssues = (finalScore !== null && finalScore >= acceptanceThreshold)
+        ? []
+        : (validationResult?.issues || []);
       const returnValue = {
         missionStatement: result.missionStatement,
         initialScope: result.initialScope,
         validationScore: finalScore,
         iterations: validationsRun,
-        issues: validationResult?.issues || [],
+        issues: finalIssues,
       };
 
       log.info('generateMissionScope() completed successfully', {
@@ -494,12 +500,16 @@ export class CeremonyService {
       }
 
       const finalScore = validationResult ? Number(validationResult.overallScore) || 0 : null;
+      // Only surface issues when the final score did NOT pass the threshold.
+      const finalIssues = (finalScore !== null && finalScore >= acceptanceThreshold)
+        ? []
+        : (validationResult?.issues || []);
       const returnValue = {
         missionStatement: result.missionStatement,
         initialScope: result.initialScope,
         validationScore: finalScore,
         iterations: validationsRun,
-        issues: validationResult?.issues || [],
+        issues: finalIssues,
       };
 
       log.info('refineMissionScope() completed successfully', {
