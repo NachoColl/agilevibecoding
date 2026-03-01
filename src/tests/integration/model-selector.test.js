@@ -32,7 +32,7 @@ describe('Model Selector Integration', () => {
   describe('End-to-End Flow', () => {
     it('should load evaluation prompts', () => {
       expect(EVALUATION_PROMPTS).toBeDefined();
-      expect(EVALUATION_PROMPTS.length).toBe(14);
+      expect(EVALUATION_PROMPTS.length).toBe(13);
 
       // Verify prompt structure
       const firstPrompt = EVALUATION_PROMPTS[0];
@@ -261,17 +261,16 @@ CONFIDENCE: High`),
       }
     });
 
-    it('should have all 14 expected evaluation prompts', () => {
+    it('should have all 13 expected evaluation prompts', () => {
       const expectedIds = [
         'sponsor-call-suggestions',
         'sponsor-call-documentation',
-        'sponsor-call-context',
         'sponsor-call-validation',
         'sprint-planning-decomposition',
         'sprint-planning-validation-universal',
         'sprint-planning-validation-domain',
         'sprint-planning-validation-feature',
-        'sprint-planning-context-generation',
+        'sprint-planning-doc-distribution',
         'seed-decomposition',
         'seed-validation',
         'seed-context-generation',
@@ -292,7 +291,7 @@ CONFIDENCE: High`),
         return counts;
       }, {});
 
-      expect(ceremonyCounts['sponsor-call']).toBe(4);
+      expect(ceremonyCounts['sponsor-call']).toBe(3);
       expect(ceremonyCounts['sprint-planning']).toBe(5);
       expect(ceremonyCounts['seed']).toBe(3);
       expect(ceremonyCounts['context-retrospective']).toBe(2);
