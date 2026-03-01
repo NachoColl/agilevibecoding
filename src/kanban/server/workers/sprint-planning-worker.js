@@ -21,6 +21,7 @@
  */
 
 import { ProjectInitiator } from '../../../cli/init.js';
+import { CommandLogger } from '../../../cli/command-logger.js';
 
 let _paused = false;
 let _cancelled = false;
@@ -49,6 +50,8 @@ process.on('message', async (msg) => {
 });
 
 async function run() {
+  const logger = new CommandLogger('sprint-planning', process.cwd());
+  logger.start();
   try {
     const initiator = new ProjectInitiator();
 
@@ -64,9 +67,11 @@ async function run() {
     };
 
     const result = await initiator.sprintPlanningWithCallback(progressCallback, { costThreshold: _costThreshold });
+    logger.stop();
     process.send({ type: 'complete', result });
     process.exit(0);
   } catch (err) {
+    logger.stop();
     if (err.message === 'CEREMONY_CANCELLED') {
       process.send({ type: 'cancelled' });
     } else if (err.message?.startsWith('COST_LIMIT_EXCEEDED:')) {
