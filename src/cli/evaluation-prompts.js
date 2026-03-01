@@ -172,90 +172,6 @@ Consider all available models from any provider (Claude, Gemini, OpenAI, etc.)`,
   },
 
   {
-    id: 'sponsor-call-context',
-    ceremony: 'sponsor-call',
-    stage: 'context',
-    stageName: 'Context File Creation',
-    prompt: `TASK: Select optimal LLM model for context file creation in sponsor-call ceremony
-PRIORITY: Best possible output quality
-
-CONTEXT:
-- Stage: context (Project Context Generation)
-- Ceremony: sponsor-call
-- Purpose: AI generates project-level context.md file from PROJECT.md documentation
-- Input: Complete PROJECT.md (2,000-8,000 tokens)
-- Output: Concise context.md with project overview, key objectives, technical constraints, architectural decisions (500-2,000 tokens)
-- Call frequency: 1 per ceremony
-- User interaction: Background process, final stage of sponsor-call
-- Impact: VERY HIGH - This context file is read by all future AI agents (decomposition, validation, context generation); quality affects all AI agent performance throughout project lifecycle
-
-EVALUATION CRITERIA (BEST OUTPUT FIRST):
-
-1. Output Quality Requirements: VERY HIGH
-   - Must extract most critical information from full documentation
-   - Must be concise yet comprehensive enough for AI agents
-   - Must include actionable context, not generic summaries
-   - Must understand what future AI agents need to know
-   → Requires appropriate model capabilities
-
-2. Task Complexity: 7/10 (Advanced summarization + context framing)
-   - Intelligent summarization (not just compression)
-   - Identify critical architectural decisions vs nice-to-have details
-   - Frame information in AI-consumable format
-   - Balance brevity with completeness
-
-3. Context Understanding:
-   - Must understand entire PROJECT.md document
-   - Identify patterns and key themes
-   - Recognize technical constraints that affect implementation
-   - Prioritize information by importance to future AI agents
-   → Requires appropriate model capabilities
-
-4. Consistency & Reliability:
-   - Must maintain alignment with PROJECT.md
-   - Cannot introduce contradictions
-   - Must preserve critical technical details
-
-5. Speed Requirements: LOW (Secondary)
-   - Background process, final stage
-   - User not waiting
-   - Quality far more important than speed
-   → Speed not a concern
-
-6. Pricing Considerations: TERTIARY
-   - Single call per ceremony
-   - Used by all future AI agents (high leverage)
-   - Quality investment pays off in every subsequent ceremony
-   → Worth any pricing tier given leverage
-
-RECOMMENDATION:
-
-Based on evaluation criteria above, select the model that best meets:
-1. PRIMARY: Output Quality - VERY HIGH - Used by all future AI agents
-2. SECONDARY: AI Context Generation - Excellent understanding of what AI agents need
-3. TERTIARY: Task Complexity - High (8/10) - distillation with accuracy preservation
-4. Speed Requirements: LOW - Background process, quality >>> speed
-5. Pricing: TERTIARY - Single call, very high leverage (affects all future ceremonies)
-
-Selection Guidance:
-- Prioritize models with exceptional AI-to-AI context generation capabilities
-- Require strong balance of conciseness and completeness
-- Must identify critical vs supplementary information effectively
-- Must maintain technical accuracy while summarizing
-- Must avoid introducing contradictions with source documentation
-- Speed not a constraint (background processing)
-- Pricing justified by high leverage (used in every future ceremony)
-
-Consider all available models from any provider (Claude, Gemini, OpenAI, etc.)`,
-    metadata: {
-      callFrequency: 1,
-      impact: 'VERY HIGH',
-      taskComplexity: 7,
-      currentDefault: 'Claude Sonnet 4.5'
-    }
-  },
-
-  {
     id: 'sponsor-call-validation',
     ceremony: 'sponsor-call',
     stage: 'validation',
@@ -615,78 +531,61 @@ Consider all available models from any provider (Claude, Gemini, OpenAI, etc.)`,
   },
 
   {
-    id: 'sprint-planning-context-generation',
+    id: 'sprint-planning-doc-distribution',
     ceremony: 'sprint-planning',
-    stage: 'context-generation',
-    stageName: 'Context File Generation',
-    prompt: `TASK: Select optimal LLM model for context file generation in sprint-planning ceremony
+    stage: 'doc-distribution',
+    stageName: 'Documentation Distribution',
+    prompt: `TASK: Select optimal LLM model for documentation distribution in sprint-planning ceremony
 PRIORITY: Best possible output quality
 
 CONTEXT:
-- Stage: context-generation (Context File Generation)
+- Stage: doc-distribution (Documentation Distribution)
 - Ceremony: sprint-planning
-- Purpose: AI generates context.md file for each epic and story
-- Input: Epic/Story with acceptance criteria, parent context (2,000-5,000 tokens)
-- Output: Concise context.md with implementation guidance (500-2,000 tokens)
+- Purpose: AI moves relevant content from parent doc.md to each epic/story doc.md and elaborates with domain-specific detail
+- Input: Parent doc.md + epic/story item description (2,000-5,000 tokens)
+- Output: Child doc.md (extracted + elaborated) + updated parent doc.md (lighter) as JSON
 - Call frequency: ~25 calls per ceremony
-- Impact: VERY HIGH - Developers read these daily; AI agents use for task decomposition
+- Impact: VERY HIGH - Establishes the documentation tree that guides all future AI agents
 
 EVALUATION CRITERIA (BEST OUTPUT FIRST):
 
 1. Output Quality Requirements: VERY HIGH
-   - Must create actionable developer guidance
-   - Technical context must be accurate and relevant
-   - Must understand developer needs
+   - Must accurately identify which content belongs to the child scope
+   - Must elaborate with domain-specific implementation detail
+   - Must produce valid JSON with embedded markdown
    → Requires appropriate model capabilities
 
-2. Task Complexity: 7/10 (Technical context synthesis)
-   - Synthesize acceptance criteria into implementation context
-   - Inherit and extend parent epic context
-   - Identify technical considerations
-   - Create AI-consumable context
+2. Task Complexity: 7/10 (Content extraction + elaboration + JSON output)
+   - Identify domain-relevant sections in parent doc
+   - Remove extracted content cleanly from parent
+   - Extend child doc with actionable implementation notes
 
-3. Context Understanding:
-   - Understand full project and parent epic context
-   - Recognize technical implications
-   - Consider implementation challenges
-   → Requires appropriate model capabilities
+3. Consistency & Reliability:
+   - Child doc must cover only the child's scope
+   - Parent doc must remain coherent after extraction
+   - JSON output must be well-formed
 
-4. Consistency & Reliability:
-   - Context must align with acceptance criteria
-   - Technical guidance must be accurate
-
-5. Speed Requirements: MODERATE (Secondary)
-   - 25 calls, parallel generation
+4. Speed Requirements: MODERATE (Secondary)
+   - 25 calls, sequential per epic/story chain
    - Quality more important than speed
 
-6. Pricing Considerations: MODERATE
+5. Pricing Considerations: MODERATE
    - 25 calls = moderate volume
-   - User-facing, high impact
-   - Quality worth investment
+   - High impact on downstream work quality
 
 RECOMMENDATION:
 
 Based on evaluation criteria above, select the model that best meets:
-1. PRIMARY: Output Quality - VERY HIGH - Developers read daily, AI agents use for decomposition
-2. SECONDARY: Technical Writing - Actionable developer guidance with accuracy
-3. TERTIARY: Task Complexity - High (7/10) - synthesis with context inheritance
-4. Speed Requirements: MODERATE - 25 calls in parallel, quality >>> speed
-5. Pricing: MODERATE - 25 calls, high impact justifies investment
-
-Selection Guidance:
-- Prioritize models with excellent technical writing and developer-focused context
-- Require accurate technical guidance and implementation considerations
-- Must balance conciseness with completeness (500-2,000 token output)
-- Must properly inherit and extend parent context
-- Quality directly impacts developer productivity and AI agent effectiveness
-- Do not compromise on context quality (high leverage on downstream work)
+1. PRIMARY: Output Quality - VERY HIGH - Defines the documentation hierarchy for the project
+2. SECONDARY: Technical Writing - Focused extraction with domain elaboration
+3. TERTIARY: JSON reliability - Must produce parseable JSON with embedded markdown
 
 Consider all available models from any provider (Claude, Gemini, OpenAI, etc.)`,
     metadata: {
       callFrequency: 25,
       impact: 'VERY HIGH',
       taskComplexity: 7,
-      currentDefault: 'Claude Sonnet 4.5'
+      currentDefault: 'Claude Sonnet 4.6'
     }
   },
 

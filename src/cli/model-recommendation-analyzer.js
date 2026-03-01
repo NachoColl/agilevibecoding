@@ -194,18 +194,15 @@ export class ModelRecommendationAnalyzer {
     const defaults = {
       'sponsor-call-suggestions': 'Claude Sonnet 4.5',
       'sponsor-call-documentation': 'Claude Sonnet 4.5',
-      'sponsor-call-context': 'Claude Sonnet 4.5',
       'sponsor-call-validation': 'Claude Sonnet 4.5',
       'sprint-planning-decomposition': 'Claude Opus 4.6',
       'sprint-planning-validation-universal': 'Claude Sonnet 4.5',
       'sprint-planning-validation-domain': 'Claude Sonnet 4.5',
       'sprint-planning-validation-feature': 'Claude Sonnet 4.5',
-      'sprint-planning-context-generation': 'Claude Sonnet 4.5',
+      'sprint-planning-doc-distribution': 'Claude Sonnet 4.6',
       'seed-decomposition': 'Claude Opus 4.6',
       'seed-validation': 'Claude Sonnet 4.5',
-      'seed-context-generation': 'Claude Sonnet 4.5',
-      'context-retrospective-documentation-update': 'Claude Sonnet 4.5',
-      'context-retrospective-context-refinement': 'Claude Opus 4.6'
+      'seed-context-generation': 'Claude Sonnet 4.5'
     };
 
     return defaults[promptId] || 'Unknown';

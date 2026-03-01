@@ -169,7 +169,7 @@ class SprintPlanningProcessor {
   /**
    * Get provider and model for a specific stage
    * Falls back to ceremony-level config if stage-specific config not found
-   * @param {string} stageName - Stage name ('decomposition', 'validation', 'context-generation')
+   * @param {string} stageName - Stage name ('decomposition', 'validation', 'doc-distribution')
    * @returns {Object} { provider, model }
    */
   getProviderForStage(stageName) {
@@ -191,7 +191,7 @@ class SprintPlanningProcessor {
 
   /**
    * Get or create LLM provider for a specific stage
-   * @param {string} stageName - Stage name ('decomposition', 'validation', 'context-generation')
+   * @param {string} stageName - Stage name ('decomposition', 'validation', 'doc-distribution')
    * @returns {Promise<LLMProvider>} LLM provider instance
    */
   async getProviderForStageInstance(stageName) {
@@ -234,7 +234,7 @@ class SprintPlanningProcessor {
   /**
    * Aggregate token usage across all provider instances:
    * - this.llmProvider (Stage 5 validation fallback)
-   * - this._stageProviders (Stage 4 decomposition, Stage 7 context-gen)
+   * - this._stageProviders (Stage 4 decomposition, Stage 7 doc-distribution)
    * - this._validator._validatorProviders (Stage 5 per-validator providers)
    */
   _aggregateAllTokenUsage() {

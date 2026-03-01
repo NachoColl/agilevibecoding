@@ -72,8 +72,8 @@ export class ModelConfigurator {
 
       // Define available stages per ceremony (excluding 'main' and 'validation' which are handled separately)
       const ceremonyStages = {
-        'sponsor-call': ['suggestions', 'architecture-recommendation', 'question-prefilling', 'documentation', 'context'],
-        'sprint-planning': ['decomposition', 'context-generation', 'validation'],
+        'sponsor-call': ['suggestions', 'architecture-recommendation', 'question-prefilling', 'documentation'],
+        'sprint-planning': ['decomposition', 'doc-distribution', 'validation'],
         'seed': ['decomposition', 'validation', 'context-generation'],
         'context-retrospective': ['documentation-update', 'context-refinement']
       };
@@ -123,22 +123,21 @@ export class ModelConfigurator {
         'suggestions': 'Questionnaire Suggestions - AI analyzes project name and suggests answers',
         'architecture-recommendation': 'Architecture Recommendation - AI suggests 3-5 deployment architectures based on project scope',
         'question-prefilling': 'Question Pre-filling - AI generates intelligent answers based on selected architecture',
-        'documentation': 'Documentation Generation - AI creates initial project documentation',
-        'context': 'Context File Creation - AI generates initial project context.md'
+        'documentation': 'Documentation Generation - AI creates initial project documentation'
       },
       'sprint-planning': {
         'decomposition': 'Epic & Story Decomposition - AI breaks down project scope into epics and stories',
         'validation': 'Multi-Agent Validation - Domain experts validate each epic and story',
-        'context-generation': 'Context File Generation - AI creates context.md for each epic and story'
+        'doc-distribution': 'Documentation Distribution - AI moves and elaborates content from parent doc.md to each epic and story'
       },
       'seed': {
         'decomposition': 'Task Decomposition - AI breaks down stories into tasks and subtasks',
         'validation': 'Task Validation - AI validates task hierarchy and completeness',
-        'context-generation': 'Task Context Generation - AI creates context.md for each task'
+        'context-generation': 'Task Documentation - AI creates doc.md for each task'
       },
       'context-retrospective': {
         'documentation-update': 'Documentation Enhancement - AI refines and improves project documentation',
-        'context-refinement': 'Context Enhancement - AI enriches context.md files with learned insights'
+        'context-refinement': 'Documentation Enhancement - AI enriches doc.md files with learned insights'
       }
     };
 
@@ -152,9 +151,9 @@ export class ModelConfigurator {
     const genericDescriptions = {
       suggestions: 'AI-Assisted Questionnaire',
       documentation: 'Project Documentation Creation',
-      context: 'Project Context Generation',
       decomposition: 'Work Item Decomposition',
-      'context-generation': 'Context Scope Definition',
+      'context-generation': 'Task Documentation Generation',
+      'doc-distribution': 'Documentation Distribution',
       'documentation-update': 'Documentation Refinement',
       'context-refinement': 'Context Enhancement',
       enhancement: 'Content Enhancement'
@@ -200,21 +199,28 @@ export class ModelConfigurator {
       }
     ];
 
-    // Add validation stage if configured
+    // Add validation + refinement stages if configured
     if (ceremony.validation) {
       stages.push({
         id: 'validation',
-        name: 'Quality Validation & Verification',
+        name: 'Quality Validator - Scores and identifies issues in generated output',
         provider: ceremony.validation.provider || ceremony.provider,
         model: ceremony.validation.model || ceremony.defaultModel,
+        hasValidationTypes: false
+      });
+      stages.push({
+        id: 'refinement',
+        name: 'Quality Refiner - Improves output based on validator feedback',
+        provider: ceremony.validation.refinement?.provider || ceremony.validation.provider || ceremony.provider,
+        model: ceremony.validation.refinement?.model || ceremony.validation.model || ceremony.defaultModel,
         hasValidationTypes: false
       });
     }
 
     // Define available stages per ceremony (same as getCeremonies)
     const ceremonyStages = {
-      'sponsor-call': ['suggestions', 'documentation', 'context'],
-      'sprint-planning': ['decomposition', 'context-generation', 'validation'],
+      'sponsor-call': ['suggestions', 'documentation'],
+      'sprint-planning': ['decomposition', 'doc-distribution', 'validation'],
       'seed': ['decomposition', 'validation', 'context-generation'],
       'context-retrospective': ['documentation-update', 'context-refinement']
     };
@@ -376,6 +382,15 @@ export class ModelConfigurator {
       }
       ceremony.validation.provider = modelInfo.provider;
       ceremony.validation.model = newModel;
+    } else if (stageId === 'refinement') {
+      if (!ceremony.validation) {
+        ceremony.validation = { enabled: true };
+      }
+      if (!ceremony.validation.refinement) {
+        ceremony.validation.refinement = {};
+      }
+      ceremony.validation.refinement.provider = modelInfo.provider;
+      ceremony.validation.refinement.model = newModel;
     } else if (stageId.startsWith('stage-')) {
       const stageName = stageId.replace('stage-', '');
       if (!ceremony.stages) {
@@ -628,13 +643,14 @@ export class ModelConfigurator {
     const callCounts = {
       'sprint-planning': {
         'decomposition': 1,
-        'context-generation': 25,
+        'doc-distribution': 25,
         'validation': 145
       },
       'sponsor-call': {
         'suggestions': 1,
         'documentation': 1,
-        'context': 1
+        'validation': 2,
+        'refinement': 2
       },
       'seed': {
         'decomposition': 1,

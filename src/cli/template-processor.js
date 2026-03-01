@@ -97,6 +97,12 @@ class TemplateProcessor {
       }
     }
 
+    // Read refinement provider config (separate from validator — used in improveDocument)
+    const refinementConfig = validationConfig?.refinement;
+    this._refinementProvider = refinementConfig?.provider || this._validationProvider;
+    this._refinementModel = refinementConfig?.model || this._validationModel;
+    this._refinementProviderInstance = null;
+
     // Initialize token tracker
     this.tokenTracker = new TokenTracker(this.avcPath);
     this.tokenTracker.init();
@@ -222,7 +228,7 @@ class TemplateProcessor {
   /**
    * Get provider and model for a specific stage
    * Falls back to ceremony-level config if stage-specific config not found
-   * @param {string} stageName - Stage name ('suggestions', 'documentation', 'context')
+   * @param {string} stageName - Stage name ('suggestions', 'documentation')
    * @returns {Object} { provider, model }
    */
   getProviderForStage(stageName) {
@@ -245,7 +251,7 @@ class TemplateProcessor {
   /**
    * Get provider and model for validation of a specific content type
    * Falls back to ceremony-level validation config if type-specific config not found
-   * @param {string} validationType - Validation type ('documentation', 'context')
+   * @param {string} validationType - Validation type ('documentation')
    * @returns {Object} { provider, model }
    */
   getValidationProviderForType(validationType) {
@@ -588,7 +594,7 @@ Please carefully follow the output format requirements to avoid these issues.
 
   /**
    * Get or create LLM provider for a specific stage
-   * @param {string} stageName - Stage name ('suggestions', 'documentation', 'context')
+   * @param {string} stageName - Stage name ('suggestions', 'documentation')
    * @returns {Promise<LLMProvider>} LLM provider instance
    */
   async getProviderForStageInstance(stageName) {
@@ -616,7 +622,7 @@ Please carefully follow the output format requirements to avoid these issues.
 
   /**
    * Get or create validation provider for a specific content type
-   * @param {string} validationType - Validation type ('documentation', 'context')
+   * @param {string} validationType - Validation type ('documentation')
    * @returns {Promise<LLMProvider>} LLM provider instance
    */
   async getValidationProviderForTypeInstance(validationType) {
@@ -639,6 +645,31 @@ Please carefully follow the output format requirements to avoid these issues.
 
     debug(`Using ${provider} (${model}) for ${validationType} validation`);
 
+    return providerInstance;
+  }
+
+  /**
+   * Get or create LLM provider for document refinement (improvement after validation).
+   * Uses validation.refinement config if set, otherwise falls back to validation provider.
+   * @returns {Promise<LLMProvider>} LLM provider instance
+   */
+  async getRefinementProviderInstance() {
+    if (this._refinementProviderInstance) {
+      return this._refinementProviderInstance;
+    }
+
+    const provider = this._refinementProvider;
+    const model = this._refinementModel;
+
+    if (!provider || !model) {
+      return this.getValidationProviderForTypeInstance('documentation');
+    }
+
+    const providerInstance = await LLMProvider.create(provider, model);
+    this._registerTokenCallback(providerInstance, `${this.ceremonyName}-refinement`);
+    this._refinementProviderInstance = providerInstance;
+
+    debug(`Using ${provider} (${model}) for document refinement`);
     return providerInstance;
   }
 
@@ -1762,12 +1793,12 @@ Return your response as JSON following the exact structure specified in your ins
    * Improve documentation based on validation feedback
    */
   async improveDocument(docContent, validationResult, questionnaire) {
-    // Get validation type-specific provider for documentation
+    // Use refinement provider (separate model from validator for improve/refine step)
     let provider;
     try {
-      provider = await this.getValidationProviderForTypeInstance('documentation');
+      provider = await this.getRefinementProviderInstance();
     } catch (error) {
-      sendWarning('Skipping improvement (validation provider not available)');
+      sendWarning('Skipping improvement (refinement provider not available)');
       return docContent;
     }
 
@@ -1914,7 +1945,7 @@ Return your response as JSON following the exact structure specified in your ins
       // Improve
       debug(`Improving ${type} based on feedback`);
       this.reportSubstep(`Improving Project Brief based on validation...`);
-      await this.reportDetail(`Calling ${this.validationLLMProvider?.model || 'LLM'} to improve…`);
+      await this.reportDetail(`Calling ${this._refinementModel || this.validationLLMProvider?.model || 'LLM'} to improve…`);
       currentContent = await this.withHeartbeat(
         () => this.improveDocument(currentContent, validation, questionnaire),
         (elapsed) => {

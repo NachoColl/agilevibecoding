@@ -113,7 +113,7 @@ export function getEstimatedTokens(ceremonyName, stageId) {
   const callCounts = {
     'sprint-planning': {
       'decomposition': 1,
-      'context-generation': 25,
+      'doc-distribution': 25,
       'validation': 145,
       'validation-universal': 30,
       'validation-domain': 90,
@@ -122,7 +122,8 @@ export function getEstimatedTokens(ceremonyName, stageId) {
     'sponsor-call': {
       'suggestions': 1,
       'documentation': 1,
-      'context': 1
+      'validation': 2,
+      'refinement': 2
     },
     'seed': {
       'decomposition': 1,
