@@ -16,14 +16,9 @@ const AGENT_LABELS = {
   'question-prefiller':              'Question Prefiller',
   'project-documentation-creator':   'Documentation Creator',
   'validator-documentation':         'Documentation Validator',
-  'project-context-generator':       'Context Generator',
-  'validator-context':               'Context Validator',
-  'cross-validator-doc-to-context':  'Doc → Context Validator',
-  'cross-validator-context-to-doc':  'Context → Doc Validator',
   // Sprint Planning
   'epic-story-decomposer':                'Epic/Story Decomposer',
   'validator-selector':                   'Validator Selector',
-  'feature-context-generator':            'Context Generator',
   'validator-epic-solution-architect':    'Solution Architect (Epic)',
   'validator-epic-developer':             'Developer (Epic)',
   'validator-epic-security':              'Security (Epic)',
@@ -250,68 +245,11 @@ function buildSponsorCallPhases(ceremony, missionGenValidation) {
       ],
     },
     {
-      id: 'context',
-      label: 'Context',
-      color: 'green',
-      steps: [
-        {
-          type:     'generate',
-          label:    'Generate project context (context.md)',
-          model:    ceremony.stages?.context?.model,
-          stageKey: 'context',
-          agent:    'project-context-generator',
-          files:    [{ name: 'doc.md', direction: 'in', note: 'generated doc.md content used to derive context' }],
-        },
-        {
-          type:             'loop-group',
-          loopParamType:    'docContext',
-          loopParamReadOnly: true,
-          loop: {
-            max:       ceremony.validation?.maxIterations ?? 100,
-            threshold: ceremony.validation?.acceptanceThreshold ?? 90,
-          },
-          steps: [
-            {
-              type:          'validate',
-              label:         'Validate context quality',
-              model:         ceremony.validation?.context?.model ?? ceremony.validation?.model,
-              validationKey: 'context',
-              agent:         'validator-context',
-            },
-            {
-              type:       'refine',
-              label:      'Improve context based on issues',
-              model:      ceremony.stages?.context?.model,
-              stageKey:   'context',
-              sharedWith: 'Context generator',
-              agent:      'project-context-generator',
-            },
-          ],
-        },
-        {
-          type:          'loop-group',
-          loopParamType: 'crossValidation',
-          loop: { max: ceremony.crossValidation?.maxIterations ?? 3, threshold: null },
-          steps: [
-            {
-              type:   'cross',
-              label:  'Cross-validate doc ↔ context consistency',
-              agents: [
-                { slug: 'cross-validator-doc-to-context', note: 'checks every doc.md reference exists in context.md' },
-                { slug: 'cross-validator-context-to-doc', note: 'checks every context.md reference exists in doc.md' },
-              ],
-            },
-          ],
-        },
-      ],
-    },
-    {
       id: 'output',
       label: 'Output',
       color: 'emerald',
       steps: [
-        { type: 'output', label: '.avc/project/doc.md written',     files: [{ name: 'project/doc.md',     direction: 'out' }] },
-        { type: 'output', label: '.avc/project/context.md written', files: [{ name: 'project/context.md', direction: 'out' }] },
+        { type: 'output', label: '.avc/project/doc.md written', files: [{ name: 'project/doc.md', direction: 'out' }] },
       ],
     },
   ];
@@ -334,11 +272,6 @@ function buildSprintPlanningPhases(ceremony) {
           label: 'Read project scope',
           files: [{ name: 'project/doc.md', direction: 'in', note: '.avc/project/doc.md — scope section extracted and sent to decomposer' }],
         },
-        {
-          type:  'read',
-          label: 'Load project background context — passed to all LLM stages',
-          files: [{ name: 'project/context.md', direction: 'in', note: '.avc/project/context.md — read once, forwarded as background to decomposition, validation & context generation' }],
-        },
         { type: 'read', label: 'Analyse existing Epics & Stories (deduplication baseline)' },
       ],
     },
@@ -354,8 +287,7 @@ function buildSprintPlanningPhases(ceremony) {
           stageKey: 'decomposition',
           agent:    'epic-story-decomposer',
           files:    [
-            { name: 'project/doc.md',     direction: 'in', note: 'scope text extracted from doc.md' },
-            { name: 'project/context.md', direction: 'in', note: 'background context forwarded from scope collection' },
+            { name: 'project/doc.md', direction: 'in', note: 'scope text extracted from doc.md' },
           ],
         },
       ],
@@ -387,7 +319,6 @@ function buildSprintPlanningPhases(ceremony) {
                 { slug: 'validator-epic-security',           note: 'always runs' },
                 { slug: 'validator-epic-backend',            note: '+ domain validators selected per project' },
               ],
-              files: [{ name: 'project/context.md', direction: 'in', note: 'project background context injected into every validation prompt' }],
             },
             {
               type:     'refine',
@@ -423,7 +354,6 @@ function buildSprintPlanningPhases(ceremony) {
                 { slug: 'validator-story-test-architect', note: 'always runs' },
                 { slug: 'validator-story-backend',        note: '+ domain validators selected per project' },
               ],
-              files: [{ name: 'project/context.md', direction: 'in', note: 'project background context injected into every validation prompt' }],
             },
             {
               type:     'refine',
@@ -442,21 +372,6 @@ function buildSprintPlanningPhases(ceremony) {
       ],
     },
     {
-      id: 'context',
-      label: 'Context Generation',
-      color: 'green',
-      steps: [
-        {
-          type:     'generate',
-          label:    'Generate context files for each Epic and Story',
-          model:    ceremony.stages?.['context-generation']?.model ?? fallbackModel,
-          stageKey: 'context-generation',
-          agent:    'feature-context-generator',
-          files:    [{ name: 'project/context.md', direction: 'in', note: 'project background context injected into every context generation prompt' }],
-        },
-      ],
-    },
-    {
       id: 'output',
       label: 'Output',
       color: 'emerald',
@@ -466,31 +381,27 @@ function buildSprintPlanningPhases(ceremony) {
           type:  'output',
           label: 'Write Epic files',
           files: [
-            { name: '{epic}/work.json',  direction: 'out' },
-            { name: '{epic}/doc.md',     direction: 'out', note: 'stub — filled in by agent work' },
-            { name: '{epic}/context.md', direction: 'out', note: 'generated by feature-context-generator' },
+            { name: '{epic}/work.json', direction: 'out' },
+            { name: '{epic}/doc.md',    direction: 'out', note: 'stub — filled in by agent work' },
           ],
         },
         {
           type:  'output',
           label: 'Write Story files',
           files: [
-            { name: '{story}/work.json',  direction: 'out' },
-            { name: '{story}/context.md', direction: 'out', note: 'generated by feature-context-generator' },
+            { name: '{story}/work.json', direction: 'out' },
           ],
         },
       ],
     },
   ];
 }
-function buildContextRetroPhases(_c)   { return null; }
 function buildSeedPhases(_c)           { return null; }
 
 const CEREMONY_WORKFLOWS = {
-  'sponsor-call':          buildSponsorCallPhases,
-  'sprint-planning':       (c) => buildSprintPlanningPhases(c),
-  'context-retrospective': (_c) => buildContextRetroPhases(_c),
-  'seed':                  (_c) => buildSeedPhases(_c),
+  'sponsor-call':    buildSponsorCallPhases,
+  'sprint-planning': (c) => buildSprintPlanningPhases(c),
+  'seed':            (_c) => buildSeedPhases(_c),
 };
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -891,11 +802,6 @@ export function CeremonyWorkflowModal({
       setMissionGenDraft((prev) => ({ ...prev, [field]: value }));
     } else if (loopParamType === 'docContext') {
       setDraft((prev) => ({ ...prev, validation: { ...prev.validation, [field]: value } }));
-    } else if (loopParamType === 'crossValidation') {
-      setDraft((prev) => ({
-        ...prev,
-        crossValidation: { ...(prev.crossValidation || {}), [field]: value },
-      }));
     } else if (loopParamType === 'sprintSolver') {
       setDraft((prev) => ({
         ...prev,

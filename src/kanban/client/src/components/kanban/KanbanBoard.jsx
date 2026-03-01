@@ -15,7 +15,7 @@ import {
  * Kanban Board Component
  * Main board container with columns and filtering
  */
-export function KanbanBoard({ onCardClick, onStartProject, projectFilesReady, onEditProjectDoc, onEditProjectContext, onStartSprintPlanning, sponsorCallRunning }) {
+export function KanbanBoard({ onCardClick, onStartProject, projectFilesReady, onEditProjectDoc, onStartSprintPlanning, sponsorCallRunning }) {
   const [selectedItem, setSelectedItem] = useState(null);
 
   // Zustand stores
@@ -104,7 +104,7 @@ export function KanbanBoard({ onCardClick, onStartProject, projectFilesReady, on
                 Your project is set up and ready for sprint planning.
               </p>
               <p className="text-sm text-slate-700 font-medium mb-5 max-w-sm">
-                Review <code className="bg-slate-100 px-1 rounded text-xs">doc.md</code> and <code className="bg-slate-100 px-1 rounded text-xs">context.md</code> before starting — these files are the foundation of every Epic and Story that will be planned.
+                Review <code className="bg-slate-100 px-1 rounded text-xs">doc.md</code> before starting — this file is the foundation of every Epic and Story that will be planned.
               </p>
               <div className="flex items-center justify-center gap-3 mb-6">
                 <button
@@ -112,12 +112,6 @@ export function KanbanBoard({ onCardClick, onStartProject, projectFilesReady, on
                   className="flex items-center gap-2 px-4 py-2 text-sm font-medium border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors text-slate-700"
                 >
                   📄 Documentation
-                </button>
-                <button
-                  onClick={onEditProjectContext}
-                  className="flex items-center gap-2 px-4 py-2 text-sm font-medium border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors text-slate-700"
-                >
-                  🗺 Context
                 </button>
               </div>
               {onStartSprintPlanning ? (

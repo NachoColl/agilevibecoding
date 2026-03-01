@@ -1250,8 +1250,7 @@ Return the enhanced markdown document.`;
 
     // Compute total stages based on what will actually run for this ceremony
     const _scValidation = this.ceremonyName === 'sponsor-call' && this.isValidationEnabled();
-    const _scCrossVal = this.ceremonyName === 'sponsor-call' && this.isCrossValidationEnabled();
-    const _T = 5 + (_scValidation ? 2 : 0) + (_scCrossVal ? 1 : 0);
+    const _T = 5 + (_scValidation ? 1 : 0);
     let _s = 0;
 
     // Report questionnaire completion (with delay for UI update)
@@ -1276,86 +1275,7 @@ Return the enhanced markdown document.`;
       finalDocument = await this.iterativeValidation(finalDocument, 'documentation', collectedValues);
     }
 
-    // 8. Generate project context only (for Sponsor Call)
-    let contextContent = null;
-    let contextPath = null;
-    if (this.ceremonyName === 'sponsor-call') {
-      // Only generate project context if provider is initialized and has generateJSON method
-      if (!this.llmProvider) {
-        await this.initializeLLMProvider();
-      }
-
-      if (this.llmProvider && typeof this.llmProvider.generateJSON === 'function') {
-        await this.reportProgressWithDelay(`Stage ${++_s}/${_T}: Creating context scope...`, 'Created context scope');
-        contextContent = await this.generateProjectContextContent(collectedValues);
-
-        // 9. Validate and improve context (if validation enabled)
-        if (this.isValidationEnabled()) {
-          await this.reportProgressWithDelay(`Stage ${++_s}/${_T}: Validating context...`, 'Context validation complete');
-          contextContent = await this.iterativeValidation(contextContent, 'context', collectedValues, finalDocument);
-        }
-
-        // 9b. Deterministic deployment constraint check (runs even when LLM validation is off)
-        const deployTarget = collectedValues.DEPLOYMENT_TARGET || '';
-        if (/local|localhost|dev\s*machine|on.?prem/i.test(deployTarget) && contextContent) {
-          const cloudPattern = /\b(AWS|GCP|Google Cloud|Azure|DigitalOcean|Cloudflare|Kubernetes|ECS|EKS|GKE|Fargate|Lambda|RDS|S3|CloudFront|Firebase|Supabase|Heroku|Vercel)\b/i;
-          if (cloudPattern.test(contextContent)) {
-            sendWarning('context.md references cloud infrastructure but deployment target is local-only.');
-            sendIndented('Review .avc/project/context.md — the Infrastructure section may need correction.', 1);
-          }
-        }
-
-        // 9c. Deterministic exclusion keyword scan (runs even when LLM validation is off)
-        if (collectedValues.TECHNICAL_EXCLUSIONS && contextContent) {
-          const excluded = collectedValues.TECHNICAL_EXCLUSIONS
-            .split(/[,;\n.]+/)
-            .map(s => s.replace(/^(no |not |without |avoid |don't use |do not use )/i, '').trim())
-            .filter(s => s.length > 2);
-          // Skip the "Technical Exclusions" section itself to avoid false positives
-          const contentWithoutExclusionSection = contextContent.replace(/## Technical Exclusions[\s\S]*?(?=\n##|$)/, '');
-          const hits = excluded.filter(term =>
-            new RegExp(`\\b${term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'i').test(contentWithoutExclusionSection)
-          );
-          if (hits.length > 0) {
-            sendWarning(`context.md may reference excluded technology: ${hits.join(', ')}.`);
-            sendIndented('Review .avc/project/context.md — excluded technologies should only appear in the DO NOT USE section.', 1);
-          }
-        }
-
-        // 9d. Cross-validate doc.md ↔ context.md for mutual consistency
-        if (this.isCrossValidationEnabled()) {
-          await this.reportProgressWithDelay(`Stage ${++_s}/${_T}: Cross-validating documents...`, 'Cross-validation complete');
-          try {
-            const crossResult = await this.crossValidateDocAndContext(
-              finalDocument, contextContent, collectedValues
-            );
-            finalDocument = crossResult.docContent;
-            contextContent = crossResult.contextContent;
-          } catch (error) {
-            debug(`Cross-validation failed, continuing with current content: ${error.message}`);
-            sendWarning('Cross-validation encountered an error — proceeding with pre-validation content.');
-          }
-        }
-
-        // Write context.md (healed if cross-validation ran) — ensure directory exists first
-        if (!fs.existsSync(this.outputDir)) {
-          fs.mkdirSync(this.outputDir, { recursive: true });
-        }
-        contextPath = path.join(this.outputDir, 'context.md');
-
-        // Calculate token count for context
-        const contextTokenCount = Math.ceil(contextContent.length / 4); // Rough estimate: 4 chars per token
-        this.reportSubstep(`Writing context.md (~${contextTokenCount} tokens)`);
-        fs.writeFileSync(contextPath, contextContent, 'utf8');
-
-        // Report files created
-        const filesCreated = [];
-        if (contextPath) filesCreated.push('.avc/project/project/context.md');
-        this.reportSubstep('Project context created successfully', { filesCreated });
-      }
-    }
-
-    // 10. Write documentation to file (healed if cross-validation ran)
+    // 8. Write documentation to file
     await this.writeDocument(finalDocument);
     this.reportSubstep('Wrapping up...');
 
@@ -1386,85 +1306,12 @@ Return the enhanced markdown document.`;
 
     return {
       outputPath: this.outputPath,
-      contextPath: contextPath,
       activities: this.activityLog,
       tokenUsage: tokenUsage,
       cost: cost,
       model: this._modelName,
       validationIssues: this.validationIssues
     };
-  }
-
-  /**
-   * Generate project context content (for Sponsor Call ceremony)
-   * Returns the markdown content without writing to file
-   * @param {Object} collectedValues - Values from questionnaire
-   * @returns {string} Context markdown content
-   */
-  async generateProjectContextContent(collectedValues) {
-    try {
-      // Get stage-specific provider for context
-      const provider = await this.getProviderForStageInstance('context');
-
-      if (!provider || typeof provider.generateJSON !== 'function') {
-        return null;
-      }
-
-      // Read agent instructions
-      this.reportSubstep('Reading agent: project-context-generator.md');
-      const projectContextGeneratorAgent = loadAgent('project-context-generator.md', path.dirname(this.avcPath));
-
-      // Generate project context
-      this.reportSubstep('Generating project context...');
-      await this.reportDetail(`Sending to ${provider.providerName || 'LLM'} (${provider.model || ''})…`);
-      const projectContext = await this.withHeartbeat(
-        () => this.retryWithBackoff(
-          () => this.generateContextWithProvider(provider, 'project', 'project', collectedValues, projectContextGeneratorAgent),
-          'project context'
-        ),
-        (elapsed) => {
-          if (elapsed < 15) return 'Synthesizing project goals and constraints…';
-          if (elapsed < 30) return 'Generating technical context summary…';
-          if (elapsed < 45) return 'Documenting domain and stack context…';
-          return `Generating project context… (${elapsed}s)`;
-        },
-        15000
-      );
-
-      // Report token usage and validation
-      if (provider && typeof provider.getTokenUsage === 'function') {
-        const usage = provider.getTokenUsage();
-        this.reportSubstep('Validating context token count...', {
-          tokensUsed: {
-            input: usage.inputTokens,
-            output: usage.outputTokens
-          }
-        });
-        await this.reportDetail(`${usage.inputTokens.toLocaleString()} in · ${usage.outputTokens.toLocaleString()} out tokens`);
-      }
-
-      // Post-process verification
-      this.reportSubstep('Verifying context quality...');
-      const verifier = new LLMVerifier(provider, 'project-context-generator', this.verificationTracker);
-      const verificationResult = await verifier.verify(
-        projectContext.contextMarkdown,
-        (mainMsg, substep) => this.reportSubstep(substep)
-      );
-
-      if (verificationResult.rulesApplied.length > 0) {
-        this.reportSubstep(`Applied ${verificationResult.rulesApplied.length} context fixes`);
-
-        // Collect for final ceremony summary
-        for (const rule of verificationResult.rulesApplied) {
-          this.validationIssues.push({ stage: 'Project Context', ruleId: rule.id, name: rule.name, severity: rule.severity });
-        }
-      }
-
-      return verificationResult.content;
-    } catch (error) {
-      sendWarning(`Could not generate context: ${error.message}`);
-      return null;
-    }
   }
 
   /**
@@ -1542,7 +1389,7 @@ Return the enhanced markdown document.`;
   }
 
   /**
-   * Generate hierarchical work items (Project → Epic → Story) with context.md files
+   * Generate hierarchical work items (Project → Epic → Story)
    * (Now used by Project Expansion ceremony)
    * @param {Object} collectedValues - Values from questionnaire
    */
@@ -1553,11 +1400,9 @@ Return the enhanced markdown document.`;
 
     // Read agent instructions
     const epicStoryDecomposerAgent = loadAgent('epic-story-decomposer.md', path.dirname(this.avcPath));
-    const projectContextGeneratorAgent = loadAgent('project-context-generator.md', path.dirname(this.avcPath));
-    const featureContextGeneratorAgent = loadAgent('feature-context-generator.md', path.dirname(this.avcPath));
 
     // 1. Decompose into Epics and Stories
-    sendInfo('Stage 5/7: Decomposing features into Epics and Stories...');
+    sendInfo('Stage 5/6: Decomposing features into Epics and Stories...');
     const decompositionPrompt = this.buildDecompositionPrompt(collectedValues);
     const hierarchy = await this.retryWithBackoff(
       () => this.llmProvider.generateJSON(decompositionPrompt, epicStoryDecomposerAgent),
@@ -1571,49 +1416,9 @@ Return the enhanced markdown document.`;
 
     sendSuccess(`Generated ${hierarchy.epics.length} Epics with ${hierarchy.validation?.storyCount || 0} Stories`);
 
-    // 2. Generate context.md files for each level
-    sendSectionHeader('Stage 6/7: Generating context.md files...');
-
-    // Calculate total contexts to generate
-    const totalStories = hierarchy.epics.reduce((sum, epic) => sum + (epic.stories?.length || 0), 0);
-    const totalContexts = 1 + hierarchy.epics.length + totalStories;
-    let currentContext = 0;
-
-    // Generate Project context
-    currentContext++;
-    console.log(`   → Project context.md (${currentContext}/${totalContexts})`);
-    const projectContext = await this.retryWithBackoff(
-      () => this.generateContext('project', 'project', collectedValues, projectContextGeneratorAgent),
-      'project context'
-    );
-
-    // Generate Epic contexts
-    const epicContexts = [];
-    for (const epic of hierarchy.epics) {
-      currentContext++;
-      console.log(`   → Epic ${epic.id}: ${epic.name} (${currentContext}/${totalContexts})`);
-      const epicContext = await this.retryWithBackoff(
-        () => this.generateContext('epic', epic.id, { ...collectedValues, epic }, featureContextGeneratorAgent),
-        `epic ${epic.id} context`
-      );
-      epicContexts.push({ id: epic.id, context: epicContext });
-
-      // Generate Story contexts for this Epic
-      for (const story of epic.stories || []) {
-        currentContext++;
-        console.log(`      → Story ${story.id}: ${story.name} (${currentContext}/${totalContexts})`);
-        await this.retryWithBackoff(
-          () => this.generateContext('story', story.id, { ...collectedValues, epic, story }, featureContextGeneratorAgent),
-          `story ${story.id} context`
-        );
-      }
-    }
-
-    sendSuccess('Context generation complete');
-
-    // 3. Write all files to disk
-    sendSectionHeader('Stage 7/7: Writing files to disk...');
-    await this.writeHierarchyToFiles(hierarchy, projectContext, collectedValues);
+    // 2. Write all files to disk
+    sendSectionHeader('Stage 6/6: Writing files to disk...');
+    await this.writeHierarchyToFiles(hierarchy, collectedValues);
 
     // Display token usage statistics
     if (this.llmProvider) {
@@ -1694,141 +1499,14 @@ Return your response as JSON following the exact structure specified in your ins
   }
 
   /**
-   * Generate context.md for a specific node
-   * @param {string} level - 'project', 'epic', or 'story'
-   * @param {string} id - Node ID (e.g., 'project', 'context-0001', 'context-0001-0001')
-   * @param {Object} data - Context data (collectedValues + epic/story if applicable)
-   * @param {string} agentInstructions - Context generator agent instructions
-   * @returns {Promise<Object>} Context generation result with markdown content
-   */
-  async generateContext(level, id, data, agentInstructions) {
-    debug('generateContext called', { level, id });
-    const t0 = Date.now();
-    const prompt = this.buildContextPrompt(level, id, data);
-    const result = await this.llmProvider.generateJSON(prompt, agentInstructions);
-
-    // Validate response
-    if (!result.contextMarkdown || !result.tokenCount) {
-      throw new Error(`Invalid context response for ${id}: missing required fields`);
-    }
-
-    debug('generateContext complete', { level, id, tokenCount: result.tokenCount, withinBudget: result.withinBudget, duration: `${Date.now() - t0}ms` });
-    return result;
-  }
-
-  /**
-   * Generate context.md for a specific node with a specific provider
-   * @param {LLMProvider} provider - LLM provider instance to use
-   * @param {string} level - 'project', 'epic', or 'story'
-   * @param {string} id - Node ID (e.g., 'project', 'context-0001', 'context-0001-0001')
-   * @param {Object} data - Context data (collectedValues + epic/story if applicable)
-   * @param {string} agentInstructions - Context generator agent instructions
-   * @returns {Promise<Object>} Context generation result with markdown content
-   */
-  async generateContextWithProvider(provider, level, id, data, agentInstructions) {
-    debug('generateContextWithProvider called', { level, id });
-    const t0 = Date.now();
-    const prompt = this.buildContextPrompt(level, id, data);
-    const result = await provider.generateJSON(prompt, agentInstructions);
-
-    // Validate response
-    if (!result.contextMarkdown || !result.tokenCount) {
-      throw new Error(`Invalid context response for ${id}: missing required fields`);
-    }
-
-    return result;
-  }
-
-  /**
-   * Build prompt for context.md generation
-   * @param {string} level - 'project', 'epic', or 'story'
-   * @param {string} id - Node ID
-   * @param {Object} data - Context data
-   * @returns {string} Prompt for context generator agent
-   */
-  buildContextPrompt(level, id, data) {
-    const { INITIAL_SCOPE, TARGET_USERS, MISSION_STATEMENT, TECHNICAL_CONSIDERATIONS, TECHNICAL_EXCLUSIONS, SECURITY_AND_COMPLIANCE_REQUIREMENTS, DEPLOYMENT_TARGET, epic, story } = data;
-
-    let prompt = `Generate a context.md file for the following ${level}:\n\n`;
-    prompt += `**Level:** ${level}\n`;
-    prompt += `**ID:** ${id}\n\n`;
-
-    if (level === 'project') {
-      prompt += `**Mission Statement:**\n${MISSION_STATEMENT}\n\n`;
-      prompt += `**Target Users:**\n${TARGET_USERS}\n\n`;
-      prompt += `**Deployment Target:**\n${DEPLOYMENT_TARGET || 'Not specified'}\n\n`;
-      prompt += `**Technical Considerations:**\n${TECHNICAL_CONSIDERATIONS}\n\n`;
-      prompt += `**Security and Compliance:**\n${SECURITY_AND_COMPLIANCE_REQUIREMENTS}\n\n`;
-
-      // Enforce deployment constraint in prompt so the LLM cannot drift
-      const isLocalDeployment = /local|localhost|dev\s*machine|on.?prem/i.test(DEPLOYMENT_TARGET || '');
-      if (isLocalDeployment) {
-        prompt += `**DEPLOYMENT CONSTRAINT — CRITICAL:**\n`;
-        prompt += `DEPLOYMENT_TARGET is local-only ("${DEPLOYMENT_TARGET}").\n`;
-        prompt += `- Infrastructure line MUST describe local setup only (e.g. "Docker Compose (local dev)" or "Local processes").\n`;
-        prompt += `- DO NOT include AWS, GCP, Azure, DigitalOcean, Kubernetes, ECS, Fargate, GitHub Actions, Vercel, Heroku, or any cloud/CI/CD service.\n`;
-        prompt += `- DO NOT add tools (Sentry, Playwright, node-pg-migrate, etc.) not mentioned in Technical Considerations.\n\n`;
-      }
-
-      if (TECHNICAL_EXCLUSIONS) {
-        prompt += `**Technical Exclusions (hard constraints — list as "DO NOT use" in context.md):**\n${TECHNICAL_EXCLUSIONS}\n\n`;
-      }
-    } else if (level === 'epic') {
-      prompt += `**Epic Name:** ${epic.name}\n`;
-      prompt += `**Epic Domain:** ${epic.domain}\n`;
-      prompt += `**Epic Description:** ${epic.description}\n`;
-      prompt += `**Features in Epic:** ${epic.features.join(', ')}\n\n`;
-      prompt += `**Project Mission Statement:**\n${MISSION_STATEMENT}\n\n`;
-      prompt += `**Technical Considerations:**\n${TECHNICAL_CONSIDERATIONS}\n\n`;
-      prompt += `**Security and Compliance:**\n${SECURITY_AND_COMPLIANCE_REQUIREMENTS}\n\n`;
-      if (TECHNICAL_EXCLUSIONS) {
-        prompt += `**Technical Exclusions (inherited — must NOT be recommended):**\n${TECHNICAL_EXCLUSIONS}\n\n`;
-      }
-    } else if (level === 'story') {
-      prompt += `**Story Name:** ${story.name}\n`;
-      prompt += `**Story Description:** ${story.description}\n`;
-      prompt += `**User Type:** ${story.userType}\n`;
-      prompt += `**Acceptance Criteria:**\n${story.acceptance.map((ac, i) => `${i + 1}. ${ac}`).join('\n')}\n\n`;
-      prompt += `**Epic Context:**\n`;
-      prompt += `- Epic: ${epic.name}\n`;
-      prompt += `- Domain: ${epic.domain}\n`;
-      prompt += `- Features: ${epic.features.join(', ')}\n\n`;
-      prompt += `**Project Mission Statement:**\n${MISSION_STATEMENT}\n\n`;
-      prompt += `**Technical Considerations:**\n${TECHNICAL_CONSIDERATIONS}\n\n`;
-      if (TECHNICAL_EXCLUSIONS) {
-        prompt += `**Technical Exclusions (inherited — must NOT be recommended):**\n${TECHNICAL_EXCLUSIONS}\n\n`;
-      }
-    }
-
-    prompt += `Return your response as JSON following the exact structure specified in your instructions.`;
-
-    return prompt;
-  }
-
-  /**
    * Write hierarchy files to .avc/project/ directory
    * @param {Object} hierarchy - Decomposition result (epics array)
-   * @param {Object} projectContext - Project-level context
    * @param {Object} collectedValues - Questionnaire responses
    */
-  async writeHierarchyToFiles(hierarchy, projectContext, collectedValues) {
+  async writeHierarchyToFiles(hierarchy, collectedValues) {
     const projectPath = path.join(this.avcPath, 'project');
 
-    // 1. Write project-level files
-    const projectDir = path.join(projectPath, 'project');
-    if (!fs.existsSync(projectDir)) {
-      fs.mkdirSync(projectDir, { recursive: true });
-    }
-
-    // Write project context.md (doc.md is written separately by writeDocument method)
-    fs.writeFileSync(
-      path.join(projectDir, 'context.md'),
-      projectContext.contextMarkdown,
-      'utf8'
-    );
-    sendSuccess('project/context.md');
-
-    // 2. Write Epic and Story files
+    // Write Epic and Story files
     for (const epic of hierarchy.epics) {
       const epicDir = path.join(projectPath, epic.id);
       if (!fs.existsSync(epicDir)) {
@@ -1843,17 +1521,6 @@ Return your response as JSON following the exact structure specified in your ins
       );
       sendIndented(`${epic.id}/doc.md`);
 
-      // Generate and write Epic context.md
-      const epicContext = await this.generateContext('epic', epic.id, { ...collectedValues, epic },
-        loadAgent('feature-context-generator.md', path.dirname(this.avcPath))
-      );
-      fs.writeFileSync(
-        path.join(epicDir, 'context.md'),
-        epicContext.contextMarkdown,
-        'utf8'
-      );
-      sendIndented(`${epic.id}/context.md`);
-
       // Write Epic work.json
       const epicWorkJson = {
         id: epic.id,
@@ -1867,8 +1534,7 @@ Return your response as JSON following the exact structure specified in your ins
         children: (epic.stories || []).map(s => s.id),
         metadata: {
           created: new Date().toISOString(),
-          ceremony: 'sponsor-call',
-          tokenBudget: epicContext.tokenCount
+          ceremony: 'sponsor-call'
         }
       };
       fs.writeFileSync(
@@ -1893,17 +1559,6 @@ Return your response as JSON following the exact structure specified in your ins
         );
         sendIndented(`${story.id}/doc.md`);
 
-        // Generate and write Story context.md
-        const storyContext = await this.generateContext('story', story.id, { ...collectedValues, epic, story },
-          loadAgent('feature-context-generator.md', path.dirname(this.avcPath))
-        );
-        fs.writeFileSync(
-          path.join(storyDir, 'context.md'),
-          storyContext.contextMarkdown,
-          'utf8'
-        );
-        sendIndented(`${story.id}/context.md`);
-
         // Write Story work.json
         const storyWorkJson = {
           id: story.id,
@@ -1917,8 +1572,7 @@ Return your response as JSON following the exact structure specified in your ins
           children: [],
           metadata: {
             created: new Date().toISOString(),
-            ceremony: 'sponsor-call',
-            tokenBudget: storyContext.tokenCount
+            ceremony: 'sponsor-call'
           }
         };
         fs.writeFileSync(
@@ -1934,13 +1588,12 @@ Return your response as JSON following the exact structure specified in your ins
 
     sendSuccess(`Hierarchy written to ${projectPath}/`);
     sendSectionHeader(`Summary:`);
-    console.log(`   • 1 Project (doc.md + context.md)`);
-    console.log(`   • ${hierarchy.epics.length} Epics (doc.md + context.md + work.json each)`);
-    console.log(`   • ${hierarchy.validation?.storyCount || 0} Stories (doc.md + context.md + work.json each)`);
+    console.log(`   • ${hierarchy.epics.length} Epics (doc.md + work.json each)`);
+    console.log(`   • ${hierarchy.validation?.storyCount || 0} Stories (doc.md + work.json each)`);
 
     const epicCount = hierarchy.epics.length;
     const storyCount = hierarchy.validation?.storyCount || 0;
-    const totalFiles = 2 + (3 * epicCount) + (3 * storyCount); // Project: 2, Epic: 3 each, Story: 3 each
+    const totalFiles = (2 * epicCount) + (2 * storyCount); // Epic: 2 each, Story: 2 each
     console.log(`   • ${totalFiles} files created\n`);
   }
 
@@ -1980,7 +1633,7 @@ Return your response as JSON following the exact structure specified in your ins
   /**
    * Validate documentation (doc.md) using validator-documentation agent
    */
-  async validateDocument(docContent, questionnaire, contextContent = null) {
+  async validateDocument(docContent, questionnaire) {
     // Get validation type-specific provider for documentation
     let provider;
     try {
@@ -2049,10 +1702,6 @@ Return your response as JSON following the exact structure specified in your ins
       prompt += `Flag as a CRITICAL contentIssue (category: "consistency") any mention of an excluded technology being recommended, suggested, or used in the document.\n\n`;
     }
 
-    if (contextContent) {
-      prompt += `**context.md Content (for cross-validation):**\n\`\`\`markdown\n${contextContent}\n\`\`\`\n\n`;
-    }
-
     prompt += `Return your validation as JSON following the exact structure specified in your instructions.`;
 
     // Call validation provider for validation
@@ -2102,120 +1751,6 @@ Return your response as JSON following the exact structure specified in your ins
       } catch (error) {
         console.error('[ERROR] validateDocument - JSON parse failed:', error.message);
         console.error('[ERROR] validateDocument - Raw content that failed to parse:', cleanedContent);
-        throw error;
-      }
-    }
-
-    return validation;
-  }
-
-  /**
-   * Validate context (context.md) using validator-context agent
-   */
-  async validateContext(contextContent, level, questionnaire, parentContext = null) {
-    // Get validation type-specific provider for context
-    let provider;
-    try {
-      provider = await this.getValidationProviderForTypeInstance('context');
-    } catch (error) {
-      sendWarning('Skipping validation (validation provider not available)');
-      return {
-        validationStatus: 'acceptable',
-        overallScore: 75,
-        issues: [],
-        strengths: ['Validation skipped - validation provider not available'],
-        improvementPriorities: [],
-        estimatedTokenBudget: 500,
-        readyForUse: true
-      };
-    }
-
-    if (!provider || typeof provider.generateJSON !== 'function') {
-      sendWarning('Skipping validation (validation provider not available)');
-      return {
-        validationStatus: 'acceptable',
-        overallScore: 75,
-        issues: [],
-        strengths: ['Validation skipped - validation provider not available'],
-        improvementPriorities: [],
-        estimatedTokenBudget: 500,
-        readyForUse: true
-      };
-    }
-
-    // Read validator agent instructions
-    const validatorAgent = this.loadAgentInstructions('validator-context.md');
-
-    // Build validation prompt
-    let prompt = `Validate the following context file:\n\n`;
-    prompt += `**Context Level:** ${level}\n\n`;
-    prompt += `**context.md Content:**\n\`\`\`markdown\n${contextContent}\n\`\`\`\n\n`;
-
-    // Enhance prompt with verification feedback if available
-    prompt = this.enhancePromptWithFeedback(prompt, 'validator-context');
-
-    if (level === 'project' && questionnaire) {
-      prompt += `**Original Questionnaire Data:**\n`;
-      prompt += `- MISSION_STATEMENT: ${questionnaire.MISSION_STATEMENT || 'N/A'}\n`;
-      prompt += `- TARGET_USERS: ${questionnaire.TARGET_USERS || 'N/A'}\n`;
-      prompt += `- INITIAL_SCOPE: ${questionnaire.INITIAL_SCOPE || 'N/A'}\n`;
-      prompt += `- TECHNICAL_CONSIDERATIONS: ${questionnaire.TECHNICAL_CONSIDERATIONS || 'N/A'}\n`;
-      prompt += `- SECURITY_AND_COMPLIANCE_REQUIREMENTS: ${questionnaire.SECURITY_AND_COMPLIANCE_REQUIREMENTS || 'N/A'}\n\n`;
-    }
-
-    if (parentContext) {
-      prompt += `**Parent Context (for consistency check):**\n\`\`\`markdown\n${parentContext}\n\`\`\`\n\n`;
-    }
-
-    prompt += `Return your validation as JSON following the exact structure specified in your instructions.`;
-
-    // Call validation provider for validation
-    const validation = await this.retryWithBackoff(
-      () => provider.generateJSON(prompt, validatorAgent),
-      'context validation'
-    );
-
-    // Post-process verification of validator output
-    const verifier = new LLMVerifier(provider, 'validator-context', this.verificationTracker);
-    console.log('[DEBUG] validateContext - Input to verifier (preview):', JSON.stringify(validation, null, 2).substring(0, 200));
-    const verificationResult = await verifier.verify(JSON.stringify(validation, null, 2));
-    console.log('[DEBUG] validateContext - Verification result:', {
-      rulesApplied: verificationResult.rulesApplied.map(r => r.id),
-      contentLength: verificationResult.content.length,
-      contentPreview: verificationResult.content.substring(0, 300)
-    });
-
-    if (verificationResult.rulesApplied.length > 0) {
-      // Store feedback for agent learning
-      this.verificationFeedback['validator-context'] = verificationResult.rulesApplied.map(rule => ({
-        ruleId: rule.id,
-        ruleName: rule.name,
-        severity: rule.severity
-      }));
-
-      // Collect for final ceremony summary
-      for (const rule of verificationResult.rulesApplied) {
-        this.validationIssues.push({ stage: 'Context Validation', ruleId: rule.id, name: rule.name, severity: rule.severity });
-      }
-
-      // Parse corrected JSON back to object
-      console.log('[DEBUG] validateContext - Attempting to parse verification result as JSON');
-
-      // Strip markdown code fences if present
-      const cleanedContent = this.stripMarkdownCodeFences(verificationResult.content);
-      console.log('[DEBUG] validateContext - After stripping code fences:', {
-        originalLength: verificationResult.content.length,
-        cleanedLength: cleanedContent.length,
-        cleanedPreview: cleanedContent.substring(0, 200)
-      });
-
-      try {
-        const parsed = JSON.parse(cleanedContent);
-        console.log('[DEBUG] validateContext - Successfully parsed JSON');
-        return parsed;
-      } catch (error) {
-        console.error('[ERROR] validateContext - JSON parse failed:', error.message);
-        console.error('[ERROR] validateContext - Raw content that failed to parse:', cleanedContent);
         throw error;
       }
     }
@@ -2308,79 +1843,10 @@ Return your response as JSON following the exact structure specified in your ins
   }
 
   /**
-   * Improve context based on validation feedback
-   */
-  async improveContext(contextContent, validationResult, level, questionnaire) {
-    // Get validation type-specific provider for context
-    let provider;
-    try {
-      provider = await this.getValidationProviderForTypeInstance('context');
-    } catch (error) {
-      sendWarning('Skipping improvement (validation provider not available)');
-      return contextContent;
-    }
-
-    if (!provider || typeof provider.generateText !== 'function') {
-      sendWarning('Skipping improvement (validation provider not available)');
-      return contextContent;
-    }
-
-    // Read context generator agent
-    const generatorAgent = this.loadAgentInstructions('project-context-generator.md');
-
-    // Build improvement prompt with validation feedback
-    let prompt = `Improve the following project context based on validation feedback:\n\n`;
-
-    prompt += `**Context Level:** ${level}\n\n`;
-    prompt += `**Current context.md:**\n\`\`\`markdown\n${contextContent}\n\`\`\`\n\n`;
-
-    prompt += `**Validation Feedback:**\n`;
-    prompt += `- Overall Score: ${validationResult.overallScore}/100\n`;
-    prompt += `- Status: ${validationResult.validationStatus}\n`;
-    prompt += `- Estimated Token Budget: ${validationResult.estimatedTokenBudget} tokens\n\n`;
-
-    if (validationResult.issues && validationResult.issues.length > 0) {
-      prompt += `**Issues to Fix:**\n`;
-      validationResult.issues.forEach((issue, i) => {
-        prompt += `${i + 1}. [${issue.severity.toUpperCase()}] ${issue.category} - ${issue.section}: ${issue.description}\n`;
-        prompt += `   Suggestion: ${issue.suggestion}\n`;
-      });
-      prompt += `\n`;
-    }
-
-    prompt += `**Improvement Priorities:**\n`;
-    validationResult.improvementPriorities.forEach((priority, i) => {
-      prompt += `${i + 1}. ${priority}\n`;
-    });
-    prompt += `\n`;
-
-    if (level === 'project' && questionnaire) {
-      prompt += `**Original Questionnaire Data:**\n`;
-      prompt += `- MISSION_STATEMENT: ${questionnaire.MISSION_STATEMENT || 'N/A'}\n`;
-      prompt += `- TARGET_USERS: ${questionnaire.TARGET_USERS || 'N/A'}\n`;
-      prompt += `- INITIAL_SCOPE: ${questionnaire.INITIAL_SCOPE || 'N/A'}\n`;
-      prompt += `- TECHNICAL_CONSIDERATIONS: ${questionnaire.TECHNICAL_CONSIDERATIONS || 'N/A'}\n`;
-      prompt += `- SECURITY_AND_COMPLIANCE_REQUIREMENTS: ${questionnaire.SECURITY_AND_COMPLIANCE_REQUIREMENTS || 'N/A'}\n\n`;
-    }
-
-    prompt += `Generate an improved version of the context that addresses all the issues identified above. `;
-    prompt += `Maintain the existing strengths while fixing the identified problems. `;
-    prompt += `Aim for ${validationResult.estimatedTokenBudget} tokens or less. `;
-    prompt += `Return ONLY the improved markdown content, not wrapped in JSON.`;
-
-    // Call validation provider to regenerate context
-    const improvedContext = await this.retryWithBackoff(
-      () => provider.generateText(prompt, generatorAgent),
-      'context improvement'
-    );
-
-    return improvedContext;
-  }
-
   /**
    * Iterative validation and improvement loop
    */
-  async iterativeValidation(content, type, questionnaire, contextContent = null) {
+  async iterativeValidation(content, type, questionnaire) {
     const settings = this.getValidationSettings();
     const maxIterations = settings.maxIterations || 100;
     const threshold = settings.acceptanceThreshold || 90;
@@ -2390,18 +1856,15 @@ Return your response as JSON following the exact structure specified in your ins
 
     while (iteration < maxIterations) {
       // Report validation iteration progress
-      const validationType = type === 'documentation' ? 'Project Brief structure' : 'project context';
-      this.reportSubstep(`Validation ${iteration + 1}/${maxIterations}: Validating ${validationType}...`);
+      this.reportSubstep(`Validation ${iteration + 1}/${maxIterations}: Validating Project Brief structure...`);
       await this.reportDetail(`Calling ${this.validationLLMProvider?.model || 'LLM'} to validate…`);
       const validation = await this.withHeartbeat(
-        () => type === 'documentation'
-          ? this.validateDocument(currentContent, questionnaire, contextContent)
-          : this.validateContext(currentContent, 'project', questionnaire),
+        () => this.validateDocument(currentContent, questionnaire),
         (elapsed) => {
           if (elapsed < 15) return `Checking structure and completeness…`;
           if (elapsed < 30) return `Reviewing content quality…`;
           if (elapsed < 45) return `Analyzing gaps and issues…`;
-          return `Validating ${validationType}… (${elapsed}s)`;
+          return `Validating documentation… (${elapsed}s)`;
         },
         15000
       );
@@ -2435,13 +1898,9 @@ Return your response as JSON following the exact structure specified in your ins
       await this.reportDetail(`Score: ${validation.overallScore ?? '?'}/100 — ${allIssues.length} issue(s) found`);
 
       // Check if ready
-      const isReady = type === 'documentation'
-        ? validation.readyForPublication
-        : validation.readyForUse;
-
-      if (isReady && validation.overallScore >= threshold) {
+      if (validation.readyForPublication && validation.overallScore >= threshold) {
         await this.reportDetail(`✓ Accepted (score ≥ ${threshold})`);
-        debug(`${type === 'context' ? 'context scope' : type} passed validation`);
+        debug(`${type} passed validation`);
         break;
       }
 
@@ -2453,19 +1912,16 @@ Return your response as JSON following the exact structure specified in your ins
       }
 
       // Improve
-      debug(`Improving ${type === 'context' ? 'context scope' : type} based on feedback`);
-      const improvementType = type === 'documentation' ? 'Project Brief' : 'project context';
-      this.reportSubstep(`Improving ${improvementType} based on validation...`);
+      debug(`Improving ${type} based on feedback`);
+      this.reportSubstep(`Improving Project Brief based on validation...`);
       await this.reportDetail(`Calling ${this.validationLLMProvider?.model || 'LLM'} to improve…`);
       currentContent = await this.withHeartbeat(
-        () => type === 'documentation'
-          ? this.improveDocument(currentContent, validation, questionnaire)
-          : this.improveContext(currentContent, validation, 'project', questionnaire),
+        () => this.improveDocument(currentContent, validation, questionnaire),
         (elapsed) => {
           if (elapsed < 15) return `Applying structural improvements…`;
           if (elapsed < 30) return `Enhancing content quality…`;
           if (elapsed < 45) return `Resolving identified issues…`;
-          return `Improving ${improvementType}… (${elapsed}s)`;
+          return `Improving Project Brief… (${elapsed}s)`;
         },
         15000
       );
@@ -2488,288 +1944,6 @@ Return your response as JSON following the exact structure specified in your ins
     }
 
     return currentContent;
-  }
-
-  /**
-   * Get cross-validation configuration from avc.json, with defaults
-   */
-  getCrossValidationConfig() {
-    try {
-      const config = JSON.parse(fs.readFileSync(this.avcConfigPath, 'utf8'));
-      const ceremony = config.settings?.ceremonies?.find(c => c.name === this.ceremonyName);
-      if (ceremony?.crossValidation) return ceremony.crossValidation;
-    } catch (_) {}
-
-    // Defaults: use opus + sonnet for diversity
-    const models = [{ provider: this._providerName, model: 'claude-opus-4-6' }];
-    if (this._modelName !== 'claude-sonnet-4-6') {
-      models.push({ provider: this._providerName, model: 'claude-sonnet-4-6' });
-    }
-    return { enabled: true, maxIterations: 3, models };
-  }
-
-  /**
-   * Check if cross-validation is enabled
-   */
-  isCrossValidationEnabled() {
-    return this.getCrossValidationConfig().enabled !== false;
-  }
-
-  /**
-   * Run a single cross-validation pass with a specific provider/model
-   * @param {'doc-to-context'|'context-to-doc'} direction - Validation direction
-   * @param {{ doc: string, context: string }} documents - The two documents
-   * @param {Object} questionnaire - Collected questionnaire values
-   * @param {string} provider - Provider name
-   * @param {string} model - Model name
-   * @returns {Promise<{ consistent: boolean, issues: Array, strengths: Array }>}
-   */
-  async runSingleCrossValidation(direction, { doc, context }, questionnaire, provider, model) {
-    // Cache cross-validation providers similarly to stage providers
-    const cacheKey = `cross-validation:${provider}:${model}`;
-    if (!this._stageProviders) this._stageProviders = {};
-
-    let providerInstance = this._stageProviders[cacheKey];
-    if (!providerInstance) {
-      try {
-        providerInstance = await LLMProvider.create(provider, model);
-        this._registerTokenCallback(providerInstance, this.ceremonyName);
-        this._stageProviders[cacheKey] = providerInstance;
-        debug(`Created cross-validation provider: ${provider} (${model})`);
-      } catch (error) {
-        debug(`Failed to create cross-validation provider ${provider}/${model}: ${error.message}`);
-        return { consistent: true, issues: [], strengths: [] };
-      }
-    }
-
-    if (!providerInstance || typeof providerInstance.generateJSON !== 'function') {
-      return { consistent: true, issues: [], strengths: [] };
-    }
-
-    const agentFile = direction === 'doc-to-context'
-      ? 'cross-validator-doc-to-context.md'
-      : 'cross-validator-context-to-doc.md';
-    const agentInstructions = this.loadAgentInstructions(agentFile);
-
-    // Build prompt with both documents and questionnaire context
-    let prompt = direction === 'doc-to-context'
-      ? 'Validate that context.md faithfully captures all constraints from doc.md.\n\n'
-      : 'Validate that doc.md explicitly documents all architectural decisions established in context.md.\n\n';
-
-    prompt += `**doc.md:**\n\`\`\`markdown\n${doc}\n\`\`\`\n\n`;
-    prompt += `**context.md:**\n\`\`\`markdown\n${context}\n\`\`\`\n\n`;
-    prompt += `**Questionnaire Data:**\n`;
-    prompt += `- MISSION_STATEMENT: ${questionnaire.MISSION_STATEMENT || 'N/A'}\n`;
-    prompt += `- TECHNICAL_CONSIDERATIONS: ${questionnaire.TECHNICAL_CONSIDERATIONS || 'N/A'}\n`;
-    prompt += `- DEPLOYMENT_TARGET: ${questionnaire.DEPLOYMENT_TARGET || 'N/A'}\n`;
-    prompt += `- TECHNICAL_EXCLUSIONS: ${questionnaire.TECHNICAL_EXCLUSIONS || 'N/A'}\n`;
-    prompt += `- SECURITY_AND_COMPLIANCE_REQUIREMENTS: ${questionnaire.SECURITY_AND_COMPLIANCE_REQUIREMENTS || 'N/A'}\n\n`;
-    prompt += `Return raw JSON only. No markdown code fences.`;
-
-    try {
-      const result = await this.retryWithBackoff(
-        () => providerInstance.generateJSON(prompt, agentInstructions),
-        `cross-validation (${direction}, ${model})`
-      );
-
-      return {
-        consistent: result.consistent !== false,
-        issues: Array.isArray(result.issues) ? result.issues : [],
-        strengths: Array.isArray(result.strengths) ? result.strengths : []
-      };
-    } catch (error) {
-      debug(`Cross-validation error (${direction}, ${model}): ${error.message}`);
-      return { consistent: true, issues: [], strengths: [] };
-    }
-  }
-
-  /**
-   * Run cross-validation in a given direction using multiple models in parallel
-   * Returns union of all issues across models (deduplicated)
-   * @param {'doc-to-context'|'context-to-doc'} direction
-   * @param {{ doc: string, context: string }} documents
-   * @param {Object} questionnaire
-   * @param {Array<{ provider: string, model: string }>} models
-   * @returns {Promise<{ hasIssues: boolean, issues: Array }>}
-   */
-  async runMultiModelCrossValidation(direction, documents, questionnaire, models) {
-    const results = await Promise.allSettled(
-      models.map(({ provider, model }) =>
-        this.runSingleCrossValidation(direction, documents, questionnaire, provider, model)
-      )
-    );
-
-    // Union of all issues from fulfilled results
-    const allIssues = results
-      .filter(r => r.status === 'fulfilled')
-      .flatMap(r => r.value.issues || []);
-
-    // Deduplicate by section + first 40 chars of issue text
-    const seen = new Set();
-    const dedupedIssues = allIssues.filter(issue => {
-      const key = `${issue.section || ''}:${(issue.issue || '').substring(0, 40)}`;
-      if (seen.has(key)) return false;
-      seen.add(key);
-      return true;
-    });
-
-    return { hasIssues: dedupedIssues.length > 0, issues: dedupedIssues };
-  }
-
-  /**
-   * Heal a document based on cross-validation issues
-   * @param {'doc'|'context'} target - Which document to heal
-   * @param {string} content - Current content of the target document
-   * @param {Array} issues - Issues to fix
-   * @param {string} otherContent - The other document (for reference)
-   * @param {Object} questionnaire - Questionnaire values
-   * @returns {Promise<string>} Healed content
-   */
-  async healWithCrossValidation(target, content, issues, otherContent, questionnaire) {
-    let provider;
-    let agentFile;
-    let stageName;
-
-    if (target === 'context') {
-      stageName = 'context';
-      agentFile = 'project-context-generator.md';
-    } else {
-      stageName = 'documentation';
-      agentFile = 'project-documentation-creator.md';
-    }
-
-    try {
-      provider = await this.getProviderForStageInstance(stageName);
-    } catch (error) {
-      debug(`Skipping cross-validation healing (provider not available): ${error.message}`);
-      return content;
-    }
-
-    if (!provider || typeof provider.generateText !== 'function') {
-      return content;
-    }
-
-    const agentInstructions = this.loadAgentInstructions(agentFile);
-
-    let prompt = `Fix the following cross-validation issues in ${target === 'context' ? 'context.md' : 'doc.md'}.\n\n`;
-    prompt += `**Current ${target === 'context' ? 'context.md' : 'doc.md'}:**\n\`\`\`markdown\n${content}\n\`\`\`\n\n`;
-
-    const refLabel = target === 'context' ? 'doc.md (source of truth)' : 'context.md (architectural constraints)';
-    prompt += `**Reference document — ${refLabel}:**\n\`\`\`markdown\n${otherContent}\n\`\`\`\n\n`;
-
-    prompt += `**Issues to Fix:**\n`;
-    issues.forEach((issue, i) => {
-      prompt += `${i + 1}. [${(issue.severity || 'major').toUpperCase()}] ${issue.section || 'General'}: ${issue.issue || issue.description || ''}\n`;
-      if (issue.suggestion) prompt += `   Fix: ${issue.suggestion}\n`;
-    });
-    prompt += `\n`;
-
-    prompt += `**Questionnaire Data (ground truth):**\n`;
-    prompt += `- MISSION_STATEMENT: ${questionnaire.MISSION_STATEMENT || 'N/A'}\n`;
-    prompt += `- TECHNICAL_CONSIDERATIONS: ${questionnaire.TECHNICAL_CONSIDERATIONS || 'N/A'}\n`;
-    prompt += `- DEPLOYMENT_TARGET: ${questionnaire.DEPLOYMENT_TARGET || 'N/A'}\n`;
-    prompt += `- TECHNICAL_EXCLUSIONS: ${questionnaire.TECHNICAL_EXCLUSIONS || 'N/A'}\n`;
-    prompt += `- SECURITY_AND_COMPLIANCE_REQUIREMENTS: ${questionnaire.SECURITY_AND_COMPLIANCE_REQUIREMENTS || 'N/A'}\n\n`;
-
-    prompt += `Fix ONLY the listed issues. Preserve all other content unchanged. `;
-    prompt += `Return ONLY the fixed markdown content, not wrapped in JSON or code fences.`;
-
-    try {
-      const healed = await this.retryWithBackoff(
-        () => provider.generateText(prompt, agentInstructions),
-        `cross-validation healing (${target})`
-      );
-      return healed;
-    } catch (error) {
-      debug(`Cross-validation healing failed (${target}): ${error.message}`);
-      return content;
-    }
-  }
-
-  /**
-   * Iterative cross-validation of doc.md ↔ context.md for mutual consistency
-   * Runs multiple models in parallel for each direction, heals issues found
-   * @param {string} docContent - Current doc.md content
-   * @param {string} contextContent - Current context.md content
-   * @param {Object} questionnaire - Questionnaire values
-   * @returns {Promise<{ docContent: string, contextContent: string }>}
-   */
-  async crossValidateDocAndContext(docContent, contextContent, questionnaire) {
-    const config = this.getCrossValidationConfig();
-    const maxIterations = config.maxIterations || 3;
-    const models = config.models || [{ provider: this._providerName, model: 'claude-opus-4-6' }];
-
-    let currentDoc = docContent;
-    let currentContext = contextContent;
-    let prevIssueCount = Infinity;
-
-    for (let i = 0; i < maxIterations; i++) {
-      this.reportSubstep(`Cross-validation ${i + 1}/${maxIterations}: doc.md ↔ context.md...`);
-      let issueCount = 0;
-
-      // Pass A: doc → context (check context.md against doc.md)
-      this.reportSubstep(`Pass A: Checking context.md against doc.md (${models.length} model(s) in parallel)...`);
-      await this.reportDetail(`Calling ${models.map(m => m.model).join(', ')} to cross-validate…`);
-      const resultA = await this.runMultiModelCrossValidation(
-        'doc-to-context',
-        { doc: currentDoc, context: currentContext },
-        questionnaire,
-        models
-      );
-
-      if (resultA.hasIssues) {
-        issueCount += resultA.issues.length;
-        await this.reportDetail(`${resultA.issues.length} inconsistency(s) found in context.md`);
-        this.reportSubstep(`Found ${resultA.issues.length} issue(s) in context.md — healing...`);
-        debug('Cross-validation Pass A issues', resultA.issues);
-        currentContext = await this.healWithCrossValidation(
-          'context', currentContext, resultA.issues, currentDoc, questionnaire
-        );
-        await this.reportDetail(`context.md healed`);
-      } else {
-        await this.reportDetail(`context.md consistent with doc.md ✓`);
-        this.reportSubstep('Pass A: context.md is consistent with doc.md ✓');
-      }
-
-      // Pass B: context → doc (check doc.md against context.md)
-      this.reportSubstep(`Pass B: Checking doc.md against context.md (${models.length} model(s) in parallel)...`);
-      await this.reportDetail(`Calling ${models.map(m => m.model).join(', ')} to cross-validate…`);
-      const resultB = await this.runMultiModelCrossValidation(
-        'context-to-doc',
-        { doc: currentDoc, context: currentContext },
-        questionnaire,
-        models
-      );
-
-      if (resultB.hasIssues) {
-        issueCount += resultB.issues.length;
-        await this.reportDetail(`${resultB.issues.length} inconsistency(s) found in doc.md`);
-        this.reportSubstep(`Found ${resultB.issues.length} issue(s) in doc.md — healing...`);
-        debug('Cross-validation Pass B issues', resultB.issues);
-        currentDoc = await this.healWithCrossValidation(
-          'doc', currentDoc, resultB.issues, currentContext, questionnaire
-        );
-        await this.reportDetail(`doc.md healed`);
-      } else {
-        await this.reportDetail(`doc.md consistent with context.md ✓`);
-        this.reportSubstep('Pass B: doc.md is consistent with context.md ✓');
-      }
-
-      if (issueCount === 0) {
-        this.reportSubstep('Cross-validation passed ✓ — doc.md and context.md are mutually consistent.');
-        break;
-      }
-
-      // Stop early if healing made no progress (issue count didn't improve)
-      if (issueCount >= prevIssueCount) {
-        this.reportSubstep(`Cross-validation stopping — no improvement after healing (${issueCount} issue(s) remain).`);
-        break;
-      }
-
-      prevIssueCount = issueCount;
-    }
-
-    return { docContent: currentDoc, contextContent: currentContext };
   }
 
   /**

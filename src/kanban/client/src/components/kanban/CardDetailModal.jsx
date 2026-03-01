@@ -25,17 +25,9 @@ import {
 import {
   getWorkItem,
   getWorkItemDoc,
-  getWorkItemContext,
   getWorkItemDocRaw,
-  getWorkItemContextRaw,
   updateWorkItemDoc,
-  updateWorkItemContext,
   getProjectDoc,
-  getProjectDocRaw,
-  updateProjectDoc,
-  getProjectContext,
-  getProjectContextRaw,
-  updateProjectContext,
 } from '../../lib/api';
 import { getStatusMetadata } from '../../lib/status-grouping';
 import { cn } from '../../lib/utils';
@@ -91,24 +83,19 @@ function ItemBox({ item, fallbackName, fallbackId, onItemClick }) {
  * Inline viewer for a parent's (or project root's) doc or context file.
  * item = { id, name } for work items, or { id: 'project', name: 'Project' } for root.
  */
-function ParentFileLink({ item, fileType }) {
+function ParentFileLink({ item }) {
   const [expanded, setExpanded] = useState(false);
   const [html, setHtml] = useState(null);
 
   const load = async () => {
     if (html !== null) { setExpanded(!expanded); return; }
-    let content;
-    if (item.id === 'project') {
-      content = fileType === 'doc' ? await getProjectDoc() : await getProjectContext();
-    } else {
-      const fetcher = fileType === 'doc' ? getWorkItemDoc : getWorkItemContext;
-      content = await fetcher(item.id).catch(() => '');
-    }
+    const content = item.id === 'project'
+      ? await getProjectDoc()
+      : await getWorkItemDoc(item.id).catch(() => '');
     setHtml(content || '<p class="text-slate-400 italic">No content</p>');
     setExpanded(true);
   };
 
-  const label = fileType === 'doc' ? 'doc.md' : 'context.md';
   const isProject = item.id === 'project';
 
   return (
@@ -122,7 +109,7 @@ function ParentFileLink({ item, fileType }) {
         }`}
       >
         {expanded ? <ChevronUp className="w-3 h-3" /> : <ChevronRight className="w-3 h-3" />}
-        {item.name} — {label}
+        {item.name} — doc.md
       </button>
       {expanded && html && (
         <div className="mt-2 ml-4 p-3 border-l-2 border-slate-200 prose prose-sm prose-slate max-w-none">
@@ -151,15 +138,12 @@ export function CardDetailModal({ workItem, open, onOpenChange, onNavigate, onIt
   const [activeTab, setActiveTab] = useState('overview');
   const [fullDetails, setFullDetails] = useState(null);
   const [documentation, setDocumentation] = useState(null);
-  const [context, setContext] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
   // Edit mode state
   const [editingDoc, setEditingDoc] = useState(false);
-  const [editingContext, setEditingContext] = useState(false);
   const [docDraft, setDocDraft] = useState('');
-  const [contextDraft, setContextDraft] = useState('');
   const [saving, setSaving] = useState(false);
 
   // Parent chain for navigation
@@ -194,7 +178,6 @@ export function CardDetailModal({ workItem, open, onOpenChange, onNavigate, onIt
     setLoading(true);
     setError(null);
     setEditingDoc(false);
-    setEditingContext(false);
 
     try {
       const details = await getWorkItem(workItem.id);
@@ -215,12 +198,8 @@ export function CardDetailModal({ workItem, open, onOpenChange, onNavigate, onIt
       }
       setParentChain(chain);
 
-      const [doc, ctx] = await Promise.all([
-        getWorkItemDoc(workItem.id).catch(() => null),
-        getWorkItemContext(workItem.id).catch(() => null),
-      ]);
+      const doc = await getWorkItemDoc(workItem.id).catch(() => null);
       setDocumentation(doc || null);
-      setContext(ctx || null);
     } catch (err) {
       setError(err.message);
       console.error('Failed to load work item details:', err);
@@ -235,12 +214,6 @@ export function CardDetailModal({ workItem, open, onOpenChange, onNavigate, onIt
     setEditingDoc(true);
   };
 
-  const startEditContext = async () => {
-    const raw = await getWorkItemContextRaw(workItem.id);
-    setContextDraft(raw);
-    setEditingContext(true);
-  };
-
   const saveDoc = async () => {
     setSaving(true);
     try {
@@ -248,18 +221,6 @@ export function CardDetailModal({ workItem, open, onOpenChange, onNavigate, onIt
       const html = await getWorkItemDoc(workItem.id);
       setDocumentation(html);
       setEditingDoc(false);
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const saveContext = async () => {
-    setSaving(true);
-    try {
-      await updateWorkItemContext(workItem.id, contextDraft);
-      const html = await getWorkItemContext(workItem.id);
-      setContext(html);
-      setEditingContext(false);
     } finally {
       setSaving(false);
     }
@@ -312,12 +273,6 @@ export function CardDetailModal({ workItem, open, onOpenChange, onNavigate, onIt
                   <FileText className="w-4 h-4 mr-2" />
                   Overview
                 </TabsTrigger>
-                {context && (
-                  <TabsTrigger value="context">
-                    <BookOpen className="w-4 h-4 mr-2" />
-                    Context
-                  </TabsTrigger>
-                )}
                 {documentation && (
                   <TabsTrigger value="documentation">
                     <FileText className="w-4 h-4 mr-2" />
@@ -412,58 +367,6 @@ export function CardDetailModal({ workItem, open, onOpenChange, onNavigate, onIt
                     )}
                   </div>
                 </TabsContent>
-
-                {/* Context Tab */}
-                {context && (
-                  <TabsContent value="context">
-                    {/* Parent chain links */}
-                    {parentChain.length > 0 && (
-                      <div className="mb-4 flex flex-wrap items-center gap-2 text-xs text-slate-500">
-                        {parentChain.map((ancestor) => (
-                          <ParentFileLink key={ancestor.id} item={ancestor} fileType="context" />
-                        ))}
-                      </div>
-                    )}
-                    {/* Edit toolbar */}
-                    <div className="flex justify-end mb-2">
-                      {editingContext ? (
-                        <div className="flex gap-2">
-                          <button
-                            onClick={() => setEditingContext(false)}
-                            className="flex items-center gap-1 px-2 py-1 text-xs text-slate-600 hover:text-slate-900 border border-slate-200 rounded"
-                          >
-                            <X className="w-3 h-3" /> Cancel
-                          </button>
-                          <button
-                            onClick={saveContext}
-                            disabled={saving}
-                            className="flex items-center gap-1 px-2 py-1 text-xs text-white bg-indigo-600 hover:bg-indigo-700 rounded disabled:opacity-50"
-                          >
-                            <Save className="w-3 h-3" /> {saving ? 'Saving…' : 'Save'}
-                          </button>
-                        </div>
-                      ) : (
-                        <button
-                          onClick={startEditContext}
-                          className="flex items-center gap-1 px-2 py-1 text-xs text-slate-600 hover:text-slate-900 border border-slate-200 rounded"
-                        >
-                          <Pencil className="w-3 h-3" /> Edit
-                        </button>
-                      )}
-                    </div>
-                    {editingContext ? (
-                      <textarea
-                        className="w-full h-96 p-3 text-sm font-mono border border-slate-300 rounded focus:outline-none focus:ring-2 focus:ring-indigo-400 resize-y"
-                        value={contextDraft}
-                        onChange={(e) => setContextDraft(e.target.value)}
-                      />
-                    ) : (
-                      <div className="prose prose-slate max-w-none">
-                        <div dangerouslySetInnerHTML={{ __html: context }} />
-                      </div>
-                    )}
-                  </TabsContent>
-                )}
 
                 {/* Documentation Tab */}
                 {documentation && (

@@ -186,7 +186,6 @@ describe('ModelConfigurator', () => {
       expect(ceremony.stages).toBeDefined();
       expect(ceremony.stages.suggestions).toBeDefined();
       expect(ceremony.stages.documentation).toBeDefined();
-      expect(ceremony.stages.context).toBeDefined();
     });
   });
 
@@ -219,16 +218,12 @@ describe('ModelConfigurator', () => {
       const stages = configurator.getStagesForCeremony('sponsor-call');
       const suggestionsStage = stages.find(s => s.id === 'stage-suggestions');
       const documentationStage = stages.find(s => s.id === 'stage-documentation');
-      const contextStage = stages.find(s => s.id === 'stage-context');
 
       expect(suggestionsStage).toBeDefined();
       expect(suggestionsStage.name).toBe('Questionnaire Suggestions - AI analyzes project name and suggests answers');
 
       expect(documentationStage).toBeDefined();
       expect(documentationStage.name).toBe('Documentation Generation - AI creates initial project documentation');
-
-      expect(contextStage).toBeDefined();
-      expect(contextStage.name).toBe('Context File Creation - AI generates initial project context.md');
     });
 
     it('should return empty array for unknown ceremony', () => {

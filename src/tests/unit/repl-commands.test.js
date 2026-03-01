@@ -61,7 +61,6 @@ describe('REPL Command Consistency', () => {
         '/init',
         '/documentation',
         '/kanban',
-        '/sponsor-call',
         '/seed',
         '/status',
         '/models',
@@ -79,7 +78,6 @@ describe('REPL Command Consistency', () => {
         '/i': '/init',
         '/d': '/documentation',
         '/k': '/kanban',
-        '/sc': '/sponsor-call',
         '/s': '/status',
         '/m': '/models',
         '/tk': '/tokens',
@@ -165,7 +163,6 @@ describe('REPL Command Consistency', () => {
       const expectedCommands = [
         '/init',
         '/documentation',
-        '/sponsor-call',
         '/status',
         '/remove',
         '/processes',
@@ -180,7 +177,7 @@ describe('REPL Command Consistency', () => {
       }
 
       // All aliases should be mentioned in help
-      const expectedAliases = ['/i', '/d', '/sc', '/s', '/m', '/rm', '/p', '/h', '/v'];
+      const expectedAliases = ['/i', '/d', '/s', '/m', '/rm', '/p', '/h', '/v'];
       for (const alias of expectedAliases) {
         expect(helpBody).toContain(alias);
       }
@@ -205,11 +202,11 @@ describe('REPL Command Consistency', () => {
         menuCommands.push(match[1]);
       }
 
-      // Expected: 15 base commands + 14 aliases in tab completion
-      expect(tabCommands.length).toBe(29);
+      // Expected: 13 base commands + 12 aliases in tab completion
+      expect(tabCommands.length).toBe(25);
 
-      // Expected: 15 base commands in menu (no aliases)
-      expect(menuCommands.length).toBe(15);
+      // Expected: 13 base commands in menu (no aliases)
+      expect(menuCommands.length).toBe(13);
     });
 
     it('should not have duplicate commands in any list', () => {
@@ -250,7 +247,6 @@ describe('REPL Command Consistency', () => {
       const expectedAliases = [
         ['/i', '/init'],
         ['/d', '/documentation'],
-        ['/sc', '/sponsor-call'],
         ['/s', '/status'],
         ['/m', '/models'],
         ['/rm', '/remove'],
@@ -279,7 +275,6 @@ describe('REPL Command Consistency', () => {
       // Check that command + alias appear together (on same or adjacent lines within groups)
       expect(helpBody).toMatch(/\/init.*\/i/);
       expect(helpBody).toMatch(/\/documentation.*\/d/);
-      expect(helpBody).toMatch(/\/sponsor-call.*\/sc/);
       expect(helpBody).toMatch(/\/status.*\/s/);
       expect(helpBody).toMatch(/\/remove.*\/rm/);
       expect(helpBody).toMatch(/\/processes.*\/p/);
@@ -290,7 +285,7 @@ describe('REPL Command Consistency', () => {
   });
 
   describe('Regression Prevention', () => {
-    it('should prevent missing commands in tab completion (regression test for /sponsor-call bug)', () => {
+    it('should prevent missing commands in tab completion', () => {
       const tabCompletionMatch = replSource.match(
         /\/\/ Available commands for Tab completion.*?\n\s*const allCommands = \[([\s\S]*?)\];/
       );
@@ -299,13 +294,12 @@ describe('REPL Command Consistency', () => {
         .map(cmd => cmd.trim().replace(/['"]/g, ''))
         .filter(cmd => cmd.startsWith('/'));
 
-      // This test would have caught the bug where /sponsor-call was missing
-      expect(tabCommands).toContain('/sponsor-call');
       expect(tabCommands).toContain('/remove');
       expect(tabCommands).toContain('/restart');
+      expect(tabCommands).toContain('/kanban');
     });
 
-    it('should prevent missing commands in menu (regression test for menu bug)', () => {
+    it('should prevent missing commands in menu', () => {
       const menuMatch = replSource.match(
         /const commandGroups = \[([\s\S]*?)\s*\];[\s\S]*?\/\/ Flatten all commands/
       );
@@ -315,10 +309,9 @@ describe('REPL Command Consistency', () => {
         menuCommands.push(match[1]);
       }
 
-      // This test would have caught the bug where commands were missing from menu
-      expect(menuCommands).toContain('/sponsor-call');
       expect(menuCommands).toContain('/remove');
       expect(menuCommands).toContain('/restart');
+      expect(menuCommands).toContain('/kanban');
     });
   });
 

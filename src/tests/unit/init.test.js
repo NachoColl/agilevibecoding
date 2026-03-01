@@ -299,7 +299,7 @@ describe('ProjectInitiator', () => {
       const config = JSON.parse(configCall[1]);
 
       expect(config.settings.ceremonies).toBeDefined();
-      expect(config.settings.ceremonies).toHaveLength(4);
+      expect(config.settings.ceremonies).toHaveLength(3);
 
       // Verify sponsor-call ceremony
       expect(config.settings.ceremonies[0].name).toBe('sponsor-call');
@@ -309,29 +309,6 @@ describe('ProjectInitiator', () => {
       // Verify sprint-planning ceremony
       expect(config.settings.ceremonies[1].name).toBe('sprint-planning');
       expect(config.settings.ceremonies[1].provider).toBe('claude');
-
-      // Verify context-retrospective ceremony
-      expect(config.settings.ceremonies[2].name).toBe('context-retrospective');
-      expect(config.settings.ceremonies[2].provider).toBe('claude');
-    });
-
-    it('includes all required context scopes', () => {
-      const initiator = new ProjectInitiator('/tmp/test-project');
-
-      vi.spyOn(fs, 'existsSync').mockReturnValue(false);
-      vi.spyOn(fs, 'mkdirSync').mockImplementation(() => {});
-
-      const writeSpy = vi.spyOn(fs, 'writeFileSync').mockImplementation(() => {});
-
-      initiator.createAvcConfig();
-
-      const configCall = writeSpy.mock.calls.find(call =>
-        call[0].includes('avc.json')
-      );
-
-      const config = JSON.parse(configCall[1]);
-
-      expect(config.settings.contextScopes).toEqual(['epic', 'story', 'task', 'subtask']);
     });
   });
 });

@@ -112,22 +112,6 @@ export async function getWorkItemDoc(id) {
 }
 
 /**
- * Get rendered context (context.md) as HTML
- * @param {string} id - Work item ID
- * @returns {Promise<string>} HTML content or empty string if not found
- */
-export async function getWorkItemContext(id) {
-  const url = `${API_BASE_URL}/work-items/${id}/context`;
-  const response = await fetch(url);
-
-  if (!response.ok) {
-    return ''; // Return empty string on error (404, etc.)
-  }
-
-  return await response.text();
-}
-
-/**
  * Get raw markdown source of doc.md
  * @param {string} id - Work item ID
  * @returns {Promise<string>} Raw markdown or empty string if not found
@@ -140,36 +124,12 @@ export async function getWorkItemDocRaw(id) {
 }
 
 /**
- * Get raw markdown source of context.md
- * @param {string} id - Work item ID
- * @returns {Promise<string>} Raw markdown or empty string if not found
- */
-export async function getWorkItemContextRaw(id) {
-  const url = `${API_BASE_URL}/work-items/${id}/context/raw`;
-  const response = await fetch(url);
-  if (!response.ok) return '';
-  return await response.text();
-}
-
-/**
  * Save updated markdown to doc.md
  * @param {string} id - Work item ID
  * @param {string} content - Markdown content
  */
 export async function updateWorkItemDoc(id, content) {
   return apiFetch(`/work-items/${id}/doc`, {
-    method: 'PUT',
-    body: JSON.stringify({ content }),
-  });
-}
-
-/**
- * Save updated markdown to context.md
- * @param {string} id - Work item ID
- * @param {string} content - Markdown content
- */
-export async function updateWorkItemContext(id, content) {
-  return apiFetch(`/work-items/${id}/context`, {
     method: 'PUT',
     body: JSON.stringify({ content }),
   });
@@ -218,24 +178,6 @@ export async function getProjectDocRaw() {
 
 export async function updateProjectDoc(content) {
   return apiFetch('/project/doc', { method: 'PUT', body: JSON.stringify({ content }) });
-}
-
-export async function getProjectContext() {
-  const url = `${API_BASE_URL}/project/context`;
-  const response = await fetch(url);
-  if (!response.ok) return '';
-  return response.text();
-}
-
-export async function getProjectContextRaw() {
-  const url = `${API_BASE_URL}/project/context/raw`;
-  const response = await fetch(url);
-  if (!response.ok) return '';
-  return response.text();
-}
-
-export async function updateProjectContext(content) {
-  return apiFetch('/project/context', { method: 'PUT', body: JSON.stringify({ content }) });
 }
 
 export async function getProjectStatus() {

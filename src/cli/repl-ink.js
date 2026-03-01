@@ -2913,9 +2913,7 @@ const App = () => {
       if (result && result.outputPath) {
         sendIndented(gray(result.outputPath), 1);
       }
-      if (result && result.contextPath) {
-        sendIndented(gray(result.contextPath), 1);
-      }
+
 
       // Token usage
       if (result && result.tokenUsage) {

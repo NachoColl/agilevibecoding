@@ -173,31 +173,9 @@ export class KanbanServer {
       res.json({ status: 'ok' });
     });
 
-    this.app.get('/api/project/context', async (req, res) => {
-      const md = await readProjectFile('context.md');
-      if (!md) return res.status(404).json({ error: 'Project context.md not found' });
-      res.send(renderMarkdown(md));
-    });
-
-    this.app.get('/api/project/context/raw', async (req, res) => {
-      const md = await readProjectFile('context.md');
-      if (!md) return res.status(404).json({ error: 'Project context.md not found' });
-      res.type('text/plain').send(md);
-    });
-
-    this.app.put('/api/project/context', async (req, res) => {
-      const { content } = req.body;
-      if (typeof content !== 'string') return res.status(400).json({ error: 'content must be a string' });
-      await fs.writeFile(path.join(projectPath, 'context.md'), content, 'utf8');
-      res.json({ status: 'ok' });
-    });
-
     this.app.get('/api/project/status', async (req, res) => {
-      const [docExists, contextExists] = await Promise.all([
-        fs.access(path.join(projectPath, 'doc.md')).then(() => true).catch(() => false),
-        fs.access(path.join(projectPath, 'context.md')).then(() => true).catch(() => false),
-      ]);
-      res.json({ docExists, contextExists });
+      const docExists = await fs.access(path.join(projectPath, 'doc.md')).then(() => true).catch(() => false);
+      res.json({ docExists });
     });
 
     // Settings router (GET /api/settings + PUT sub-routes)
@@ -473,8 +451,7 @@ export class KanbanServer {
             console.log(`  GET  /api/work-items`);
             console.log(`  GET  /api/work-items/grouped`);
             console.log(`  GET  /api/work-items/:id`);
-            console.log(`  GET  /api/work-items/:id/doc`);
-            console.log(`  GET  /api/work-items/:id/context\n`);
+            console.log(`  GET  /api/work-items/:id/doc\n`);
             resolve();
           }
         });

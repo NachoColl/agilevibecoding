@@ -10,10 +10,9 @@ function humanize(str) {
 }
 
 const CEREMONY_DESCRIPTIONS = {
-  'sponsor-call':          'Generates mission statement, project documentation, and context files through a structured AI-guided interview.',
-  'sprint-planning':       'Plans and assigns work items for the upcoming sprint based on team capacity and priorities.',
-  'context-retrospective': 'Updates project context files to reflect completed work and current project state.',
-  'seed':                  'Seeds the initial project work item structure from the project documentation.',
+  'sponsor-call':    'Generates mission statement and project documentation through a structured AI-guided interview.',
+  'sprint-planning': 'Plans and assigns work items for the upcoming sprint based on team capacity and priorities.',
+  'seed':            'Seeds the initial project work item structure from the project documentation.',
 };
 
 export function CeremonyModelsTab({ settings, models, onSaved }) {

@@ -21,7 +21,6 @@ class SprintPlanningProcessor {
     this.avcPath = path.join(process.cwd(), '.avc');
     this.projectPath = path.join(this.avcPath, 'project');
     this.projectDocPath = path.join(this.projectPath, 'doc.md');
-    this.projectContextPath = path.join(this.projectPath, 'context.md');
     this.avcConfigPath = path.join(this.avcPath, 'avc.json');
     this.agentsPath = path.join(__dirname, 'agents');
 
@@ -311,15 +310,6 @@ class SprintPlanningProcessor {
     this.debugStage(1, 'Validate Prerequisites');
     this.debug('Checking prerequisites...');
 
-    if (!fs.existsSync(this.projectContextPath)) {
-      this.debug(`✗ Project context missing: ${this.projectContextPath}`);
-      throw new Error(
-        'Project context not found. Please run /sponsor-call first to create the project foundation.'
-      );
-    }
-    const contextSize = fs.statSync(this.projectContextPath).size;
-    this.debug(`✓ Project context exists: ${this.projectContextPath} (${contextSize} bytes)`);
-
     if (!fs.existsSync(this.projectDocPath)) {
       this.debug(`✗ Project doc missing: ${this.projectDocPath}`);
       throw new Error(
@@ -549,7 +539,7 @@ class SprintPlanningProcessor {
   }
 
   // STAGE 4: Decompose into Epics + Stories
-  async decomposeIntoEpicsStories(scope, existingEpics, existingStories, projectContext, progressCallback = null) {
+  async decomposeIntoEpicsStories(scope, existingEpics, existingStories, progressCallback = null) {
     this.debugStage(4, 'Decompose into Epics + Stories');
 
     this.debug('Stage 1/3: Decomposing scope into Epics and Stories');
@@ -572,13 +562,10 @@ class SprintPlanningProcessor {
     const existingEpicNames = Array.from(existingEpics.keys());
     const existingStoryNames = Array.from(existingStories.keys());
 
-    let prompt = `Given the following project:
+    let prompt = `Given the following project scope:
 
 **Initial Scope (Features to Implement):**
 ${scope}
-
-**Project Context:**
-${projectContext}
 `;
 
     if (existingEpicNames.length > 0) {
@@ -601,7 +588,6 @@ Return your response as JSON following the exact structure specified in your ins
 
     this.debug('Prompt includes', {
       scopeLength: scope.length,
-      contextLength: projectContext.length,
       existingEpics: existingEpicNames.length,
       existingStories: existingStoryNames.length,
       totalPromptSize: prompt.length
@@ -701,7 +687,7 @@ Return your response as JSON following the exact structure specified in your ins
   }
 
   // STAGE 5: Multi-Agent Validation
-  async validateHierarchy(hierarchy, projectContext, progressCallback = null) {
+  async validateHierarchy(hierarchy, progressCallback = null) {
     this.debugStage(5, 'Multi-Agent Validation');
 
     // Initialize default LLM provider if not already done (for fallback)
@@ -733,8 +719,8 @@ Return your response as JSON following the exact structure specified in your ins
       this.debug(`\nValidating Epic: ${epic.id} "${epic.name}"`);
       await progressCallback?.(null, `Validating Epic: ${epic.name}`, {});
 
-      // Generate epic context for validation
-      const epicContext = await this.generateEpicContext(epic, projectContext);
+      // Build epic context string for validation
+      const epicContext = `# Epic: ${epic.name}\n\n**Description:** ${epic.description}\n\n**Domain:** ${epic.domain}\n\n**Features:**\n${(epic.features || []).map(f => `- ${f}`).join('\n')}\n`;
 
       // Validate epic with multiple domain validators
       const epicValidation = await validator.validateEpic(epic, epicContext);
@@ -753,8 +739,8 @@ Return your response as JSON following the exact structure specified in your ins
         this.debug(`\nValidating Story: ${story.id} "${story.name}"`);
         await progressCallback?.(null, `  Validating story: ${story.name}`, {});
 
-        // Generate story context for validation
-        const storyContext = await this.generateStoryContext(story, epic, projectContext);
+        // Build story context string for validation
+        const storyContext = `# Story: ${story.name}\n\n**User Type:** ${story.userType}\n\n**Description:** ${story.description}\n\n**Acceptance Criteria:**\n${(story.acceptance || []).map((ac, i) => `${i + 1}. ${ac}`).join('\n')}\n\n**Parent Epic:** ${epic.name} (${epic.domain})\n`;
 
         // Validate story with multiple domain validators
         const storyValidation = await validator.validateStory(story, storyContext, epic);
@@ -818,48 +804,6 @@ Return your response as JSON following the exact structure specified in your ins
         mentionedBy: priority.mentionedBy
       })));
     }
-  }
-
-  /**
-   * Generate epic context for validation (simplified version of context generation)
-   */
-  async generateEpicContext(epic, projectContext) {
-    // For now, return a basic context
-    // In production, this would call the same context generator used in writeHierarchyFiles
-    return `# Epic Context: ${epic.name}
-
-**Description:** ${epic.description}
-
-**Domain:** ${epic.domain}
-
-**Features:**
-${(epic.features || []).map(f => `- ${f}`).join('\n')}
-
-**Project Context:**
-${projectContext}
-`;
-  }
-
-  /**
-   * Generate story context for validation (simplified version of context generation)
-   */
-  async generateStoryContext(story, epic, projectContext) {
-    // For now, return a basic context
-    // In production, this would call the same context generator used in writeHierarchyFiles
-    return `# Story Context: ${story.name}
-
-**User Type:** ${story.userType}
-
-**Description:** ${story.description}
-
-**Acceptance Criteria:**
-${(story.acceptance || []).map((ac, i) => `${i + 1}. ${ac}`).join('\n')}
-
-**Parent Epic:** ${epic.name} (${epic.domain})
-
-**Project Context:**
-${projectContext}
-`;
   }
 
   /**
@@ -1005,89 +949,11 @@ ${projectContext}
     return hierarchy;
   }
 
-  // STAGE 7-8: Generate contexts
-  async generateContext(level, id, data, agentInstructions) {
-    this.debug(`Generating context for ${level}: ${id} "${data[level]?.name || 'unknown'}"`);
+  // STAGE 7: Write hierarchy files
+  async writeHierarchyFiles(hierarchy, progressCallback = null) {
+    this.debugStage(7, 'Write Hierarchy Files');
 
-    const prompt = this.buildContextPrompt(level, id, data);
-
-    this.debug('Context generation prompt', {
-      agentSize: agentInstructions.length,
-      projectContextSize: data.projectContext?.length || 0,
-      dataKeys: Object.keys(data),
-      totalPromptSize: prompt.length
-    });
-
-    // Get stage-specific provider for context generation
-    const provider = await this.getProviderForStageInstance('context-generation');
-
-    const result = await this.debugApiCall(
-      `${level.charAt(0).toUpperCase() + level.slice(1)} Context Generation (${id})`,
-      async () => {
-        const response = await provider.generateJSON(prompt, agentInstructions);
-
-        const usage = provider.getTokenUsage();
-        this.debug('Generated context', {
-          tokens: response.tokenCount,
-          withinBudget: response.withinBudget,
-          contextLength: response.contextMarkdown.length
-        });
-
-        return response;
-      }
-    );
-
-    if (!result.contextMarkdown || !result.tokenCount) {
-      this.debug(`✗ Invalid context response for ${id}: missing required fields`);
-      throw new Error(`Invalid context response for ${id}: missing required fields`);
-    }
-
-    return result;
-  }
-
-  buildContextPrompt(level, id, data) {
-    const { projectContext, epic, story } = data;
-
-    let prompt = `Generate a context.md file for the following ${level}:\n\n`;
-    prompt += `**Level:** ${level}\n`;
-    prompt += `**ID:** ${id}\n\n`;
-
-    if (level === 'epic') {
-      prompt += `**Epic Name:** ${epic.name}\n`;
-      prompt += `**Epic Domain:** ${epic.domain}\n`;
-      prompt += `**Epic Description:** ${epic.description}\n`;
-      prompt += `**Features in Epic:** ${epic.features.join(', ')}\n\n`;
-      prompt += `**Project Context:**\n${projectContext}\n\n`;
-    } else if (level === 'story') {
-      prompt += `**Story Name:** ${story.name}\n`;
-      prompt += `**Story Description:** ${story.description}\n`;
-      prompt += `**User Type:** ${story.userType}\n`;
-      prompt += `**Acceptance Criteria:**\n${story.acceptance.map((ac, i) => `${i + 1}. ${ac}`).join('\n')}\n\n`;
-      prompt += `**Epic Context:**\n`;
-      prompt += `- Epic: ${epic.name}\n`;
-      prompt += `- Domain: ${epic.domain}\n`;
-      prompt += `- Features: ${epic.features.join(', ')}\n\n`;
-      prompt += `**Project Context:**\n${projectContext}\n\n`;
-    }
-
-    prompt += `Return your response as JSON following the exact structure specified in your instructions.`;
-
-    return prompt;
-  }
-
-  // STAGE 7-8: Write hierarchy files
-  async writeHierarchyFiles(hierarchy, projectContext, progressCallback = null) {
-    this.debugStage(7, 'Generate Contexts & Write Files');
-
-    this.debug('Stage 2/3: Generating context files');
-
-    // Read agent
-    const agentPath = path.join(this.agentsPath, 'feature-context-generator.md');
-    this.debug(`Loading agent: ${agentPath}`);
-    const featureContextGeneratorAgent = fs.readFileSync(agentPath, 'utf8');
-    this.debug(`Agent loaded (${featureContextGeneratorAgent.length} bytes)`);
-
-    this.debug('Stage 3/3: Writing hierarchy files');
+    this.debug('Writing hierarchy files');
 
     let epicCount = 0;
     let storyCount = 0;
@@ -1107,27 +973,6 @@ ${projectContext}
       fs.writeFileSync(docPath, docContent, 'utf8');
       this.debug(`Writing ${docPath} (${docContent.length} bytes)`);
 
-      // Generate and write Epic context.md
-      await progressCallback?.(null, null, { detail: `Calling context generator for epic…` });
-      const epicContext = await this._withProgressHeartbeat(
-        () => this.retryWithBackoff(
-          () => this.generateContext('epic', epic.id, { projectContext, epic }, featureContextGeneratorAgent),
-          `Epic ${epic.id} context`
-        ),
-        (elapsed) => {
-          if (elapsed < 15) return 'Analyzing epic scope and features…';
-          if (elapsed < 30) return 'Generating implementation context…';
-          if (elapsed < 45) return 'Documenting dependencies and constraints…';
-          return `Generating epic context… (${elapsed}s)`;
-        },
-        progressCallback,
-        15000
-      );
-      await progressCallback?.(null, null, { detail: `Context: ${epicContext.contextMarkdown.length.toLocaleString()} chars` });
-      const contextPath = path.join(epicDir, 'context.md');
-      fs.writeFileSync(contextPath, epicContext.contextMarkdown, 'utf8');
-      this.debug(`Writing ${contextPath} (${epicContext.contextMarkdown.length} bytes)`);
-
       // Write Epic work.json (preserve existing metadata like selectedValidators)
       const epicWorkJson = {
         id: epic.id,
@@ -1142,8 +987,7 @@ ${projectContext}
         metadata: {
           ...(epic.metadata || {}),  // Preserve existing metadata (e.g., selectedValidators)
           created: new Date().toISOString(),
-          ceremony: this.ceremonyName,
-          tokenBudget: epicContext.tokenCount
+          ceremony: this.ceremonyName
         }
       };
       const workJsonPath = path.join(epicDir, 'work.json');
@@ -1169,27 +1013,6 @@ ${projectContext}
         fs.writeFileSync(storyDocPath, storyDocContent, 'utf8');
         this.debug(`Writing ${storyDocPath} (${storyDocContent.length} bytes)`);
 
-        // Generate and write Story context.md
-        await progressCallback?.(null, null, { detail: `Calling context generator for story…` });
-        const storyContext = await this._withProgressHeartbeat(
-          () => this.retryWithBackoff(
-            () => this.generateContext('story', story.id, { projectContext, epic, story }, featureContextGeneratorAgent),
-            `Story ${story.id} context`
-          ),
-          (elapsed) => {
-            if (elapsed < 15) return 'Analyzing story requirements and user flow…';
-            if (elapsed < 30) return 'Generating implementation guidance…';
-            if (elapsed < 45) return 'Documenting acceptance context…';
-            return `Generating story context… (${elapsed}s)`;
-          },
-          progressCallback,
-          15000
-        );
-        await progressCallback?.(null, null, { detail: `Context: ${storyContext.contextMarkdown.length.toLocaleString()} chars` });
-        const storyContextPath = path.join(storyDir, 'context.md');
-        fs.writeFileSync(storyContextPath, storyContext.contextMarkdown, 'utf8');
-        this.debug(`Writing ${storyContextPath} (${storyContext.contextMarkdown.length} bytes)`);
-
         // Write Story work.json (preserve existing metadata like selectedValidators)
         const storyWorkJson = {
           id: story.id,
@@ -1204,8 +1027,7 @@ ${projectContext}
           metadata: {
             ...(story.metadata || {}),  // Preserve existing metadata (e.g., selectedValidators)
             created: new Date().toISOString(),
-            ceremony: this.ceremonyName,
-            tokenBudget: storyContext.tokenCount
+            ceremony: this.ceremonyName
           }
         };
         const storyWorkJsonPath = path.join(storyDir, 'work.json');
@@ -1221,18 +1043,15 @@ ${projectContext}
     this.debugSection('FILES WRITTEN THIS RUN');
     const filesWritten = [];
     for (const epic of hierarchy.epics) {
-      const epicDir = path.join(this.projectPath, epic.id);
       filesWritten.push(`${epic.id}/work.json`);
-      filesWritten.push(`${epic.id}/context.md`);
       filesWritten.push(`${epic.id}/doc.md`);
       for (const story of epic.stories || []) {
         filesWritten.push(`${epic.id}/${story.id}/work.json`);
-        filesWritten.push(`${epic.id}/${story.id}/context.md`);
         filesWritten.push(`${epic.id}/${story.id}/doc.md`);
       }
     }
     this.debug('Files written this run', filesWritten);
-    this.debug(`Total files written: ${filesWritten.length} (${epicCount} epics x 3 + ${storyCount} stories x 3)`);
+    this.debug(`Total files written: ${filesWritten.length} (${epicCount} epics x 2 + ${storyCount} stories x 2)`);
 
     // Display clean summary of created epics and stories
     if (hierarchy.epics.length > 0) {
@@ -1402,12 +1221,12 @@ ${projectContext}
 
       // Stage 1: Validate
       sendProgress('Validating prerequisites...');
-      await progressCallback?.('Stage 1/8: Validating prerequisites…');
+      await progressCallback?.('Stage 1/6: Validating prerequisites…');
       this.validatePrerequisites();
 
       // Stage 2: Read existing hierarchy
       sendProgress('Analyzing existing project structure...');
-      await progressCallback?.('Stage 2/8: Analyzing existing project structure…');
+      await progressCallback?.('Stage 2/6: Analyzing existing project structure…');
       const { existingEpics, existingStories, maxEpicNum, maxStoryNums, preRunSnapshot } = this.readExistingHierarchy();
 
       if (existingEpics.size > 0) {
@@ -1419,14 +1238,8 @@ ${projectContext}
 
       // Stage 3: Collect scope
       sendProgress('Collecting project scope...');
-      await progressCallback?.('Stage 3/8: Collecting project scope…');
+      await progressCallback?.('Stage 3/6: Collecting project scope…');
       const scope = await this.collectNewScope();
-
-      // Read project context and log full content for cross-run comparison
-      this.debug(`Reading project context: ${this.projectContextPath}`);
-      const projectContext = fs.readFileSync(this.projectContextPath, 'utf8');
-      this.debugSection('PROJECT CONTEXT.MD CONTENT (passed to LLM for all stages)');
-      this.debug('context.md full content:\n' + projectContext);
 
       // Clear screen before decomposition phase
       process.stdout.write('\x1bc');
@@ -1434,8 +1247,8 @@ ${projectContext}
 
       // Stage 4: Decompose
       sendProgress('Decomposing scope into Epics and Stories...');
-      await progressCallback?.('Stage 4/8: Decomposing scope into Epics and Stories…');
-      let hierarchy = await this.decomposeIntoEpicsStories(scope, existingEpics, existingStories, projectContext, progressCallback);
+      await progressCallback?.('Stage 4/6: Decomposing scope into Epics and Stories…');
+      let hierarchy = await this.decomposeIntoEpicsStories(scope, existingEpics, existingStories, progressCallback);
 
       // Log raw LLM output before any validation/modification
       this.debugSection('POST-DECOMPOSE: Raw LLM Output (before validation)');
@@ -1452,8 +1265,8 @@ ${projectContext}
 
       // Stage 5: Multi-Agent Validation
       sendProgress('Validating Epics and Stories with domain experts...');
-      await progressCallback?.('Stage 5/8: Validating with domain experts…');
-      hierarchy = await this.validateHierarchy(hierarchy, projectContext, progressCallback);
+      await progressCallback?.('Stage 5/6: Validating with domain experts…');
+      hierarchy = await this.validateHierarchy(hierarchy, progressCallback);
 
       // Log hierarchy after validation (may have been modified)
       this.debugSection('POST-VALIDATION: Hierarchy after domain-expert validation');
@@ -1466,20 +1279,17 @@ ${projectContext}
       // Analyze duplicate detection (before renumbering)
       const duplicateAnalysis = this.analyzeDuplicates(hierarchy, existingEpics, existingStories);
 
-      // Stage 6: Renumber IDs
-      sendProgress('Renumbering hierarchy IDs...');
-      await progressCallback?.('Stage 6/8: Renumbering hierarchy IDs…');
+      // Renumber IDs
       hierarchy = this.renumberHierarchy(hierarchy, maxEpicNum, maxStoryNums);
 
       // Clear screen before file writing phase
       process.stdout.write('\x1bc');
       outputBuffer.clear();
 
-      // Stage 7-8: Generate contexts and write files
-      sendProgress('Generating context files and writing hierarchy...');
-      await progressCallback?.('Stage 7/8: Generating context files…');
-      await progressCallback?.('Stage 8/8: Writing hierarchy files…');
-      const { epicCount, storyCount } = await this.writeHierarchyFiles(hierarchy, projectContext, progressCallback);
+      // Stage 6: Write hierarchy files
+      sendProgress('Writing hierarchy files...');
+      await progressCallback?.('Stage 6/6: Writing hierarchy files…');
+      const { epicCount, storyCount } = await this.writeHierarchyFiles(hierarchy, progressCallback);
 
       // Stage 9: Summary & Cleanup
       this.debugStage(9, 'Summary & Cleanup');
@@ -1562,11 +1372,10 @@ ${projectContext}
       const filesGenerated = [];
       for (const epic of hierarchy.epics) {
         filesGenerated.push(path.join(this.projectPath, epic.id, 'work.json'));
-        filesGenerated.push(path.join(this.projectPath, epic.id, 'context.md'));
         filesGenerated.push(path.join(this.projectPath, epic.id, 'doc.md'));
         for (const story of epic.stories || []) {
           filesGenerated.push(path.join(this.projectPath, epic.id, story.id, 'work.json'));
-          filesGenerated.push(path.join(this.projectPath, epic.id, story.id, 'context.md'));
+          filesGenerated.push(path.join(this.projectPath, epic.id, story.id, 'doc.md'));
         }
       }
 

@@ -28,11 +28,7 @@ const CEREMONY_STRUCTURE = [
           { slug: 'validator-documentation',       label: 'Documentation Validator', note: 'Validates documentation quality' },
       ]},
       { phase: 'Context', agents: [
-          { slug: 'project-context-generator',      label: 'Context Generator',         note: 'Generates context.md' },
-          { slug: 'validator-context',              label: 'Context Validator',         note: 'Validates context quality' },
-          { slug: 'cross-validator-doc-to-context', label: 'Doc → Context Validator',  note: 'Cross-validates doc → context' },
-          { slug: 'cross-validator-context-to-doc', label: 'Context → Doc Validator',  note: 'Cross-validates context → doc' },
-          { slug: 'migration-guide-generator',      label: 'Migration Guide Generator', note: 'Generates cloud migration guide' },
+          { slug: 'migration-guide-generator', label: 'Migration Guide Generator', note: 'Generates cloud migration guide' },
       ]},
     ],
   },
@@ -41,8 +37,7 @@ const CEREMONY_STRUCTURE = [
     color: 'purple',
     phases: [
       { phase: 'Decomposition', agents: [
-          { slug: 'epic-story-decomposer',     label: 'Epic Story Decomposer',     note: 'Breaks scope into epics & stories' },
-          { slug: 'feature-context-generator', label: 'Feature Context Generator', note: 'Generates context files for epics & stories' },
+          { slug: 'epic-story-decomposer', label: 'Epic Story Decomposer', note: 'Breaks scope into epics & stories' },
       ]},
       { phase: 'Validation — Epic', agents: [
           { slug: 'validator-selector',                label: 'Validator Selector',  note: 'Selects appropriate domain validators' },
@@ -120,18 +115,7 @@ const CEREMONY_STRUCTURE = [
     color: 'amber',
     phases: [
       { phase: 'Decomposition', agents: [
-          { slug: 'task-subtask-decomposer',   label: 'Task Decomposer',           note: 'Breaks stories into tasks & subtasks' },
-          { slug: 'feature-context-generator', label: 'Feature Context Generator', note: 'Generates context files' },
-      ]},
-    ],
-  },
-  {
-    ceremony: 'Context Retrospective',
-    color: 'green',
-    phases: [
-      { phase: 'Refinement', agents: [
-          { slug: 'documentation-updater', label: 'Documentation Updater', note: 'Updates and refines documentation' },
-          { slug: 'context-refiner',       label: 'Context Refiner',       note: 'Enriches context with insights' },
+          { slug: 'task-subtask-decomposer', label: 'Task Decomposer', note: 'Breaks stories into tasks & subtasks' },
       ]},
     ],
   },

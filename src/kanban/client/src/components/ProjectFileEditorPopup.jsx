@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { X } from 'lucide-react';
-import { getProjectDocRaw, getProjectContextRaw, updateProjectDoc, updateProjectContext } from '../lib/api';
+import { getProjectDocRaw, updateProjectDoc } from '../lib/api';
 
 const FILE_CONFIG = {
   doc: {
@@ -8,12 +8,6 @@ const FILE_CONFIG = {
     filename: 'doc.md',
     load: getProjectDocRaw,
     save: updateProjectDoc,
-  },
-  context: {
-    title: 'Project Context',
-    filename: 'context.md',
-    load: getProjectContextRaw,
-    save: updateProjectContext,
   },
 };
 

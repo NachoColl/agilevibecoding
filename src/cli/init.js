@@ -179,7 +179,6 @@ class ProjectInitiator {
       framework: 'avc',
       created: new Date().toISOString(),
       settings: {
-        contextScopes: ['epic', 'story', 'task', 'subtask'],
         workItemStatuses: ['ready', 'pending', 'implementing', 'implemented', 'testing', 'completed', 'blocked', 'feedback'],
         agentTypes: ['product-owner', 'server', 'client', 'infrastructure', 'testing'],
         documentation: {
@@ -199,10 +198,6 @@ class ProjectInitiator {
                 provider: 'claude',
                 model: 'claude-sonnet-4-6'
               },
-              context: {
-                provider: 'claude',
-                model: 'claude-sonnet-4-6'
-              },
               'architecture-recommendation': {
                 provider: 'claude',
                 model: 'claude-opus-4-6'
@@ -219,22 +214,11 @@ class ProjectInitiator {
                 stage: 'documentation-generation'
               },
               {
-                name: 'project-context-generator',
-                instruction: 'project-context-generator.md',
-                stage: 'context-generation'
-              },
-              {
                 name: 'validator-documentation',
                 instruction: 'validator-documentation.md',
                 stage: 'documentation-validation',
                 group: 'validators'
               },
-              {
-                name: 'validator-context',
-                instruction: 'validator-context.md',
-                stage: 'context-validation',
-                group: 'validators'
-              }
             ],
             validation: {
               enabled: true,
@@ -244,10 +228,6 @@ class ProjectInitiator {
               provider: 'claude',
               model: 'claude-sonnet-4-6',
               documentation: {
-                provider: 'claude',
-                model: 'claude-sonnet-4-6'
-              },
-              context: {
                 provider: 'claude',
                 model: 'claude-sonnet-4-6'
               }
@@ -275,10 +255,6 @@ class ProjectInitiator {
                 model: 'claude-sonnet-4-6',
                 maxIterations: 3,
                 acceptanceThreshold: 90
-              },
-              'context-generation': {
-                provider: 'claude',
-                model: 'claude-sonnet-4-6'
               }
             },
             agents: [
@@ -286,34 +262,6 @@ class ProjectInitiator {
                 name: 'epic-story-decomposer',
                 instruction: 'epic-story-decomposer.md',
                 stage: 'decomposition'
-              },
-              {
-                name: 'feature-context-generator',
-                instruction: 'feature-context-generator.md',
-                stage: 'context-generation'
-              }
-            ]
-          },
-          {
-            name: 'context-retrospective',
-            provider: 'claude',
-            defaultModel: 'claude-sonnet-4-6',
-            stages: {
-              'context-refinement': {
-                provider: 'claude',
-                model: 'claude-opus-4-6'
-              }
-            },
-            agents: [
-              {
-                name: 'documentation-updater',
-                instruction: 'documentation-updater.md',
-                stage: 'documentation-update'
-              },
-              {
-                name: 'context-refiner',
-                instruction: 'context-refiner.md',
-                stage: 'context-refinement'
               }
             ]
           },
@@ -332,11 +280,6 @@ class ProjectInitiator {
                 name: 'task-subtask-decomposer',
                 instruction: 'task-subtask-decomposer.md',
                 stage: 'decomposition'
-              },
-              {
-                name: 'feature-context-generator',
-                instruction: 'feature-context-generator.md',
-                stage: 'context-generation'
               }
             ]
           }
@@ -1272,8 +1215,7 @@ Documentation for this project will be generated automatically once the project 
       history.completeExecution('sponsor-call', executionId, 'success', {
         answers,
         filesGenerated: [
-          path.join(this.avcDir, 'project/doc.md'),
-          path.join(this.avcDir, 'project/context.md')
+          path.join(this.avcDir, 'project/doc.md')
         ],
         tokenUsage: {
           input: tokenUsage?.inputTokens || 0,
@@ -1298,7 +1240,6 @@ Documentation for this project will be generated automatically once the project 
       fileLog('INFO', 'sponsorCallWithAnswers() complete', {
         duration: `${Date.now() - startTime}ms`,
         outputPath: result?.outputPath,
-        contextPath: result?.contextPath,
         tokenInput: result?.tokenUsage?.input,
         tokenOutput: result?.tokenUsage?.output,
         estimatedCost: result?.cost?.total,
@@ -1557,7 +1498,7 @@ Documentation for this project will be generated automatically once the project 
     sendOutput('Next steps:');
     sendIndented('1. Review .avc/project/doc.md for your project definition', 1);
     sendIndented('2. Review .avc/avc.json configuration', 1);
-    sendIndented('3. Create your project context and work items', 1);
+    sendIndented('3. Create your project documentation and work items', 1);
     sendIndented('4. Use AI agents to implement features', 1);
   }
 

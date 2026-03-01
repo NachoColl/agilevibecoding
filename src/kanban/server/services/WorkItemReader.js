@@ -105,36 +105,16 @@ export class WorkItemReader {
   }
 
   /**
-   * Read context.md file for a work item
-   * @param {string} workItemPath - Directory path of work item
-   * @returns {Promise<string|null>} Markdown content or null if not found
-   */
-  async readContext(workItemPath) {
-    try {
-      const contextPath = path.join(workItemPath, 'context.md');
-      return await fs.readFile(contextPath, 'utf8');
-    } catch (error) {
-      return null;
-    }
-  }
-
-  /**
-   * Get full details for a work item (including doc.md and context.md)
+   * Get full details for a work item (including doc.md)
    * @param {object} workItem - Base work item object
-   * @returns {Promise<object>} Enhanced work item with documentation and context
+   * @returns {Promise<object>} Enhanced work item with documentation
    */
   async getFullDetails(workItem) {
     const dirPath = workItem._dirPath;
-
-    const [doc, context] = await Promise.all([
-      this.readDocumentation(dirPath),
-      this.readContext(dirPath),
-    ]);
-
+    const doc = await this.readDocumentation(dirPath);
     return {
       ...workItem,
       documentation: doc,
-      context: context,
     };
   }
 }

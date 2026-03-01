@@ -40,9 +40,9 @@ function App() {
   const [costModalOpen, setCostModalOpen] = useState(false);
 
   // Project file status + editor popup
-  const [projectFilesStatus, setProjectFilesStatus] = useState({ docExists: false, contextExists: false });
+  const [projectFilesStatus, setProjectFilesStatus] = useState({ docExists: false });
   const [projectFilesLoaded, setProjectFilesLoaded] = useState(false);
-  const [editingProjectFile, setEditingProjectFile] = useState(null); // 'doc' | 'context' | null
+  const [editingProjectFile, setEditingProjectFile] = useState(null); // 'doc' | null
 
   // Zustand stores
   const { workItems, loadWorkItems, loading, error } = useKanbanStore();
@@ -472,18 +472,17 @@ function App() {
         <div className="h-full px-4 sm:px-6 lg:px-8 py-6">
           <KanbanBoard
             onCardClick={handleCardClick}
-            projectFilesReady={projectFilesStatus.docExists && projectFilesStatus.contextExists}
+            projectFilesReady={projectFilesStatus.docExists}
             onStartProject={
               projectFilesLoaded &&
-                !projectFilesStatus.docExists && !projectFilesStatus.contextExists && ceremonyStatus !== 'running'
+                !projectFilesStatus.docExists && ceremonyStatus !== 'running'
                 ? () => { resetWizard(); openWizard(); }
                 : undefined
             }
             onEditProjectDoc={() => setEditingProjectFile('doc')}
-            onEditProjectContext={() => setEditingProjectFile('context')}
             onStartSprintPlanning={
               projectFilesLoaded &&
-                projectFilesStatus.docExists && projectFilesStatus.contextExists &&
+                projectFilesStatus.docExists &&
                 sprintPlanningStatus !== 'running' && ceremonyStatus !== 'running'
                 ? openSprintPlanning
                 : undefined

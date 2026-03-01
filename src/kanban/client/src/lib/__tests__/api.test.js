@@ -6,7 +6,6 @@ import {
   getWorkItemsGrouped,
   getWorkItem,
   getWorkItemDoc,
-  getWorkItemContext,
 } from '../api';
 
 // Mock fetch globally
@@ -194,28 +193,4 @@ describe('api', () => {
     });
   });
 
-  describe('getWorkItemContext', () => {
-    it('should fetch work item context', async () => {
-      const mockContext = '# Context\n\nContext information...';
-      global.fetch.mockResolvedValueOnce({
-        ok: true,
-        text: async () => mockContext,
-      });
-
-      const result = await getWorkItemContext('EPIC-001');
-
-      expect(result).toBe(mockContext);
-    });
-
-    it('should return empty string when context not found', async () => {
-      global.fetch.mockResolvedValueOnce({
-        ok: false,
-        status: 404,
-      });
-
-      const result = await getWorkItemContext('EPIC-001');
-
-      expect(result).toBe('');
-    });
-  });
 });
