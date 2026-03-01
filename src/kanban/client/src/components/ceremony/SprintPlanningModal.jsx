@@ -181,7 +181,7 @@ function RunningStep({ transitioning, onPause, onResume, onCancel, onBackground 
       <div>
         <h2 className="text-xl font-semibold text-slate-900">Running Sprint Planning</h2>
         <p className="text-sm text-slate-500 mt-1">
-          The AI is decomposing your project scope. This typically takes 2–5 minutes.
+          The AI is decomposing your project scope and validating each work item. Duration varies with project size and validation iterations — from a few minutes to 30+ minutes for larger projects.
         </p>
       </div>
 

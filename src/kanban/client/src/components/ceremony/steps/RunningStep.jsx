@@ -102,7 +102,7 @@ export function RunningStep({ transitioning, onPause, onResume, onCancel, onBack
       <div>
         <h2 className="text-xl font-semibold text-slate-900">Generating Documentation</h2>
         <p className="text-sm text-slate-500 mt-1">
-          The AI is generating your project documentation. This typically takes 1–3 minutes.
+          The AI is generating your project documentation. Duration varies depending on the number of validation iterations — typically a few minutes, but may take longer.
         </p>
       </div>
 
