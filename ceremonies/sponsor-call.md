@@ -2,7 +2,7 @@
 
 ## Overview
 
-The **Sponsor Call** ceremony is the foundational ceremony in the Agile Vibe Coding framework. It creates your project's brief and root context scope.
+The **Sponsor Call** ceremony is the foundational ceremony in the Agile Vibe Coding framework. It creates your project's brief and root documentation.
 
 **Input**
 
@@ -12,8 +12,7 @@ Project team defined mission, scope and technical requirements.
 
 ```
 .avc/project/
-├── doc.md              # project documentation
-└── context.md          # root context scope
+└── doc.md              # project documentation
 ```
 
 **Next Ceremony**
@@ -39,7 +38,6 @@ sequenceDiagram
     participant Prefill as Question Prefiller
     participant Doc as Doc Generator
     participant Val as Validator
-    participant Ctx as Context Generator
     participant FS as File System
 
     User->>REPL: /sponsor-call
@@ -111,23 +109,7 @@ sequenceDiagram
         end
     end
 
-    Note over REPL,Ctx: Generate & Validate Context
-    REPL->>Ctx: Generate context
-    Ctx->>Ctx: Call LLM → auto-verify (LLMVerifier)
-    Ctx-->>REPL: Context markdown
-
-    opt Validation enabled
-        loop Until score >= 75 OR maxIterations (2)
-            Ctx->>Val: Validate context
-            Val-->>Ctx: Score + issues
-            alt Score < threshold
-                Ctx->>Ctx: Improve context
-            end
-        end
-    end
-
     Note over REPL,FS: Write Output Files
-    REPL->>FS: Write .avc/project/context.md
     REPL->>FS: Write .avc/project/doc.md
 
     opt .avc/documentation/ folder exists
@@ -520,9 +502,9 @@ If a question is skipped (before architecture selection), specialized agents gen
 
 ---
 
-### Documentation & Context Generation
+### Documentation Generation
 
-The collected answers are transformed into formal project artifacts using specialized AI agents.
+The collected answers are transformed into a formal project brief using specialized AI agents.
 
 #### Documentation Agents
 
@@ -530,13 +512,6 @@ The collected answers are transformed into formal project artifacts using specia
 |-------|---------|----------|
 | [Documentation Creator](/agents/project-documentation-creator) | Converts questionnaire responses into a structured 9-section project brief | `/agents/project-documentation-creator` |
 | [Documentation Validator](/agents/validator-documentation) | Scores and validates documentation quality (0–100 scale) | `/agents/validator-documentation` |
-
-#### Context Agents
-
-| Agent | Purpose | Location |
-|-------|---------|----------|
-| [Context Generator](/agents/project-context-generator) | Generates architectural context from questionnaire inputs | `/agents/project-context-generator` |
-| [Context Validator](/agents/validator-context) | Scores and validates context quality (0–100 scale) | `/agents/validator-context` |
 
 
 ## Next Steps
@@ -563,14 +538,6 @@ cat .avc/project/doc.md
 ```
 
 > **Tip:** Run `/documentation` to view as a formatted website
-
-**Project Context** (`.avc/project/context.md`)
-
-Architectural context file that guides all future AI agents:
-
-```bash
-cat .avc/project/context.md
-```
 
 **Migration Guide** (`.avc/DEPLOYMENT_MIGRATION.md`) - *Local MVP strategy only*
 
