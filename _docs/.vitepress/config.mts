@@ -33,7 +33,6 @@ export default defineConfig({
           { text: 'Sprint Planning', link: '/ceremonies/sprint-planning' },
           { text: 'Seed', link: '/ceremonies/seed' },
           { text: 'AI Coding', link: '/ceremonies/ai-coding' },
-          { text: 'Context Retrospective', link: '/ceremonies/context-retrospective' },
         ]
       },
       {
@@ -41,7 +40,6 @@ export default defineConfig({
         items: [
           { text: 'Install', link: '/install' },
           { text: 'CLI Commands', link: '/commands' },
-          { text: 'AVC Default LLMs', link: '/avc-default-llms' },
           { text: 'Contributing', link: '/contribute' },
         ]
       },
@@ -65,20 +63,12 @@ export default defineConfig({
             ]
           },
           {
-            text: 'Context Management',
-            collapsed: false,
-            items: [
-              { text: 'Project Context',  link: '/agents/project-context-generator' },
-              { text: 'Feature Context',  link: '/agents/feature-context-generator' },
-              { text: 'Context Refiner',  link: '/agents/context-refiner' },
-            ]
-          },
-          {
             text: 'Decomposition',
             collapsed: false,
             items: [
               { text: 'Epic / Story',    link: '/agents/epic-story-decomposer' },
               { text: 'Task / Subtask',  link: '/agents/task-subtask-decomposer' },
+              { text: 'Doc Distributor', link: '/agents/doc-distributor' },
             ]
           },
           {
@@ -114,16 +104,7 @@ export default defineConfig({
             collapsed: false,
             items: [
               { text: 'Documentation Validator', link: '/agents/validator-documentation' },
-              { text: 'Context Validator',       link: '/agents/validator-context' },
               { text: 'Validator Selector',      link: '/agents/validator-selector' },
-            ]
-          },
-          {
-            text: 'Cross-Validation',
-            collapsed: false,
-            items: [
-              { text: 'Doc → Context', link: '/agents/cross-validator-doc-to-context' },
-              { text: 'Context → Doc', link: '/agents/cross-validator-context-to-doc' },
             ]
           },
           {
