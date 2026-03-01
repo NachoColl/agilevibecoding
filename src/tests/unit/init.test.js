@@ -304,7 +304,7 @@ describe('ProjectInitiator', () => {
       // Verify sponsor-call ceremony
       expect(config.settings.ceremonies[0].name).toBe('sponsor-call');
       expect(config.settings.ceremonies[0].provider).toBe('claude');
-      expect(config.settings.ceremonies[0].defaultModel).toBe('claude-sonnet-4-5-20250929');
+      expect(config.settings.ceremonies[0].defaultModel).toBe('claude-sonnet-4-6');
 
       // Verify sprint-planning ceremony
       expect(config.settings.ceremonies[1].name).toBe('sprint-planning');

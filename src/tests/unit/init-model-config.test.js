@@ -209,7 +209,7 @@ describe('ModelConfigurator', () => {
       const validationStage = stages.find(s => s.id === 'validation');
 
       expect(validationStage).toBeDefined();
-      expect(validationStage.name).toBe('Quality Validation & Verification');
+      expect(validationStage.name).toBe('Quality Validator - Scores and identifies issues in generated output');
       expect(validationStage.provider).toBe('gemini');
       expect(validationStage.model).toBe('gemini-2.5-pro');
     });
