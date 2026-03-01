@@ -117,7 +117,7 @@ export function ReviewAnswersStep({ onNext, onBack }) {
           disabled={!canContinue}
           className="px-5 py-2 bg-green-600 text-white text-sm font-medium rounded-lg disabled:opacity-40 hover:bg-green-700 transition-colors"
         >
-          Generate initial Context and Documentation
+          Generate Project Brief
         </button>
       </div>
     </div>
