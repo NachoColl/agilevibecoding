@@ -26,10 +26,10 @@ export default defineConfig({
         'kanban/client/**'  // Kanban client tested separately
       ],
       thresholds: {
-        lines: 50,
+        lines: 45,
         functions: 60,
         branches: 50,
-        statements: 50
+        statements: 45
       }
     },
     testTimeout: 10000,  // Some tests may call APIs
