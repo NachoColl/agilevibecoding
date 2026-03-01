@@ -16,7 +16,7 @@ const __dirname = path.dirname(__filename);
  * SprintPlanningProcessor - Creates/expands Epics and Stories with duplicate detection
  */
 class SprintPlanningProcessor {
-  constructor() {
+  constructor(options = {}) {
     this.ceremonyName = 'sprint-planning';
     this.avcPath = path.join(process.cwd(), '.avc');
     this.projectPath = path.join(this.avcPath, 'project');
@@ -44,6 +44,10 @@ class SprintPlanningProcessor {
 
     // Debug mode - always enabled for comprehensive logging
     this.debugMode = true;
+
+    // Cost threshold protection
+    this._costThreshold = options?.costThreshold ?? null;
+    this._runningCost = 0;
   }
 
   /**
@@ -261,6 +265,10 @@ class SprintPlanningProcessor {
     if (!provider) return;
     provider.onCall((delta) => {
       this.tokenTracker.addIncremental(this.ceremonyName, delta);
+      if (delta.model) {
+        const cost = this.tokenTracker.calculateCost(delta.input, delta.output, delta.model);
+        this._runningCost += cost?.total ?? 0;
+      }
     });
   }
 
@@ -1351,6 +1359,17 @@ ${projectContext}
 
   // Main execution method
   async execute(progressCallback = null) {
+    // Cost threshold protection — wrap callback to check running cost before each progress call
+    if (this._costThreshold != null && progressCallback) {
+      const _origCallback = progressCallback;
+      progressCallback = async (...args) => {
+        if (this._runningCost >= this._costThreshold) {
+          throw new Error(`COST_LIMIT_EXCEEDED:${this._runningCost.toFixed(6)}`);
+        }
+        return _origCallback(...args);
+      };
+    }
+
     // Initialize ceremony history
     const { CeremonyHistory } = await import('./ceremony-history.js');
     const history = new CeremonyHistory(this.avcPath);

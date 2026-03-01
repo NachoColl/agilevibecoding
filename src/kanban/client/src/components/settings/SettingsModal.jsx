@@ -5,13 +5,15 @@ import { CeremonyModelsTab } from './CeremonyModelsTab';
 import { ServersTab } from './ServersTab';
 import { ModelPricingTab } from './ModelPricingTab';
 import { AgentsTab } from './AgentsTab';
+import { CostThresholdsTab } from './CostThresholdsTab';
 
 const TABS = [
-  { id: 'api-keys',   label: 'API Keys' },
-  { id: 'ceremonies', label: 'Ceremony Models' },
-  { id: 'pricing',    label: 'Model Pricing' },
-  { id: 'servers',    label: 'Servers & Ports' },
-  { id: 'agents',     label: 'Agents' },
+  { id: 'api-keys',         label: 'API Keys' },
+  { id: 'ceremonies',       label: 'Ceremony Models' },
+  { id: 'pricing',          label: 'Model Pricing' },
+  { id: 'cost-thresholds',  label: 'Cost Limits' },
+  { id: 'servers',          label: 'Servers & Ports' },
+  { id: 'agents',           label: 'Agents' },
 ];
 
 export function SettingsModal({ settings, models, onClose, onSaved }) {
@@ -67,6 +69,9 @@ export function SettingsModal({ settings, models, onClose, onSaved }) {
           )}
           {activeTab === 'pricing' && (
             <ModelPricingTab settings={settings} onSaved={onSaved} />
+          )}
+          {activeTab === 'cost-thresholds' && (
+            <CostThresholdsTab settings={settings} onSaved={onSaved} />
           )}
           {activeTab === 'servers' && (
             <ServersTab settings={settings} onSaved={onSaved} />

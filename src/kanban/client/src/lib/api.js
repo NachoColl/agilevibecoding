@@ -264,6 +264,10 @@ export async function saveModelPricing(models) {
   return apiFetch('/settings/models', { method: 'PUT', body: JSON.stringify({ models }) });
 }
 
+export async function saveCostThresholds(thresholds) {
+  return apiFetch('/settings/cost-thresholds', { method: 'PUT', body: JSON.stringify({ thresholds }) });
+}
+
 // ── Ceremony API ─────────────────────────────────────────────────────────────
 
 export async function getCeremonyStatus() {

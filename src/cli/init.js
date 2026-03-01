@@ -347,6 +347,11 @@ class ProjectInitiator {
             acceptanceThreshold: 90
           }
         },
+        costThresholds: {
+          'sponsor-call': null,
+          'sprint-planning': null,
+          'seed': null
+        },
         questionnaire: {
           defaults: {
             MISSION_STATEMENT: null,
@@ -956,8 +961,8 @@ Documentation for this project will be generated automatically once the project 
   /**
    * Generate project document via Sponsor Call ceremony
    */
-  async generateProjectDocument(progress = null, progressPath = null, nonInteractive = false, progressCallback = null) {
-    const processor = new TemplateProcessor('sponsor-call', progressPath || this.sponsorCallProgressPath, nonInteractive);
+  async generateProjectDocument(progress = null, progressPath = null, nonInteractive = false, progressCallback = null, options = {}) {
+    const processor = new TemplateProcessor('sponsor-call', progressPath || this.sponsorCallProgressPath, nonInteractive, options);
 
     // Set before await so processor is reachable even if processTemplate throws
     this._lastTemplateProcessor = processor;
@@ -1158,7 +1163,7 @@ Documentation for this project will be generated automatically once the project 
    * Run Sponsor Call ceremony with pre-filled answers from REPL questionnaire
    * Used when all answers are collected via REPL UI
    */
-  async sponsorCallWithAnswers(answers, progressCallback = null) {
+  async sponsorCallWithAnswers(answers, progressCallback = null, options = {}) {
     const startTime = Date.now();
     fileLog('INFO', 'sponsorCallWithAnswers() called', {
       answerKeys: Object.keys(answers || {}),
@@ -1239,7 +1244,7 @@ Documentation for this project will be generated automatically once the project 
 
     try {
       // Generate project document with pre-filled answers
-      const result = await this.generateProjectDocument(progress, progressPath, true, progressCallback);
+      const result = await this.generateProjectDocument(progress, progressPath, true, progressCallback, options);
 
       fileLog('INFO', 'generateProjectDocument() complete', { resultKeys: result ? Object.keys(result) : [] });
 
@@ -1403,13 +1408,13 @@ Documentation for this project will be generated automatically once the project 
    * @param {Function|null} progressCallback - Called with (msg, substep, meta) on each stage
    * @returns {Promise<object>} Result with epicsCreated, storiesCreated, tokenUsage, model
    */
-  async sprintPlanningWithCallback(progressCallback = null) {
+  async sprintPlanningWithCallback(progressCallback = null, options = {}) {
     fileLog('INFO', 'sprintPlanningWithCallback() called', { projectRoot: this.projectRoot });
     if (!this.isAvcProject()) {
       throw new Error('Project not initialized. Run /init first.');
     }
     const { SprintPlanningProcessor } = await import('./sprint-planning-processor.js');
-    const processor = new SprintPlanningProcessor();
+    const processor = new SprintPlanningProcessor(options);
     return await processor.execute(progressCallback);
   }
 

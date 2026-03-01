@@ -47,7 +47,7 @@ function debug(message, data = null) {
  * 6. Write to .avc/project/doc.md
  */
 class TemplateProcessor {
-  constructor(ceremonyName = 'sponsor-call', progressPath = null, nonInteractive = false) {
+  constructor(ceremonyName = 'sponsor-call', progressPath = null, nonInteractive = false, options = {}) {
     // Load environment variables from project .env
     dotenv.config({ path: path.join(process.cwd(), '.env') });
 
@@ -103,6 +103,10 @@ class TemplateProcessor {
 
     // Track last token usage for ceremony history
     this._lastTokenUsage = null;
+
+    // Cost threshold protection
+    this._costThreshold = options?.costThreshold ?? null;
+    this._runningCost = 0;
 
     // Progress reporting
     this.progressCallback = null;
@@ -547,6 +551,10 @@ Please carefully follow the output format requirements to avoid these issues.
     if (!provider) return;
     provider.onCall((delta) => {
       this.tokenTracker.addIncremental(ceremonyType, delta);
+      if (delta.model) {
+        const cost = this.tokenTracker.calculateCost(delta.input, delta.output, delta.model);
+        this._runningCost += cost?.total ?? 0;
+      }
     });
   }
 
@@ -1136,6 +1144,17 @@ Return the enhanced markdown document.`;
   async processTemplate(initialProgress = null) {
     debug('Starting processTemplate', { hasInitialProgress: !!initialProgress, ceremony: this.ceremonyName });
     debug('Project Setup Questionnaire');
+
+    // Cost threshold protection — wrap callback to check running cost before each progress call
+    if (this._costThreshold != null && this.progressCallback) {
+      const _origCallback = this.progressCallback;
+      this.progressCallback = async (...args) => {
+        if (this._runningCost >= this._costThreshold) {
+          throw new Error(`COST_LIMIT_EXCEEDED:${this._runningCost.toFixed(6)}`);
+        }
+        return _origCallback(...args);
+      };
+    }
 
     // 1. Read template
     debug('Reading template file', { templatePath: this.templatePath });

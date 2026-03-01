@@ -3786,7 +3786,7 @@ const App = () => {
       (msg) => {
         // ── ceremony:fork — CLI forks the worker on behalf of Kanban ──────────
         if (msg.type === 'ceremony:fork') {
-          const { ceremonyType, processId, requirements } = msg;
+          const { ceremonyType, processId, requirements, costThreshold } = msg;
           const workerFile = ceremonyType === 'sprint-planning'
             ? 'sprint-planning-worker.js'
             : 'sponsor-call-worker.js';
@@ -3816,7 +3816,11 @@ const App = () => {
           activeWorkers.set(processId, workerChild);
 
           // Send init message to worker (requirements are only needed for sponsor-call)
-          workerChild.send({ type: 'init', ...(requirements != null ? { requirements } : {}) });
+          workerChild.send({
+            type: 'init',
+            ...(requirements != null ? { requirements } : {}),
+            ...(costThreshold != null ? { costThreshold } : {}),
+          });
 
           // Notify Kanban that the worker is live
           try { kanbanChild.send({ type: 'ceremony:started', processId, pid: workerChild.pid }); } catch (_) {}

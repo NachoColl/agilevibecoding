@@ -754,7 +754,35 @@ export class CeremonyService {
         if (isSP) this.websocket?.broadcastSprintPlanningError(msg.error);
         else this.websocket?.broadcastCeremonyError(msg.error);
         break;
+      case 'cost-limit': {
+        const msgText = `Cost limit reached: $${msg.cost.toFixed(4)} spent (limit: $${(msg.threshold ?? 0).toFixed(2)}). Ceremony stopped.`;
+        this.state.progress.push({ type: 'progress', message: msgText });
+        this.state.status = 'error';
+        this.state.error = msgText;
+        this._activeChild = null;
+        this._activeProcessId = null;
+        registry.setStatus(record.id, 'error', { error: msgText });
+        if (isSP) {
+          this.websocket?.broadcastSprintPlanningProgress(msgText);
+          this.websocket?.broadcastSprintPlanningError(msgText);
+        } else {
+          this.websocket?.broadcastCeremonyProgress(msgText);
+          this.websocket?.broadcastCeremonyError(msgText);
+        }
+        break;
+      }
     }
+  }
+
+  /**
+   * Read the cost threshold for a ceremony type from avc.json.
+   * Returns null if not configured (unlimited).
+   */
+  _getCostThreshold(ceremonyType) {
+    try {
+      const config = JSON.parse(fs.readFileSync(path.join(this.projectRoot, '.avc', 'avc.json'), 'utf8'));
+      return config.settings?.costThresholds?.[ceremonyType] ?? null;
+    } catch { return null; }
   }
 
   // ── Public relay entry-points (called from start.js when running as CLI fork) ─
@@ -811,6 +839,8 @@ export class CeremonyService {
     this._registry = registry;
     this._activeProcessId = record.id;
 
+    const costThreshold = this._getCostThreshold('sprint-planning');
+
     if (process.connected) {
       // IPC relay mode — proxy stands in for the worker child so that pause/resume/cancel
       // continue to work unchanged; actual forking is delegated to the CLI process.
@@ -820,7 +850,7 @@ export class CeremonyService {
       };
       this._activeChild = proxy;
       registry.attach(record.id, proxy);
-      process.send({ type: 'ceremony:fork', ceremonyType: 'sprint-planning', processId: record.id });
+      process.send({ type: 'ceremony:fork', ceremonyType: 'sprint-planning', processId: record.id, costThreshold });
       return record.id;
     }
 
@@ -835,7 +865,7 @@ export class CeremonyService {
 
     registry.attach(record.id, child);
     this._activeChild = child;
-    child.send({ type: 'init' });
+    child.send({ type: 'init', costThreshold });
 
     child.on('message', (msg) => this._dispatchWorkerMessage(msg, record, registry));
 
@@ -875,6 +905,8 @@ export class CeremonyService {
     this._registry = registry;
     this._activeProcessId = record.id;
 
+    const costThreshold = this._getCostThreshold('sponsor-call');
+
     if (process.connected) {
       // IPC relay mode
       const proxy = {
@@ -883,7 +915,7 @@ export class CeremonyService {
       };
       this._activeChild = proxy;
       registry.attach(record.id, proxy);
-      process.send({ type: 'ceremony:fork', ceremonyType: 'sponsor-call', processId: record.id, requirements });
+      process.send({ type: 'ceremony:fork', ceremonyType: 'sponsor-call', processId: record.id, requirements, costThreshold });
       return record.id;
     }
 
@@ -898,7 +930,7 @@ export class CeremonyService {
 
     registry.attach(record.id, child);
     this._activeChild = child;
-    child.send({ type: 'init', requirements });
+    child.send({ type: 'init', requirements, costThreshold });
 
     child.on('message', (msg) => this._dispatchWorkerMessage(msg, record, registry));
 

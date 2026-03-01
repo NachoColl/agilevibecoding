@@ -120,6 +120,7 @@ export function createSettingsRouter(projectRoot) {
         kanbanPort: config?.settings?.kanban?.port || 4174,
         docsPort: config?.settings?.documentation?.port || 4173,
         boardTitle: config?.settings?.kanban?.title || 'AVC Kanban Board',
+        costThresholds: config?.settings?.costThresholds || { 'sponsor-call': null, 'sprint-planning': null, 'seed': null },
       });
     } catch (err) {
       res.status(500).json({ error: err.message });
@@ -210,6 +211,20 @@ export function createSettingsRouter(projectRoot) {
       if (docsPort !== undefined) config.settings.documentation.port = Number(docsPort);
       await writeAvcConfig(config);
       res.json({ status: 'ok' });
+    } catch (err) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // PUT /api/settings/cost-thresholds — update per-ceremony cost limits
+  router.put('/cost-thresholds', async (req, res) => {
+    try {
+      const { thresholds } = req.body;
+      const config = await readAvcConfig();
+      if (!config.settings) config.settings = {};
+      config.settings.costThresholds = thresholds;
+      await writeAvcConfig(config);
+      res.json({ ok: true });
     } catch (err) {
       res.status(500).json({ error: err.message });
     }

@@ -10,6 +10,7 @@ import { ProjectInitiator } from '../../../cli/init.js';
 let _paused = false;
 let _cancelled = false;
 let _requirements = null;
+let _costThreshold = null;
 
 // Parent server stopped — exit rather than running as an orphan.
 process.on('disconnect', () => {
@@ -21,6 +22,7 @@ process.on('disconnect', () => {
 process.on('message', async (msg) => {
   if (msg.type === 'init') {
     _requirements = msg.requirements;
+    _costThreshold = msg.costThreshold ?? null;
     run();
   } else if (msg.type === 'pause') {
     _paused = true;
@@ -48,12 +50,15 @@ async function run() {
       if (meta?.detail) process.send({ type: 'detail',   detail: meta.detail });
     };
 
-    const result = await initiator.sponsorCallWithAnswers(_requirements, progressCallback);
+    const result = await initiator.sponsorCallWithAnswers(_requirements, progressCallback, { costThreshold: _costThreshold });
     process.send({ type: 'complete', result });
     process.exit(0);
   } catch (err) {
     if (err.message === 'CEREMONY_CANCELLED') {
       process.send({ type: 'cancelled' });
+    } else if (err.message?.startsWith('COST_LIMIT_EXCEEDED:')) {
+      const cost = parseFloat(err.message.split(':')[1]) || 0;
+      process.send({ type: 'cost-limit', cost, threshold: _costThreshold });
     } else {
       process.send({ type: 'error', error: err.message });
     }
