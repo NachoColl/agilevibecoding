@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { X, BarChart2, DollarSign } from 'lucide-react';
+import { X, BarChart2, DollarSign, ChevronDown, ChevronRight } from 'lucide-react';
 import {
   BarChart,
   Bar,
@@ -23,6 +23,11 @@ function formatCostLabel(cost) {
   return `$${cost.toFixed(2)}`;
 }
 
+function formatCostDetail(cost) {
+  if (cost === 0) return '$0.0000';
+  return `$${cost.toFixed(4)}`;
+}
+
 function formatTokens(n) {
   if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
   if (n >= 1_000) return `${(n / 1_000).toFixed(1)}K`;
@@ -40,12 +45,21 @@ function formatCeremonyName(name) {
     .replace(/\b\w/g, (c) => c.toUpperCase());
 }
 
+/** Strip parent prefix from stage name, e.g. "sponsor-call-validation" → "Validation" */
+function formatStageName(name, parentName) {
+  if (name === parentName) return 'Documentation';
+  const prefix = `${parentName}-`;
+  if (name.startsWith(prefix)) return formatCeremonyName(name.slice(prefix.length));
+  return formatCeremonyName(name);
+}
+
 export function CostModal({ onClose }) {
   const [rangeMode, setRangeMode] = useState('today');
   const [customFrom, setCustomFrom] = useState('');
   const [customTo, setCustomTo] = useState('');
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [expanded, setExpanded] = useState({});
 
   // Fetch data when range changes
   useEffect(() => {
@@ -67,7 +81,16 @@ export function CostModal({ onClose }) {
     }
 
     getCostHistory(rangeArg)
-      .then((d) => { setData(d); setLoading(false); })
+      .then((d) => {
+        setData(d);
+        setLoading(false);
+        // Auto-expand parents that have stages
+        const init = {};
+        (d.ceremonies || []).forEach((c) => {
+          if (c.stages && c.stages.length > 0) init[c.name] = true;
+        });
+        setExpanded(init);
+      })
       .catch(() => { setData({ daily: [], ceremonies: [] }); setLoading(false); });
   }, [rangeMode, customFrom, customTo]);
 
@@ -78,9 +101,12 @@ export function CostModal({ onClose }) {
     return () => document.removeEventListener('keydown', handler);
   }, [onClose]);
 
-  const totalCost = data?.ceremonies.reduce((s, c) => s + c.cost, 0) ?? 0;
+  const toggleExpanded = (name) => setExpanded((prev) => ({ ...prev, [name]: !prev[name] }));
+
+  // Totals come from parent nodes only — stages are already rolled up into them
+  const totalCost   = data?.ceremonies.reduce((s, c) => s + c.cost,   0) ?? 0;
   const totalTokens = data?.ceremonies.reduce((s, c) => s + c.tokens, 0) ?? 0;
-  const totalCalls = data?.ceremonies.reduce((s, c) => s + c.calls, 0) ?? 0;
+  const totalCalls  = data?.ceremonies.reduce((s, c) => s + c.calls,  0) ?? 0;
   const hasData = data && (data.daily.length > 0 || data.ceremonies.length > 0);
 
   return (
@@ -231,7 +257,7 @@ export function CostModal({ onClose }) {
                 </div>
               )}
 
-              {/* Ceremony breakdown */}
+              {/* Ceremony breakdown — hierarchical */}
               {data.ceremonies.length > 0 && (
                 <div>
                   <p className="text-xs font-medium text-slate-500 mb-2 uppercase tracking-wide">By Ceremony</p>
@@ -239,7 +265,7 @@ export function CostModal({ onClose }) {
                     <table className="w-full text-sm">
                       <thead>
                         <tr className="text-left text-xs text-slate-400 border-b border-slate-100">
-                          <th className="pb-2 font-medium">Ceremony</th>
+                          <th className="pb-2 font-medium">Ceremony / Stage</th>
                           <th className="pb-2 font-medium text-right">Calls</th>
                           <th className="pb-2 font-medium text-right">Tokens</th>
                           <th className="pb-2 font-medium text-right">Cost</th>
@@ -249,14 +275,30 @@ export function CostModal({ onClose }) {
                       <tbody>
                         {data.ceremonies.map((c) => {
                           const pct = totalCost > 0 ? (c.cost / totalCost) * 100 : 0;
-                          return (
-                            <tr key={c.name} className="border-b border-slate-50 last:border-0">
-                              <td className="py-2 text-slate-700 font-medium">
-                                {formatCeremonyName(c.name)}
+                          const hasStages = c.stages && c.stages.length > 0;
+                          const isOpen = expanded[c.name];
+
+                          return [
+                            /* Parent row */
+                            <tr
+                              key={c.name}
+                              className={`border-b border-slate-100 ${hasStages ? 'cursor-pointer hover:bg-slate-50' : ''}`}
+                              onClick={hasStages ? () => toggleExpanded(c.name) : undefined}
+                            >
+                              <td className="py-2 text-slate-800 font-semibold">
+                                <div className="flex items-center gap-1.5">
+                                  {hasStages
+                                    ? (isOpen
+                                        ? <ChevronDown className="w-3.5 h-3.5 text-slate-400 flex-shrink-0" />
+                                        : <ChevronRight className="w-3.5 h-3.5 text-slate-400 flex-shrink-0" />)
+                                    : <span className="w-3.5 flex-shrink-0" />
+                                  }
+                                  {formatCeremonyName(c.name)}
+                                </div>
                               </td>
                               <td className="py-2 text-right text-slate-500">{c.calls}</td>
                               <td className="py-2 text-right text-slate-500">{formatTokens(c.tokens)}</td>
-                              <td className="py-2 text-right text-slate-700 font-medium">{formatCostLabel(c.cost)}</td>
+                              <td className="py-2 text-right text-slate-800 font-semibold">{formatCostDetail(c.cost)}</td>
                               <td className="py-2 pl-4">
                                 <div className="flex items-center gap-2">
                                   <div className="w-20 bg-slate-100 rounded-full h-1.5 flex-shrink-0">
@@ -268,8 +310,34 @@ export function CostModal({ onClose }) {
                                   <span className="text-xs text-slate-400">{Math.round(pct)}%</span>
                                 </div>
                               </td>
-                            </tr>
-                          );
+                            </tr>,
+
+                            /* Stage rows — shown when expanded */
+                            ...(isOpen && hasStages ? c.stages.map((s) => {
+                              const stagePct = c.cost > 0 ? (s.cost / c.cost) * 100 : 0;
+                              return (
+                                <tr key={`${c.name}/${s.name}`} className="border-b border-slate-50 bg-slate-50/50">
+                                  <td className="py-1.5 text-slate-500 pl-7">
+                                    {formatStageName(s.name, c.name)}
+                                  </td>
+                                  <td className="py-1.5 text-right text-slate-400 text-xs">{s.calls}</td>
+                                  <td className="py-1.5 text-right text-slate-400 text-xs">{formatTokens(s.tokens)}</td>
+                                  <td className="py-1.5 text-right text-slate-500 text-xs">{formatCostDetail(s.cost)}</td>
+                                  <td className="py-1.5 pl-4">
+                                    <div className="flex items-center gap-2">
+                                      <div className="w-20 bg-slate-100 rounded-full h-1 flex-shrink-0">
+                                        <div
+                                          className="bg-blue-300 h-1 rounded-full"
+                                          style={{ width: `${stagePct}%` }}
+                                        />
+                                      </div>
+                                      <span className="text-[10px] text-slate-300">{Math.round(stagePct)}%</span>
+                                    </div>
+                                  </td>
+                                </tr>
+                              );
+                            }) : []),
+                          ];
                         })}
                       </tbody>
                     </table>

@@ -12,6 +12,27 @@ export function createCostsRouter(projectRoot) {
   const router = express.Router();
   const historyPath = path.join(projectRoot, '.avc', 'token-history.json');
 
+  // Top-level ceremony names — each becomes a parent node in the hierarchy
+  const PARENT_CEREMONIES = ['sponsor-call', 'sprint-planning', 'seed'];
+
+  // Explicit stage → parent mapping for stages whose names don't carry a prefix
+  const STAGE_PARENT_MAP = {
+    'mission-scope':       'sponsor-call',
+    'mission-refine':      'sponsor-call',
+    'analyze-database':    'sponsor-call',
+    'analyze-architecture':'sponsor-call',
+    'prefill-answers':     'sponsor-call',
+  };
+
+  function getParentCeremony(key) {
+    if (STAGE_PARENT_MAP[key]) return STAGE_PARENT_MAP[key];
+    for (const parent of PARENT_CEREMONIES) {
+      if (key !== parent && key.startsWith(`${parent}-`)) return parent;
+    }
+    if (PARENT_CEREMONIES.includes(key)) return key; // self
+    return null;
+  }
+
   function readHistory() {
     if (!fs.existsSync(historyPath)) return null;
     try {
@@ -74,39 +95,52 @@ export function createCostsRouter(projectRoot) {
         executions: data.executions ?? 0,
       }));
 
-    // Aggregate per ceremony type within the window
+    // Build parent node skeletons
     const SKIP_KEYS = new Set(['version', 'lastUpdated', 'totals']);
-    const ceremonies = [];
+    const parentNodes = {};
+    for (const p of PARENT_CEREMONIES) {
+      parentNodes[p] = { name: p, calls: 0, tokens: 0, cost: 0, stages: [] };
+    }
+    const orphans = []; // keys that don't map to a known parent
 
     for (const [key, value] of Object.entries(history)) {
       if (SKIP_KEYS.has(key)) continue;
       if (!value || typeof value !== 'object') continue;
 
       let totalInput = 0, totalOutput = 0, totalCost = 0, totalExec = 0;
-
-      const dailyForCeremony = value.daily ?? {};
-      for (const [date, data] of Object.entries(dailyForCeremony)) {
+      const dailyForKey = value.daily ?? {};
+      for (const [date, data] of Object.entries(dailyForKey)) {
         const d = new Date(date);
         if (d >= cutoff && d < endDate) {
-          totalInput += data.input ?? 0;
-          totalOutput += data.output ?? 0;
-          totalCost += data.cost?.total ?? 0;
-          totalExec += data.executions ?? 0;
+          totalInput  += data.input        ?? 0;
+          totalOutput += data.output       ?? 0;
+          totalCost   += data.cost?.total  ?? 0;
+          totalExec   += data.executions   ?? 0;
         }
       }
 
-      if (totalExec > 0 || totalInput > 0 || totalOutput > 0) {
-        ceremonies.push({
-          name: key,
-          calls: totalExec,
-          tokens: totalInput + totalOutput,
-          cost: totalCost,
-        });
+      if (totalExec === 0 && totalInput === 0 && totalOutput === 0) continue;
+
+      const entry = { name: key, calls: totalExec, tokens: totalInput + totalOutput, cost: totalCost };
+      const parent = getParentCeremony(key);
+
+      if (parent && parentNodes[parent]) {
+        parentNodes[parent].stages.push(entry);
+        parentNodes[parent].calls   += totalExec;
+        parentNodes[parent].tokens  += totalInput + totalOutput;
+        parentNodes[parent].cost    += totalCost;
+      } else {
+        orphans.push({ ...entry, stages: [] });
       }
     }
 
-    // Sort by cost descending
-    ceremonies.sort((a, b) => b.cost - a.cost);
+    // Sort stages within each parent by cost desc
+    const ceremonies = [
+      ...Object.values(parentNodes).filter(c => c.cost > 0 || c.tokens > 0),
+      ...orphans,
+    ]
+      .map(c => ({ ...c, stages: (c.stages || []).sort((a, b) => b.cost - a.cost) }))
+      .sort((a, b) => b.cost - a.cost);
 
     res.json({ daily, ceremonies });
   });
