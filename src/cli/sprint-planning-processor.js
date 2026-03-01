@@ -949,29 +949,33 @@ Return your response as JSON following the exact structure specified in your ins
     return hierarchy;
   }
 
-  // STAGE 7: Write hierarchy files
+  // STAGE 7: Write hierarchy files with distributed documentation
   async writeHierarchyFiles(hierarchy, progressCallback = null) {
-    this.debugStage(7, 'Write Hierarchy Files');
+    this.debugStage(7, 'Write Hierarchy Files + Distribute Documentation');
 
-    this.debug('Writing hierarchy files');
+    this.debug('Writing hierarchy files with documentation distribution');
 
     let epicCount = 0;
     let storyCount = 0;
 
+    // Read the root project doc.md — will be progressively lightened as epics extract their content
+    let projectDocContent = '';
+    if (fs.existsSync(this.projectDocPath)) {
+      projectDocContent = fs.readFileSync(this.projectDocPath, 'utf8');
+      this.debug(`Read project doc.md (${projectDocContent.length} bytes) for distribution`);
+    } else {
+      this.debug('project/doc.md not found — skipping documentation distribution');
+    }
+
+    const doDistribute = projectDocContent.length > 0;
+
     for (const epic of hierarchy.epics) {
-      await progressCallback?.(null, `Writing Epic: ${epic.name}`, {});
       const epicDir = path.join(this.projectPath, epic.id);
 
       this.debug(`Creating Epic directory: ${epicDir}`);
       if (!fs.existsSync(epicDir)) {
         fs.mkdirSync(epicDir, { recursive: true });
       }
-
-      // Write Epic doc.md (stub)
-      const docContent = `# ${epic.name}\n\n*Documentation will be added during implementation and retrospective ceremonies.*\n`;
-      const docPath = path.join(epicDir, 'doc.md');
-      fs.writeFileSync(docPath, docContent, 'utf8');
-      this.debug(`Writing ${docPath} (${docContent.length} bytes)`);
 
       // Write Epic work.json (preserve existing metadata like selectedValidators)
       const epicWorkJson = {
@@ -997,21 +1001,28 @@ Return your response as JSON following the exact structure specified in your ins
 
       epicCount++;
 
+      // Distribute documentation: extract epic-specific content from project doc
+      let epicDocContent;
+      if (doDistribute) {
+        await progressCallback?.(null, `Distributing documentation → ${epic.name}`, {});
+        this.debug(`Distributing docs: project/doc.md → ${epic.id}/doc.md`);
+        const distributed = await this.distributeDocContent(projectDocContent, epic, 'epic', progressCallback);
+        epicDocContent = distributed.childDoc;
+        projectDocContent = distributed.parentDoc;
+        this.debug(`After distribution: project doc ${distributed.parentDoc.length} bytes, epic doc ${distributed.childDoc.length} bytes`);
+      } else {
+        await progressCallback?.(null, `Writing Epic: ${epic.name}`, {});
+        epicDocContent = `# ${epic.name}\n\n${epic.description || ''}\n`;
+      }
+
       // Write Story files (nested under epic)
       for (const story of epic.stories || []) {
-        await progressCallback?.(null, `  Writing story: ${story.name}`, {});
         const storyDir = path.join(epicDir, story.id);
 
         this.debug(`Creating Story directory: ${storyDir}`);
         if (!fs.existsSync(storyDir)) {
           fs.mkdirSync(storyDir, { recursive: true });
         }
-
-        // Write Story doc.md (stub)
-        const storyDocContent = `# ${story.name}\n\n*Documentation will be added during implementation and retrospective ceremonies.*\n`;
-        const storyDocPath = path.join(storyDir, 'doc.md');
-        fs.writeFileSync(storyDocPath, storyDocContent, 'utf8');
-        this.debug(`Writing ${storyDocPath} (${storyDocContent.length} bytes)`);
 
         // Write Story work.json (preserve existing metadata like selectedValidators)
         const storyWorkJson = {
@@ -1035,8 +1046,36 @@ Return your response as JSON following the exact structure specified in your ins
         fs.writeFileSync(storyWorkJsonPath, storyWorkJsonContent, 'utf8');
         this.debug(`Writing ${storyWorkJsonPath} (${storyWorkJsonContent.length} bytes)`);
 
+        // Distribute documentation: extract story-specific content from epic doc
+        let storyDocContent;
+        if (doDistribute) {
+          await progressCallback?.(null, `  Distributing documentation → ${story.name}`, {});
+          this.debug(`Distributing docs: ${epic.id}/doc.md → ${story.id}/doc.md`);
+          const distributed = await this.distributeDocContent(epicDocContent, story, 'story', progressCallback);
+          storyDocContent = distributed.childDoc;
+          epicDocContent = distributed.parentDoc;
+          this.debug(`After distribution: epic doc ${distributed.parentDoc.length} bytes, story doc ${distributed.childDoc.length} bytes`);
+        } else {
+          storyDocContent = `# ${story.name}\n\n${story.description || ''}\n`;
+        }
+
+        const storyDocPath = path.join(storyDir, 'doc.md');
+        fs.writeFileSync(storyDocPath, storyDocContent, 'utf8');
+        this.debug(`Writing ${storyDocPath} (${storyDocContent.length} bytes)`);
+
         storyCount++;
       }
+
+      // Write the epic doc.md AFTER all stories have extracted their portions
+      const epicDocPath = path.join(epicDir, 'doc.md');
+      fs.writeFileSync(epicDocPath, epicDocContent, 'utf8');
+      this.debug(`Writing ${epicDocPath} (${epicDocContent.length} bytes)`);
+    }
+
+    // Write the project doc.md AFTER all epics have extracted their portions
+    if (doDistribute) {
+      fs.writeFileSync(this.projectDocPath, projectDocContent, 'utf8');
+      this.debug(`Updated project/doc.md (${projectDocContent.length} bytes) after epic extraction`);
     }
 
     // Log all files written this run for cross-run comparison
@@ -1055,7 +1094,7 @@ Return your response as JSON following the exact structure specified in your ins
 
     // Display clean summary of created epics and stories
     if (hierarchy.epics.length > 0) {
-        for (const epic of hierarchy.epics) {
+      for (const epic of hierarchy.epics) {
         sendOutput(`${epic.id}: ${epic.name}\n`);
         for (const story of epic.stories || []) {
           sendIndented(`${story.id}: ${story.name}`, 1);
@@ -1065,6 +1104,98 @@ Return your response as JSON following the exact structure specified in your ins
     }
 
     return { epicCount, storyCount };
+  }
+
+  /**
+   * Distribute documentation content from a parent doc.md to a child item's doc.md.
+   *
+   * Calls the doc-distributor LLM agent which extracts content specifically about
+   * the child from the parent document, builds the child's doc.md with the extracted
+   * content plus elaboration, and returns the parent document with that content removed.
+   *
+   * @param {string} parentDocContent - Current content of the parent doc.md
+   * @param {Object} childItem - Epic or story object from decomposition result
+   * @param {'epic'|'story'} childType - Whether the child is an epic or story
+   * @param {Function} progressCallback - Optional progress callback
+   * @returns {Promise<{childDoc: string, parentDoc: string}>}
+   */
+  async distributeDocContent(parentDocContent, childItem, childType, progressCallback = null) {
+    this.debugSection(`DOC DISTRIBUTION: ${childType.toUpperCase()} "${childItem.name}"`);
+
+    const agentPath = path.join(this.agentsPath, 'doc-distributor.md');
+    this.debug(`Loading doc-distributor agent: ${agentPath}`);
+    const agentInstructions = fs.readFileSync(agentPath, 'utf8');
+
+    // Build child item description for the prompt
+    let itemDescription;
+    if (childType === 'epic') {
+      const features = (childItem.features || []).join(', ') || 'none specified';
+      const stories = (childItem.stories || []).map(s => `- ${s.name}: ${s.description || ''}`).join('\n') || 'none yet';
+      itemDescription = `Type: epic
+Name: ${childItem.name}
+Domain: ${childItem.domain || 'general'}
+Description: ${childItem.description || ''}
+Features: ${features}
+Stories that will belong to this epic:
+${stories}`;
+    } else {
+      const acceptance = (childItem.acceptance || []).map(a => `- ${a}`).join('\n') || 'none specified';
+      itemDescription = `Type: story
+Name: ${childItem.name}
+User type: ${childItem.userType || 'team member'}
+Description: ${childItem.description || ''}
+Acceptance criteria:
+${acceptance}`;
+    }
+
+    const prompt = `## Parent Document
+
+${parentDocContent}
+
+---
+
+## Child Item to Create Documentation For
+
+${itemDescription}
+
+---
+
+Extract content specifically about this ${childType} from the parent document into the child's \`doc.md\`. Remove the extracted content from the parent document. Return JSON with \`child_doc\` and \`parent_doc\` fields.`;
+
+    this.debug(`Prompt length: ${prompt.length} chars (parent: ${parentDocContent.length}, item: ${itemDescription.length})`);
+
+    const provider = await this.getProviderForStageInstance('doc-distribution');
+
+    const result = await this._withProgressHeartbeat(
+      () => this.retryWithBackoff(
+        () => provider.generateJSON(prompt, agentInstructions),
+        `doc distribution for ${childType}: ${childItem.name}`
+      ),
+      (elapsed) => {
+        if (elapsed < 15) return `Extracting ${childType}-specific content…`;
+        if (elapsed < 30) return `Building ${childItem.name} documentation…`;
+        if (elapsed < 45) return `Refining parent document…`;
+        return `Still distributing… (${elapsed}s)`;
+      },
+      progressCallback,
+      5000
+    );
+
+    const usage = provider.getTokenUsage();
+    this.debug(`Doc distribution tokens: ${usage.inputTokens} in · ${usage.outputTokens} out`);
+
+    // Validate response shape and fall back gracefully on malformed output
+    const childDoc = (typeof result.child_doc === 'string' && result.child_doc.trim())
+      ? result.child_doc
+      : `# ${childItem.name}\n\n${childItem.description || ''}\n`;
+
+    const parentDoc = (typeof result.parent_doc === 'string' && result.parent_doc.trim())
+      ? result.parent_doc
+      : parentDocContent;
+
+    this.debug(`Distribution result: child_doc ${childDoc.length} bytes, parent_doc ${parentDoc.length} bytes`);
+
+    return { childDoc, parentDoc };
   }
 
   // Count total hierarchy (nested structure)
@@ -1287,8 +1418,8 @@ Return your response as JSON following the exact structure specified in your ins
       outputBuffer.clear();
 
       // Stage 6: Write hierarchy files
-      sendProgress('Writing hierarchy files...');
-      await progressCallback?.('Stage 6/6: Writing hierarchy files…');
+      sendProgress('Writing files and distributing documentation...');
+      await progressCallback?.('Stage 6/6: Writing files and distributing documentation…');
       const { epicCount, storyCount } = await this.writeHierarchyFiles(hierarchy, progressCallback);
 
       // Stage 9: Summary & Cleanup

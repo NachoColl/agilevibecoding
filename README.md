@@ -45,39 +45,30 @@ AVC gets inspired by the [Agile Manifesto](https://agilemanifesto.org/) and the 
 
 ### Assets Hierarchy
 
-The Assets Hierarchy establishes a structured folder architecture to organize work items, contextual scopes, and documentation supporting the tools and ceremonies defined within the Agile Vibe Coding framework.
+The Assets Hierarchy establishes a structured folder architecture to organize work items and documentation supporting the tools and ceremonies defined within the Agile Vibe Coding framework.
 
 ```
 project/
 ├── doc.md                                    # documentation
-├── context.md                                # context scope                                                             
-└── context-0001/   
-    ├── doc.md                                # documentation                          
-    ├── context.md                            # context scope
+└── context-0001/
+    ├── doc.md                                # documentation
     ├── work.json                             # work item (e.g. EPIC)
-    └── context-0001-0001/                    
-        ├── doc.md                            # documentation                          
-        ├── context.md                        # context scope
-        ├── work.json                         # work item (e.g. STORY)                     
-        └── context-0001-0001-0001/           
-            ├── doc.md                        # documentation                          
-            ├── context.md                    # context scope
-            ├── work.json                     # work item (e.g. TASK)                     
-            ├── context-0001-0001-0001-0001/  
+    └── context-0001-0001/
+        ├── doc.md                            # documentation
+        ├── work.json                         # work item (e.g. STORY)
+        └── context-0001-0001-0001/
+            ├── doc.md                        # documentation
+            ├── work.json                     # work item (e.g. TASK)
+            ├── context-0001-0001-0001-0001/
             │   ├── doc.md                    # documentation
-            │   ├── context.md                # context scope
             │   └── work.json                 # work item (e.g. SUBTASK)
             └── context-0001-0001-0001-0002/
                 ├── ...
 ```
 
-### Context Scope
+### Documentation
 
-A context scope (context.md) defines the minimal set of information required for an LLM to correctly implement a specific work item. It includes only the content that is directly relevant to that single item, ensuring the model operates with focused and sufficient context.
-
-### Documentation Scope
-
-A documentation item (doc.md) contains human-readable project documentation related to a specific work item. Its purpose is to provide developers with the necessary background, explanations, and reference material associated with that item.
+Each node in the hierarchy maintains a single `doc.md` file, scoped to introduce only the information that is new and specific to that node — no duplication of what parent levels already define. Agents accumulate the full picture by reading all `doc.md` files along the path from root to the current node.
 
 ### Work Item
 
@@ -156,42 +147,31 @@ context-0001/                          # Epic
     # Epic completes only after both stories complete ↑
 ```
 
-### Context Inheritance
+### Hierarchical Documentation
 
-Each level in the hierarchy includes its own `context.md` file.
+Documentation is **hierarchically inherited**: each `doc.md` file introduces only information new and specific to that node — no duplication of what parent levels already define. Agents accumulate the full picture by reading all `doc.md` files along the path from root to the current node.
 
-Context is **hierarchically inherited**:
-- Each level inherits the full context of its parent.
-- It extends that context with more specific, local details relevant to its scope.
+Research confirms this approach. Gloaguen et al. (2025) found that broad, comprehensive context files reduce agent task-success rates and increase inference cost by more than 20% ([arXiv:2602.11988](https://arxiv.org/abs/2602.11988)). The key principle: agents perform best when context is **minimal and scoped** — only what is new at each level, not a repetition of everything above.
 
-When implementing a work unit, agents must read **all `context.md` files along the path** — from the project root down to the current level.
-
-This ensures:
-- Awareness of global constraints
-- Alignment with higher-level design decisions
-- Access to all level-specific requirements
+AVC encodes this directly in its hierarchy: each `doc.md` adds one layer of specificity; agents compose the full picture by traversing the path.
 
 An example:
 
 ```
 project/
-├── doc.md                  # Level 1: Project documentation
-├── context.md              # Level 1: Project  :: Language: TypeScript 5.0 [...]
+├── doc.md                  # Level 1: Project — language, stack, overall goals
 └── context-0001/           # Epic
-    ├── doc.md              # Level 2: Epic documentation
-    ├── context.md          # Level 2: Epic     :: All passwords MUST be hashed [...]
+    ├── doc.md              # Level 2: Epic — domain rules (e.g. password hashing policy)
     ├── work.json           # Epic work item
     └── context-0001-0001/  # Story
-        ├── doc.md          # Level 3: Story documentation
-        ├── context.md      # Level 3: Story    :: Password minimum 8 characters [...]
+        ├── doc.md          # Level 3: Story — feature constraints (e.g. min 8 chars)
         ├── work.json       # Story work item
         └── context-0001-0001-0001/  # Task
-            ├── doc.md      # Level 4: Task documentation
-            ├── context.md  # Level 4: Task     :: pattern -> class JWTService { [...]
+            ├── doc.md      # Level 4: Task — implementation pattern for this task
             └── work.json   # Task work item
 ```
 
-**When an agent implements task `context-0001-0001-0001`, it reads ALL five context.md files (project + epic + story + task) as the complete context.**
+**When an agent implements task `context-0001-0001-0001`, it reads all four `doc.md` files (project → epic → story → task) as the complete context.**
 
 
 #### Validation Order
@@ -221,13 +201,12 @@ graph LR
     C --> D[AI Coding]
     D --> E[Human Review]
     E --> D
-    E --> F[Context Retrospective]
-    F --> B
+    E --> B
 ```
 
 ### **Sponsor Call**
 
-The **Sponsor Call** ceremony is the foundational ceremony in the Agile Vibe Coding framework. It creates your project's brief and root context scope.
+The **Sponsor Call** ceremony is the foundational ceremony in the Agile Vibe Coding framework. It creates your project's brief and root documentation.
 
 **[📖 Read /sponsor-call Documentation](ceremonies/sponsor-call.md)**
 
@@ -241,20 +220,19 @@ Decomposes project scope into domain-based Epics and Stories with proper context
 
 ### **Seed**
 
-Decomposes a Story into Tasks (2-5) and Subtasks (1-3 per Task) for implementation. Creates atomic work units with complete context inheritance from Story, Epic, and Project levels.
+Decomposes a Story into Tasks (2-5) and Subtasks (1-3 per Task) for implementation. Creates atomic work units with complete documentation inheritance from Story, Epic, and Project levels.
 
 **Key Features**
 
 - Story-level decomposition into technical Tasks
 - Task categories: backend, frontend, database, testing, infrastructure
 - Atomic Subtasks (1-4 hours each)
-- Generates Task and Subtask context.md files
 - Updates Story work.json with Task children
 
 **Output**
 
-- Task directories: `context-XXXX-XXXX-XXXX/` with doc.md, context.md, work.json
-- Subtask directories: `context-XXXX-XXXX-XXXX-XXXX/` with doc.md, context.md, work.json
+- Task directories: `context-XXXX-XXXX-XXXX/` with doc.md, work.json
+- Subtask directories: `context-XXXX-XXXX-XXXX-XXXX/` with doc.md, work.json
 
 **Usage**
 
@@ -281,23 +259,6 @@ Autonomous implementation of atomic work units by specialized AI agents. Generat
 **[📖 Read Full Documentation](ceremonies/ai-coding.md)**
 
 
-### **Context Retrospective** - Learning & Refinement
-
-**Status**
-
-🚧 **Under Development**
-
-Updates all context scopes based on learnings from implementation. Ensures AI agents have accurate, up-to-date context for future work by capturing architectural decisions, domain knowledge, and technical insights.
-
-**Key Features**
-
-- Analyzes completed work for insights
-- Updates context.md files at all levels
-- Maintains context inheritance
-- Tracks architectural decisions and patterns
-
-**[📖 Read Full Documentation](ceremonies/context-retrospective.md)**
-
 
 ### **Kanban Board** - Work Item Visualization
 
@@ -313,7 +274,7 @@ Visual kanban board for managing AVC work items. Interactive web interface with 
 - **Real-time Updates**: WebSocket sync when work items change
 - **Advanced Filtering**: By type (Epic/Story/Task/Subtask), status, and full-text search
 - **Multiple Groupings**: View by Status, Epic hierarchy, or Type
-- **Interactive Cards**: Click for full details with context, documentation, and children
+- **Interactive Cards**: Click for full details with documentation and children
 - **Modern UI**: Built with React, shadcn/ui, Tailwind CSS, and Framer Motion
 
 **Usage**
@@ -415,13 +376,10 @@ AVC uses a **single prompt strategy** where agent instructions and task data are
 **Generation Agents**
 
 - `project-documentation-creator.md` - 9-section document structure, technology-specific output, hierarchical documentation
-- `project-context-generator.md` - Project-level architectural context with technology stack and patterns
 - `epic-story-decomposer.md` - Domain-driven design rules, Epic/Story decomposition strategy
-- `feature-context-generator.md` - Epic/Story context generation with layered specificity
 
 **Validator Agents (Quality Assurance):**
 - `validator-documentation.md` - Reviews `doc.md` for structural coherence, completeness, and application flow clarity
-- `validator-context.md` - Reviews `context.md` for technical depth, consistency, and best practices
 
 Validators run automatically in Sponsor Call ceremony to iteratively improve generated artifacts through LLM-powered feedback loops (max 2 iterations per artifact).
 
@@ -450,7 +408,7 @@ await googleAI.models.generateContent({
 - ⚠️ **Con**: Higher resource usage per agent call
 - ⚠️ **Con**: Instruction redundancy across multiple API calls
 
-**Decision**: For complex ceremony tasks (project decomposition, context generation), the quality improvement justifies the approach.
+**Decision**: For complex ceremony tasks (project decomposition, documentation generation), the quality improvement justifies the approach.
 
 **Context Accumulation**: Each AI suggestion uses all previously collected answers as context. The system builds understanding progressively - later suggestions are more informed than earlier ones.
 
@@ -465,6 +423,8 @@ await googleAI.models.generateContent({
 3. **Agile Manifesto** - [Agile Principles](https://agilemanifesto.org/principles.html) - Prioritizes delivering functional software rapidly while remaining responsive to changing customer needs through continuous collaboration and team empowerment.
 
 4. **LLM Limitations Research** - [https://arxiv.org/html/2410.12972v2](https://arxiv.org/html/2410.12972v2) - Large language models exhibit significant weakness in combining knowledge and instruction-following, with performance drops of 40-80% when given simple answer-modifying instructions alongside knowledge tasks.
+
+5. **Hierarchical Documentation Strategy** - Gloaguen et al. (2025) - [Evaluating AGENTS.md: Are Repository-Level Context Files Helpful for Coding Agents?](https://arxiv.org/abs/2602.11988) - Comprehensive context files reduce agent task-success rates and increase inference cost by more than 20%. Agents perform best when context is minimal and scoped to what is relevant at each level — the principle behind AVC's hierarchical `doc.md` approach.
 
 
 

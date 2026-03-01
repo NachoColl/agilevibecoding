@@ -23,7 +23,7 @@ Initializes AVC project structure with default configuration.
 
 1. Add your API keys to `.env` file
 2. (Optional) Run `/models` to customize LLM model configuration
-3. Run `/sponsor-call` to start defining your project
+3. Run `/sponsor-call` to start defining your project (or use the Kanban board to manage work items)
 
 The default configuration is production-ready and works immediately. The command is safe to run multiple times—it preserves your existing configuration and API keys while adding any new settings from CLI updates.
 
@@ -36,63 +36,8 @@ Next steps:
   1. Open .env file and add your API key(s)
      • ANTHROPIC_API_KEY for Claude
      • GEMINI_API_KEY for Gemini
-  2. Run /sponsor-call to define your project
+  2. Use the Kanban board (/kanban) to manage your project work items
 ```
-
-
-## /sponsor-call
-
-Creates your project foundation through an AI-assisted questionnaire, generating comprehensive documentation (`doc.md`) and architectural context (`context.md`) that guides all subsequent development work.
-
-**Alias:** `/sc`
-
-**📖 [Full ceremony documentation →](ceremonies/sponsor-call.md)**
-
-```sh
-> /sponsor-call
-```
-
-### Architecture-Aware Workflow
-
-The sponsor-call ceremony features intelligent architecture recommendation that reduces ceremony time by ~60%:
-
-1. **Answer Initial Questions**
-   - **Mission Statement** (mandatory) - What problem are you solving?
-   - **Initial Scope** - Key features and capabilities
-
-2. **Architecture Selection** (automatic after scope)
-   - AI analyzes your project and recommends 3-5 deployment architectures
-   - Interactive selector with keyboard navigation:
-     - `↑/↓`: Navigate options
-     - `Enter`: Select architecture
-     - `Esc`: Skip (continue with manual answers)
-   - Examples: "Next.js Full-Stack on Vercel", "AWS Serverless Backend + SPA", "CLI Tool"
-
-3. **Cloud Provider Selection** (conditional)
-   - Shown only if architecture requires cloud provider (AWS/Azure/GCP)
-   - Select your preferred cloud platform
-   - `Esc` to skip and use architecture-agnostic answers
-
-4. **Intelligent Question Pre-filling**
-   - AI generates contextual answers for remaining questions:
-     - Target Users
-     - Deployment Target
-     - Technical Considerations
-     - Security Requirements
-   - Answers are pre-filled based on your architecture selection
-
-5. **Review and Edit**
-   - Preview shows all answers with indicators:
-     - 🤖 = AI-suggested (can be edited)
-     - ✏️ = User-entered
-   - Edit any answer before submission
-   - All AI suggestions are fully editable
-
-**Benefits:**
-- Expert architecture guidance without deep DevOps knowledge
-- Ensures consistent, contextually appropriate answers
-- Educational - learn recommended approaches for your project type
-- Fast iteration while maintaining quality
 
 
 
@@ -189,9 +134,8 @@ The documentation server runs as a managed background process:
 ### Example Workflow
 
 ```sh
-# 1. Initialize project and run Sponsor Call
+# 1. Initialize project
 > /init
-> /sponsor-call
 
 # 2. Build and serve documentation
 > /documentation
@@ -232,11 +176,11 @@ Ensure VitePress dependencies are installed:
 npm install vitepress --save-dev
 ```
 
-### Integration with Sponsor Call
+### Integration with Project Documentation
 
 The Sponsor Call ceremony automatically syncs the generated project definition to `.avc/documentation/index.md`, making it immediately available for documentation viewing:
 
-1. Run `/sponsor-call` → Creates `.avc/project/doc.md`
+1. Sponsor Call creates `.avc/project/doc.md`
 2. Document is auto-synced to `.avc/documentation/index.md`
 3. Run `/documentation` → Builds and serves the documentation
 4. View your project definition as a formatted website
@@ -289,7 +233,6 @@ The command runs as a **background process**, allowing you to continue using the
 **Card Details:**
 - Click any card to open detailed modal
 - **Overview Tab**: Full work item details with status, type, epic association, children count
-- **Context Tab**: Inherited context from parent work items (markdown rendered)
 - **Documentation Tab**: Work item's doc.md content (markdown rendered)
 - **Children Tab**: List of child work items with status indicators
 - **Keyboard Navigation**: Arrow keys to navigate between cards, Esc to close
@@ -362,8 +305,7 @@ The kanban server runs as a managed background process:
 ```sh
 # 1. Initialize project and create work items
 > /init
-> /sponsor-call
-# (Create epics, stories, tasks through ceremonies)
+# (Create epics, stories, tasks through the Kanban board)
 
 # 2. Launch kanban board
 > /kanban
@@ -389,7 +331,6 @@ The kanban server runs as a managed background process:
 **No work items to display**
 
 The kanban board requires at least one work item. Create work items through:
-- `/sponsor-call` - Creates initial epics
 - Sprint planning ceremonies - Creates stories and tasks
 - Manual creation in `.avc/project/` directories
 
@@ -503,7 +444,6 @@ Ceremony: sponsor-call - https://agilevibecoding.org/ceremonies/sponsor-call.htm
 • Validation: gemini-2.5-pro (gemini) ⚠️  No API key
 • suggestions: claude-sonnet-4-5-20250929 (claude)
 • documentation: claude-sonnet-4-5-20250929 (claude)
-• context: claude-sonnet-4-5-20250929 (claude)
 
 Configure models now? (y/n)
 ```
@@ -558,7 +498,6 @@ Run `/models` anytime you want to customize which LLM models are used for each c
 | Alias | Expands to |
 |-------|-----------|
 | `/i` | `/init` |
-| `/sc` | `/sponsor-call` |
 | `/d` | `/documentation` |
 | `/k` | `/kanban` |
 | `/m` | `/models` |

@@ -250,6 +250,10 @@ class ProjectInitiator {
                 provider: 'claude',
                 model: 'claude-sonnet-4-6'
               },
+              'doc-distribution': {
+                provider: 'claude',
+                model: 'claude-sonnet-4-6'
+              },
               solver: {
                 provider: 'claude',
                 model: 'claude-sonnet-4-6',
@@ -262,6 +266,11 @@ class ProjectInitiator {
                 name: 'epic-story-decomposer',
                 instruction: 'epic-story-decomposer.md',
                 stage: 'decomposition'
+              },
+              {
+                name: 'doc-distributor',
+                instruction: 'doc-distributor.md',
+                stage: 'doc-distribution'
               }
             ]
           },

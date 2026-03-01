@@ -212,7 +212,7 @@ Deploys to: https://agilevibecoding.org
 6. Add tests in `tests/unit/` or `tests/integration/`
 7. Update `repl-commands.test.js`
 
-**Commands requiring initialization check:** `/sponsor-call`, `/status`, `/remove`, etc.
+**Commands requiring initialization check:** `/status`, `/remove`, `/kanban`, `/seed`, etc.
 **Commands skipping check:** `/init`, `/help`, `/version`, `/exit`, `/restart`
 
 ### Implement Safe Destructive Operations
@@ -256,7 +256,7 @@ Follow `/remove` command pattern:
 
 AVC provides organizational structure for long-term AI-assisted development:
 - Hierarchical work items: Epic → Story → Task → Subtask
-- Context inheritance via `context.md` at each level
+- Hierarchical documentation via `doc.md` at each level (each node adds only what is new to its scope)
 - LLM-powered ceremonies with multi-model support
 - Verification-focused work items
 
@@ -285,5 +285,4 @@ AVC provides organizational structure for long-term AI-assisted development:
 ## Version
 
 CLI Version: 0.1.0
-Test Count: 194 tests (12 files)
 Documentation: https://agilevibecoding.org
