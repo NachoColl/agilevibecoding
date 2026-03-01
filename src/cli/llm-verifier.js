@@ -375,7 +375,8 @@ export class LLMVerifier {
           applied.push({
             id: rule.id,
             name: rule.name,
-            severity: rule.severity
+            severity: rule.severity,
+            description: rule.description
           });
         } else {
           console.log(`[DEBUG] verify - Rule ${rule.id} fix did not change content (no-op fix)`);

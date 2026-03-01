@@ -59,7 +59,22 @@ export function CompleteStep({ onClose }) {
 
   // undefined → show example preview; [] → no issues (hide); [...] → real data
   const isExample = r.validationIssues === undefined;
-  const issues = r.validationIssues ?? EXAMPLE_ISSUES;
+  const rawIssues = r.validationIssues ?? EXAMPLE_ISSUES;
+
+  // Group duplicate rule applications by ruleId
+  const issueMap = {};
+  for (const issue of rawIssues) {
+    const key = issue.ruleId || issue.name;
+    if (!issueMap[key]) {
+      issueMap[key] = { ...issue, count: 1, iterations: issue.iteration ? [issue.iteration] : [] };
+    } else {
+      issueMap[key].count++;
+      if (issue.iteration && !issueMap[key].iterations.includes(issue.iteration)) {
+        issueMap[key].iterations.push(issue.iteration);
+      }
+    }
+  }
+  const issues = Object.values(issueMap);
 
   return (
     <div className="space-y-6">
@@ -101,10 +116,25 @@ export function CompleteStep({ onClose }) {
           </p>
           <div className="space-y-1.5">
             {issues.map((issue, i) => (
-              <div key={i} className="flex items-center gap-2 text-xs bg-amber-50 border border-amber-100 rounded-md px-3 py-2">
-                <IssueTag severity={issue.severity} />
-                <span className="text-slate-400 flex-shrink-0">{issue.stage}</span>
-                <span className="text-slate-600">{issue.name}</span>
+              <div key={i} className="bg-amber-50 border border-amber-100 rounded-md px-3 py-2 text-xs">
+                <div className="flex items-center gap-2">
+                  <IssueTag severity={issue.severity} />
+                  <span className="text-slate-400 flex-shrink-0">{issue.stage}</span>
+                  <span className="text-slate-700 font-medium">{issue.name}</span>
+                  {issue.count > 1 && (
+                    <span className="ml-auto flex-shrink-0 bg-amber-200 text-amber-800 text-[10px] font-bold px-1.5 py-0.5 rounded-full">
+                      ×{issue.count}
+                    </span>
+                  )}
+                  {issue.iterations?.length > 0 && (
+                    <span className="flex-shrink-0 text-slate-400">
+                      iter {issue.iterations.sort((a, b) => a - b).join(', ')}
+                    </span>
+                  )}
+                </div>
+                {issue.description && (
+                  <p className="mt-1 text-slate-500 pl-1">{issue.description}</p>
+                )}
               </div>
             ))}
           </div>

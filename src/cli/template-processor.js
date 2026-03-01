@@ -1020,7 +1020,7 @@ ${questionnaire.TECHNICAL_EXCLUSIONS}
 
           // Collect for final ceremony summary
           for (const rule of verificationResult.rulesApplied) {
-            this.validationIssues.push({ stage: 'Project Documentation', ruleId: rule.id, name: rule.name, severity: rule.severity });
+            this.validationIssues.push({ stage: 'Project Documentation', ruleId: rule.id, name: rule.name, severity: rule.severity, description: rule.description });
           }
         }
 
@@ -1761,7 +1761,7 @@ Return your response as JSON following the exact structure specified in your ins
 
       // Collect for final ceremony summary
       for (const rule of verificationResult.rulesApplied) {
-        this.validationIssues.push({ stage: 'Documentation Validation', ruleId: rule.id, name: rule.name, severity: rule.severity });
+        this.validationIssues.push({ stage: 'Documentation Validation', ruleId: rule.id, name: rule.name, severity: rule.severity, description: rule.description });
       }
 
       // Parse corrected JSON back to object
@@ -1889,6 +1889,7 @@ Return your response as JSON following the exact structure specified in your ins
       // Report validation iteration progress
       this.reportSubstep(`Validation ${iteration + 1}/${maxIterations}: Validating Project Brief structure...`);
       await this.reportDetail(`Calling ${this.validationLLMProvider?.model || 'LLM'} to validate…`);
+      const issueCountBefore = this.validationIssues.length;
       const validation = await this.withHeartbeat(
         () => this.validateDocument(currentContent, questionnaire),
         (elapsed) => {
@@ -1899,6 +1900,10 @@ Return your response as JSON following the exact structure specified in your ins
         },
         15000
       );
+      // Tag newly-added issues with the current iteration number
+      for (let i = issueCountBefore; i < this.validationIssues.length; i++) {
+        this.validationIssues[i].iteration = iteration + 1;
+      }
 
       this.reportSubstep('Analyzing validation results...');
 
