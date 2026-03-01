@@ -511,7 +511,7 @@ class SprintPlanningProcessor {
       // Build regex (case-insensitive). Allow optional numeric prefix so
       // "## 3. Initial Scope" matches when searching for "Initial Scope".
       const regex = new RegExp(
-        `##\\s+(?:\\d+\\.\\s+)?${this.escapeRegex(header)}\\s+([\\s\\S]+?)(?=\\n##|$)`,
+        `##\\s+(?:\\d+\\.\\s+)?${this.escapeRegex(header)}\\s+([\\s\\S]+?)(?=\\n#{1,2}[^#]|$)`,
         'i'
       );
 
