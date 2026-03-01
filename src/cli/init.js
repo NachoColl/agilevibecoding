@@ -304,9 +304,9 @@ class ProjectInitiator {
           }
         },
         costThresholds: {
-          'sponsor-call': null,
-          'sprint-planning': null,
-          'seed': null
+          'sponsor-call': 2,
+          'sprint-planning': 2,
+          'seed': 2
         },
         questionnaire: {
           defaults: {
@@ -490,6 +490,15 @@ class ProjectInitiator {
 
       // Merge: add new keys, keep existing values
       const mergedConfig = this.deepMerge(existingConfig, defaultConfig);
+
+      // Upgrade null cost thresholds to default (2 USD)
+      if (mergedConfig.settings?.costThresholds) {
+        for (const ceremony of ['sponsor-call', 'sprint-planning', 'seed']) {
+          if (mergedConfig.settings.costThresholds[ceremony] === null) {
+            mergedConfig.settings.costThresholds[ceremony] = 2;
+          }
+        }
+      }
 
       // Update avcVersion to track CLI version
       mergedConfig.avcVersion = this.getAvcVersion();
