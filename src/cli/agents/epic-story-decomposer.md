@@ -16,6 +16,46 @@ Given a project's Initial Scope (list of features/functional areas), decompose i
 4. Epics should be **parallelizable** (minimal inter-Epic dependencies)
 5. Create 3-7 Epics (not too few, not too many)
 6. **Avoid duplicates** - If existing Epic/Story names are provided, DO NOT generate them
+7. **Epic description must be architecturally specific** — see description guidelines below
+
+## Epic Description Guidelines
+
+The `description` field is the most important part of the Epic. It must include:
+- **What** the epic implements (the functional goal)
+- **How** (key technical approach: framework, protocol, pattern)
+- **Key constraints or boundaries** (security, performance, compliance)
+- **Integration touchpoints** with other epics
+
+**BAD description (too vague — will fail validation):**
+> "Authentication, authorization, JWT session management, role-based access control"
+
+**GOOD description (specific enough for architects, developers, and DevOps to plan from):**
+> "JWT-based stateless authentication (RS256 signing, httpOnly cookie transport) with Redis-backed token denylist for revocation. RBAC enforcement via middleware — two fixed roles: admin (full access) and agent (scoped access). bcrypt password hashing, rate-limited login endpoint, and audit log for all auth events. All endpoints require HTTPS. Supports admin-only account creation (no self-registration)."
+
+The description should be 2-5 sentences. It should answer: *If a senior developer read only this description, could they make the key architectural decisions?*
+
+## Features List Guidelines
+
+The `features` array should list **specific capabilities with technical detail**, not generic nouns.
+
+**BAD features (too generic — validators can't assess completeness):**
+```json
+["authentication", "authorization", "logging"]
+```
+
+**GOOD features (specific and assessable):**
+```json
+[
+  "jwt-authentication (RS256, 15min access token, 7d refresh token, httpOnly cookies)",
+  "rbac-authorization (admin/agent roles, middleware enforcement on all routes)",
+  "bcrypt-password-hashing (cost factor 12)",
+  "rate-limiting (5 failed logins → 15min lockout)",
+  "audit-logging (login, logout, role changes, account deactivation events)",
+  "token-revocation (Redis denylist, checked on every request)"
+]
+```
+
+Each feature string should follow the pattern: `feature-name (key technical detail)`.
 
 ## Story Decomposition Rules
 
@@ -24,6 +64,15 @@ Given a project's Initial Scope (list of features/functional areas), decompose i
 3. Stories should be **implementable in 1-3 days**
 4. Each Story should have **3-8 acceptance criteria**
 5. Create 2-8 Stories per Epic
+6. Story descriptions should be specific: include user type, action, and technical method
+
+## Story Description Guidelines
+
+**BAD story description:**
+> "Allow users to authenticate with email/password"
+
+**GOOD story description:**
+> "Allow agents and admins to log in using email and password. The server issues a short-lived JWT access token (15 min) stored in an httpOnly cookie and a refresh token (7 days) for seamless session renewal. Failed attempts are rate-limited."
 
 ## Dependency Strategy
 
@@ -65,33 +114,43 @@ Return JSON with this exact structure:
       "id": "context-0001",
       "name": "Foundation Services",
       "domain": "infrastructure",
-      "description": "Authentication, authorization, logging, error handling",
-      "features": ["authentication", "authorization", "logging"],
+      "description": "JWT-based stateless authentication (RS256 signing, httpOnly cookie transport) with Redis-backed token denylist for revocation. RBAC enforcement via middleware with two fixed roles: admin (full access) and agent (scoped to assigned resources). bcrypt password hashing, rate-limited login, admin-only account creation (no self-registration), and audit logging for all auth events.",
+      "features": [
+        "jwt-authentication (RS256, 15min access / 7d refresh tokens, httpOnly cookies)",
+        "rbac-authorization (admin and agent roles, enforced on all API routes)",
+        "bcrypt-password-hashing (cost factor 12)",
+        "admin-only-user-creation (no self-registration)",
+        "rate-limiting (5 failed attempts triggers 15min lockout)",
+        "token-revocation (Redis denylist, checked per request)",
+        "audit-logging (auth events: login, logout, role changes, deactivation)"
+      ],
       "dependencies": [],
       "stories": [
         {
           "id": "context-0001-0001",
-          "name": "Authentication Service",
-          "userType": "all users",
-          "description": "Allow users to authenticate with email/password",
+          "name": "Email and Password Login with JWT Sessions",
+          "userType": "agents and admins",
+          "description": "Allow agents and admins to log in using email and password credentials. The server validates credentials, issues a short-lived JWT access token (httpOnly cookie) and a refresh token. Failed attempts are counted per IP and account; 5 failures trigger a 15-minute lockout.",
           "acceptance": [
-            "User can log in with valid credentials",
-            "Invalid credentials show clear error",
-            "Session persists across browser restart",
-            "Rate limiting prevents brute force attacks"
+            "User can log in with valid email and password and receive an access token cookie",
+            "Invalid credentials return a generic error message (no user enumeration)",
+            "After 5 failed attempts the account is locked for 15 minutes with a clear message",
+            "Successful login is recorded in the audit log with timestamp and IP address",
+            "Access token expires after 15 minutes; refresh endpoint issues a new one silently"
           ],
           "dependencies": []
         },
         {
           "id": "context-0001-0002",
-          "name": "Authorization Service",
+          "name": "Role-Based Access Control Enforcement",
           "userType": "all users",
-          "description": "Check user permissions for resources and actions",
+          "description": "Enforce role-based permissions on every API route. Two roles: admin (full access) and agent (scoped to assigned resources). Authorization middleware checks the JWT claims on each request and returns 403 for insufficient permissions.",
           "acceptance": [
-            "System can check if user has permission for action",
-            "Permissions are role-based (RBAC)",
-            "Admin role has all permissions",
-            "Unauthorized access returns 403 error"
+            "Every protected API route rejects requests without a valid JWT with 401",
+            "Agent role cannot access admin-only endpoints (returns 403)",
+            "Admin role can access all endpoints",
+            "Permission checks use JWT claims — no additional DB call per request",
+            "Unauthorized access attempts are logged with user ID, route, and timestamp"
           ],
           "dependencies": ["context-0001-0001"]
         }
@@ -134,6 +193,9 @@ Before returning, verify:
 - [ ] Story acceptance criteria are concrete and testable
 - [ ] Epic names are clear and domain-focused
 - [ ] Story names describe user-facing capability
+- [ ] Each Epic description is 2-5 sentences and includes technical approach
+- [ ] Each feature string includes a technical detail in parentheses
+- [ ] Story descriptions specify user type, action, and key technical method
 
 ## Example Domain Patterns
 
