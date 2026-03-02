@@ -227,7 +227,7 @@ class EpicStoryValidator {
         const allIssues = lastResult.issues || [];
         const critCount = allIssues.filter(i => i.severity === 'critical').length;
         const majCount = allIssues.filter(i => i.severity === 'major').length;
-        const acceptable = lastResult.validationStatus !== 'needs-improvement' || score >= acceptanceThreshold;
+        const acceptable = score >= acceptanceThreshold;
         const issueStr = allIssues.length > 0 ? ` · ${allIssues.length} issue${allIssues.length !== 1 ? 's' : ''}` : '';
         await this._detail(`   Score: ${score}/100${issueStr} — ${acceptable ? '✓ accepted' : `⚠ below threshold (${acceptanceThreshold})`}`);
 
@@ -382,7 +382,7 @@ class EpicStoryValidator {
         const allIssues = lastResult.issues || [];
         const critCount = allIssues.filter(i => i.severity === 'critical').length;
         const majCount = allIssues.filter(i => i.severity === 'major').length;
-        const acceptable = lastResult.validationStatus !== 'needs-improvement' || score >= acceptanceThreshold;
+        const acceptable = score >= acceptanceThreshold;
         const issueStr = allIssues.length > 0 ? ` · ${allIssues.length} issue${allIssues.length !== 1 ? 's' : ''}` : '';
         await this._detail(`   Score: ${score}/100${issueStr} — ${acceptable ? '✓ accepted' : `⚠ below threshold (${acceptanceThreshold})`}`);
 
