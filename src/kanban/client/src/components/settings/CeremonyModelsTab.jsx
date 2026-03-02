@@ -21,7 +21,7 @@ export function CeremonyModelsTab({ settings, models, onSaved }) {
   );
   const [missionGenValidation, setMissionGenValidation] = useState(
     () => JSON.parse(JSON.stringify(
-      settings.missionGenerator?.validation || { maxIterations: 3, acceptanceThreshold: 90 }
+      settings.missionGenerator?.validation || { maxIterations: 3, acceptanceThreshold: 95 }
     ))
   );
   const [activeWorkflow, setActiveWorkflow] = useState(null);

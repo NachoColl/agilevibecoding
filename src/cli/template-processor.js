@@ -1639,7 +1639,7 @@ Return your response as JSON following the exact structure specified in your ins
       return ceremony?.validation || {
         enabled: true,
         maxIterations: 3,
-        acceptanceThreshold: 90,
+        acceptanceThreshold: 95,
         skipOnCriticalIssues: false
       };
     } catch (error) {
@@ -1647,7 +1647,7 @@ Return your response as JSON following the exact structure specified in your ins
       return {
         enabled: true,
         maxIterations: 3,
-        acceptanceThreshold: 90,
+        acceptanceThreshold: 95,
         skipOnCriticalIssues: false
       };
     }
@@ -1880,7 +1880,7 @@ Return your response as JSON following the exact structure specified in your ins
   async iterativeValidation(content, type, questionnaire) {
     const settings = this.getValidationSettings();
     const maxIterations = settings.maxIterations || 100;
-    const threshold = settings.acceptanceThreshold || 90;
+    const threshold = settings.acceptanceThreshold || 95;
 
     let currentContent = content;
     let iteration = 0;

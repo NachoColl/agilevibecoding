@@ -192,7 +192,7 @@ class EpicStoryValidator {
     // Read solver iteration settings
     const solverConfig = this.validationStageConfig?.solver || {};
     const maxIterations = solverConfig.maxIterations ?? 3;
-    const acceptanceThreshold = solverConfig.acceptanceThreshold ?? 90;
+    const acceptanceThreshold = solverConfig.acceptanceThreshold ?? 95;
 
     await this._detail(`${validators.length} validator${validators.length !== 1 ? 's' : ''}: ${validators.map(v => this.extractDomain(v)).join(', ')}`);
 
@@ -348,7 +348,7 @@ class EpicStoryValidator {
     // Read solver iteration settings
     const solverConfig = this.validationStageConfig?.solver || {};
     const maxIterations = solverConfig.maxIterations ?? 3;
-    const acceptanceThreshold = solverConfig.acceptanceThreshold ?? 90;
+    const acceptanceThreshold = solverConfig.acceptanceThreshold ?? 95;
 
     await this._detail(`${validators.length} validator${validators.length !== 1 ? 's' : ''}: ${validators.map(v => this.extractDomain(v)).join(', ')}`);
 

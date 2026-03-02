@@ -116,7 +116,7 @@ export function createSettingsRouter(projectRoot) {
         models: (config?.settings?.models && Object.keys(config.settings.models).length > 0)
           ? config.settings.models
           : DEFAULT_MODELS,
-        missionGenerator: config?.settings?.missionGenerator || { validation: { maxIterations: 3, acceptanceThreshold: 90 } },
+        missionGenerator: config?.settings?.missionGenerator || { validation: { maxIterations: 3, acceptanceThreshold: 95 } },
         kanbanPort: config?.settings?.kanban?.port || 4174,
         docsPort: config?.settings?.documentation?.port || 4173,
         boardTitle: config?.settings?.kanban?.title || 'AVC Kanban Board',
@@ -155,7 +155,7 @@ export function createSettingsRouter(projectRoot) {
         if (!config.settings.missionGenerator) config.settings.missionGenerator = {};
         config.settings.missionGenerator.validation = {
           maxIterations: Number(missionGenerator.validation.maxIterations) || 3,
-          acceptanceThreshold: Number(missionGenerator.validation.acceptanceThreshold) || 90,
+          acceptanceThreshold: Number(missionGenerator.validation.acceptanceThreshold) || 95,
         };
       }
       await writeAvcConfig(config);

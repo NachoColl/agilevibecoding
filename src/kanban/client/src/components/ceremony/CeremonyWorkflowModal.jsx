@@ -144,7 +144,7 @@ function buildSponsorCallPhases(ceremony, missionGenValidation) {
           loopParamType: 'missionGen',
           loop: {
             max:       missionGenValidation?.maxIterations ?? 3,
-            threshold: missionGenValidation?.acceptanceThreshold ?? 90,
+            threshold: missionGenValidation?.acceptanceThreshold ?? 95,
           },
           steps: [
             {
@@ -222,7 +222,7 @@ function buildSponsorCallPhases(ceremony, missionGenValidation) {
           loopParamType: 'docContext',
           loop: {
             max:       ceremony.validation?.maxIterations ?? 100,
-            threshold: ceremony.validation?.acceptanceThreshold ?? 90,
+            threshold: ceremony.validation?.acceptanceThreshold ?? 95,
           },
           steps: [
             {
@@ -259,7 +259,7 @@ function buildSprintPlanningPhases(ceremony) {
   // Stages that aren't explicitly configured fall back to ceremony.defaultModel
   const fallbackModel = ceremony.defaultModel;
   const solverMaxIter  = ceremony.stages?.solver?.maxIterations   ?? 3;
-  const solverThreshold = ceremony.stages?.solver?.acceptanceThreshold ?? 90;
+  const solverThreshold = ceremony.stages?.solver?.acceptanceThreshold ?? 95;
 
   return [
     {
@@ -688,7 +688,7 @@ export function CeremonyWorkflowModal({
 }) {
   const [draft, setDraft] = useState(() => JSON.parse(JSON.stringify(ceremony || {})));
   const [missionGenDraft, setMissionGenDraft] = useState(() =>
-    JSON.parse(JSON.stringify(missionGenValidation || { maxIterations: 3, acceptanceThreshold: 90 }))
+    JSON.parse(JSON.stringify(missionGenValidation || { maxIterations: 3, acceptanceThreshold: 95 }))
   );
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState(null);
@@ -776,7 +776,7 @@ export function CeremonyWorkflowModal({
 
   const handleCancel = () => {
     setDraft(JSON.parse(JSON.stringify(ceremony || {})));
-    setMissionGenDraft(JSON.parse(JSON.stringify(missionGenValidation || { maxIterations: 3, acceptanceThreshold: 90 })));
+    setMissionGenDraft(JSON.parse(JSON.stringify(missionGenValidation || { maxIterations: 3, acceptanceThreshold: 95 })));
     onClose();
   };
 

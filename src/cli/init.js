@@ -223,7 +223,7 @@ class ProjectInitiator {
             validation: {
               enabled: true,
               maxIterations: 100,
-              acceptanceThreshold: 90,
+              acceptanceThreshold: 95,
               skipOnCriticalIssues: false,
               provider: 'claude',
               model: 'claude-haiku-4-5-20251001',
@@ -262,7 +262,7 @@ class ProjectInitiator {
                 provider: 'claude',
                 model: 'claude-sonnet-4-6',
                 maxIterations: 3,
-                acceptanceThreshold: 90
+                acceptanceThreshold: 95
               }
             },
             agents: [
@@ -300,7 +300,7 @@ class ProjectInitiator {
         missionGenerator: {
           validation: {
             maxIterations: 3,
-            acceptanceThreshold: 90
+            acceptanceThreshold: 95
           }
         },
         costThresholds: {
