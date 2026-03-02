@@ -572,9 +572,10 @@ class EpicStoryValidator {
    * @private
    */
   buildEpicSolverPrompt(epic, epicContext, validationResult, validatorName) {
-    const issues = (validationResult.issues || []).filter(i =>
-      i.severity === 'critical' || i.severity === 'major'
-    );
+    const allIssues = validationResult.issues || [];
+    const critMajor = allIssues.filter(i => i.severity === 'critical' || i.severity === 'major');
+    // When no critical/major issues exist, include minor issues so the solver has specific guidance
+    const issues = critMajor.length > 0 ? critMajor : allIssues;
 
     const role = this.extractDomain(validatorName);
 
@@ -613,9 +614,10 @@ Improve this Epic to address the issues above. Return the complete improved Epic
    * @private
    */
   buildStorySolverPrompt(story, storyContext, epic, validationResult, validatorName) {
-    const issues = (validationResult.issues || []).filter(i =>
-      i.severity === 'critical' || i.severity === 'major'
-    );
+    const allIssues = validationResult.issues || [];
+    const critMajor = allIssues.filter(i => i.severity === 'critical' || i.severity === 'major');
+    // When no critical/major issues exist, include minor issues so the solver has specific guidance
+    const issues = critMajor.length > 0 ? critMajor : allIssues;
 
     const role = this.extractDomain(validatorName);
 

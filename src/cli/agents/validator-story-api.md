@@ -89,6 +89,8 @@ Return JSON with this exact structure:
 
 ## Scoring Guidelines
 
+**Score calibration**: If zero critical AND zero major issues → score MUST be ≥ 95. Reserve 90-94 for epics/stories with minor gaps only. Reserve 70-89 for major gaps.
+
 - **90-100 (Excellent)**: Crystal clear acceptance criteria, all api details specified, highly testable
 - **70-89 (Acceptable)**: Core requirements clear, minor gaps acceptable, implementable with clarification
 - **0-69 (Needs Improvement)**: Critical ambiguities, missing api requirements, must fix before implementation

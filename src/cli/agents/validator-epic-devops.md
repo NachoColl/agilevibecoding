@@ -87,6 +87,8 @@ Return JSON with this exact structure:
 
 ## Scoring Guidelines
 
+**Score calibration**: If zero critical AND zero major issues → score MUST be ≥ 95. Reserve 90-94 for epics/stories with minor gaps only. Reserve 70-89 for major gaps.
+
 - **90-100 (Excellent)**: Comprehensive DevOps coverage, clear deployment strategy, all 12-factor/GitOps best practices
 - **70-89 (Acceptable)**: Core DevOps concerns addressed, minor gaps acceptable, deployment strategy present
 - **0-69 (Needs Improvement)**: Critical DevOps gaps, missing deployment strategy, must fix before proceeding

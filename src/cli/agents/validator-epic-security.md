@@ -88,6 +88,8 @@ Return JSON with this exact structure:
 
 ## Scoring Guidelines
 
+**Score calibration**: If zero critical AND zero major issues → score MUST be ≥ 95. Reserve 90-94 for epics/stories with minor gaps only. Reserve 70-89 for major gaps.
+
 - **90-100 (Excellent)**: Comprehensive security coverage, clear threat model, all OWASP/NIST best practices followed
 - **70-89 (Acceptable)**: Core security concerns addressed, minor gaps acceptable, threat model present
 - **0-69 (Needs Improvement)**: Critical security gaps, missing threat model, must fix before proceeding

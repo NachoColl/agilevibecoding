@@ -87,6 +87,8 @@ Return JSON with this exact structure:
 
 ## Scoring Guidelines
 
+**Score calibration**: If zero critical AND zero major issues → score MUST be ≥ 95. Reserve 90-94 for epics/stories with minor gaps only. Reserve 70-89 for major gaps.
+
 - **90-100 (Excellent)**: Comprehensive frontend coverage, clear component architecture, all best practices (accessibility, performance)
 - **70-89 (Acceptable)**: Core frontend concerns addressed, minor gaps acceptable, component strategy present
 - **0-69 (Needs Improvement)**: Critical frontend gaps, missing component architecture, must fix before proceeding
