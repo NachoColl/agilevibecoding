@@ -15,7 +15,7 @@ import {
  * Kanban Board Component
  * Main board container with columns and filtering
  */
-export function KanbanBoard({ onCardClick, onStartProject, projectFilesReady, onEditProjectDoc, onStartSprintPlanning, sponsorCallRunning }) {
+export function KanbanBoard({ onCardClick, onStartProject, projectFilesReady, onEditProjectDoc, onStartSprintPlanning, onOpenSprintPlanningSelection, sponsorCallRunning }) {
   const [selectedItem, setSelectedItem] = useState(null);
 
   // Zustand stores
@@ -120,6 +120,14 @@ export function KanbanBoard({ onCardClick, onStartProject, projectFilesReady, on
                   className="px-5 py-2.5 text-sm font-medium bg-slate-900 text-white rounded-lg hover:bg-slate-700 transition-colors"
                 >
                   🚀 Start Sprint Planning
+                </button>
+              ) : onOpenSprintPlanningSelection ? (
+                <button
+                  onClick={onOpenSprintPlanningSelection}
+                  className="flex items-center gap-2 px-5 py-2.5 text-sm font-medium bg-amber-500 text-white rounded-lg hover:bg-amber-600 transition-colors animate-pulse"
+                >
+                  <span>⚠</span>
+                  Sprint planning needs your input
                 </button>
               ) : (
                 <p className="text-xs text-slate-400">Sprint planning is running…</p>

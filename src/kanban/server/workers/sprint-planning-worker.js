@@ -8,6 +8,7 @@
  *   { type: 'pause' }
  *   { type: 'resume' }
  *   { type: 'cancel' }
+ *   { type: 'selection-confirmed', selectedEpicIds, selectedStoryIds }
  *
  * Worker → Parent:
  *   { type: 'progress', message }
@@ -15,6 +16,7 @@
  *   { type: 'detail', detail }
  *   { type: 'paused' }
  *   { type: 'resumed' }
+ *   { type: 'decomposition-complete', hierarchy }
  *   { type: 'complete', result }
  *   { type: 'cancelled' }
  *   { type: 'error', error }
@@ -26,6 +28,9 @@ import { CommandLogger } from '../../../cli/command-logger.js';
 let _paused = false;
 let _cancelled = false;
 let _costThreshold = null;
+let _waitingCostLimit = false;
+let _waitingSelection = false;
+let _selectionResult = null;
 
 // Parent server stopped — exit rather than running as an orphan.
 process.on('disconnect', () => {
@@ -46,6 +51,11 @@ process.on('message', async (msg) => {
     process.send({ type: 'resumed' });
   } else if (msg.type === 'cancel') {
     _cancelled = true;
+  } else if (msg.type === 'cost-limit-continue') {
+    _waitingCostLimit = false;
+  } else if (msg.type === 'selection-confirmed') {
+    _selectionResult = { selectedEpicIds: msg.selectedEpicIds, selectedStoryIds: msg.selectedStoryIds };
+    _waitingSelection = false;
   }
 });
 
@@ -66,7 +76,31 @@ async function run() {
       if (meta?.detail) process.send({ type: 'detail',   detail: meta.detail });
     };
 
-    const result = await initiator.sprintPlanningWithCallback(progressCallback, { costThreshold: _costThreshold });
+    const costLimitReachedCallback = async (cost) => {
+      _waitingCostLimit = true;
+      process.send({ type: 'cost-limit', cost, threshold: _costThreshold });
+      while (_waitingCostLimit) {
+        await new Promise(r => setTimeout(r, 200));
+        if (_cancelled) throw new Error('CEREMONY_CANCELLED');
+      }
+    };
+
+    const selectionCallback = async (hierarchy) => {
+      _waitingSelection = true;
+      _selectionResult = null;
+      process.send({ type: 'decomposition-complete', hierarchy });
+      while (_waitingSelection) {
+        await new Promise(r => setTimeout(r, 200));
+        if (_cancelled) throw new Error('CEREMONY_CANCELLED');
+      }
+      return _selectionResult;
+    };
+
+    const result = await initiator.sprintPlanningWithCallback(progressCallback, {
+      costThreshold: _costThreshold,
+      costLimitReachedCallback,
+      selectionCallback,
+    });
     logger.stop();
     process.send({ type: 'complete', result });
     process.exit(0);
@@ -74,9 +108,6 @@ async function run() {
     logger.stop();
     if (err.message === 'CEREMONY_CANCELLED') {
       process.send({ type: 'cancelled' });
-    } else if (err.message?.startsWith('COST_LIMIT_EXCEEDED:')) {
-      const cost = parseFloat(err.message.split(':')[1]) || 0;
-      process.send({ type: 'cost-limit', cost, threshold: _costThreshold });
     } else {
       process.send({ type: 'error', error: err.message });
     }

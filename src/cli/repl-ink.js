@@ -3823,10 +3823,10 @@ const App = () => {
           // Notify Kanban that the worker is live
           try { kanbanChild.send({ type: 'ceremony:started', processId, pid: workerChild.pid }); } catch (_) {}
 
-        // ── ceremony:control — pause / resume / cancel ────────────────────────
+        // ── ceremony:control — pause / resume / cancel / selection-confirmed ──
         } else if (msg.type === 'ceremony:control') {
           const worker = activeWorkers.get(msg.processId);
-          if (worker) try { worker.send({ type: msg.action }); } catch (_) {}
+          if (worker) try { worker.send(msg.payload || { type: msg.action }); } catch (_) {}
 
         // ── ceremony:kill — force kill a worker ───────────────────────────────
         } else if (msg.type === 'ceremony:kill') {

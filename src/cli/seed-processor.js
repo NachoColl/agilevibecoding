@@ -42,10 +42,12 @@ class SeedProcessor {
     this.agentsPath = path.join(__dirname, 'agents');
 
     // Read ceremony config
-    const { provider, model } = this.readCeremonyConfig();
+    const { provider, model, stagesConfig } = this.readCeremonyConfig();
     this._providerName = provider;
     this._modelName = model;
+    this.stagesConfig = stagesConfig;
     this.llmProvider = null;
+    this._stageProviders = {};
 
     // Initialize token tracker
     this.tokenTracker = new TokenTracker(this.avcPath);
@@ -82,9 +84,10 @@ class SeedProcessor {
 
       const result = {
         provider: ceremony.provider || 'claude',
-        model: ceremony.defaultModel || 'claude-sonnet-4-5-20250929'
+        model: ceremony.defaultModel || 'claude-sonnet-4-5-20250929',
+        stagesConfig: ceremony.stages || {}
       };
-      this.debug('[INFO] Ceremony config loaded', { ...result, ceremonyName: this.ceremonyName });
+      this.debug('[INFO] Ceremony config loaded', { provider: result.provider, model: result.model, ceremonyName: this.ceremonyName });
       return result;
     } catch (error) {
       sendWarning(`Could not read ceremony config: ${error.message}`);
@@ -124,6 +127,96 @@ class SeedProcessor {
         sendOutput(`Error: ${error.message}`);
         await new Promise(resolve => setTimeout(resolve, delay));
       }
+    }
+  }
+
+  /**
+   * Get or create a provider for a specific stage, using stage-specific model if configured.
+   * Falls back to ceremony-level model if the stage has no explicit config.
+   */
+  async getProviderForStageInstance(stageName) {
+    const stageConfig = this.stagesConfig?.[stageName] || {};
+    const provider = stageConfig.provider || this._providerName;
+    const model = stageConfig.model || this._modelName;
+    const cacheKey = `${stageName}:${provider}:${model}`;
+
+    if (this._stageProviders[cacheKey]) return this._stageProviders[cacheKey];
+
+    const instance = await LLMProvider.create(provider, model);
+    instance.onCall((delta) => this.tokenTracker.addIncremental(this.ceremonyName, delta));
+    this._stageProviders[cacheKey] = instance;
+    return instance;
+  }
+
+  /**
+   * Distribute documentation content from a parent doc.md to a child item's doc.md.
+   * Mirrors the same method in SprintPlanningProcessor.
+   *
+   * @param {string} parentDocContent - Current content of the parent doc.md
+   * @param {Object} childItem - Task or Subtask object
+   * @param {'task'|'subtask'} childType - Type of child item
+   * @returns {Promise<{childDoc: string, parentDoc: string}>}
+   */
+  async distributeDocContent(parentDocContent, childItem, childType) {
+    const agentPath = path.join(this.agentsPath, 'doc-distributor.md');
+    const agentInstructions = fs.readFileSync(agentPath, 'utf8');
+
+    let itemDescription;
+    if (childType === 'task') {
+      const acceptance = (childItem.acceptance || []).map(a => `- ${a}`).join('\n') || 'none specified';
+      itemDescription = `Type: task
+Name: ${childItem.name}
+Category: ${childItem.category || 'general'}
+Description: ${childItem.description || ''}
+Technical Scope: ${childItem.technicalScope || ''}
+Acceptance criteria:
+${acceptance}`;
+    } else {
+      const acceptance = (childItem.acceptance || []).map(a => `- ${a}`).join('\n') || 'none specified';
+      itemDescription = `Type: subtask
+Name: ${childItem.name}
+Description: ${childItem.description || ''}
+Technical Details: ${childItem.technicalDetails || ''}
+Acceptance criteria:
+${acceptance}`;
+    }
+
+    const prompt = `## Parent Document
+
+${parentDocContent}
+
+---
+
+## Child Item to Create Documentation For
+
+${itemDescription}
+
+---
+
+Extract content specifically about this ${childType} from the parent document into the child's \`doc.md\`. Remove the extracted content from the parent document. Return JSON with \`child_doc\` and \`parent_doc\` fields.`;
+
+    try {
+      const provider = await this.getProviderForStageInstance('doc-distribution');
+      const result = await this.retryWithBackoff(
+        () => provider.generateJSON(prompt, agentInstructions),
+        `doc distribution for ${childType}: ${childItem.name}`
+      );
+
+      const childDoc = (typeof result.child_doc === 'string' && result.child_doc.trim())
+        ? result.child_doc
+        : `# ${childItem.name}\n\n${childItem.description || ''}\n`;
+
+      const parentDoc = (typeof result.parent_doc === 'string' && result.parent_doc.trim())
+        ? result.parent_doc
+        : parentDocContent;
+
+      return { childDoc, parentDoc };
+    } catch (err) {
+      this.debug('[WARNING] Doc distribution failed — using stub doc', { error: err.message, childType, name: childItem.name });
+      return {
+        childDoc: `# ${childItem.name}\n\n${childItem.description || ''}\n`,
+        parentDoc: parentDocContent
+      };
     }
   }
 
@@ -423,6 +516,17 @@ Return your response as JSON following the exact structure specified in your ins
 
     const { storyContext, epicContext, projectContext } = contextData;
 
+    // Read story doc.md for hierarchical doc distribution (story → task → subtask)
+    const storyDocPath = path.join(this.storyPath, 'doc.md');
+    let storyDocContent = '';
+    const doDistribute = fs.existsSync(storyDocPath);
+    if (doDistribute) {
+      storyDocContent = fs.readFileSync(storyDocPath, 'utf8');
+      this.debug('[INFO] Story doc.md loaded for doc distribution', { sizeChars: storyDocContent.length });
+    } else {
+      this.debug('[WARNING] Story doc.md not found — doc distribution skipped, using stub task docs');
+    }
+
     let taskCount = 0;
     let subtaskCount = 0;
     const taskIds = [];
@@ -434,12 +538,17 @@ Return your response as JSON following the exact structure specified in your ins
         fs.mkdirSync(taskDir, { recursive: true });
       }
 
-      // Write Task doc.md (stub)
-      fs.writeFileSync(
-        path.join(taskDir, 'doc.md'),
-        `# ${task.name}\n\n*Documentation will be added during implementation and retrospective ceremonies.*\n`,
-        'utf8'
-      );
+      // Distribute documentation: extract task-specific content from story doc
+      let taskDocContent;
+      if (doDistribute) {
+        this.debug(`[INFO] Distributing docs: story/doc.md → ${task.id}/doc.md`);
+        const distributed = await this.distributeDocContent(storyDocContent, task, 'task');
+        taskDocContent = distributed.childDoc;
+        storyDocContent = distributed.parentDoc;
+        this.debug(`[INFO] After distribution: story doc ${storyDocContent.length} bytes, task doc ${taskDocContent.length} bytes`);
+      } else {
+        taskDocContent = `# ${task.name}\n\n${task.description || ''}\n`;
+      }
 
       // Generate and write Task context.md
       const taskContext = await this.retryWithBackoff(
@@ -487,10 +596,22 @@ Return your response as JSON following the exact structure specified in your ins
           fs.mkdirSync(subtaskDir, { recursive: true });
         }
 
-        // Write Subtask doc.md (stub)
+        // Distribute documentation: extract subtask-specific content from task doc
+        let subtaskDocContent;
+        if (doDistribute) {
+          this.debug(`[INFO] Distributing docs: ${task.id}/doc.md → ${subtask.id}/doc.md`);
+          const distributed = await this.distributeDocContent(taskDocContent, subtask, 'subtask');
+          subtaskDocContent = distributed.childDoc;
+          taskDocContent = distributed.parentDoc;
+          this.debug(`[INFO] After distribution: task doc ${taskDocContent.length} bytes, subtask doc ${subtaskDocContent.length} bytes`);
+        } else {
+          subtaskDocContent = `# ${subtask.name}\n\n${subtask.description || ''}\n`;
+        }
+
+        // Write Subtask doc.md with distributed content
         fs.writeFileSync(
           path.join(subtaskDir, 'doc.md'),
-          `# ${subtask.name}\n\n*Documentation will be added during implementation and retrospective ceremonies.*\n`,
+          subtaskDocContent,
           'utf8'
         );
 
@@ -531,6 +652,19 @@ Return your response as JSON following the exact structure specified in your ins
         subtaskCount++;
       }
 
+      // Write Task doc.md AFTER all subtasks have extracted their portions
+      fs.writeFileSync(
+        path.join(taskDir, 'doc.md'),
+        taskDocContent,
+        'utf8'
+      );
+      this.debug(`[INFO] Wrote ${task.id}/doc.md (${taskDocContent.length} bytes)`);
+    }
+
+    // Write final story doc.md AFTER all tasks extracted their portions
+    if (doDistribute) {
+      fs.writeFileSync(storyDocPath, storyDocContent, 'utf8');
+      this.debug(`[INFO] Updated story doc.md after task extraction (${storyDocContent.length} bytes)`);
     }
 
     return { taskCount, subtaskCount, taskIds };

@@ -9,7 +9,8 @@ import { CeremonyWorkflowModal } from './CeremonyWorkflowModal';
 const STEPS = [
   { id: 1, label: 'Ready' },
   { id: 2, label: 'Running' },
-  { id: 3, label: 'Complete' },
+  { id: 3, label: 'Select Epics/Stories' },
+  { id: 4, label: 'Complete' },
 ];
 
 function StepProgress({ currentStep }) {
@@ -56,7 +57,7 @@ function Stat({ label, value }) {
 
 function ReadyStep({ onStart }) {
   return (
-    <div className="space-y-5">
+    <div className="space-y-6">
       <div>
         <h2 className="text-xl font-semibold text-slate-900">Ready to Plan</h2>
         <p className="text-sm text-slate-500 mt-1">
@@ -64,10 +65,10 @@ function ReadyStep({ onStart }) {
         </p>
       </div>
 
-      <div className="flex justify-center pt-2">
+      <div className="flex items-center justify-end pt-2">
         <button
           onClick={onStart}
-          className="px-6 py-2.5 text-sm font-medium bg-slate-900 text-white rounded-lg hover:bg-slate-700 transition-colors"
+          className="px-5 py-2 text-sm font-medium bg-slate-900 text-white rounded-lg hover:bg-slate-700 transition-colors"
         >
           Start
         </button>
@@ -306,7 +307,7 @@ function RunningStep({ transitioning, onPause, onResume, onCancel, onBackground 
   );
 }
 
-// ── Step 3: Complete ──────────────────────────────────────────────────────────
+// ── Step 4: Complete ──────────────────────────────────────────────────────────
 
 const EXAMPLE_ISSUES = [
   { stage: 'Project Documentation', ruleId: 'fix-header-formatting',    name: 'Fix Header Spacing',                 severity: 'major'  },
@@ -415,7 +416,7 @@ function CompleteStep({ onClose }) {
 
 // ── Main modal ────────────────────────────────────────────────────────────────
 
-export function SprintPlanningModal({ onClose }) {
+export function SprintPlanningModal({ onClose, costLimitPending, onContinuePastCostLimit, onCancelFromCostLimit }) {
   const {
     isOpen,
     step,
@@ -437,8 +438,10 @@ export function SprintPlanningModal({ onClose }) {
 
   if (!isOpen) return null;
 
+  const isBlocked = status === 'running' || status === 'awaiting-selection';
+
   const handleClose = () => {
-    if (status === 'running') return; // block close while running
+    if (isBlocked) return;
     closeModal();
     onClose?.();
   };
@@ -511,7 +514,13 @@ export function SprintPlanningModal({ onClose }) {
           onBackground={closeModal}
         />
       );
-      case 3: return <CompleteStep onClose={handleClose} />;
+      case 3: return (
+        <div className="flex flex-col items-center justify-center py-16 gap-4 text-center">
+          <span className="w-2 h-2 rounded-full bg-amber-400" />
+          <p className="text-sm text-slate-500">Reviewing decomposed work…</p>
+        </div>
+      );
+      case 4: return <CompleteStep onClose={handleClose} />;
       default: return null;
     }
   };
@@ -521,11 +530,47 @@ export function SprintPlanningModal({ onClose }) {
       {/* Backdrop */}
       <div
         className="absolute inset-0 bg-black/40"
-        onClick={status !== 'running' ? handleClose : undefined}
+        onClick={!isBlocked ? handleClose : undefined}
       />
 
       {/* Modal */}
       <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-2xl mx-4 max-h-[90vh] flex flex-col">
+        {/* Cost-limit pause overlay */}
+        {costLimitPending && (
+          <div className="absolute inset-0 z-20 flex items-center justify-center bg-white/90 rounded-2xl">
+            <div className="bg-white border border-amber-200 rounded-xl shadow-lg p-6 max-w-sm mx-4 text-center space-y-4">
+              <div className="text-3xl">⚠️</div>
+              <p className="text-base font-semibold text-slate-900">Cost Limit Reached</p>
+              <p className="text-sm text-slate-600">
+                <span className="font-mono font-medium">${costLimitPending.cost.toFixed(4)}</span> spent
+                {costLimitPending.threshold != null && (
+                  <> (limit: <span className="font-mono">${Number(costLimitPending.threshold).toFixed(2)}</span>)</>
+                )}
+              </p>
+              <p className="text-sm text-slate-500">
+                The ceremony is paused. What would you like to do?
+              </p>
+              <div className="flex gap-3 justify-center pt-1">
+                <button
+                  onClick={onContinuePastCostLimit}
+                  className="px-4 py-2 text-sm rounded-lg bg-slate-900 text-white hover:bg-slate-700"
+                >
+                  Continue Anyway
+                </button>
+                <button
+                  onClick={onCancelFromCostLimit}
+                  className="px-4 py-2 text-sm rounded-lg border border-red-200 text-red-600 hover:bg-red-50"
+                >
+                  Cancel Ceremony
+                </button>
+              </div>
+              <p className="text-xs text-slate-400">
+                Continue disables cost checking for the rest of this run.
+              </p>
+            </div>
+          </div>
+        )}
+
         {/* Cancel confirmation overlay */}
         {showCancelConfirm && (
           <div className="absolute inset-0 z-10 flex items-center justify-center bg-white/90 rounded-2xl">
@@ -561,7 +606,7 @@ export function SprintPlanningModal({ onClose }) {
             </div>
           </div>
           <div className="flex items-center gap-3 ml-4 mt-0.5 flex-shrink-0">
-            {status !== 'running' && (
+            {!isBlocked && (
               <button
                 type="button"
                 onClick={openWorkflow}
@@ -572,7 +617,7 @@ export function SprintPlanningModal({ onClose }) {
                 How it works
               </button>
             )}
-            {status !== 'running' && (
+            {!isBlocked && (
               <button
                 onClick={handleClose}
                 className="text-slate-400 hover:text-slate-600 transition-colors"
@@ -594,6 +639,12 @@ export function SprintPlanningModal({ onClose }) {
             <>
               <span className="w-3 h-3 border-2 border-blue-300 border-t-blue-600 rounded-full animate-spin flex-shrink-0" />
               <p className="text-xs text-blue-600 font-medium truncate">Running sprint planning…</p>
+            </>
+          )}
+          {status === 'awaiting-selection' && (
+            <>
+              <span className="w-2 h-2 rounded-full bg-amber-400 flex-shrink-0" />
+              <p className="text-xs text-amber-600 font-medium truncate">Waiting for your selection to continue…</p>
             </>
           )}
         </div>

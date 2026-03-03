@@ -252,9 +252,14 @@ class ProjectInitiator {
               },
               validation: {
                 provider: 'claude',
-                model: 'claude-sonnet-4-6'
+                model: 'claude-sonnet-4-6',
+                useContextualSelection: true
               },
               'doc-distribution': {
+                provider: 'claude',
+                model: 'claude-sonnet-4-6'
+              },
+              enrichment: {
                 provider: 'claude',
                 model: 'claude-sonnet-4-6'
               },
@@ -275,6 +280,21 @@ class ProjectInitiator {
                 name: 'doc-distributor',
                 instruction: 'doc-distributor.md',
                 stage: 'doc-distribution'
+              },
+              {
+                name: 'project-context-extractor',
+                instruction: 'project-context-extractor.md',
+                stage: 'validation'
+              },
+              {
+                name: 'agent-selector',
+                instruction: 'agent-selector.md',
+                stage: 'validation'
+              },
+              {
+                name: 'story-doc-enricher',
+                instruction: 'story-doc-enricher.md',
+                stage: 'enrichment'
               }
             ]
           },
@@ -286,12 +306,26 @@ class ProjectInitiator {
               decomposition: {
                 provider: 'claude',
                 model: 'claude-opus-4-6'
+              },
+              'doc-distribution': {
+                provider: 'claude',
+                model: 'claude-sonnet-4-6'
               }
             },
             agents: [
               {
                 name: 'task-subtask-decomposer',
                 instruction: 'task-subtask-decomposer.md',
+                stage: 'decomposition'
+              },
+              {
+                name: 'doc-distributor',
+                instruction: 'doc-distributor.md',
+                stage: 'doc-distribution'
+              },
+              {
+                name: 'feature-context-generator',
+                instruction: 'feature-context-generator.md',
                 stage: 'decomposition'
               }
             ]

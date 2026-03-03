@@ -248,10 +248,17 @@ export async function runSprintPlanning() {
   return apiFetch('/ceremony/sprint-planning/run', { method: 'POST' });
 }
 
-export const pauseCeremony  = () => apiFetch('/ceremony/pause',  { method: 'POST' });
-export const resumeCeremony = () => apiFetch('/ceremony/resume', { method: 'POST' });
-export const cancelCeremony = () => apiFetch('/ceremony/cancel', { method: 'POST' });
-export const resetCeremony  = () => apiFetch('/ceremony/reset',  { method: 'POST' });
+export const confirmSprintPlanningSelection = (selectedEpicIds, selectedStoryIds) =>
+  apiFetch('/ceremony/sprint-planning/confirm-selection', {
+    method: 'POST',
+    body: JSON.stringify({ selectedEpicIds, selectedStoryIds }),
+  });
+
+export const pauseCeremony           = () => apiFetch('/ceremony/pause',              { method: 'POST' });
+export const resumeCeremony          = () => apiFetch('/ceremony/resume',             { method: 'POST' });
+export const cancelCeremony          = () => apiFetch('/ceremony/cancel',             { method: 'POST' });
+export const resetCeremony           = () => apiFetch('/ceremony/reset',              { method: 'POST' });
+export const continuePastCostLimit   = () => apiFetch('/ceremony/cost-limit-continue', { method: 'POST' });
 
 export async function getModels() {
   return apiFetch('/ceremony/models');
@@ -327,6 +334,34 @@ export async function killProcess(id) {
 
 export async function clearCompletedProcesses() {
   return apiFetch('/processes', { method: 'DELETE' });
+}
+
+// ── Work Item Refine API ──────────────────────────────────────────────────────
+
+/**
+ * Start an async refinement job for an epic or story.
+ * @param {string} id - Work item ID
+ * @param {object} options - { refinementRequest, selectedIssues, modelId, provider, validatorModelId, validatorProvider }
+ * @returns {Promise<{ jobId: string }>}
+ */
+export async function refineWorkItem(id, options) {
+  return apiFetch(`/work-items/${id}/refine`, {
+    method: 'POST',
+    body: JSON.stringify(options),
+  });
+}
+
+/**
+ * Apply accepted refinement changes to work.json on disk.
+ * @param {string} id - Work item ID
+ * @param {object} proposedItem - The proposed (refined) item
+ * @param {Array} storyChanges - [{ type: 'update'|'new', storyId?, proposedStory }]
+ */
+export async function applyWorkItemChanges(id, proposedItem, storyChanges = []) {
+  return apiFetch(`/work-items/${id}`, {
+    method: 'PUT',
+    body: JSON.stringify({ proposedItem, storyChanges }),
+  });
 }
 
 // ── Costs API ─────────────────────────────────────────────────────────────────

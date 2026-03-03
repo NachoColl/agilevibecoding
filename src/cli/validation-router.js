@@ -17,11 +17,12 @@ const __dirname = path.dirname(__filename);
  * - Falls back to LLM-based selection for unknown/novel domains (slow path)
  */
 class ValidationRouter {
-  constructor(llmProvider = null, useSmartSelection = false) {
+  constructor(llmProvider = null, useSmartSelection = false, projectContext = null) {
     this.epicMatrix = this.buildEpicValidationMatrix();
     this.storyMatrix = this.buildStoryValidationMatrix();
     this.llmProvider = llmProvider;
     this.useSmartSelection = useSmartSelection;
+    this.projectContext = projectContext;
     this.agentsPath = path.join(__dirname, 'agents');
   }
 
@@ -475,6 +476,129 @@ class ValidationRouter {
     });
 
     return Array.from(validators);
+  }
+  /**
+   * Select validators using project context + per-item LLM call (contextual selection).
+   * Falls back to static routing if LLM call fails or returns < 2 validators.
+   * @param {Object} item - Epic or Story work item
+   * @param {string} type - 'epic' or 'story'
+   * @param {Object} llmProvider - LLM provider instance to use for selection
+   * @param {Object} [parentEpic] - Parent epic (required when type='story')
+   * @returns {Promise<string[]>} Array of full validator agent names
+   */
+  async selectValidatorsWithContext(item, type, llmProvider, parentEpic = null) {
+    const validRoles = [
+      'solution-architect', 'developer', 'security', 'devops', 'cloud',
+      'backend', 'database', 'api', 'frontend', 'ui', 'ux', 'mobile',
+      'data', 'qa', 'test-architect'
+    ];
+
+    let selectorAgent;
+    try {
+      selectorAgent = loadAgent('agent-selector.md');
+    } catch (err) {
+      console.warn(`   ⚠ Could not load agent-selector.md (${err.message}) — using static routing`);
+      return type === 'epic'
+        ? await this.getValidatorsForEpicWithLLM(item)
+        : await this.getValidatorsForStoryWithLLM(item, parentEpic ?? item);
+    }
+
+    if (!llmProvider) {
+      console.warn(`   ⚠ Contextual agent selection skipped (no LLM provider) — using static routing`);
+      return type === 'epic'
+        ? await this.getValidatorsForEpicWithLLM(item)
+        : await this.getValidatorsForStoryWithLLM(item, parentEpic ?? item);
+    }
+
+    const prompt = this.buildAgentSelectionPrompt(item, type, this.projectContext || {}, parentEpic);
+    console.log(`[DEBUG] selectValidatorsWithContext: type=${type}, item="${item.name}", projectContext keys=${Object.keys(this.projectContext || {}).join(',') || 'none'}`);
+
+    try {
+      const response = await llmProvider.generateJSON(prompt, selectorAgent);
+
+      if (!response?.selected || !Array.isArray(response.selected)) {
+        throw new Error('missing selected array in response');
+      }
+
+      // Filter to known role names only
+      const safeSelected = response.selected.filter(r => validRoles.includes(r));
+
+      // Safety floor — always include these two
+      if (!safeSelected.includes('solution-architect')) safeSelected.push('solution-architect');
+      if (!safeSelected.includes('developer')) safeSelected.push('developer');
+
+      // Log excluded roles with reasons
+      const excluded = response.excluded || [];
+      const reasons = response.reasons || {};
+      excluded.forEach(role => {
+        const reason = reasons[role] ? `: ${reasons[role]}` : '';
+        console.log(`   ✂ Excluding ${type} ${role}${reason}`);
+      });
+
+      // Map short role names to full validator agent names
+      return safeSelected.map(r => `validator-${type}-${r}`);
+    } catch (err) {
+      console.warn(`   ⚠ Contextual agent selection failed (${err.message}) — using static routing`);
+      return type === 'epic'
+        ? await this.getValidatorsForEpicWithLLM(item)
+        : await this.getValidatorsForStoryWithLLM(item, parentEpic ?? item);
+    }
+  }
+
+  /**
+   * Build the prompt for contextual agent selection.
+   * @param {Object} item - Epic or Story
+   * @param {string} type - 'epic' or 'story'
+   * @param {Object} projectContext - Extracted project context
+   * @param {Object} [parentEpic] - Parent epic for stories
+   * @returns {string} Prompt text
+   */
+  buildAgentSelectionPrompt(item, type, projectContext, parentEpic = null) {
+    const ctx = projectContext || {};
+    const lines = [];
+
+    // Project context section
+    if (Object.keys(ctx).length > 0) {
+      lines.push('PROJECT CONTEXT:');
+      if (ctx.deploymentType) lines.push(`- Deployment: ${ctx.deploymentType}${ctx.hasCloud ? ' (cloud services present)' : ' (no cloud services)'}`);
+      if (ctx.techStack?.length) lines.push(`- Tech stack: ${ctx.techStack.join(', ')}`);
+      lines.push(`- CI/CD pipeline: ${ctx.hasCI_CD ? 'yes' : 'no'}`);
+      lines.push(`- Mobile app: ${ctx.hasMobileApp ? 'yes' : 'no'}`);
+      lines.push(`- Frontend: ${ctx.hasFrontend ? 'yes' : 'no'}`);
+      lines.push(`- Public API: ${ctx.hasPublicAPI ? 'yes' : 'no'}`);
+      if (ctx.projectType) lines.push(`- Project type: ${ctx.projectType}`);
+      if (ctx.teamContext) lines.push(`- Team: ${ctx.teamContext}`);
+      lines.push('');
+    }
+
+    // Work item section
+    if (type === 'epic') {
+      lines.push('ITEM TO VALIDATE (Epic):');
+      lines.push(`- Name: ${item.name}`);
+      lines.push(`- Domain: ${item.domain}`);
+      if (item.description) lines.push(`- Description: ${item.description}`);
+      if (item.features?.length) {
+        lines.push(`- Features:`);
+        item.features.forEach(f => lines.push(`  * ${f}`));
+      }
+    } else {
+      lines.push('ITEM TO VALIDATE (Story):');
+      lines.push(`- Name: ${item.name}`);
+      if (item.userType) lines.push(`- User type: ${item.userType}`);
+      if (item.description) lines.push(`- Description: ${item.description}`);
+      if (parentEpic) {
+        lines.push(`- Parent Epic: ${parentEpic.name} (domain: ${parentEpic.domain})`);
+      }
+      if (item.acceptance?.length) {
+        lines.push(`- Acceptance Criteria:`);
+        item.acceptance.forEach((ac, i) => lines.push(`  ${i + 1}. ${ac}`));
+      }
+    }
+
+    lines.push('');
+    lines.push('Select which validator roles are relevant for this specific item given the project context above.');
+
+    return lines.join('\n');
   }
 }
 

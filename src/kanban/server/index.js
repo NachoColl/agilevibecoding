@@ -18,6 +18,7 @@ import { setupWebSocket } from './routes/websocket.js';
 import { renderMarkdown } from './utils/markdown.js';
 import { CeremonyService } from './services/CeremonyService.js';
 import { ProcessRegistry } from './services/ProcessRegistry.js';
+import { WorkItemRefineService } from './services/WorkItemRefineService.js';
 
 /**
  * KanbanServer
@@ -49,6 +50,9 @@ export class KanbanServer {
     // Ceremony service + process registry
     this.ceremonyService = new CeremonyService(projectRoot);
     this.processRegistry = new ProcessRegistry();
+
+    // Work item refine service (websocket injected after start())
+    this.refineService = new WorkItemRefineService(projectRoot);
 
     // Express app
     this.app = express();
@@ -223,7 +227,7 @@ export class KanbanServer {
     });
 
     // Work items routes
-    const workItemsRouter = createWorkItemsRouter(this);
+    const workItemsRouter = createWorkItemsRouter(this, this.refineService);
     this.app.use('/api/work-items', workItemsRouter);
 
     // Ceremony routes
@@ -421,6 +425,9 @@ export class KanbanServer {
 
       // Wire ceremony service to WebSocket for broadcasting
       this.ceremonyService.setWebSocket(this.websocket);
+
+      // Wire refine service to WebSocket
+      this.refineService.websocket = this.websocket;
 
       // Wire ProcessRegistry events → WebSocket broadcasts
       this.processRegistry.on('created', (record) => {

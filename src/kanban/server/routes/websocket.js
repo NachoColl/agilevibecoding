@@ -34,7 +34,11 @@ export function setupWebSocket(server, dataStore, processRegistry = null, ceremo
     // Send current ceremony status so the client restores running state on reconnect
     if (ceremonyService) {
       const ceremonyStatus = ceremonyService.getStatus();
-      if (ceremonyStatus.status === 'running') {
+      if (
+        ceremonyStatus.status === 'running' ||
+        ceremonyStatus.status === 'cost-limit-pending' ||
+        ceremonyStatus.status === 'awaiting-selection'
+      ) {
         ws.send(JSON.stringify({ type: 'ceremony:sync', ceremonyStatus }));
       }
     }
@@ -155,6 +159,14 @@ export function setupWebSocket(server, dataStore, processRegistry = null, ceremo
     broadcast({ type: 'cost:update' });
   }
 
+  function broadcastCostLimit(cost, threshold, runningType) {
+    broadcast({ type: 'ceremony:cost-limit', cost, threshold, runningType });
+  }
+
+  function broadcastSprintPlanningDecompositionComplete(hierarchy) {
+    broadcast({ type: 'sprint-planning:decomposition-complete', hierarchy });
+  }
+
   function broadcastSprintPlanningPaused() {
     broadcast({ type: 'sprint-planning:paused' });
   }
@@ -201,6 +213,18 @@ export function setupWebSocket(server, dataStore, processRegistry = null, ceremo
     broadcast({ type: 'process:status', processId, status, ...extra });
   }
 
+  function broadcastRefineProgress(itemId, jobId, message) {
+    broadcast({ type: 'refine:progress', itemId, jobId, message });
+  }
+
+  function broadcastRefineComplete(itemId, jobId, result) {
+    broadcast({ type: 'refine:complete', itemId, jobId, result });
+  }
+
+  function broadcastRefineError(itemId, jobId, error) {
+    broadcast({ type: 'refine:error', itemId, jobId, error });
+  }
+
   return {
     wss,
     broadcast,
@@ -216,6 +240,7 @@ export function setupWebSocket(server, dataStore, processRegistry = null, ceremo
     broadcastSprintPlanningProgress,
     broadcastSprintPlanningSubstep,
     broadcastSprintPlanningDetail,
+    broadcastSprintPlanningDecompositionComplete,
     broadcastSprintPlanningComplete,
     broadcastSprintPlanningError,
     broadcastSprintPlanningPaused,
@@ -224,8 +249,12 @@ export function setupWebSocket(server, dataStore, processRegistry = null, ceremo
     broadcastCeremonyDetail,
     broadcastMissionProgress,
     broadcastCostUpdate,
+    broadcastCostLimit,
     broadcastProcessStarted,
     broadcastProcessStatus,
+    broadcastRefineProgress,
+    broadcastRefineComplete,
+    broadcastRefineError,
     getClientCount: () => clients.size,
   };
 }

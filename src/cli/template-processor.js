@@ -112,6 +112,7 @@ class TemplateProcessor {
 
     // Cost threshold protection
     this._costThreshold = options?.costThreshold ?? null;
+    this._costLimitReachedCallback = options?.costLimitReachedCallback ?? null;
     this._runningCost = 0;
 
     // Progress reporting
@@ -1180,8 +1181,14 @@ Return the enhanced markdown document.`;
     if (this._costThreshold != null && this.progressCallback) {
       const _origCallback = this.progressCallback;
       this.progressCallback = async (...args) => {
-        if (this._runningCost >= this._costThreshold) {
-          throw new Error(`COST_LIMIT_EXCEEDED:${this._runningCost.toFixed(6)}`);
+        if (this._costThreshold != null && this._runningCost >= this._costThreshold) {
+          if (this._costLimitReachedCallback) {
+            this._costThreshold = null; // disable re-triggering
+            await this._costLimitReachedCallback(this._runningCost);
+            // returns → ceremony continues with limit disabled
+          } else {
+            throw new Error(`COST_LIMIT_EXCEEDED:${this._runningCost.toFixed(6)}`);
+          }
         }
         return _origCallback(...args);
       };

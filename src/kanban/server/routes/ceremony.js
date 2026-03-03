@@ -195,6 +195,17 @@ export function createCeremonyRouter(ceremonyService, processRegistry) {
     }
   });
 
+  // POST /api/ceremony/sprint-planning/confirm-selection
+  // Body: { selectedEpicIds: string[], selectedStoryIds: string[] }
+  router.post('/sprint-planning/confirm-selection', (req, res) => {
+    const { selectedEpicIds, selectedStoryIds } = req.body;
+    if (!Array.isArray(selectedEpicIds) || !Array.isArray(selectedStoryIds)) {
+      return res.status(400).json({ error: 'selectedEpicIds and selectedStoryIds must be arrays' });
+    }
+    ceremonyService.confirmSprintPlanningSelection(selectedEpicIds, selectedStoryIds);
+    res.json({ ok: true });
+  });
+
   // POST /api/ceremony/pause
   router.post('/pause', (req, res) => {
     ceremonyService.pause();
@@ -210,6 +221,12 @@ export function createCeremonyRouter(ceremonyService, processRegistry) {
   // POST /api/ceremony/cancel
   router.post('/cancel', (req, res) => {
     ceremonyService.cancel();
+    res.json({ ok: true });
+  });
+
+  // POST /api/ceremony/cost-limit-continue
+  router.post('/cost-limit-continue', (req, res) => {
+    ceremonyService.continuePastCostLimit();
     res.json({ ok: true });
   });
 

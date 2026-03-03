@@ -39,6 +39,14 @@ const CEREMONY_STRUCTURE = [
       { phase: 'Decomposition', agents: [
           { slug: 'epic-story-decomposer', label: 'Epic Story Decomposer', note: 'Breaks scope into epics & stories' },
       ]},
+      { phase: 'Contextual Selection', agents: [
+          { slug: 'project-context-extractor', label: 'Project Context Extractor', note: 'Extracts project traits (once per run) to inform validator selection' },
+          { slug: 'agent-selector',            label: 'Agent Selector',            note: 'Selects relevant validators per Epic/Story based on project context' },
+      ]},
+      { phase: 'Documentation & Enrichment', agents: [
+          { slug: 'doc-distributor',    label: 'Doc Distributor',     note: 'Moves content from parent doc into child docs (project→epic, epic→story)' },
+          { slug: 'story-doc-enricher', label: 'Story Doc Enricher',  note: 'Enriches story docs with API contracts, error tables, DB fields, business rules' },
+      ]},
       { phase: 'Validation — Epic', agents: [
           { slug: 'validator-selector',                label: 'Validator Selector',  note: 'Selects appropriate domain validators' },
           { slug: 'validator-epic-solution-architect', label: 'Solution Architect' },
@@ -116,6 +124,10 @@ const CEREMONY_STRUCTURE = [
     phases: [
       { phase: 'Decomposition', agents: [
           { slug: 'task-subtask-decomposer', label: 'Task Decomposer', note: 'Breaks stories into tasks & subtasks' },
+      ]},
+      { phase: 'Documentation', agents: [
+          { slug: 'doc-distributor',            label: 'Doc Distributor',           note: 'Moves content from story doc into task/subtask docs' },
+          { slug: 'feature-context-generator',  label: 'Feature Context Generator', note: 'Generates implementation context.md for each task/subtask' },
       ]},
     ],
   },

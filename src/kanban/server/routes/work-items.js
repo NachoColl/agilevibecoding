@@ -9,7 +9,7 @@ import { groupItemsByColumn, getColumnStats } from '../utils/status-grouping.js'
  * @param {object} dataStore - Data store with work items
  * @returns {express.Router}
  */
-export function createWorkItemsRouter(dataStore) {
+export function createWorkItemsRouter(dataStore, refineService) {
   const router = express.Router();
 
   /**
@@ -162,6 +162,70 @@ export function createWorkItemsRouter(dataStore) {
   });
 
   /**
+   * POST /api/work-items/:id/refine
+   * Start an async refinement job for an epic or story.
+   * Body: { refinementRequest?, selectedIssues?, modelId, provider, validatorModelId, validatorProvider }
+   * Returns: { jobId }
+   */
+  router.post('/:id/refine', async (req, res) => {
+    try {
+      if (!refineService) {
+        return res.status(503).json({ error: 'Refine service not available' });
+      }
+      const { items } = dataStore.getHierarchy();
+      const item = items.get(req.params.id);
+      if (!item) return res.status(404).json({ error: 'Work item not found' });
+
+      const { refinementRequest, selectedIssues, modelId, provider, validatorModelId, validatorProvider } =
+        req.body;
+
+      if (!modelId || !provider || !validatorModelId || !validatorProvider) {
+        return res.status(400).json({
+          error: 'modelId, provider, validatorModelId and validatorProvider are required',
+        });
+      }
+
+      const fullItem = await dataStore.getFullDetails(item);
+      const cleanItem = cleanWorkItem(fullItem, true);
+
+      const jobId = await refineService.startRefine(req.params.id, cleanItem, {
+        refinementRequest: refinementRequest || '',
+        selectedIssues: selectedIssues || [],
+        modelId,
+        provider,
+        validatorModelId,
+        validatorProvider,
+      });
+
+      res.json({ jobId });
+    } catch (err) {
+      console.error(`Error starting refine for ${req.params.id}:`, err);
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  /**
+   * PUT /api/work-items/:id
+   * Apply accepted refinement changes to work.json on disk.
+   * Body: { proposedItem, storyChanges? }
+   */
+  router.put('/:id', async (req, res) => {
+    try {
+      if (!refineService) {
+        return res.status(503).json({ error: 'Refine service not available' });
+      }
+      const { proposedItem, storyChanges } = req.body;
+      if (!proposedItem) return res.status(400).json({ error: 'proposedItem is required' });
+
+      await refineService.applyChanges(req.params.id, proposedItem, storyChanges || []);
+      res.json({ status: 'ok' });
+    } catch (err) {
+      console.error(`Error applying changes for ${req.params.id}:`, err);
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  /**
    * PUT /api/work-items/:id/doc
    * Save updated markdown content to doc.md
    */
@@ -207,6 +271,11 @@ function cleanWorkItem(item, includeFullDetails = false) {
     metadata: item.metadata,
     created: item.created,
     updated: item.updated,
+    // Type-specific fields used for diff display in RefineWorkItemPopup
+    features: item.features,      // epics
+    acceptance: item.acceptance,  // stories
+    userType: item.userType,      // stories
+    domain: item.domain,          // epics
   };
 
   // Add parent reference (ID only, not full object)

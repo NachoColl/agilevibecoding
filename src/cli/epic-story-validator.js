@@ -17,12 +17,13 @@ const __dirname = path.dirname(__filename);
  * then the same validator re-validates — up to maxIterations times.
  */
 class EpicStoryValidator {
-  constructor(llmProvider, verificationTracker, stagesConfig = null, useSmartSelection = false, progressCallback = null) {
+  constructor(llmProvider, verificationTracker, stagesConfig = null, useSmartSelection = false, progressCallback = null, projectContext = null) {
     this.llmProvider = llmProvider;
     this.verificationTracker = verificationTracker;
+    this.projectContext = projectContext;
 
-    // Create router with smart selection support
-    this.router = new ValidationRouter(llmProvider, useSmartSelection);
+    // Create router with smart selection support and project context
+    this.router = new ValidationRouter(llmProvider, useSmartSelection, projectContext);
 
     this.agentsPath = path.join(__dirname, 'agents');
     this.validationFeedback = new Map();
@@ -157,6 +158,23 @@ class EpicStoryValidator {
   }
 
   /**
+   * Get provider for contextual agent selection (agent-selector LLM call).
+   * Uses validation stage config; falls back to this.llmProvider.
+   * @returns {Promise<LLMProvider>}
+   */
+  async getProviderForSelection() {
+    if (this.validationStageConfig?.provider && this.validationStageConfig?.model) {
+      const cacheKey = `selection:${this.validationStageConfig.provider}:${this.validationStageConfig.model}`;
+      if (this._validatorProviders[cacheKey]) return this._validatorProviders[cacheKey];
+      const instance = await LLMProvider.create(this.validationStageConfig.provider, this.validationStageConfig.model);
+      if (this._tokenCallback) instance.onCall(this._tokenCallback);
+      this._validatorProviders[cacheKey] = instance;
+      return instance;
+    }
+    return this.llmProvider;
+  }
+
+  /**
    * Validate an Epic with multiple domain validators
    * Runs validators sequentially; after each validator, if issues exist,
    * a paired solver improves the epic before the next validator runs.
@@ -171,8 +189,13 @@ class EpicStoryValidator {
       validators = epic.metadata.selectedValidators;
       console.log(`   Using cached validator selection (${validators.length} validators)`);
     } else {
-      // Get applicable validators for this epic (with LLM fallback if enabled)
-      if (this.useSmartSelection) {
+      // Get applicable validators for this epic
+      const useContextualSelection = this.validationStageConfig?.useContextualSelection || false;
+      console.log(`[DEBUG] Epic validator selection: useContextualSelection=${useContextualSelection}, validationStageConfig=${JSON.stringify(this.validationStageConfig)}`);
+      if (useContextualSelection) {
+        const selectionProvider = await this.getProviderForSelection();
+        validators = await this.router.selectValidatorsWithContext(epic, 'epic', selectionProvider);
+      } else if (this.useSmartSelection) {
         validators = await this.router.getValidatorsForEpicWithLLM(epic);
       } else {
         validators = this.router.getValidatorsForEpic(epic);
@@ -308,6 +331,19 @@ class EpicStoryValidator {
     // 5. Store for feedback loop
     this.storeValidationFeedback(epic.id, aggregated);
 
+    // 6. Persist result into epic metadata so sprint-planning-processor writes it to work.json
+    epic.metadata = epic.metadata || {};
+    epic.metadata.validationResult = {
+      averageScore: aggregated.averageScore,
+      overallStatus: aggregated.overallStatus,
+      readyToPublish: aggregated.readyToPublish,
+      criticalIssues: aggregated.criticalIssues,
+      majorIssues: aggregated.majorIssues,
+      minorIssues: aggregated.minorIssues,
+      validatorResults: aggregated.validatorResults,
+      validatedAt: new Date().toISOString(),
+    };
+
     return aggregated;
   }
 
@@ -327,8 +363,12 @@ class EpicStoryValidator {
       validators = story.metadata.selectedValidators;
       console.log(`   Using cached validator selection (${validators.length} validators)`);
     } else {
-      // Get applicable validators for this story (with LLM fallback if enabled)
-      if (this.useSmartSelection) {
+      // Get applicable validators for this story
+      const useContextualSelection = this.validationStageConfig?.useContextualSelection || false;
+      if (useContextualSelection) {
+        const selectionProvider = await this.getProviderForSelection();
+        validators = await this.router.selectValidatorsWithContext(story, 'story', selectionProvider, epic);
+      } else if (this.useSmartSelection) {
         validators = await this.router.getValidatorsForStoryWithLLM(story, epic);
       } else {
         validators = this.router.getValidatorsForStory(story, epic);
@@ -461,6 +501,19 @@ class EpicStoryValidator {
 
     // 5. Store for feedback loop
     this.storeValidationFeedback(story.id, aggregated);
+
+    // 6. Persist result into story metadata so sprint-planning-processor writes it to work.json
+    story.metadata = story.metadata || {};
+    story.metadata.validationResult = {
+      averageScore: aggregated.averageScore,
+      overallStatus: aggregated.overallStatus,
+      readyToPublish: aggregated.readyToPublish,
+      criticalIssues: aggregated.criticalIssues,
+      majorIssues: aggregated.majorIssues,
+      minorIssues: aggregated.minorIssues,
+      validatorResults: aggregated.validatorResults,
+      validatedAt: new Date().toISOString(),
+    };
 
     return aggregated;
   }

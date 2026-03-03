@@ -22,7 +22,7 @@ const PROVIDER_KEY_MAP = {
 export class CeremonyService {
   constructor(projectRoot) {
     this.projectRoot = projectRoot;
-    this.state = { status: 'idle', progress: [], result: null, error: null };
+    this.state = { status: 'idle', progress: [], result: null, error: null, costLimitInfo: null, decomposedHierarchy: null };
     this.websocket = null;
     this._paused = false;
     this._cancelled = false;
@@ -78,7 +78,7 @@ export class CeremonyService {
     const wasRunningType = this._runningType;
     this._runningType = null;
     this._activeProcessId = null;
-    this.state = { status: 'idle', progress: [], result: null, error: null };
+    this.state = { status: 'idle', progress: [], result: null, error: null, costLimitInfo: null, decomposedHierarchy: null };
     // Broadcast to whichever ceremony was running (or both if unknown)
     if (wasRunningType === 'sprint-planning' || !wasRunningType) {
       this.websocket?.broadcastSprintPlanningCancelled();
@@ -112,6 +112,8 @@ export class CeremonyService {
       progress: this.state.progress,
       result: this.state.result,
       error: this.state.error,
+      costLimitInfo: this.state.costLimitInfo || null,
+      decomposedHierarchy: this.state.decomposedHierarchy || null,
     };
   }
 
@@ -765,23 +767,49 @@ export class CeremonyService {
         else this.websocket?.broadcastCeremonyError(msg.error);
         break;
       case 'cost-limit': {
-        const msgText = `Cost limit reached: $${msg.cost.toFixed(4)} spent (limit: $${(msg.threshold ?? 0).toFixed(2)}). Ceremony stopped.`;
-        this.state.progress.push({ type: 'progress', message: msgText });
-        this.state.status = 'error';
-        this.state.error = msgText;
-        this._activeChild = null;
-        this._activeProcessId = null;
-        registry.setStatus(record.id, 'error', { error: msgText });
-        if (isSP) {
-          this.websocket?.broadcastSprintPlanningProgress(msgText);
-          this.websocket?.broadcastSprintPlanningError(msgText);
-        } else {
-          this.websocket?.broadcastCeremonyProgress(msgText);
-          this.websocket?.broadcastCeremonyError(msgText);
-        }
+        const pauseMsg = `Cost limit reached: $${msg.cost.toFixed(4)} spent (limit: $${(msg.threshold ?? 0).toFixed(2)}). Ceremony paused — waiting for user decision.`;
+        this.state.progress.push({ type: 'progress', message: pauseMsg });
+        this.state.status = 'cost-limit-pending';
+        this.state.costLimitInfo = { cost: msg.cost, threshold: msg.threshold };
+        // _activeChild stays alive — worker is waiting for cost-limit-continue or cancel
+        registry.setStatus(record.id, 'paused');
+        this.websocket?.broadcastCostLimit(msg.cost, msg.threshold, this._runningType);
         break;
       }
+      case 'decomposition-complete':
+        this.state.status = 'awaiting-selection';
+        this.state.decomposedHierarchy = msg.hierarchy;
+        // _activeChild stays alive — worker is polling for selection-confirmed or cancel
+        registry.setStatus(record.id, 'paused');
+        this.websocket?.broadcastSprintPlanningDecompositionComplete(msg.hierarchy);
+        break;
     }
+  }
+
+  /**
+   * Resume sprint planning with the user's epic/story selection.
+   * Sends selection-confirmed to the waiting worker and restores running state.
+   */
+  confirmSprintPlanningSelection(selectedEpicIds, selectedStoryIds) {
+    if (this._activeChild) {
+      try {
+        this._activeChild.send({ type: 'selection-confirmed', selectedEpicIds, selectedStoryIds });
+      } catch (_) {}
+    }
+    this.state.status = 'running';
+    this.state.decomposedHierarchy = null;
+  }
+
+  /**
+   * Resume ceremony past the cost limit (user chose "Continue Anyway").
+   * Sends cost-limit-continue to the waiting worker and restores running state.
+   */
+  continuePastCostLimit() {
+    if (this._activeChild) {
+      try { this._activeChild.send({ type: 'cost-limit-continue' }); } catch (_) {}
+    }
+    this.state.status = 'running';
+    this.state.costLimitInfo = null;
   }
 
   /**
@@ -810,11 +838,14 @@ export class CeremonyService {
     this._activeChild = null;
     this._activeProcessId = null;
     const isSP = record.type === 'sprint-planning';
-    if (this._runningType === record.type && this.state.status === 'running') {
+    const wasActive = this._runningType === record.type &&
+      (this.state.status === 'running' || this.state.status === 'cost-limit-pending');
+    if (wasActive) {
       const error = `Worker exited unexpectedly (code ${code})`;
       this._registry.setStatus(record.id, 'error', { error });
       this.state.status = 'error';
       this.state.error = error;
+      this.state.costLimitInfo = null;
       if (isSP) this.websocket?.broadcastSprintPlanningError(error);
       else this.websocket?.broadcastCeremonyError(error);
     }
@@ -855,7 +886,7 @@ export class CeremonyService {
       // IPC relay mode — proxy stands in for the worker child so that pause/resume/cancel
       // continue to work unchanged; actual forking is delegated to the CLI process.
       const proxy = {
-        send: (m) => { try { process.send({ type: 'ceremony:control', action: m.type, processId: record.id }); } catch (_) {} },
+        send: (m) => { try { process.send({ type: 'ceremony:control', action: m.type, processId: record.id, payload: m }); } catch (_) {} },
         kill: (s) => { try { process.send({ type: 'ceremony:kill', signal: s, processId: record.id }); } catch (_) {} },
       };
       this._activeChild = proxy;
@@ -920,7 +951,7 @@ export class CeremonyService {
     if (process.connected) {
       // IPC relay mode
       const proxy = {
-        send: (m) => { try { process.send({ type: 'ceremony:control', action: m.type, processId: record.id }); } catch (_) {} },
+        send: (m) => { try { process.send({ type: 'ceremony:control', action: m.type, processId: record.id, payload: m }); } catch (_) {} },
         kill: (s) => { try { process.send({ type: 'ceremony:kill', signal: s, processId: record.id }); } catch (_) {} },
       };
       this._activeChild = proxy;

@@ -37,9 +37,13 @@ You must:
 - Target user descriptions (all domains need this context)
 - Technology stack tables and architecture diagrams (system-level)
 - Architectural constraints that apply to all domains
-- Content that is shared between multiple domains (even if partially relevant to this child)
+- Content that is shared between **two or more** domains — even if partially relevant to this child. **Do not extract shared content into the first child that processes it.** If the same infrastructure spec, security policy, or configuration block applies to multiple epics or stories, it must stay in the parent so all children can inherit it.
 - Section introductions that frame the overall scope before describing individual domains
 - Content that belongs to a sibling domain (a different epic or story)
+
+### Cross-domain deduplication rule (critical):
+
+Before moving any content, ask: *"Does this content appear relevant to any other epic or story besides this child?"* If yes — keep it in the parent. Only move content that is **exclusively** about this child's domain. When in doubt, keep in parent.
 
 ## Child Document Structure
 
@@ -65,10 +69,34 @@ Use the child item's description as the basis. Write in present tense.}
 
 ## Implementation Notes
 
-{1-3 paragraphs elaborating on implementation specifics that are implied by the
-child item's description and features but were not explicit in the parent document.
-Focus on: key data relationships, state or lifecycle considerations, edge cases,
-or integration touch-points specific to this domain.}
+{For **epics**: 2-4 paragraphs covering the architectural approach, key component
+responsibilities, cross-story data flows, and any non-obvious integration patterns
+specific to this domain. Include: key data models and their relationships, critical
+state transitions, external dependencies, and known design constraints.}
+
+{For **stories**: This section must be **implementation-ready**. A developer reading
+only this section should be able to implement the story without making assumptions.
+Include ALL of the following that apply:
+
+- **API contract**: HTTP method + path, request body fields + types, success response
+  structure, all error status codes and their trigger conditions (e.g., 401 for bad
+  credentials, 404 for unknown resource, 429 for rate limit)
+- **Data model**: exact table/collection names, column/field names and types relevant
+  to this story, any constraints (unique, not-null, foreign keys)
+- **Business rules**: specific logic that must be enforced — number limits, ordering
+  rules, permission checks, state transition guards
+- **Error cases**: every failure mode the story must handle, with the exact error
+  message or response body
+- **Authorization**: which roles or ownership conditions grant access; what happens
+  on unauthorized access
+- **Side effects**: emails sent, notifications triggered, audit log entries written,
+  cache invalidations required
+- **Rate limits / quotas**: if this story involves user-facing actions, specify any
+  throttling requirements
+
+If a detail is not explicit in the parent document, derive it logically from the
+acceptance criteria and story description. Use concrete specifics; avoid vague
+phrases like "validate inputs" or "handle errors appropriately".}
 ```
 
 Rules for the child document:

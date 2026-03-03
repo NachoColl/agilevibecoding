@@ -113,7 +113,7 @@ function StepProgress({ currentStep, hasDb }) {
   );
 }
 
-export function SponsorCallModal({ onClose, onOpenSettings }) {
+export function SponsorCallModal({ onClose, onOpenSettings, costLimitPending, onContinuePastCostLimit, onCancelFromCostLimit }) {
   const {
     isOpen,
     wizardStep,
@@ -440,6 +440,42 @@ export function SponsorCallModal({ onClose, onOpenSettings }) {
                   Resume
                 </button>
               </div>
+            </div>
+          </div>
+        )}
+
+        {/* Cost-limit pause overlay */}
+        {costLimitPending && (
+          <div className="absolute inset-0 z-20 flex items-center justify-center bg-white/90 rounded-2xl">
+            <div className="bg-white border border-amber-200 rounded-xl shadow-lg p-6 max-w-sm mx-4 text-center space-y-4">
+              <div className="text-3xl">⚠️</div>
+              <p className="text-base font-semibold text-slate-900">Cost Limit Reached</p>
+              <p className="text-sm text-slate-600">
+                <span className="font-mono font-medium">${costLimitPending.cost.toFixed(4)}</span> spent
+                {costLimitPending.threshold != null && (
+                  <> (limit: <span className="font-mono">${Number(costLimitPending.threshold).toFixed(2)}</span>)</>
+                )}
+              </p>
+              <p className="text-sm text-slate-500">
+                The ceremony is paused. What would you like to do?
+              </p>
+              <div className="flex gap-3 justify-center pt-1">
+                <button
+                  onClick={onContinuePastCostLimit}
+                  className="px-4 py-2 text-sm rounded-lg bg-slate-900 text-white hover:bg-slate-700"
+                >
+                  Continue Anyway
+                </button>
+                <button
+                  onClick={onCancelFromCostLimit}
+                  className="px-4 py-2 text-sm rounded-lg border border-red-200 text-red-600 hover:bg-red-50"
+                >
+                  Cancel Ceremony
+                </button>
+              </div>
+              <p className="text-xs text-slate-400">
+                Continue disables cost checking for the rest of this run.
+              </p>
             </div>
           </div>
         )}

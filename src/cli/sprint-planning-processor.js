@@ -8,6 +8,7 @@ import { fileURLToPath } from 'url';
 import { getCeremonyHeader } from './message-constants.js';
 import { sendError, sendWarning, sendSuccess, sendInfo, sendOutput, sendIndented, sendSectionHeader, sendCeremonyHeader, sendProgress, sendSubstep } from './messaging-api.js';
 import { outputBuffer } from './output-buffer.js';
+import { loadAgent } from './agent-loader.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -46,7 +47,14 @@ class SprintPlanningProcessor {
 
     // Cost threshold protection
     this._costThreshold = options?.costThreshold ?? null;
+    this._costLimitReachedCallback = options?.costLimitReachedCallback ?? null;
     this._runningCost = 0;
+
+    // Optional user-selection gate between Stage 4 and Stage 5
+    // When provided, the processor calls this async function with the decomposed hierarchy
+    // and waits for it to resolve with { selectedEpicIds, selectedStoryIds }.
+    // When null (default), the processor runs straight through without pausing.
+    this._selectionCallback = options?.selectionCallback ?? null;
   }
 
   /**
@@ -686,8 +694,48 @@ Return your response as JSON following the exact structure specified in your ins
     return hierarchy;
   }
 
+  /**
+   * Filter the decomposed hierarchy to only the epics/stories chosen by the user.
+   * @param {Object} hierarchy - Full decomposed hierarchy
+   * @param {string[]} selectedEpicIds - Epic IDs to keep
+   * @param {string[]} selectedStoryIds - Story IDs to keep
+   * @returns {Object} Filtered hierarchy
+   */
+  _filterHierarchyBySelection(hierarchy, selectedEpicIds, selectedStoryIds) {
+    const epicIdSet = new Set(selectedEpicIds);
+    const storyIdSet = new Set(selectedStoryIds);
+    const filteredEpics = hierarchy.epics
+      .filter(e => epicIdSet.has(e.id))
+      .map(e => ({
+        ...e,
+        stories: (e.stories || []).filter(s => storyIdSet.has(s.id))
+      }));
+    return { ...hierarchy, epics: filteredEpics };
+  }
+
+  /**
+   * Phase 1 of contextual selection: extract structured project characteristics from scope text.
+   * Called once per sprint-planning run when useContextualSelection is enabled.
+   * @param {string} scope - Project scope text (first 3000 chars used)
+   * @param {Function} progressCallback - Optional progress callback
+   * @returns {Promise<Object>} ProjectContext JSON (empty object on failure)
+   */
+  async extractProjectContext(scope, progressCallback) {
+    this.debug('Extracting project context for contextual agent selection');
+    try {
+      const provider = await this.getProviderForStageInstance('validation');
+      const agent = loadAgent('project-context-extractor.md');
+      const prompt = `PROJECT SCOPE:\n\n${scope.substring(0, 3000)}\n\nExtract the structured project context as JSON.`;
+      const result = await provider.generateJSON(prompt, agent);
+      return result || {};
+    } catch (err) {
+      this.debug('Project context extraction failed, continuing without context', { error: err.message });
+      return {};
+    }
+  }
+
   // STAGE 5: Multi-Agent Validation
-  async validateHierarchy(hierarchy, progressCallback = null) {
+  async validateHierarchy(hierarchy, progressCallback = null, scope = null) {
     this.debugStage(5, 'Multi-Agent Validation');
 
     // Initialize default LLM provider if not already done (for fallback)
@@ -702,12 +750,27 @@ Return your response as JSON following the exact structure specified in your ins
       this.debug('Smart validator selection enabled');
     }
 
+    // Phase 1: Extract project context if contextual selection is enabled
+    const useContextualSelection = this.stagesConfig?.validation?.useContextualSelection || false;
+    this.debug(`Contextual agent selection: useContextualSelection=${useContextualSelection}, stagesConfig.validation=${JSON.stringify(this.stagesConfig?.validation)}`);
+    let projectContext = null;
+
+    if (useContextualSelection && scope) {
+      await progressCallback?.(null, 'Analyzing project context for agent selection…', {});
+      projectContext = await this.extractProjectContext(scope, progressCallback);
+      this._projectContext = projectContext;
+      this.debug('Project context extracted', projectContext);
+    } else if (useContextualSelection) {
+      this.debug('useContextualSelection=true but no scope available — skipping context extraction');
+    }
+
     const validator = new EpicStoryValidator(
       this.llmProvider,
       this.verificationTracker,
       this.stagesConfig,
       useSmartSelection,
-      progressCallback
+      progressCallback,
+      projectContext
     );
     this._validator = validator;
     this._validator.setTokenCallback((delta) => {
@@ -1111,6 +1174,114 @@ Return your response as JSON following the exact structure specified in your ins
   }
 
   /**
+   * Stage 7: Enrich story doc.md files with implementation-specific detail.
+   *
+   * After doc distribution, story docs may still have vague acceptance criteria
+   * that lack concrete API contracts, error tables, DB field names, and business rules.
+   * This stage runs the story-doc-enricher agent on each story doc to fill those gaps.
+   *
+   * @param {Object} hierarchy - Hierarchy with epics and stories (post-renumbering, with real IDs)
+   * @param {Function} progressCallback - Optional progress callback
+   */
+  async enrichStoryDocs(hierarchy, progressCallback = null) {
+    this.debugStage(8, 'Enrich Story Docs with Implementation Detail');
+
+    const agentInstructions = loadAgent('story-doc-enricher.md');
+    const provider = await this.getProviderForStageInstance('enrichment');
+    const { model: modelName } = this.getProviderForStage('enrichment');
+
+    this.debug(`Using model for enrichment: ${modelName}`);
+
+    let enrichedCount = 0;
+    let skippedCount = 0;
+
+    for (const epic of hierarchy.epics) {
+      const epicDir = path.join(this.projectPath, epic.id);
+
+      for (const story of epic.stories || []) {
+        const storyDir = path.join(epicDir, story.id);
+        const storyDocPath = path.join(storyDir, 'doc.md');
+        const storyWorkJsonPath = path.join(storyDir, 'work.json');
+
+        if (!fs.existsSync(storyDocPath)) {
+          this.debug(`Skipping enrichment for ${story.id} — doc.md not found`);
+          skippedCount++;
+          continue;
+        }
+
+        const storyDocContent = fs.readFileSync(storyDocPath, 'utf8');
+
+        // Build enrichment prompt
+        const acceptance = (story.acceptance || []).map((a, i) => `${i + 1}. ${a}`).join('\n') || 'none specified';
+        const prompt = `## Existing Story Doc
+
+${storyDocContent}
+
+---
+
+## Story Work Item
+
+**Name:** ${story.name}
+**User Type:** ${story.userType || 'team member'}
+**Description:** ${story.description || ''}
+**Acceptance Criteria:**
+${acceptance}
+
+---
+
+## Parent Epic Context
+
+**Epic:** ${epic.name}
+**Domain:** ${epic.domain || 'general'}
+**Description:** ${epic.description || ''}
+
+---
+
+Enrich the existing story doc to be fully implementation-ready. Fill any gaps in API contracts, error tables, data model fields, business rules, and authorization. Return JSON with \`enriched_doc\` and \`gaps_filled\` fields.`;
+
+        this.debug(`Enriching story doc: ${story.id} (${story.name})`);
+        await progressCallback?.(null, `  Enriching documentation → ${story.name}`, {});
+
+        try {
+          const result = await this._withProgressHeartbeat(
+            () => this.retryWithBackoff(
+              () => provider.generateJSON(prompt, agentInstructions),
+              `enrichment for story: ${story.name}`
+            ),
+            (elapsed) => {
+              if (elapsed < 15) return `Enriching ${story.name}…`;
+              if (elapsed < 30) return `Adding implementation detail to ${story.name}…`;
+              return `Still enriching… (${elapsed}s)`;
+            },
+            progressCallback,
+            5000
+          );
+
+          const enrichedDoc = (typeof result.enriched_doc === 'string' && result.enriched_doc.trim())
+            ? result.enriched_doc
+            : storyDocContent;
+
+          const gapsFilled = Array.isArray(result.gaps_filled) ? result.gaps_filled : [];
+
+          fs.writeFileSync(storyDocPath, enrichedDoc, 'utf8');
+          enrichedCount++;
+
+          if (gapsFilled.length > 0) {
+            this.debug(`Story ${story.id} enriched: ${gapsFilled.length} gaps filled`, gapsFilled);
+          } else {
+            this.debug(`Story ${story.id}: already implementation-ready, no gaps filled`);
+          }
+        } catch (err) {
+          this.debug(`Story enrichment failed for ${story.id} — keeping original doc`, { error: err.message });
+          skippedCount++;
+        }
+      }
+    }
+
+    this.debug(`Story enrichment complete: ${enrichedCount} enriched, ${skippedCount} skipped`);
+  }
+
+  /**
    * Distribute documentation content from a parent doc.md to a child item's doc.md.
    *
    * Calls the doc-distributor LLM agent which extracts content specifically about
@@ -1317,8 +1488,14 @@ Extract content specifically about this ${childType} from the parent document in
     if (this._costThreshold != null && progressCallback) {
       const _origCallback = progressCallback;
       progressCallback = async (...args) => {
-        if (this._runningCost >= this._costThreshold) {
-          throw new Error(`COST_LIMIT_EXCEEDED:${this._runningCost.toFixed(6)}`);
+        if (this._costThreshold != null && this._runningCost >= this._costThreshold) {
+          if (this._costLimitReachedCallback) {
+            this._costThreshold = null; // disable re-triggering
+            await this._costLimitReachedCallback(this._runningCost);
+            // returns → ceremony continues with limit disabled
+          } else {
+            throw new Error(`COST_LIMIT_EXCEEDED:${this._runningCost.toFixed(6)}`);
+          }
         }
         return _origCallback(...args);
       };
@@ -1394,6 +1571,20 @@ Extract content specifically about this ${childType} from the parent document in
       })));
       this.debug('LLM validation field', hierarchy.validation || null);
 
+      // Stage 4.5: User selection gate (Kanban UI only; null = run straight through)
+      if (this._selectionCallback) {
+        await progressCallback?.('Stage 4.5/6: Waiting for epic/story selection…');
+        const selection = await this._selectionCallback(hierarchy);
+        if (selection) {
+          const { selectedEpicIds, selectedStoryIds } = selection;
+          hierarchy = this._filterHierarchyBySelection(hierarchy, selectedEpicIds, selectedStoryIds);
+          const epicCount = hierarchy.epics.length;
+          const storyCount = hierarchy.epics.reduce((s, e) => s + (e.stories?.length || 0), 0);
+          this.debug(`Selection applied: ${epicCount} epics, ${storyCount} stories selected`);
+          await progressCallback?.(null, `Confirmed: ${epicCount} epics, ${storyCount} stories selected`, {});
+        }
+      }
+
       // Clear screen before validation phase
       process.stdout.write('\x1bc');
       outputBuffer.clear();
@@ -1401,7 +1592,7 @@ Extract content specifically about this ${childType} from the parent document in
       // Stage 5: Multi-Agent Validation
       sendProgress('Validating Epics and Stories with domain experts...');
       await progressCallback?.('Stage 5/6: Validating with domain experts…');
-      hierarchy = await this.validateHierarchy(hierarchy, progressCallback);
+      hierarchy = await this.validateHierarchy(hierarchy, progressCallback, scope);
 
       // Log hierarchy after validation (may have been modified)
       this.debugSection('POST-VALIDATION: Hierarchy after domain-expert validation');
@@ -1423,8 +1614,13 @@ Extract content specifically about this ${childType} from the parent document in
 
       // Stage 6: Write hierarchy files
       sendProgress('Writing files and distributing documentation...');
-      await progressCallback?.('Stage 6/6: Writing files and distributing documentation…');
+      await progressCallback?.('Stage 6/7: Writing files and distributing documentation…');
       const { epicCount, storyCount } = await this.writeHierarchyFiles(hierarchy, progressCallback);
+
+      // Stage 7: Enrich story docs with implementation detail
+      sendProgress('Enriching story documentation with implementation detail...');
+      await progressCallback?.('Stage 7/7: Enriching story documentation…');
+      await this.enrichStoryDocs(hierarchy, progressCallback);
 
       // Stage 9: Summary & Cleanup
       this.debugStage(9, 'Summary & Cleanup');

@@ -16,8 +16,14 @@ const AGENT_LABELS = {
   'question-prefiller':              'Question Prefiller',
   'project-documentation-creator':   'Documentation Creator',
   'validator-documentation':         'Documentation Validator',
+  // Sprint Planning + Seed (shared)
+  'doc-distributor':                      'Doc Distributor',
+  'feature-context-generator':            'Feature Context Generator',
   // Sprint Planning
   'epic-story-decomposer':                'Epic/Story Decomposer',
+  'project-context-extractor':            'Project Context Extractor',
+  'agent-selector':                       'Agent Selector',
+  'story-doc-enricher':                   'Story Doc Enricher',
   'validator-selector':                   'Validator Selector',
   'validator-epic-solution-architect':    'Solution Architect (Epic)',
   'validator-epic-developer':             'Developer (Epic)',
@@ -301,6 +307,21 @@ function buildSprintPlanningPhases(ceremony) {
       // Validators run sequentially so each one sees improvements from previous pairs.
       steps: [
         {
+          type:     'generate',
+          label:    'Extract project context (once) — infers deployment type, tech stack, cloud/mobile presence to filter validators',
+          model:    ceremony.stages?.validation?.model ?? fallbackModel,
+          stageKey: 'validation',
+          agent:    'project-context-extractor',
+        },
+        {
+          type:       'generate',
+          label:      'AI-select relevant validators per Epic / Story — excludes inapplicable roles (e.g. cloud if no cloud services). Runs once per Epic, once per Story.',
+          model:      ceremony.stages?.validation?.model ?? fallbackModel,
+          stageKey:   'validation',
+          sharedWith: 'Validation',
+          agent:      'agent-selector',
+        },
+        {
           type:          'loop-group',
           loopParamType: 'sprintSolver',
           loop: {
@@ -373,22 +394,47 @@ function buildSprintPlanningPhases(ceremony) {
     },
     {
       id: 'output',
-      label: 'Output',
+      label: 'Documentation & Output',
       color: 'emerald',
       steps: [
         { type: 'process', label: 'Renumber hierarchy IDs' },
         {
-          type:  'output',
-          label: 'Write Epic files',
-          files: [
-            { name: '{epic}/work.json', direction: 'out' },
-            { name: '{epic}/doc.md',    direction: 'out', note: 'stub — filled in by agent work' },
+          type:     'generate',
+          label:    'Distribute documentation — extract Epic-specific content from project/doc.md into each Epic\'s doc.md (moves content, doesn\'t copy)',
+          model:    ceremony.stages?.['doc-distribution']?.model ?? fallbackModel,
+          stageKey: 'doc-distribution',
+          agent:    'doc-distributor',
+          files:    [
+            { name: 'project/doc.md',  direction: 'in',  note: 'source — progressively lightened as epics extract their content' },
+            { name: '{epic}/doc.md',   direction: 'out', note: 'receives content extracted from project doc' },
+          ],
+        },
+        {
+          type:     'generate',
+          label:    'Distribute documentation — extract Story-specific content from each Epic\'s doc.md into each Story\'s doc.md',
+          model:    ceremony.stages?.['doc-distribution']?.model ?? fallbackModel,
+          stageKey: 'doc-distribution',
+          agent:    'doc-distributor',
+          files:    [
+            { name: '{epic}/doc.md',   direction: 'in',  note: 'source — progressively lightened as stories extract their content' },
+            { name: '{story}/doc.md',  direction: 'out', note: 'receives content extracted from epic doc' },
+          ],
+        },
+        {
+          type:     'generate',
+          label:    'Enrich Story docs with missing implementation detail — API contracts, error tables, DB fields, business rules. Runs once per Story.',
+          model:    ceremony.stages?.enrichment?.model ?? fallbackModel,
+          stageKey: 'enrichment',
+          agent:    'story-doc-enricher',
+          files:    [
+            { name: '{story}/doc.md',  direction: 'inout', note: 'read then overwritten with enriched content' },
           ],
         },
         {
           type:  'output',
-          label: 'Write Story files',
+          label: 'Write Epic & Story work.json files',
           files: [
+            { name: '{epic}/work.json',  direction: 'out' },
             { name: '{story}/work.json', direction: 'out' },
           ],
         },
@@ -484,18 +530,21 @@ function FileTags({ files, className = '' }) {
   return (
     <div className={`flex items-center gap-1 flex-wrap ${className}`}>
       {files.map((f, i) => {
-        const isIn = f.direction === 'in';
+        const isIn    = f.direction === 'in';
+        const isInOut = f.direction === 'inout';
+        const cls = isInOut
+          ? 'bg-purple-50 text-purple-700 border-purple-200'
+          : isIn
+            ? 'bg-sky-50 text-sky-700 border-sky-200'
+            : 'bg-emerald-50 text-emerald-700 border-emerald-200';
+        const arrow = isInOut ? '↕' : isIn ? '←' : '→';
         return (
           <span
             key={i}
-            className={`inline-flex items-center gap-0.5 text-[10px] font-mono font-medium px-1.5 py-0.5 rounded border whitespace-nowrap ${
-              isIn
-                ? 'bg-sky-50 text-sky-700 border-sky-200'
-                : 'bg-emerald-50 text-emerald-700 border-emerald-200'
-            }`}
+            className={`inline-flex items-center gap-0.5 text-[10px] font-mono font-medium px-1.5 py-0.5 rounded border whitespace-nowrap ${cls}`}
             title={f.note}
           >
-            <span className="font-sans mr-0.5">{isIn ? '←' : '→'}</span>
+            <span className="font-sans mr-0.5">{arrow}</span>
             {f.name}
           </span>
         );

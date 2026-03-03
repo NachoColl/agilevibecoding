@@ -1,6 +1,6 @@
 import { useEffect, useState, useMemo, useRef } from 'react';
 import { Pencil, Check, X, BookOpen, Settings, DollarSign } from 'lucide-react';
-import { getHealth, getBoardTitle, updateBoardTitle, getDocsUrl, getSettings, getModels, getCostSummary, getProjectStatus, getCeremonyStatus } from './lib/api';
+import { getHealth, getBoardTitle, updateBoardTitle, getDocsUrl, getSettings, getModels, getCostSummary, getProjectStatus, getCeremonyStatus, continuePastCostLimit, cancelCeremony } from './lib/api';
 import { useWebSocket } from './hooks/useWebSocket';
 import { useKanbanStore } from './store/kanbanStore';
 import { useFilterStore } from './store/filterStore';
@@ -14,6 +14,7 @@ import { ProcessMonitorBar } from './components/process/ProcessMonitorBar';
 import { CardDetailModal } from './components/kanban/CardDetailModal';
 import { SponsorCallModal } from './components/ceremony/SponsorCallModal';
 import { SprintPlanningModal } from './components/ceremony/SprintPlanningModal';
+import { EpicStorySelectionModal } from './components/ceremony/EpicStorySelectionModal';
 import { SettingsModal } from './components/settings/SettingsModal';
 import { CostModal } from './components/stats/CostModal';
 import { groupItemsByColumn } from './lib/status-grouping';
@@ -38,6 +39,14 @@ function App() {
   // Cost chip + modal state
   const [costSummary, setCostSummary] = useState(null);
   const [costModalOpen, setCostModalOpen] = useState(false);
+
+  // Cost-limit pause dialog — { cost, threshold, runningType } when ceremony hits limit
+  const [costLimitPending, setCostLimitPending] = useState(null);
+
+  // Refine work item state — { itemId, jobId, message } / { itemId, jobId, result } / { itemId, jobId, error }
+  const [refineProgress, setRefineProgress] = useState(null);
+  const [refineResult, setRefineResult] = useState(null);
+  const [refineError, setRefineError] = useState(null);
 
   // Project file status + editor popup
   const [projectFilesStatus, setProjectFilesStatus] = useState({ docExists: false });
@@ -67,6 +76,7 @@ function App() {
     isOpen: sprintPlanningOpen,
     openModal: openSprintPlanning,
     closeModal: closeSprintPlanning,
+    reopenModal: reopenSprintPlanning,
     setStep: setSprintPlanningStep,
     setStatus: setSprintPlanningStatus,
     appendProgress: appendSprintPlanningProgress,
@@ -76,6 +86,7 @@ function App() {
     status: sprintPlanningStatus,
     setPaused: setSprintPlanningPaused,
     setProcessId: setSprintPlanningProcessId,
+    setDecomposedHierarchy: setSprintPlanningDecomposedHierarchy,
   } = useSprintPlanningStore();
 
   const { handleProcessMessage } = useProcessStore();
@@ -110,16 +121,19 @@ function App() {
       } else if (message.type === 'ceremony:detail') {
         appendProgress({ type: 'detail', detail: message.detail });
       } else if (message.type === 'ceremony:complete') {
+        setCostLimitPending(null);
         setCeremonyStatus('complete');
         setCeremonyResult(message.result);
         setWizardStep(7);
         loadWorkItems();
-        getProjectStatus().then(setProjectFilesStatus).catch(() => {});
+        getProjectStatus().then(setProjectFilesStatus).catch(() => { });
       } else if (message.type === 'ceremony:error') {
         setCeremonyStatus('error');
         setCeremonyError(message.error);
       } else if (message.type === 'mission:progress') {
         appendMissionProgress({ step: message.step, message: message.message });
+      } else if (message.type === 'ceremony:cost-limit') {
+        setCostLimitPending({ cost: message.cost, threshold: message.threshold, runningType: message.runningType });
       } else if (message.type === 'cost:update') {
         getCostSummary().then(setCostSummary).catch(() => { });
       } else if (message.type === 'sprint-planning:progress') {
@@ -128,10 +142,16 @@ function App() {
         appendSprintPlanningProgress({ type: 'substep', substep: message.substep, meta: message.meta });
       } else if (message.type === 'sprint-planning:detail') {
         appendSprintPlanningProgress({ type: 'detail', detail: message.detail });
+      } else if (message.type === 'sprint-planning:decomposition-complete') {
+        setSprintPlanningDecomposedHierarchy(message.hierarchy);
+        setSprintPlanningStatus('awaiting-selection');
+        setSprintPlanningStep(3);
       } else if (message.type === 'sprint-planning:complete') {
+        setCostLimitPending(null);
         setSprintPlanningStatus('complete');
         setSprintPlanningResult(message.result);
-        setSprintPlanningStep(3);
+        setSprintPlanningDecomposedHierarchy(null);
+        setSprintPlanningStep(4);
         loadWorkItems();
       } else if (message.type === 'sprint-planning:error') {
         setSprintPlanningStatus('error');
@@ -141,17 +161,28 @@ function App() {
       } else if (message.type === 'sprint-planning:resumed') {
         setSprintPlanningPaused(false);
       } else if (message.type === 'sprint-planning:cancelled') {
+        setCostLimitPending(null);
         setSprintPlanningStatus('idle');
         setSprintPlanningStep(1);
         setSprintPlanningPaused(false);
+        setSprintPlanningDecomposedHierarchy(null);
       } else if (message.type === 'ceremony:paused') {
         setCeremonyPaused(true);
       } else if (message.type === 'ceremony:resumed') {
         setCeremonyPaused(false);
       } else if (message.type === 'ceremony:cancelled') {
+        setCostLimitPending(null);
         setCeremonyStatus('idle');
         setWizardStep(1);
         setCeremonyPaused(false);
+      } else if (message.type === 'refine:progress') {
+        setRefineProgress({ itemId: message.itemId, jobId: message.jobId, message: message.message });
+      } else if (message.type === 'refine:complete') {
+        setRefineProgress(null);
+        setRefineResult({ itemId: message.itemId, jobId: message.jobId, result: message.result });
+      } else if (message.type === 'refine:error') {
+        setRefineProgress(null);
+        setRefineError({ itemId: message.itemId, jobId: message.jobId, error: message.error });
       } else if (message.type === 'process:started') {
         handleProcessMessage(message);
         if (message.processType === 'sprint-planning') {
@@ -165,15 +196,24 @@ function App() {
         // Server sends this on WebSocket connect when a ceremony is already running.
         // Restores client state without requiring an HTTP round-trip.
         const cs = message.ceremonyStatus;
-        if (cs?.status === 'running') {
+        if (cs?.status === 'running' || cs?.status === 'cost-limit-pending' || cs?.status === 'awaiting-selection') {
           if (cs.runningType === 'sprint-planning') {
-            setSprintPlanningStatus('running');
+            if (cs.status === 'awaiting-selection') {
+              setSprintPlanningStatus('awaiting-selection');
+              setSprintPlanningDecomposedHierarchy(cs.decomposedHierarchy || null);
+              setSprintPlanningStep(3);
+            } else {
+              setSprintPlanningStatus('running');
+            }
             if (cs.processId) setSprintPlanningProcessId(cs.processId);
             if (cs.progress?.length) setSprintPlanningProgressLog(cs.progress);
           } else if (cs.runningType === 'sponsor-call') {
             setCeremonyStatus('running');
             if (cs.processId) setCeremonyProcessId(cs.processId);
             if (cs.progress?.length) setCeremonyProgressLog(cs.progress);
+          }
+          if (cs.status === 'cost-limit-pending' && cs.costLimitInfo) {
+            setCostLimitPending({ ...cs.costLimitInfo, runningType: cs.runningType });
           }
         }
       }
@@ -198,15 +238,24 @@ function App() {
 
         // Restore running ceremony state BEFORE revealing projectFilesLoaded so the
         // board never shows "Start" buttons for an already-running ceremony.
-        if (ceremonyState?.status === 'running') {
+        if (ceremonyState?.status === 'running' || ceremonyState?.status === 'cost-limit-pending' || ceremonyState?.status === 'awaiting-selection') {
           if (ceremonyState.runningType === 'sprint-planning') {
-            setSprintPlanningStatus('running');
+            if (ceremonyState.status === 'awaiting-selection') {
+              setSprintPlanningStatus('awaiting-selection');
+              setSprintPlanningDecomposedHierarchy(ceremonyState.decomposedHierarchy || null);
+              setSprintPlanningStep(3);
+            } else {
+              setSprintPlanningStatus('running');
+            }
             if (ceremonyState.processId) setSprintPlanningProcessId(ceremonyState.processId);
             if (ceremonyState.progress?.length) setSprintPlanningProgressLog(ceremonyState.progress);
           } else if (ceremonyState.runningType === 'sponsor-call') {
             setCeremonyStatus('running');
             if (ceremonyState.processId) setCeremonyProcessId(ceremonyState.processId);
             if (ceremonyState.progress?.length) setCeremonyProgressLog(ceremonyState.progress);
+          }
+          if (ceremonyState.status === 'cost-limit-pending' && ceremonyState.costLimitInfo) {
+            setCostLimitPending({ ...ceremonyState.costLimitInfo, runningType: ceremonyState.runningType });
           }
         }
 
@@ -483,9 +532,14 @@ function App() {
             onStartSprintPlanning={
               projectFilesLoaded &&
                 projectFilesStatus.docExists &&
-                sprintPlanningStatus !== 'running' && ceremonyStatus !== 'running'
+                sprintPlanningStatus !== 'running' &&
+                sprintPlanningStatus !== 'awaiting-selection' &&
+                ceremonyStatus !== 'running'
                 ? openSprintPlanning
                 : undefined
+            }
+            onOpenSprintPlanningSelection={
+              sprintPlanningStatus === 'awaiting-selection' ? reopenSprintPlanning : undefined
             }
             sponsorCallRunning={ceremonyStatus === 'running'}
           />
@@ -494,7 +548,7 @@ function App() {
 
       {/* Footer */}
       <footer className="bg-white border-t border-slate-200 py-4 text-center text-sm text-slate-500 flex-shrink-0">
-        Powered by <a
+        <a
           href="https://agilevibecoding.org"
           target="_blank"
           rel="noopener noreferrer"
@@ -512,13 +566,34 @@ function App() {
         onNavigate={handleNavigate}
         onItemClick={handleCardClick}
         allItems={workItems}
+        refineProgress={refineProgress}
+        refineResult={refineResult}
+        refineError={refineError}
+        onClearRefine={() => { setRefineResult(null); setRefineError(null); setRefineProgress(null); }}
       />
 
       {/* Sponsor Call Ceremony Modal */}
-      {ceremonyOpen && <SponsorCallModal onOpenSettings={openSettings} />}
+      {ceremonyOpen && (
+        <SponsorCallModal
+          onOpenSettings={openSettings}
+          costLimitPending={costLimitPending?.runningType === 'sponsor-call' ? costLimitPending : null}
+          onContinuePastCostLimit={async () => { try { await continuePastCostLimit(); setCostLimitPending(null); } catch (_) {} }}
+          onCancelFromCostLimit={async () => { try { await cancelCeremony(); setCostLimitPending(null); } catch (_) {} }}
+        />
+      )}
 
       {/* Sprint Planning Ceremony Modal */}
-      {sprintPlanningOpen && <SprintPlanningModal onClose={closeSprintPlanning} />}
+      {sprintPlanningOpen && (
+        <SprintPlanningModal
+          onClose={closeSprintPlanning}
+          costLimitPending={costLimitPending?.runningType === 'sprint-planning' ? costLimitPending : null}
+          onContinuePastCostLimit={async () => { try { await continuePastCostLimit(); setCostLimitPending(null); } catch (_) {} }}
+          onCancelFromCostLimit={async () => { try { await cancelCeremony(); setCostLimitPending(null); } catch (_) {} }}
+        />
+      )}
+
+      {/* Epic/Story Selection Popup — shown independently when decomposition completes */}
+      <EpicStorySelectionModal />
 
       {/* Settings Modal */}
       {settingsOpen && settingsSnapshot && (

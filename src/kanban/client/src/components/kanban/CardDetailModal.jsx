@@ -21,6 +21,7 @@ import {
   X,
   Save,
   ChevronUp,
+  Wand2,
 } from 'lucide-react';
 import {
   getWorkItem,
@@ -31,6 +32,7 @@ import {
 } from '../../lib/api';
 import { getStatusMetadata } from '../../lib/status-grouping';
 import { cn } from '../../lib/utils';
+import { RefineWorkItemPopup } from './RefineWorkItemPopup';
 
 /**
  * Clickable item box — same visual style as the children list.
@@ -134,7 +136,7 @@ const TYPE_METADATA = {
  * Card Detail Modal Component
  * Displays full work item details with tabbed sections
  */
-export function CardDetailModal({ workItem, open, onOpenChange, onNavigate, onItemClick, allItems }) {
+export function CardDetailModal({ workItem, open, onOpenChange, onNavigate, onItemClick, allItems, refineProgress, refineResult, refineError, onClearRefine }) {
   const [activeTab, setActiveTab] = useState('overview');
   const [fullDetails, setFullDetails] = useState(null);
   const [documentation, setDocumentation] = useState(null);
@@ -148,6 +150,16 @@ export function CardDetailModal({ workItem, open, onOpenChange, onNavigate, onIt
 
   // Parent chain for navigation
   const [parentChain, setParentChain] = useState([]);
+
+  // Refine popup state
+  const [refineOpen, setRefineOpen] = useState(false);
+
+  // Reload full details after a successful refine apply
+  const handleRefineAccepted = () => {
+    setRefineOpen(false);
+    onClearRefine?.();
+    loadFullDetails();
+  };
 
   // Load full details when modal opens
   useEffect(() => {
@@ -304,6 +316,48 @@ export function CardDetailModal({ workItem, open, onOpenChange, onNavigate, onIt
                 {/* Overview Tab */}
                 <TabsContent value="overview">
                   <div className="space-y-6">
+                    {/* Validation summary + Refine button */}
+                    {(() => {
+                      const vr = fullDetails?.metadata?.validationResult;
+                      const score = vr?.averageScore ?? null;
+                      const critCount = (vr?.criticalIssues || []).length;
+                      const majCount = (vr?.majorIssues || []).length;
+                      const minCount = (vr?.minorIssues || []).length;
+                      const totalIssues = critCount + majCount + minCount;
+                      return (
+                        <div className="flex items-start justify-between gap-3">
+                          {vr ? (
+                            <div className="flex items-center gap-3 flex-wrap">
+                              <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${
+                                score >= 95 ? 'bg-green-100 text-green-700' : score >= 80 ? 'bg-amber-100 text-amber-700' : 'bg-red-100 text-red-700'
+                              }`}>
+                                {score}/100
+                              </span>
+                              {totalIssues > 0 && (
+                                <span className="text-xs text-slate-500">
+                                  {critCount > 0 && <span className="text-red-600 font-medium">{critCount} critical</span>}
+                                  {critCount > 0 && (majCount > 0 || minCount > 0) && <span className="mx-1">·</span>}
+                                  {majCount > 0 && <span className="text-orange-600 font-medium">{majCount} major</span>}
+                                  {majCount > 0 && minCount > 0 && <span className="mx-1">·</span>}
+                                  {minCount > 0 && <span className="text-amber-600">{minCount} minor</span>}
+                                </span>
+                              )}
+                              {totalIssues === 0 && <span className="text-xs text-green-600">No issues found</span>}
+                            </div>
+                          ) : (
+                            <div />
+                          )}
+                          <button
+                            onClick={() => setRefineOpen(true)}
+                            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-violet-700 bg-violet-50 border border-violet-200 rounded-lg hover:bg-violet-100 transition-colors flex-shrink-0"
+                          >
+                            <Wand2 className="w-3.5 h-3.5" />
+                            Refine with AI
+                          </button>
+                        </div>
+                      );
+                    })()}
+
                     {/* Description */}
                     {fullDetails?.description && (
                       <div>
@@ -495,6 +549,18 @@ export function CardDetailModal({ workItem, open, onOpenChange, onNavigate, onIt
           </div>
         )}
       </DialogContent>
+
+      {/* Refine popup — rendered outside DialogContent so it stacks above the modal */}
+      {refineOpen && fullDetails && (
+        <RefineWorkItemPopup
+          item={fullDetails}
+          refineProgress={refineProgress?.itemId === fullDetails.id ? refineProgress : null}
+          refineResult={refineResult?.itemId === fullDetails.id ? refineResult : null}
+          refineError={refineError?.itemId === fullDetails.id ? refineError : null}
+          onClose={() => { setRefineOpen(false); onClearRefine?.(); }}
+          onAccepted={handleRefineAccepted}
+        />
+      )}
     </Dialog>
   );
 }

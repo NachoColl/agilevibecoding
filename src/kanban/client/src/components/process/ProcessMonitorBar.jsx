@@ -29,9 +29,11 @@ function elapsed(startedAt, endedAt) {
 export function ProcessMonitorBar() {
   const { processes, clearCompleted } = useProcessStore();
 
-  // Sponsor call runs only once — hide its chip once it's no longer running
+  // Sponsor call runs only once — hide its chip once it's no longer running.
+  // Sprint planning — hide when cancelled (nothing to review); keep for complete/error.
   const visibleProcesses = processes.filter(p =>
-    !(p.type === 'sponsor-call' && p.status !== 'running')
+    !(p.type === 'sponsor-call' && p.status !== 'running') &&
+    !(p.type === 'sprint-planning' && p.status === 'cancelled')
   );
 
   if (visibleProcesses.length === 0) return null;
