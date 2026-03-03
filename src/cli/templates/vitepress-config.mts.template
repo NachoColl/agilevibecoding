@@ -23,6 +23,8 @@ export default defineConfig({
           { text: 'Project Brief', link: '/' }
         ]
       }
+      // @@AVC-WORK-ITEMS-START@@
+      // @@AVC-WORK-ITEMS-END@@
     ],
 
     socialLinks: [

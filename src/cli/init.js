@@ -1400,6 +1400,17 @@ Documentation for this project will be generated automatically once the project 
     });
 
     await processor.execute();
+
+    // Non-fatal docs sync after sprint planning
+    try {
+      const { DocsSyncProcessor } = await import('./docs-sync.js');
+      const syncer = new DocsSyncProcessor(process.cwd());
+      if (fs.existsSync(syncer.docsDir)) {
+        await syncer.sync();
+        sendInfo('Documentation synced.');
+      }
+    } catch (_) { /* non-fatal */ }
+
     fileLog('INFO', 'sprintPlanning() complete', { duration: `${Date.now() - startTime}ms` });
   }
 

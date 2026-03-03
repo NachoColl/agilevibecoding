@@ -14,6 +14,7 @@ import { UpdateChecker } from './update-checker.js';
 import { UpdateInstaller } from './update-installer.js';
 import { CommandLogger } from './command-logger.js';
 import { BackgroundProcessManager } from './process-manager.js';
+import { DocsSyncProcessor } from './docs-sync.js';
 import { registerCallbacks, startCommand, endCommand, cancelCommand, sendCeremonyHeader, sendProgress, sendSubstep, sendOutput, sendIndented, sendError, sendWarning, sendSuccess, sendInfo, sendDebug, clearProgress } from './messaging-api.js';
 import { bold, gray, cyan, green, yellow, boldCyan } from './ansi-colors.js';
 import { outputBuffer } from './output-buffer.js';
@@ -3741,6 +3742,23 @@ const App = () => {
         }
       }
 
+      // Sync sprint planning docs before starting VitePress
+      const syncer = new DocsSyncProcessor(process.cwd());
+      try {
+        const hierarchy = syncer.readHierarchy();
+        if (hierarchy.length > 0) {
+          fileLog('INFO', 'syncing project docs before VitePress start', { epicCount: hierarchy.length });
+          const stats = await syncer.sync();
+          sendSuccess(`Synced ${stats.epics} epics, ${stats.stories} stories (${stats.copied} files updated)`);
+          fileLog('INFO', 'docs sync complete', stats);
+        } else {
+          sendInfo('No sprint planning results yet — serving project brief only');
+          fileLog('INFO', 'no epics found, skipping docs sync');
+        }
+      } catch (syncErr) {
+        fileLog('WARNING', 'docs sync failed (non-fatal)', { error: syncErr.message });
+      }
+
       // Start dev server in background (builds on-demand, hot-reloads on .md changes)
       fileLog('INFO', 'starting documentation dev server', { port, docsDir: builder.docsDir });
       const processId = manager.startProcess({
@@ -3750,11 +3768,32 @@ const App = () => {
         cwd: builder.docsDir
       });
 
+      // Register chokidar watcher to keep docs in sync while server runs
+      let docsWatcher = null;
+      try {
+        docsWatcher = syncer.watch();
+        fileLog('INFO', 'docs file watcher registered');
+      } catch (watchErr) {
+        fileLog('WARNING', 'failed to register docs watcher (non-fatal)', { error: watchErr.message });
+      }
+
+      // Close watcher when documentation server stops
+      if (docsWatcher) {
+        const closeWatcher = () => { docsWatcher.close(); };
+        manager.once('process-stopped', (proc) => {
+          if (proc && proc.id === processId) closeWatcher();
+        });
+        manager.once('process-exited', (proc) => {
+          if (proc && proc.id === processId) closeWatcher();
+        });
+      }
+
       fileLog('INFO', 'runBuildDocumentation complete', { processId, port, totalDuration: `${Date.now() - ts0}ms` });
       sendSuccess('Documentation server started');
       sendIndented(`${gray('URL')}      http://localhost:${port}`, 1);
       sendIndented(`${gray('PID')}      ${processId}`, 1);
       sendInfo('Stop with /processes — select Documentation Server — S');
+      sendInfo('File changes in .avc/project/ will auto-sync to documentation.');
       sendOutput('');
     } finally {
       endCommand();

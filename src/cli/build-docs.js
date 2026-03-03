@@ -26,6 +26,13 @@ export class DocumentationBuilder {
   }
 
   /**
+   * Check if synced project docs directory exists inside documentation
+   */
+  hasProjectDocs() {
+    return fs.existsSync(path.join(this.docsDir, 'project'));
+  }
+
+  /**
    * Get documentation server port from avc.json config
    * Returns default port 4173 if not configured
    */

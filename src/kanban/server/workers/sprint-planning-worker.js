@@ -103,6 +103,20 @@ async function run() {
     });
     logger.stop();
     process.send({ type: 'complete', result });
+
+    // Non-fatal docs sync after ceremony completes
+    try {
+      const { DocsSyncProcessor } = await import('../../../cli/docs-sync.js');
+      const syncer = new DocsSyncProcessor(process.cwd());
+      const { existsSync } = await import('fs');
+      if (existsSync(syncer.docsDir)) {
+        await syncer.sync();
+        process.send({ type: 'docs-synced' });
+      }
+    } catch (e) {
+      process.send({ type: 'docs-sync-failed', error: e.message });
+    }
+
     process.exit(0);
   } catch (err) {
     logger.stop();
