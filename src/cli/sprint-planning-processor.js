@@ -1590,8 +1590,10 @@ Extract content specifically about this ${childType} from the parent document in
       outputBuffer.clear();
 
       // Stage 5: Multi-Agent Validation
+      const epicCount5 = hierarchy.epics.length;
+      const storyCount5 = hierarchy.epics.reduce((s, e) => s + (e.stories?.length || 0), 0);
       sendProgress('Validating Epics and Stories with domain experts...');
-      await progressCallback?.('Stage 5/6: Validating with domain experts…');
+      await progressCallback?.(`Stage 5/6: Validating with domain experts (${epicCount5} epics, ${storyCount5} stories)…`);
       hierarchy = await this.validateHierarchy(hierarchy, progressCallback, scope);
 
       // Log hierarchy after validation (may have been modified)
@@ -1614,12 +1616,12 @@ Extract content specifically about this ${childType} from the parent document in
 
       // Stage 6: Write hierarchy files
       sendProgress('Writing files and distributing documentation...');
-      await progressCallback?.('Stage 6/7: Writing files and distributing documentation…');
+      await progressCallback?.(`Stage 6/7: Writing files and distributing documentation (${epicCount5} epics, ${storyCount5} stories)…`);
       const { epicCount, storyCount } = await this.writeHierarchyFiles(hierarchy, progressCallback);
 
       // Stage 7: Enrich story docs with implementation detail
       sendProgress('Enriching story documentation with implementation detail...');
-      await progressCallback?.('Stage 7/7: Enriching story documentation…');
+      await progressCallback?.(`Stage 7/7: Enriching story documentation (${storyCount5} stories)…`);
       await this.enrichStoryDocs(hierarchy, progressCallback);
 
       // Stage 9: Summary & Cleanup

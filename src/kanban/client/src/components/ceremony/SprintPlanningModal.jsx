@@ -80,8 +80,16 @@ function ReadyStep({ onStart }) {
 // ── Step 2: Running ───────────────────────────────────────────────────────────
 
 function parseStageNumber(message) {
-  const m = message?.match(/Stage\s+(\d+)\/(\d+)/i);
-  if (m) return { current: parseInt(m[1]), total: parseInt(m[2]) };
+  const m = message?.match(/Stage\s+(\d+(?:\.\d+)?)\/(\d+)/i);
+  if (m) return { current: parseFloat(m[1]), total: parseInt(m[2]) };
+  return null;
+}
+
+function parseStageTotals(message) {
+  const m = message?.match(/\((\d+)\s+epics?,\s*(\d+)\s+stories?\)/i);
+  if (m) return { total: parseInt(m[1]) + parseInt(m[2]) };
+  const m2 = message?.match(/\((\d+)\s+stories?\)/i);
+  if (m2) return { total: parseInt(m2[1]) };
   return null;
 }
 
@@ -127,18 +135,41 @@ function RunningStep({ transitioning, onPause, onResume, onCancel, onBackground 
 
   const stageGroups = buildStageGroups(progressLog);
 
-  let currentStage = null;
-  let totalStages = 8;
-  for (const g of [...stageGroups].reverse()) {
-    const parsed = parseStageNumber(g.message);
-    if (parsed) {
-      currentStage = parsed.current;
-      totalStages = parsed.total;
-      break;
+  const STAGE_WEIGHTS = {
+    '1/6':   [0,  3],
+    '2/6':   [3,  7],
+    '3/6':   [7,  12],
+    '4/6':   [12, 22],
+    '4.5/6': [22, 24],
+    '5/6':   [24, 76],
+    '6/7':   [76, 90],
+    '7/7':   [90, 100],
+  };
+
+  const currentGroup = [...stageGroups].reverse().find(g => parseStageNumber(g.message));
+
+  let progressPct = 5;
+  if (currentGroup) {
+    const parsed = parseStageNumber(currentGroup.message);
+    const key = `${parsed.current}/${parsed.total}`;
+    const [stageStart, stageEnd] = STAGE_WEIGHTS[key] ?? [0, 90];
+
+    const totals = parseStageTotals(currentGroup.message);
+    if (totals && totals.total > 0) {
+      let countedItems = 0;
+      if (key === '5/6') {
+        countedItems = currentGroup.substeps.filter(s => s.text?.includes('Validating ')).length;
+      } else if (key === '6/7') {
+        countedItems = currentGroup.substeps.filter(s => s.text?.includes('Distributing documentation')).length;
+      } else if (key === '7/7') {
+        countedItems = currentGroup.substeps.filter(s => s.text?.includes('Enriching documentation')).length;
+      }
+      const fraction = Math.min(countedItems, totals.total) / totals.total;
+      progressPct = Math.round(stageStart + fraction * (stageEnd - stageStart));
+    } else {
+      progressPct = stageStart;
     }
   }
-
-  const progressPct = currentStage ? Math.round((currentStage / totalStages) * 100) : 5;
   const latestProgress = stageGroups[stageGroups.length - 1]?.message || 'Starting…';
 
   if (status === 'error') {
