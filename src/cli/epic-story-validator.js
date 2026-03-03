@@ -219,55 +219,65 @@ class EpicStoryValidator {
 
     await this._detail(`${validators.length} validator${validators.length !== 1 ? 's' : ''}: ${validators.map(v => this.extractDomain(v)).join(', ')}`);
 
-    const validationResults = [];
-    // Working copy — accumulates improvements from each validator-solver pair
+    // Working copy — accumulates improvements from solver runs
     // Keep stories array untouched; solver only modifies epic-level fields
     let workingEpic = { ...epic };
 
-    // Sequential: each validator sees improvements from previous solver
-    for (let vi = 0; vi < validators.length; vi++) {
-      const validatorName = validators[vi];
-      const role = this.extractDomain(validatorName);
-      let lastResult;
+    // ── Phase 1: run all validators in parallel on the initial snapshot ──────────
+    await this._detail(`Running ${validators.length} validators in parallel…`);
+    console.log(`   Running ${validators.length} validators in parallel…`);
 
-      for (let iter = 0; iter < maxIterations; iter++) {
-        const iterLabel = iter === 0 ? 'calling validator…' : `re-validating (iter ${iter + 1})…`;
-        await this._detail(`[${vi + 1}/${validators.length}] ${role} — ${iterLabel}`);
-
-        lastResult = await this._withHeartbeat(
+    const parallelResults = await Promise.all(
+      validators.map((validatorName, vi) => {
+        const role = this.extractDomain(validatorName);
+        return this._withHeartbeat(
           () => this.runEpicValidator(workingEpic, epicContext, validatorName),
           (elapsed) => {
-            if (elapsed < 15) return `   [${vi + 1}/${validators.length}] ${role} — reviewing requirements…`;
-            if (elapsed < 30) return `   [${vi + 1}/${validators.length}] ${role} — analyzing concerns…`;
-            if (elapsed < 45) return `   [${vi + 1}/${validators.length}] ${role} — checking best practices…`;
-            if (elapsed < 60) return `   [${vi + 1}/${validators.length}] ${role} — validating compliance…`;
-            return `   [${vi + 1}/${validators.length}] ${role} — still validating… (${elapsed}s)`;
+            if (elapsed < 15) return `   [${role}] reviewing requirements… (${elapsed}s)`;
+            if (elapsed < 30) return `   [${role}] analyzing concerns… (${elapsed}s)`;
+            if (elapsed < 45) return `   [${role}] checking best practices… (${elapsed}s)`;
+            if (elapsed < 60) return `   [${role}] validating compliance… (${elapsed}s)`;
+            return `   [${role}] still validating… (${elapsed}s)`;
           },
           10000
         );
+      })
+    );
 
-        const score = lastResult.overallScore ?? 0;
-        const allIssues = lastResult.issues || [];
-        const critCount = allIssues.filter(i => i.severity === 'critical').length;
-        const majCount = allIssues.filter(i => i.severity === 'major').length;
-        const acceptable = score >= acceptanceThreshold;
-        const issueStr = allIssues.length > 0 ? ` · ${allIssues.length} issue${allIssues.length !== 1 ? 's' : ''}` : '';
-        await this._detail(`   Score: ${score}/100${issueStr} — ${acceptable ? '✓ accepted' : `⚠ below threshold (${acceptanceThreshold})`}`);
+    // Log all parallel results
+    for (let vi = 0; vi < validators.length; vi++) {
+      const validatorName = validators[vi];
+      const role = this.extractDomain(validatorName);
+      const result = parallelResults[vi];
+      const score = result.overallScore ?? 0;
+      const allIssues = result.issues || [];
+      const critCount = allIssues.filter(i => i.severity === 'critical').length;
+      const majCount  = allIssues.filter(i => i.severity === 'major').length;
+      const acceptable = score >= acceptanceThreshold;
+      const issueStr = allIssues.length > 0 ? ` · ${allIssues.length} issue${allIssues.length !== 1 ? 's' : ''}` : '';
+      await this._detail(`[${vi + 1}/${validators.length}] ${role}: ${score}/100${issueStr} — ${acceptable ? '✓' : '⚠ below threshold'}`);
+      console.log(`   [${vi + 1}/${validators.length}] ${validatorName} score=${score}/100 status=${result.validationStatus} (critical=${critCount} major=${majCount} minor=${allIssues.length - critCount - majCount})`);
+      allIssues.forEach(issue => {
+        const cat = issue.category ? `[${issue.category}] ` : '';
+        const sug = issue.suggestion ? ` → ${issue.suggestion}` : '';
+        console.log(`     [${(issue.severity || 'unknown').toUpperCase()}] ${cat}${issue.description || '(no description)'}${sug}`);
+      });
+    }
 
-        // Diagnostic log — goes to sprint-planning log file via CommandLogger
-        console.log(`   [${vi + 1}/${validators.length}] ${validatorName} iter=${iter + 1} score=${score}/100 status=${lastResult.validationStatus} (critical=${critCount} major=${majCount} minor=${allIssues.length - critCount - majCount})`);
-        allIssues.forEach(issue => {
-          const cat = issue.category ? `[${issue.category}] ` : '';
-          const sug = issue.suggestion ? ` → ${issue.suggestion}` : '';
-          console.log(`     [${(issue.severity || 'unknown').toUpperCase()}] ${cat}${issue.description || '(no description)'}${sug}`);
-        });
+    // ── Phase 2: solver + re-validate for each below-threshold validator ──────────
+    const finalResults = [...parallelResults];
 
-        if (acceptable || iter + 1 >= maxIterations) break;
+    for (let vi = 0; vi < validators.length; vi++) {
+      const validatorName = validators[vi];
+      const role = this.extractDomain(validatorName);
+      let lastResult = parallelResults[vi];
 
-        // Run solver to improve the epic
+      if ((lastResult.overallScore ?? 0) >= acceptanceThreshold) continue;
+
+      for (let iter = 1; iter < maxIterations; iter++) {
         await this._detail(`   ↻ Running ${role} solver…`);
-        console.log(`   ↻ [${validatorName}] below threshold — running solver (iter ${iter + 1}/${maxIterations})...`);
-        const descBefore = (workingEpic.description || '').slice(0, 100);
+        console.log(`   ↻ [${validatorName}] below threshold — running solver (iter ${iter}/${maxIterations})...`);
+        const descBefore    = (workingEpic.description || '').slice(0, 100);
         const featuresBefore = (workingEpic.features || []).join(' | ').slice(0, 100);
         try {
           const improved = await this._withHeartbeat(
@@ -281,14 +291,13 @@ class EpicStoryValidator {
             20000
           );
           if (improved && improved.id === workingEpic.id) {
-            // Merge only safe epic-level fields
             workingEpic = {
               ...workingEpic,
               description:  improved.description  ?? workingEpic.description,
               features:     improved.features     ?? workingEpic.features,
               dependencies: improved.dependencies ?? workingEpic.dependencies,
             };
-            const descAfter = (workingEpic.description || '').slice(0, 100);
+            const descAfter     = (workingEpic.description || '').slice(0, 100);
             const featuresAfter = (workingEpic.features || []).join(' | ').slice(0, 100);
             console.log(`   ↻ Solver applied — desc changed: ${descBefore !== descAfter}, features changed: ${featuresBefore !== featuresAfter}`);
             if (descBefore !== descAfter) {
@@ -304,10 +313,30 @@ class EpicStoryValidator {
           await this._detail(`   ⚠ Solver failed: ${err.message}`);
           break;
         }
+
+        // Re-validate after solver
+        await this._detail(`   [${vi + 1}/${validators.length}] ${role} — re-validating (iter ${iter + 1})…`);
+        lastResult = await this._withHeartbeat(
+          () => this.runEpicValidator(workingEpic, epicContext, validatorName),
+          (elapsed) => {
+            if (elapsed < 15) return `   [${role}] re-reviewing… (${elapsed}s)`;
+            if (elapsed < 30) return `   [${role}] re-analyzing… (${elapsed}s)`;
+            return `   [${role}] re-validating… (${elapsed}s)`;
+          },
+          10000
+        );
+        const newScore   = lastResult.overallScore ?? 0;
+        const acceptable = newScore >= acceptanceThreshold;
+        const issueStr2  = (lastResult.issues || []).length > 0 ? ` · ${lastResult.issues.length} issues` : '';
+        await this._detail(`   Score: ${newScore}/100${issueStr2} — ${acceptable ? '✓ accepted' : `⚠ below threshold (${acceptanceThreshold})`}`);
+        console.log(`   [${vi + 1}/${validators.length}] ${validatorName} iter=${iter + 1} score=${newScore}/100 status=${lastResult.validationStatus}`);
+        if (acceptable) break;
       }
 
-      validationResults.push(lastResult);
+      finalResults[vi] = lastResult;
     }
+
+    const validationResults = finalResults;
 
     // Write accumulated improvements back to the original epic object
     // (sprint-planning-processor owns the reference; this mutates it in place)
@@ -392,55 +421,65 @@ class EpicStoryValidator {
 
     await this._detail(`${validators.length} validator${validators.length !== 1 ? 's' : ''}: ${validators.map(v => this.extractDomain(v)).join(', ')}`);
 
-    const validationResults = [];
-    // Working copy — accumulates improvements from each validator-solver pair
+    // Working copy — accumulates improvements from solver runs
     let workingStory = { ...story };
 
-    // Sequential: each validator sees improvements from previous solver
-    for (let vi = 0; vi < validators.length; vi++) {
-      const validatorName = validators[vi];
-      const role = this.extractDomain(validatorName);
-      let lastResult;
+    // ── Phase 1: run all validators in parallel on the initial snapshot ──────────
+    await this._detail(`Running ${validators.length} validators in parallel…`);
+    console.log(`   Running ${validators.length} validators in parallel…`);
 
-      for (let iter = 0; iter < maxIterations; iter++) {
-        const iterLabel = iter === 0 ? 'calling validator…' : `re-validating (iter ${iter + 1})…`;
-        await this._detail(`[${vi + 1}/${validators.length}] ${role} — ${iterLabel}`);
-
-        lastResult = await this._withHeartbeat(
+    const parallelResults = await Promise.all(
+      validators.map((validatorName, vi) => {
+        const role = this.extractDomain(validatorName);
+        return this._withHeartbeat(
           () => this.runStoryValidator(workingStory, storyContext, epic, validatorName),
           (elapsed) => {
-            if (elapsed < 15) return `   [${vi + 1}/${validators.length}] ${role} — reviewing story…`;
-            if (elapsed < 30) return `   [${vi + 1}/${validators.length}] ${role} — checking acceptance criteria…`;
-            if (elapsed < 45) return `   [${vi + 1}/${validators.length}] ${role} — validating scope…`;
-            if (elapsed < 60) return `   [${vi + 1}/${validators.length}] ${role} — reviewing dependencies…`;
-            return `   [${vi + 1}/${validators.length}] ${role} — still validating… (${elapsed}s)`;
+            if (elapsed < 15) return `   [${role}] reviewing story… (${elapsed}s)`;
+            if (elapsed < 30) return `   [${role}] checking acceptance criteria… (${elapsed}s)`;
+            if (elapsed < 45) return `   [${role}] validating scope… (${elapsed}s)`;
+            if (elapsed < 60) return `   [${role}] reviewing dependencies… (${elapsed}s)`;
+            return `   [${role}] still validating… (${elapsed}s)`;
           },
           10000
         );
+      })
+    );
 
-        const score = lastResult.overallScore ?? 0;
-        const allIssues = lastResult.issues || [];
-        const critCount = allIssues.filter(i => i.severity === 'critical').length;
-        const majCount = allIssues.filter(i => i.severity === 'major').length;
-        const acceptable = score >= acceptanceThreshold;
-        const issueStr = allIssues.length > 0 ? ` · ${allIssues.length} issue${allIssues.length !== 1 ? 's' : ''}` : '';
-        await this._detail(`   Score: ${score}/100${issueStr} — ${acceptable ? '✓ accepted' : `⚠ below threshold (${acceptanceThreshold})`}`);
+    // Log all parallel results
+    for (let vi = 0; vi < validators.length; vi++) {
+      const validatorName = validators[vi];
+      const role = this.extractDomain(validatorName);
+      const result = parallelResults[vi];
+      const score = result.overallScore ?? 0;
+      const allIssues = result.issues || [];
+      const critCount = allIssues.filter(i => i.severity === 'critical').length;
+      const majCount  = allIssues.filter(i => i.severity === 'major').length;
+      const acceptable = score >= acceptanceThreshold;
+      const issueStr = allIssues.length > 0 ? ` · ${allIssues.length} issue${allIssues.length !== 1 ? 's' : ''}` : '';
+      await this._detail(`[${vi + 1}/${validators.length}] ${role}: ${score}/100${issueStr} — ${acceptable ? '✓' : '⚠ below threshold'}`);
+      console.log(`   [${vi + 1}/${validators.length}] ${validatorName} score=${score}/100 status=${result.validationStatus} (critical=${critCount} major=${majCount} minor=${allIssues.length - critCount - majCount})`);
+      allIssues.forEach(issue => {
+        const cat = issue.category ? `[${issue.category}] ` : '';
+        const sug = issue.suggestion ? ` → ${issue.suggestion}` : '';
+        console.log(`     [${(issue.severity || 'unknown').toUpperCase()}] ${cat}${issue.description || '(no description)'}${sug}`);
+      });
+    }
 
-        // Diagnostic log — goes to sprint-planning log file via CommandLogger
-        console.log(`   [${vi + 1}/${validators.length}] ${validatorName} iter=${iter + 1} score=${score}/100 status=${lastResult.validationStatus} (critical=${critCount} major=${majCount} minor=${allIssues.length - critCount - majCount})`);
-        allIssues.forEach(issue => {
-          const cat = issue.category ? `[${issue.category}] ` : '';
-          const sug = issue.suggestion ? ` → ${issue.suggestion}` : '';
-          console.log(`     [${(issue.severity || 'unknown').toUpperCase()}] ${cat}${issue.description || '(no description)'}${sug}`);
-        });
+    // ── Phase 2: solver + re-validate for each below-threshold validator ──────────
+    const finalResults = [...parallelResults];
 
-        if (acceptable || iter + 1 >= maxIterations) break;
+    for (let vi = 0; vi < validators.length; vi++) {
+      const validatorName = validators[vi];
+      const role = this.extractDomain(validatorName);
+      let lastResult = parallelResults[vi];
 
-        // Run solver to improve the story
+      if ((lastResult.overallScore ?? 0) >= acceptanceThreshold) continue;
+
+      for (let iter = 1; iter < maxIterations; iter++) {
         await this._detail(`   ↻ Running ${role} solver…`);
-        console.log(`   ↻ [${validatorName}] below threshold — running solver (iter ${iter + 1}/${maxIterations})...`);
+        console.log(`   ↻ [${validatorName}] below threshold — running solver (iter ${iter}/${maxIterations})...`);
         const descBefore = (workingStory.description || '').slice(0, 100);
-        const acBefore = (workingStory.acceptance || []).join(' | ').slice(0, 100);
+        const acBefore   = (workingStory.acceptance || []).join(' | ').slice(0, 100);
         try {
           const improved = await this._withHeartbeat(
             () => this.runStorySolver(workingStory, storyContext, epic, lastResult, validatorName),
@@ -453,7 +492,6 @@ class EpicStoryValidator {
             20000
           );
           if (improved && improved.id === workingStory.id) {
-            // Merge only safe story-level fields
             workingStory = {
               ...workingStory,
               description:  improved.description  ?? workingStory.description,
@@ -461,7 +499,7 @@ class EpicStoryValidator {
               dependencies: improved.dependencies ?? workingStory.dependencies,
             };
             const descAfter = (workingStory.description || '').slice(0, 100);
-            const acAfter = (workingStory.acceptance || []).join(' | ').slice(0, 100);
+            const acAfter   = (workingStory.acceptance || []).join(' | ').slice(0, 100);
             console.log(`   ↻ Solver applied — desc changed: ${descBefore !== descAfter}, ac changed: ${acBefore !== acAfter}`);
             if (descBefore !== descAfter) {
               console.log(`     before: ${descBefore}`);
@@ -476,10 +514,30 @@ class EpicStoryValidator {
           await this._detail(`   ⚠ Solver failed: ${err.message}`);
           break;
         }
+
+        // Re-validate after solver
+        await this._detail(`   [${vi + 1}/${validators.length}] ${role} — re-validating (iter ${iter + 1})…`);
+        lastResult = await this._withHeartbeat(
+          () => this.runStoryValidator(workingStory, storyContext, epic, validatorName),
+          (elapsed) => {
+            if (elapsed < 15) return `   [${role}] re-reviewing story… (${elapsed}s)`;
+            if (elapsed < 30) return `   [${role}] re-checking acceptance criteria… (${elapsed}s)`;
+            return `   [${role}] re-validating… (${elapsed}s)`;
+          },
+          10000
+        );
+        const newScore   = lastResult.overallScore ?? 0;
+        const acceptable = newScore >= acceptanceThreshold;
+        const issueStr2  = (lastResult.issues || []).length > 0 ? ` · ${lastResult.issues.length} issues` : '';
+        await this._detail(`   Score: ${newScore}/100${issueStr2} — ${acceptable ? '✓ accepted' : `⚠ below threshold (${acceptanceThreshold})`}`);
+        console.log(`   [${vi + 1}/${validators.length}] ${validatorName} iter=${iter + 1} score=${newScore}/100 status=${lastResult.validationStatus}`);
+        if (acceptable) break;
       }
 
-      validationResults.push(lastResult);
+      finalResults[vi] = lastResult;
     }
+
+    const validationResults = finalResults;
 
     // Write accumulated improvements back to the original story object
     story.description  = workingStory.description;

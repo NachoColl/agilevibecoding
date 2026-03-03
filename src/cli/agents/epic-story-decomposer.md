@@ -74,6 +74,59 @@ Each feature string should follow the pattern: `feature-name (key technical deta
 **GOOD story description:**
 > "Allow agents and admins to log in using email and password. The server issues a short-lived JWT access token (15 min) stored in an httpOnly cookie and a refresh token (7 days) for seamless session renewal. Failed attempts are rate-limited."
 
+## Story API Contract Guidelines
+
+Every story that exposes or consumes an API endpoint **must** include the following details
+in its `acceptance` criteria. These are the most common first-pass failure reasons for the
+solution-architect validator.
+
+For **backend / API stories**, at minimum include:
+- The endpoint path and HTTP method: `POST /api/customers`
+- The success HTTP status code and key response fields
+- At least one error scenario with its status code (400/401/403/404/409/422/429)
+- The RBAC rule (which role: admin / agent / all users)
+- Any critical field-level validation constraint (required, format, length)
+
+**BAD acceptance criteria (too vague — solution-architect will score 74-78/100):**
+```
+- User can create a customer record
+- System validates the input
+- Duplicate phone numbers are rejected
+```
+
+**GOOD acceptance criteria (solution-architect will score 95+/100):**
+```
+- POST /api/customers (admin or agent) accepts { name, phone (E.164), email?, notes? }
+  and returns 201 { id, name, phone, createdAt }
+- Phone must match E.164 regex (^\+[1-9]\d{1,14}$); invalid format returns 422
+  { error: "INVALID_PHONE_FORMAT", field: "phone" }
+- Duplicate phone returns 409 { error: "PHONE_ALREADY_EXISTS", conflictingCustomerId }
+- Unauthenticated requests return 401; both admin and agent roles are permitted
+- Name is required (max 100 chars); missing name returns 422 with field-level error details
+```
+
+## Frontend Layer Guidelines
+
+If the project has a user-facing UI, any epic that covers UI functionality **must** include
+a frontend layer description. Omitting this causes the frontend validator to score 58/100.
+
+Include in the epic `description` (add as a final sentence or two):
+- UI framework/library (React, Vue, etc.)
+- State management (TanStack Query for server state, Zustand/Redux for local state)
+- Key UI components (table, form, modal, drawer)
+- Loading and error state strategy (skeleton loaders, toast notifications, inline errors)
+- Accessibility standard if applicable (WCAG 2.1 AA)
+
+**BAD epic description (backend-only — frontend validator will score 58/100):**
+> "Customer records are stored in PostgreSQL. REST API exposes CRUD endpoints."
+
+**GOOD epic description (full-stack — frontend validator will score 95+/100):**
+> "Customer records stored in PostgreSQL with cursor-based pagination and pg_trgm search.
+> REST API exposes CRUD endpoints with RBAC. The React UI uses TanStack Query for data
+> fetching, Zustand for selection state, and a virtualized data table with search/filter.
+> Forms include inline validation. All async operations show skeleton loaders; errors surface
+> as toast notifications. WCAG 2.1 AA compliance for interactive controls."
+
 ## Dependency Strategy
 
 **Epic-level:**
@@ -196,6 +249,10 @@ Before returning, verify:
 - [ ] Each Epic description is 2-5 sentences and includes technical approach
 - [ ] Each feature string includes a technical detail in parentheses
 - [ ] Story descriptions specify user type, action, and key technical method
+- [ ] API-facing stories include endpoint path + HTTP method in at least one AC
+- [ ] API-facing stories include at least one error scenario with status code in AC
+- [ ] API-facing stories state which role (admin/agent/all) can call the endpoint
+- [ ] Full-stack epics include a frontend layer description (framework, state mgmt, key components)
 
 ## Example Domain Patterns
 
