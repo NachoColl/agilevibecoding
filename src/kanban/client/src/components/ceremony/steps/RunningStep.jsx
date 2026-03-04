@@ -4,8 +4,8 @@ import { useCeremonyStore } from '../../../store/ceremonyStore';
 import { resetCeremony } from '../../../lib/api';
 
 function parseStageNumber(message) {
-  const m = message?.match(/Stage\s+(\d+)\/(\d+)/i);
-  if (m) return { current: parseInt(m[1]), total: parseInt(m[2]) };
+  const m = message?.match(/Stage\s+(\d+(?:\.\d+)?)\/(\d+)/i);
+  if (m) return { current: parseFloat(m[1]), total: parseInt(m[2]) };
   return null;
 }
 

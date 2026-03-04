@@ -1309,8 +1309,8 @@ Return the enhanced markdown document.`;
 
     // 7. Validate and improve documentation (if validation enabled)
     if (this.ceremonyName === 'sponsor-call' && this.isValidationEnabled()) {
-      await this.reportProgressWithDelay(`Stage ${++_s}/${_T}: Validating documentation...`, 'Documentation validation complete');
-      finalDocument = await this.iterativeValidation(finalDocument, 'documentation', collectedValues);
+      ++_s;
+      finalDocument = await this.iterativeValidation(finalDocument, 'documentation', collectedValues, _s, _T);
     }
 
     // 8. Write documentation to file
@@ -1884,7 +1884,7 @@ Return your response as JSON following the exact structure specified in your ins
   /**
    * Iterative validation and improvement loop
    */
-  async iterativeValidation(content, type, questionnaire) {
+  async iterativeValidation(content, type, questionnaire, stageNum = null, stageTotal = null) {
     const settings = this.getValidationSettings();
     const maxIterations = settings.maxIterations || 100;
     const threshold = settings.acceptanceThreshold || 95;
@@ -1893,6 +1893,14 @@ Return your response as JSON following the exact structure specified in your ins
     let iteration = 0;
 
     while (iteration < maxIterations) {
+      // Emit fractional stage progress so the progress bar moves within this stage
+      if (stageNum !== null && stageTotal !== null) {
+        const current = parseFloat((stageNum + iteration * 0.2).toFixed(1));
+        await this.reportProgressWithDelay(
+          `Stage ${current}/${stageTotal}: Validating documentation (pass ${iteration + 1})...`,
+          null, 50
+        );
+      }
       // Report validation iteration progress
       this.reportSubstep(`Validation ${iteration + 1}/${maxIterations}: Validating Project Brief structure...`);
       await this.reportDetail(`Calling ${this.validationLLMProvider?.model || 'LLM'} to validate…`);
@@ -1956,6 +1964,13 @@ Return your response as JSON following the exact structure specified in your ins
 
       // Improve
       debug(`Improving ${type} based on feedback`);
+      if (stageNum !== null && stageTotal !== null) {
+        const current = parseFloat((stageNum + iteration * 0.2 + 0.1).toFixed(1));
+        await this.reportProgressWithDelay(
+          `Stage ${current}/${stageTotal}: Improving documentation (pass ${iteration + 1})...`,
+          null, 50
+        );
+      }
       this.reportSubstep(`Improving Project Brief based on validation...`);
       await this.reportDetail(`Calling ${this._refinementModel || this.validationLLMProvider?.model || 'LLM'} to improve…`);
       currentContent = await this.withHeartbeat(
