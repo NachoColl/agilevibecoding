@@ -425,6 +425,7 @@ export class KanbanServer {
 
       // Wire ceremony service to WebSocket for broadcasting
       this.ceremonyService.setWebSocket(this.websocket);
+      this.ceremonyService.setReloadCallback(() => this.reloadWorkItems());
 
       // Wire refine service to WebSocket
       this.refineService.websocket = this.websocket;

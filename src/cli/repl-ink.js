@@ -85,7 +85,7 @@ function renderLogo(text) {
 }
 
 // Banner component with ASCII art logo
-const Banner = ({ kanbanUrl = null, docsUrl = null }) => {
+const Banner = ({ kanbanUrl = null, docsUrl = null, initialized = true }) => {
   const version = getVersion();
   const agileLines = renderLogo('AGILE');
   const vibeLines = renderLogo('VIBE CODING');
@@ -105,6 +105,8 @@ const Banner = ({ kanbanUrl = null, docsUrl = null }) => {
     React.createElement(Text, null, ' '),
     React.createElement(Text, { bold: true, color: 'red' }, 'UNDER DEVELOPMENT - DO NOT USE'),
     React.createElement(Text, null, ' '),
+    !initialized && React.createElement(Text, { color: 'yellow' }, 'Project not initialized. Run /init to start.'),
+    !initialized && React.createElement(Text, null, ' '),
     hasServices && React.createElement(Box, { flexDirection: 'column' },
       React.createElement(Text, { bold: true }, 'Running services:'),
       kanbanUrl && React.createElement(Text, null,
@@ -117,7 +119,7 @@ const Banner = ({ kanbanUrl = null, docsUrl = null }) => {
       ),
       React.createElement(Text, null, ' ')
     ),
-    React.createElement(Text, { dimColor: true }, 'Type / to see commands (check https://agilevibecoding.org to learn how to use AVC framework)'),
+    React.createElement(Text, { dimColor: true }, 'Type / to see commands.'),
     React.createElement(Text, null, ' ')
   );
 };
@@ -6003,7 +6005,7 @@ const App = () => {
     // Layer 1: committed output — Static commits items once, never tracked by Ink's height counter
     React.createElement(StaticOutput, { items: outputItems }),
     // Layer 2: interactive section — Ink only tracks this small (1-20 line) area
-    !hasInteracted && mode !== 'selector' && React.createElement(Banner, { kanbanUrl: autoStartedKanbanUrl, docsUrl: autoStartedDocsUrl }),
+    !hasInteracted && mode !== 'selector' && React.createElement(Banner, { kanbanUrl: autoStartedKanbanUrl, docsUrl: autoStartedDocsUrl, initialized: existsSync(path.join(process.cwd(), '.avc', 'avc.json')) }),
     renderOutput(),
     renderProcessViewer(),
     renderSelector(),
