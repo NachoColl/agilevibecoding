@@ -85,6 +85,14 @@ class SprintPlanningProcessor {
   }
 
   /**
+   * Log elapsed time for a labelled operation
+   */
+  debugTiming(label, startMs) {
+    const elapsed = Date.now() - startMs;
+    this.debug(`[TIMING] ${label}: ${elapsed}ms (${(elapsed / 1000).toFixed(1)}s)`);
+  }
+
+  /**
    * Sub-section separator for grouping related log entries within a stage
    */
   debugSection(title) {
@@ -795,7 +803,9 @@ Return your response as JSON following the exact structure specified in your ins
       const epicContext = `# Epic: ${epic.name}\n\n**Description:** ${epic.description}\n\n**Domain:** ${epic.domain}\n\n**Features:**\n${(epic.features || []).map(f => `- ${f}`).join('\n')}\n`;
 
       // Validate epic with multiple domain validators
+      const _tsEpic = Date.now();
       const epicValidation = await validator.validateEpic(epic, epicContext);
+      this.debugTiming(`  validateEpic: ${epic.id} "${epic.name}"`, _tsEpic);
 
       // Display validation summary
       this.displayValidationSummary('Epic', epic.name, epicValidation);
@@ -815,7 +825,9 @@ Return your response as JSON following the exact structure specified in your ins
         const storyContext = `# Story: ${story.name}\n\n**User Type:** ${story.userType}\n\n**Description:** ${story.description}\n\n**Acceptance Criteria:**\n${(story.acceptance || []).map((ac, i) => `${i + 1}. ${ac}`).join('\n')}\n\n**Parent Epic:** ${epic.name} (${epic.domain})\n`;
 
         // Validate story with multiple domain validators
+        const _tsStory = Date.now();
         const storyValidation = await validator.validateStory(story, storyContext, epic);
+        this.debugTiming(`    validateStory: ${story.id} "${story.name}"`, _tsStory);
 
         // Display validation summary
         this.displayValidationSummary('Story', story.name, storyValidation);
@@ -1230,6 +1242,7 @@ Enrich the existing story doc to be fully implementation-ready. Fill any gaps in
       this.debug(`Enriching story doc: ${story.id} (${story.name})`);
       await progressCallback?.(null, `  Enriching documentation → ${story.name}`, {});
 
+      const _tsEnrich = Date.now();
       try {
         const result = await this._withProgressHeartbeat(
           () => this.retryWithBackoff(
@@ -1253,6 +1266,7 @@ Enrich the existing story doc to be fully implementation-ready. Fill any gaps in
 
         fs.writeFileSync(storyDocPath, enrichedDoc, 'utf8');
 
+        this.debugTiming(`    enrichStory: ${story.id} "${story.name}"`, _tsEnrich);
         if (gapsFilled.length > 0) {
           this.debug(`Story ${story.id} enriched: ${gapsFilled.length} gaps filled`, gapsFilled);
         } else {
@@ -1260,6 +1274,7 @@ Enrich the existing story doc to be fully implementation-ready. Fill any gaps in
         }
         return 'enriched';
       } catch (err) {
+        this.debugTiming(`    enrichStory FAILED: ${story.id} "${story.name}"`, _tsEnrich);
         this.debug(`Story enrichment failed for ${story.id} — keeping original doc`, { error: err.message });
         return 'skipped';
       }
@@ -1516,15 +1531,21 @@ Extract and synthesize content from the parent document that is specifically rel
       const header = getCeremonyHeader('sprint-planning');
       sendCeremonyHeader(header.title, header.url);
 
+      const _t0run = Date.now();
+
       // Stage 1: Validate
       sendProgress('Validating prerequisites...');
       await progressCallback?.('Stage 1/6: Validating prerequisites…');
+      let _ts = Date.now();
       this.validatePrerequisites();
+      this.debugTiming('Stage 1 — validatePrerequisites', _ts);
 
       // Stage 2: Read existing hierarchy
       sendProgress('Analyzing existing project structure...');
       await progressCallback?.('Stage 2/6: Analyzing existing project structure…');
+      _ts = Date.now();
       const { existingEpics, existingStories, maxEpicNum, maxStoryNums, preRunSnapshot } = this.readExistingHierarchy();
+      this.debugTiming('Stage 2 — readExistingHierarchy', _ts);
 
       if (existingEpics.size > 0) {
         this.debug(`Found ${existingEpics.size} existing Epics, ${existingStories.size} existing Stories`);
@@ -1536,7 +1557,9 @@ Extract and synthesize content from the parent document that is specifically rel
       // Stage 3: Collect scope
       sendProgress('Collecting project scope...');
       await progressCallback?.('Stage 3/6: Collecting project scope…');
+      _ts = Date.now();
       const scope = await this.collectNewScope();
+      this.debugTiming('Stage 3 — collectNewScope', _ts);
 
       // Clear screen before decomposition phase
       process.stdout.write('\x1bc');
@@ -1545,7 +1568,9 @@ Extract and synthesize content from the parent document that is specifically rel
       // Stage 4: Decompose
       sendProgress('Decomposing scope into Epics and Stories...');
       await progressCallback?.('Stage 4/6: Decomposing scope into Epics and Stories…');
+      _ts = Date.now();
       let hierarchy = await this.decomposeIntoEpicsStories(scope, existingEpics, existingStories, progressCallback);
+      this.debugTiming('Stage 4 — decomposeIntoEpicsStories', _ts);
 
       // Log raw LLM output before any validation/modification
       this.debugSection('POST-DECOMPOSE: Raw LLM Output (before validation)');
@@ -1579,7 +1604,9 @@ Extract and synthesize content from the parent document that is specifically rel
       const storyCount5 = hierarchy.epics.reduce((s, e) => s + (e.stories?.length || 0), 0);
       sendProgress('Validating Epics and Stories with domain experts...');
       await progressCallback?.(`Stage 5/6: Validating with domain experts (${epicCount5} epics, ${storyCount5} stories)…`);
+      _ts = Date.now();
       hierarchy = await this.validateHierarchy(hierarchy, progressCallback, scope);
+      this.debugTiming(`Stage 5 — validateHierarchy (${epicCount5} epics, ${storyCount5} stories)`, _ts);
 
       // Log hierarchy after validation (may have been modified)
       this.debugSection('POST-VALIDATION: Hierarchy after domain-expert validation');
@@ -1602,12 +1629,16 @@ Extract and synthesize content from the parent document that is specifically rel
       // Stage 6: Write hierarchy files
       sendProgress('Writing files and distributing documentation...');
       await progressCallback?.(`Stage 6/7: Writing files and distributing documentation (${epicCount5} epics, ${storyCount5} stories)…`);
+      _ts = Date.now();
       const { epicCount, storyCount } = await this.writeHierarchyFiles(hierarchy, progressCallback);
+      this.debugTiming(`Stage 6 — writeHierarchyFiles (${epicCount5} epics, ${storyCount5} stories)`, _ts);
 
       // Stage 7: Enrich story docs with implementation detail
       sendProgress('Enriching story documentation with implementation detail...');
       await progressCallback?.(`Stage 7/7: Enriching story documentation (${storyCount5} stories)…`);
+      _ts = Date.now();
       await this.enrichStoryDocs(hierarchy, progressCallback);
+      this.debugTiming(`Stage 7 — enrichStoryDocs (${storyCount5} stories)`, _ts);
 
       // Stage 9: Summary & Cleanup
       this.debugStage(9, 'Summary & Cleanup');
@@ -1618,6 +1649,7 @@ Extract and synthesize content from the parent document that is specifically rel
       const postRunSnapshot = this.readPostRunSnapshot();
       this.debugHierarchySnapshot('POST-RUN', postRunSnapshot);
 
+      this.debugTiming('TOTAL run() end-to-end', _t0run);
       sendOutput(`Created ${epicCount} Epics, ${storyCount} Stories. Total: ${totalEpics} Epics, ${totalStories} Stories.`);
 
       // Track token usage — aggregate across all provider instances
