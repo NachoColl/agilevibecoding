@@ -3607,10 +3607,6 @@ const App = () => {
       if (hasSrcFolder) {
         sendWarning('Preserved src/ — your code, not deleted');
       }
-      if (hasWorktreesFolder) {
-        sendWarning('Preserved worktrees/ — git worktrees, not deleted');
-      }
-
       sendOutput('');
     } catch (error) {
       sendError(`Deletion failed: ${error.message}`);

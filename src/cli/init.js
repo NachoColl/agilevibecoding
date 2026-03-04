@@ -1663,8 +1663,7 @@ Documentation for this project will be generated automatically once the project 
     // Check for worktrees folder
     const hasWorktreesFolder = this.hasWorktreesFolder();
     if (hasWorktreesFolder) {
-      sendSuccess('IMPORTANT: The worktrees/ folder will NOT be deleted.');
-      sendOutput('All your git worktrees will be preserved.');
+      sendWarning('The .avc/worktrees/ folder and all git worktrees inside it WILL be deleted.');
       sendOutput('');
     }
 
@@ -1719,7 +1718,7 @@ Documentation for this project will be generated automatically once the project 
             sendOutput('');
 
             // Reminder about preserved files
-            if (hasEnvFile || hasSrcFolder || hasWorktreesFolder) {
+            if (hasEnvFile || hasSrcFolder) {
               sendInfo('Preserved files:');
               sendOutput('');
 
@@ -1742,11 +1741,6 @@ Documentation for this project will be generated automatically once the project 
                 sendOutput('');
               }
 
-              if (hasWorktreesFolder) {
-                sendSuccess('The worktrees/ folder was NOT deleted.');
-                sendOutput('All your git worktrees have been preserved.');
-                sendOutput('');
-              }
             }
 
             sendSuccess('AVC project structure has been completely removed.');
