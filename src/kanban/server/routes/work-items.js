@@ -1,7 +1,8 @@
 import express from 'express';
 import fs from 'fs/promises';
+import fsSync from 'fs';
 import path from 'path';
-import { renderMarkdown } from '../utils/markdown.js';
+import { renderMarkdown, extractDescriptionFromDoc } from '../utils/markdown.js';
 import { groupItemsByColumn, getColumnStats } from '../utils/status-grouping.js';
 
 /**
@@ -242,6 +243,17 @@ export function createWorkItemsRouter(dataStore, refineService) {
 
       const docPath = path.join(item._dirPath, 'doc.md');
       await fs.writeFile(docPath, markdown, 'utf8');
+
+      // Sync work.json description cache so kanban cards stay in sync
+      const newDescription = extractDescriptionFromDoc(markdown);
+      if (newDescription) {
+        const workJsonPath = path.join(item._dirPath, 'work.json');
+        if (fsSync.existsSync(workJsonPath)) {
+          const workJson = JSON.parse(fsSync.readFileSync(workJsonPath, 'utf8'));
+          workJson.description = newDescription;
+          fsSync.writeFileSync(workJsonPath, JSON.stringify(workJson, null, 2), 'utf8');
+        }
+      }
 
       res.json({ status: 'ok' });
     } catch (error) {

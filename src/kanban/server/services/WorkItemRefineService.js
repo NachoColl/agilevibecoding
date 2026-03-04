@@ -1,6 +1,7 @@
 import path from 'path';
 import fs from 'fs';
 import { LLMProvider } from '../../../cli/llm-provider.js';
+import { extractDescriptionFromDoc, updateDescriptionInDoc } from '../utils/markdown.js';
 import { EpicStoryValidator } from '../../../cli/epic-story-validator.js';
 import { loadAgent } from '../../../cli/agent-loader.js';
 import { KanbanLogger } from '../utils/kanban-logger.js';
@@ -84,6 +85,17 @@ export class WorkItemRefineService {
             )
             .join('\n')
         : 'No specific issues selected — improve overall quality based on your expertise.';
+
+    // Override description from doc.md (canonical source)
+    const itemDir = this._findItemDir(itemId);
+    if (itemDir) {
+      const docPath = path.join(itemDir, 'doc.md');
+      if (fs.existsSync(docPath)) {
+        const docContent = fs.readFileSync(docPath, 'utf8');
+        const docDesc = extractDescriptionFromDoc(docContent);
+        if (docDesc) item = { ...item, description: docDesc };
+      }
+    }
 
     // ── Step 1: Principal model generates refined item ────────────────────────
     emit('Calling principal model to generate refinement…');
@@ -225,7 +237,16 @@ export class WorkItemRefineService {
     const workJsonPath = path.join(itemDir, 'work.json');
     const existing = JSON.parse(fs.readFileSync(workJsonPath, 'utf8'));
 
-    // Build updated item (safe fields only)
+    // If description changed, update doc.md first paragraph (doc.md is canonical)
+    if (proposedItem.description && proposedItem.description !== existing.description) {
+      const docPath = path.join(itemDir, 'doc.md');
+      if (fs.existsSync(docPath)) {
+        const currentDoc = fs.readFileSync(docPath, 'utf8');
+        fs.writeFileSync(docPath, updateDescriptionInDoc(currentDoc, proposedItem.description), 'utf8');
+      }
+    }
+
+    // Build updated item (safe fields only) — description kept as display cache
     const updated = {
       ...existing,
       description:  proposedItem.description  ?? existing.description,
@@ -250,6 +271,16 @@ export class WorkItemRefineService {
         }
         const storyWorkJsonPath = path.join(storyDir, 'work.json');
         const existingStory = JSON.parse(fs.readFileSync(storyWorkJsonPath, 'utf8'));
+
+        // Sync description to story doc.md if changed
+        if (change.proposedStory.description && change.proposedStory.description !== existingStory.description) {
+          const storyDocPath = path.join(storyDir, 'doc.md');
+          if (fs.existsSync(storyDocPath)) {
+            const currentStoryDoc = fs.readFileSync(storyDocPath, 'utf8');
+            fs.writeFileSync(storyDocPath, updateDescriptionInDoc(currentStoryDoc, change.proposedStory.description), 'utf8');
+          }
+        }
+
         const updatedStory = {
           ...existingStory,
           description:  change.proposedStory.description  ?? existingStory.description,

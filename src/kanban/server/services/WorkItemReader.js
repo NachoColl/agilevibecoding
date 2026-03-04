@@ -1,5 +1,6 @@
 import fs from 'fs/promises';
 import path from 'path';
+import { extractDescriptionFromDoc } from '../utils/markdown.js';
 
 /**
  * WorkItemReader
@@ -114,6 +115,8 @@ export class WorkItemReader {
     const doc = await this.readDocumentation(dirPath);
     return {
       ...workItem,
+      // doc.md opening paragraph is canonical; fall back to work.json value if no doc.md
+      description: doc ? extractDescriptionFromDoc(doc) || workItem.description : workItem.description,
       documentation: doc,
     };
   }

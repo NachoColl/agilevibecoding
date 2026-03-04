@@ -137,7 +137,7 @@ const TYPE_METADATA = {
  * Displays full work item details with tabbed sections
  */
 export function CardDetailModal({ workItem, open, onOpenChange, onNavigate, onItemClick, allItems, refineProgress, refineResult, refineError, onClearRefine }) {
-  const [activeTab, setActiveTab] = useState('overview');
+  const [activeTab, setActiveTab] = useState('documentation');
   const [fullDetails, setFullDetails] = useState(null);
   const [documentation, setDocumentation] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -167,6 +167,11 @@ export function CardDetailModal({ workItem, open, onOpenChange, onNavigate, onIt
       loadFullDetails();
     }
   }, [open, workItem?.id]);
+
+  // Fall back to 'details' tab if no doc.md available
+  useEffect(() => {
+    if (!loading && documentation === null) setActiveTab('details');
+  }, [loading, documentation]);
 
   // Keyboard navigation
   useEffect(() => {
@@ -278,19 +283,19 @@ export function CardDetailModal({ workItem, open, onOpenChange, onNavigate, onIt
 
         {/* Tabs */}
         <div className="flex-1 overflow-hidden flex flex-col">
-          <div className="px-6 pb-2 border-b border-slate-100">
+          <div className="px-6 pb-2 border-b border-slate-100 flex items-center justify-between gap-4">
             <Tabs value={activeTab} onValueChange={setActiveTab}>
               <TabsList>
-                <TabsTrigger value="overview">
-                  <FileText className="w-4 h-4 mr-2" />
-                  Overview
-                </TabsTrigger>
                 {documentation && (
                   <TabsTrigger value="documentation">
-                    <FileText className="w-4 h-4 mr-2" />
+                    <BookOpen className="w-4 h-4 mr-2" />
                     Documentation
                   </TabsTrigger>
                 )}
+                <TabsTrigger value="details">
+                  <FileText className="w-4 h-4 mr-2" />
+                  Details
+                </TabsTrigger>
                 {fullDetails?.children && fullDetails.children.length > 0 && (
                   <TabsTrigger value="children">
                     <Users className="w-4 h-4 mr-2" />
@@ -299,6 +304,46 @@ export function CardDetailModal({ workItem, open, onOpenChange, onNavigate, onIt
                 )}
               </TabsList>
             </Tabs>
+
+            {/* Validation score + Refine button — right side, same row as tabs */}
+            <div className="flex items-center gap-2 flex-shrink-0">
+              {(() => {
+                const vr = fullDetails?.metadata?.validationResult;
+                if (!vr) return null;
+                const score = vr.averageScore ?? null;
+                const critCount = (vr.criticalIssues || []).length;
+                const majCount  = (vr.majorIssues  || []).length;
+                const minCount  = (vr.minorIssues  || []).length;
+                const totalIssues = critCount + majCount + minCount;
+                return (
+                  <div className="flex items-center gap-1.5 text-xs text-slate-500">
+                    <span className={`font-bold px-2 py-0.5 rounded-full ${
+                      score >= 95 ? 'bg-green-100 text-green-700'
+                        : score >= 80 ? 'bg-amber-100 text-amber-700'
+                        : 'bg-red-100 text-red-700'
+                    }`}>{score}/100</span>
+                    {totalIssues > 0 && (
+                      <span>
+                        {critCount > 0 && <span className="text-red-600 font-medium">{critCount} critical</span>}
+                        {critCount > 0 && majCount > 0 && <span className="mx-0.5">·</span>}
+                        {majCount > 0 && <span className="text-orange-600 font-medium">{majCount} major</span>}
+                        {(critCount > 0 || majCount > 0) && minCount > 0 && <span className="mx-0.5">·</span>}
+                        {minCount > 0 && <span className="text-amber-600">{minCount} minor</span>}
+                      </span>
+                    )}
+                  </div>
+                );
+              })()}
+              {fullDetails && (
+                <button
+                  onClick={() => setRefineOpen(true)}
+                  className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-violet-700 bg-violet-50 border border-violet-200 rounded-lg hover:bg-violet-100 transition-colors"
+                >
+                  <Wand2 className="w-3.5 h-3.5" />
+                  Refine with AI
+                </button>
+              )}
+            </div>
           </div>
 
           {/* Tab Content */}
@@ -313,61 +358,61 @@ export function CardDetailModal({ workItem, open, onOpenChange, onNavigate, onIt
               </div>
             ) : (
               <Tabs value={activeTab}>
-                {/* Overview Tab */}
-                <TabsContent value="overview">
-                  <div className="space-y-6">
-                    {/* Validation summary + Refine button */}
-                    {(() => {
-                      const vr = fullDetails?.metadata?.validationResult;
-                      const score = vr?.averageScore ?? null;
-                      const critCount = (vr?.criticalIssues || []).length;
-                      const majCount = (vr?.majorIssues || []).length;
-                      const minCount = (vr?.minorIssues || []).length;
-                      const totalIssues = critCount + majCount + minCount;
-                      return (
-                        <div className="flex items-start justify-between gap-3">
-                          {vr ? (
-                            <div className="flex items-center gap-3 flex-wrap">
-                              <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${
-                                score >= 95 ? 'bg-green-100 text-green-700' : score >= 80 ? 'bg-amber-100 text-amber-700' : 'bg-red-100 text-red-700'
-                              }`}>
-                                {score}/100
-                              </span>
-                              {totalIssues > 0 && (
-                                <span className="text-xs text-slate-500">
-                                  {critCount > 0 && <span className="text-red-600 font-medium">{critCount} critical</span>}
-                                  {critCount > 0 && (majCount > 0 || minCount > 0) && <span className="mx-1">·</span>}
-                                  {majCount > 0 && <span className="text-orange-600 font-medium">{majCount} major</span>}
-                                  {majCount > 0 && minCount > 0 && <span className="mx-1">·</span>}
-                                  {minCount > 0 && <span className="text-amber-600">{minCount} minor</span>}
-                                </span>
-                              )}
-                              {totalIssues === 0 && <span className="text-xs text-green-600">No issues found</span>}
-                            </div>
-                          ) : (
-                            <div />
-                          )}
-                          <button
-                            onClick={() => setRefineOpen(true)}
-                            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-violet-700 bg-violet-50 border border-violet-200 rounded-lg hover:bg-violet-100 transition-colors flex-shrink-0"
-                          >
-                            <Wand2 className="w-3.5 h-3.5" />
-                            Refine with AI
-                          </button>
-                        </div>
-                      );
-                    })()}
-
-                    {/* Description */}
-                    {fullDetails?.description && (
-                      <div>
-                        <h3 className="text-sm font-semibold text-slate-700 mb-2">
-                          Description
-                        </h3>
-                        <p className="text-slate-600">{fullDetails.description}</p>
+                {/* Documentation Tab */}
+                {documentation && (
+                  <TabsContent value="documentation">
+                    {/* Parent chain links */}
+                    {parentChain.length > 0 && (
+                      <div className="mb-4 flex flex-wrap items-center gap-2 text-xs text-slate-500">
+                        {parentChain.map((ancestor) => (
+                          <ParentFileLink key={ancestor.id} item={ancestor} fileType="doc" />
+                        ))}
                       </div>
                     )}
+                    {/* Edit toolbar */}
+                    <div className="flex justify-end mb-2">
+                      {editingDoc ? (
+                        <div className="flex gap-2">
+                          <button
+                            onClick={() => setEditingDoc(false)}
+                            className="flex items-center gap-1 px-2 py-1 text-xs text-slate-600 hover:text-slate-900 border border-slate-200 rounded"
+                          >
+                            <X className="w-3 h-3" /> Cancel
+                          </button>
+                          <button
+                            onClick={saveDoc}
+                            disabled={saving}
+                            className="flex items-center gap-1 px-2 py-1 text-xs text-white bg-indigo-600 hover:bg-indigo-700 rounded disabled:opacity-50"
+                          >
+                            <Save className="w-3 h-3" /> {saving ? 'Saving…' : 'Save'}
+                          </button>
+                        </div>
+                      ) : (
+                        <button
+                          onClick={startEditDoc}
+                          className="flex items-center gap-1 px-2 py-1 text-xs text-slate-600 hover:text-slate-900 border border-slate-200 rounded"
+                        >
+                          <Pencil className="w-3 h-3" /> Edit
+                        </button>
+                      )}
+                    </div>
+                    {editingDoc ? (
+                      <textarea
+                        className="w-full h-96 p-3 text-sm font-mono border border-slate-300 rounded focus:outline-none focus:ring-2 focus:ring-indigo-400 resize-y"
+                        value={docDraft}
+                        onChange={(e) => setDocDraft(e.target.value)}
+                      />
+                    ) : (
+                      <div className="prose prose-slate max-w-none">
+                        <div dangerouslySetInnerHTML={{ __html: documentation }} />
+                      </div>
+                    )}
+                  </TabsContent>
+                )}
 
+                {/* Details Tab */}
+                <TabsContent value="details">
+                  <div className="space-y-6">
                     {/* Created */}
                     {fullDetails?.created && (
                       <div className="flex items-center gap-2 text-sm text-slate-500">
@@ -421,58 +466,6 @@ export function CardDetailModal({ workItem, open, onOpenChange, onNavigate, onIt
                     )}
                   </div>
                 </TabsContent>
-
-                {/* Documentation Tab */}
-                {documentation && (
-                  <TabsContent value="documentation">
-                    {/* Parent chain links */}
-                    {parentChain.length > 0 && (
-                      <div className="mb-4 flex flex-wrap items-center gap-2 text-xs text-slate-500">
-                        {parentChain.map((ancestor) => (
-                          <ParentFileLink key={ancestor.id} item={ancestor} fileType="doc" />
-                        ))}
-                      </div>
-                    )}
-                    {/* Edit toolbar */}
-                    <div className="flex justify-end mb-2">
-                      {editingDoc ? (
-                        <div className="flex gap-2">
-                          <button
-                            onClick={() => setEditingDoc(false)}
-                            className="flex items-center gap-1 px-2 py-1 text-xs text-slate-600 hover:text-slate-900 border border-slate-200 rounded"
-                          >
-                            <X className="w-3 h-3" /> Cancel
-                          </button>
-                          <button
-                            onClick={saveDoc}
-                            disabled={saving}
-                            className="flex items-center gap-1 px-2 py-1 text-xs text-white bg-indigo-600 hover:bg-indigo-700 rounded disabled:opacity-50"
-                          >
-                            <Save className="w-3 h-3" /> {saving ? 'Saving…' : 'Save'}
-                          </button>
-                        </div>
-                      ) : (
-                        <button
-                          onClick={startEditDoc}
-                          className="flex items-center gap-1 px-2 py-1 text-xs text-slate-600 hover:text-slate-900 border border-slate-200 rounded"
-                        >
-                          <Pencil className="w-3 h-3" /> Edit
-                        </button>
-                      )}
-                    </div>
-                    {editingDoc ? (
-                      <textarea
-                        className="w-full h-96 p-3 text-sm font-mono border border-slate-300 rounded focus:outline-none focus:ring-2 focus:ring-indigo-400 resize-y"
-                        value={docDraft}
-                        onChange={(e) => setDocDraft(e.target.value)}
-                      />
-                    ) : (
-                      <div className="prose prose-slate max-w-none">
-                        <div dangerouslySetInnerHTML={{ __html: documentation }} />
-                      </div>
-                    )}
-                  </TabsContent>
-                )}
 
                 {/* Children Tab */}
                 {fullDetails?.children && fullDetails.children.length > 0 && (
