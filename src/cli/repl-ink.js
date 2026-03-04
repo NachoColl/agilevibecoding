@@ -3578,6 +3578,14 @@ const App = () => {
     const initiator = new ProjectInitiator();
 
     try {
+      // Stop all running background processes (kanban, docs, etc.) before deleting
+      const manager = getProcessManager();
+      const running = manager.getRunningProcesses();
+      if (running.length > 0) {
+        sendOutput(`Stopping ${running.length} running process${running.length > 1 ? 'es' : ''}...`);
+        manager.stopAll();
+      }
+
       const deletedItems = initiator.getAvcContents();
 
       // Delete .avc folder
