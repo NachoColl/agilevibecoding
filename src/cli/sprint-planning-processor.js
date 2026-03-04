@@ -643,7 +643,7 @@ Return your response as JSON following the exact structure specified in your ins
             if (elapsed < 60) return 'Structuring epics and stories…';
             if (elapsed < 80) return 'Refining decomposition…';
             if (elapsed < 100) return 'Finalizing work item hierarchy…';
-            return `Still decomposing… (${elapsed}s)`;
+            return 'Still decomposing…';
           },
           progressCallback,
           20000  // 20s interval — phase messages change each tick
@@ -1255,8 +1255,8 @@ Enrich the existing story doc to be fully implementation-ready. Fill any gaps in
             ),
             (elapsed) => {
               if (elapsed < 15) return `Enriching ${story.name}…`;
-              if (elapsed < 30) return `Adding implementation detail to ${story.name}…`;
-              return `Still enriching… (${elapsed}s)`;
+              if (elapsed < 40) return `Adding implementation detail to ${story.name}…`;
+              return `Still enriching…`;
             },
             progressCallback,
             5000
