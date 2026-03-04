@@ -65,9 +65,14 @@ class EpicStoryValidator {
    */
   _withHeartbeat(fn, getMsg, intervalMs = 5000) {
     const startTime = Date.now();
+    let lastMsg = null;
     const timer = setInterval(() => {
       const elapsed = Math.round((Date.now() - startTime) / 1000);
-      this._detail(getMsg(elapsed)).catch(() => {});
+      const msg = getMsg(elapsed);
+      if (msg != null && msg !== lastMsg) {
+        lastMsg = msg;
+        this._detail(msg).catch(() => {});
+      }
     }, intervalMs);
     return fn().finally(() => clearInterval(timer));
   }
@@ -233,11 +238,10 @@ class EpicStoryValidator {
         return this._withHeartbeat(
           () => this.runEpicValidator(workingEpic, epicContext, validatorName),
           (elapsed) => {
-            if (elapsed < 15) return `   [${role}] reviewing requirements… (${elapsed}s)`;
-            if (elapsed < 30) return `   [${role}] analyzing concerns… (${elapsed}s)`;
-            if (elapsed < 45) return `   [${role}] checking best practices… (${elapsed}s)`;
-            if (elapsed < 60) return `   [${role}] validating compliance… (${elapsed}s)`;
-            return `   [${role}] still validating… (${elapsed}s)`;
+            if (elapsed < 20) return `   [${role}] reviewing requirements…`;
+            if (elapsed < 40) return `   [${role}] analyzing concerns…`;
+            if (elapsed < 60) return `   [${role}] checking best practices…`;
+            return `   [${role}] still validating…`;
           },
           10000
         );
@@ -283,10 +287,9 @@ class EpicStoryValidator {
           const improved = await this._withHeartbeat(
             () => this.runEpicSolver(workingEpic, epicContext, lastResult, validatorName),
             (elapsed) => {
-              if (elapsed < 20) return `   ↻ ${role} solver — applying improvements…`;
-              if (elapsed < 40) return `   ↻ ${role} solver — refining epic quality…`;
-              if (elapsed < 60) return `   ↻ ${role} solver — finalizing changes…`;
-              return `   ↻ ${role} solver — still running… (${elapsed}s)`;
+              if (elapsed < 25) return `   ↻ ${role} solver — applying improvements…`;
+              if (elapsed < 50) return `   ↻ ${role} solver — refining epic quality…`;
+              return `   ↻ ${role} solver — still running…`;
             },
             20000
           );
@@ -319,9 +322,9 @@ class EpicStoryValidator {
         lastResult = await this._withHeartbeat(
           () => this.runEpicValidator(workingEpic, epicContext, validatorName),
           (elapsed) => {
-            if (elapsed < 15) return `   [${role}] re-reviewing… (${elapsed}s)`;
-            if (elapsed < 30) return `   [${role}] re-analyzing… (${elapsed}s)`;
-            return `   [${role}] re-validating… (${elapsed}s)`;
+            if (elapsed < 20) return `   [${role}] re-reviewing…`;
+            if (elapsed < 40) return `   [${role}] re-analyzing…`;
+            return `   [${role}] re-validating…`;
           },
           10000
         );
@@ -434,11 +437,10 @@ class EpicStoryValidator {
         return this._withHeartbeat(
           () => this.runStoryValidator(workingStory, storyContext, epic, validatorName),
           (elapsed) => {
-            if (elapsed < 15) return `   [${role}] reviewing story… (${elapsed}s)`;
-            if (elapsed < 30) return `   [${role}] checking acceptance criteria… (${elapsed}s)`;
-            if (elapsed < 45) return `   [${role}] validating scope… (${elapsed}s)`;
-            if (elapsed < 60) return `   [${role}] reviewing dependencies… (${elapsed}s)`;
-            return `   [${role}] still validating… (${elapsed}s)`;
+            if (elapsed < 20) return `   [${role}] reviewing story…`;
+            if (elapsed < 40) return `   [${role}] checking acceptance criteria…`;
+            if (elapsed < 60) return `   [${role}] validating scope…`;
+            return `   [${role}] still validating…`;
           },
           10000
         );
@@ -484,10 +486,9 @@ class EpicStoryValidator {
           const improved = await this._withHeartbeat(
             () => this.runStorySolver(workingStory, storyContext, epic, lastResult, validatorName),
             (elapsed) => {
-              if (elapsed < 20) return `   ↻ ${role} solver — improving story…`;
-              if (elapsed < 40) return `   ↻ ${role} solver — refining acceptance criteria…`;
-              if (elapsed < 60) return `   ↻ ${role} solver — finalizing improvements…`;
-              return `   ↻ ${role} solver — still running… (${elapsed}s)`;
+              if (elapsed < 25) return `   ↻ ${role} solver — improving story…`;
+              if (elapsed < 50) return `   ↻ ${role} solver — refining acceptance criteria…`;
+              return `   ↻ ${role} solver — still running…`;
             },
             20000
           );
@@ -520,9 +521,9 @@ class EpicStoryValidator {
         lastResult = await this._withHeartbeat(
           () => this.runStoryValidator(workingStory, storyContext, epic, validatorName),
           (elapsed) => {
-            if (elapsed < 15) return `   [${role}] re-reviewing story… (${elapsed}s)`;
-            if (elapsed < 30) return `   [${role}] re-checking acceptance criteria… (${elapsed}s)`;
-            return `   [${role}] re-validating… (${elapsed}s)`;
+            if (elapsed < 20) return `   [${role}] re-reviewing story…`;
+            if (elapsed < 40) return `   [${role}] re-checking acceptance criteria…`;
+            return `   [${role}] re-validating…`;
           },
           10000
         );
