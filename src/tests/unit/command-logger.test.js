@@ -128,7 +128,7 @@ describe('CommandLogger', () => {
       const content = fs.readFileSync(logPath, 'utf8');
 
       // Should have ISO timestamp format
-      expect(content).toMatch(/\[\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z\]/);
+      expect(content).toMatch(/\[\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}[Z+-]/);
     });
 
     it('should handle multiple log entries', () => {

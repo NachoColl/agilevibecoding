@@ -11,6 +11,17 @@
 import fs from 'fs';
 import path from 'path';
 
+/** Format a Date as a local ISO-8601 string (with timezone offset, e.g. 2026-03-04T18:05:16.554+01:00) */
+function localISO(date = new Date()) {
+  const p = n => String(n).padStart(2, '0');
+  const ms = String(date.getMilliseconds()).padStart(3, '0');
+  const tz = -date.getTimezoneOffset();
+  const sign = tz >= 0 ? '+' : '-';
+  const tzH = p(Math.floor(Math.abs(tz) / 60));
+  const tzM = p(Math.abs(tz) % 60);
+  return `${date.getFullYear()}-${p(date.getMonth()+1)}-${p(date.getDate())}T${p(date.getHours())}:${p(date.getMinutes())}:${p(date.getSeconds())}.${ms}${sign}${tzH}:${tzM}`;
+}
+
 class CommandLogger {
   constructor(commandName, projectRoot = process.cwd(), inkMode = false) {
     this.commandName = commandName;
@@ -20,7 +31,7 @@ class CommandLogger {
 
     // Create timestamp for this command execution
     const now = new Date();
-    const timestamp = now.toISOString()
+    const timestamp = localISO(now)
       .replace(/T/, '-')
       .replace(/:/g, '-')
       .replace(/\..+/, '');
@@ -55,7 +66,7 @@ class CommandLogger {
       const header = [
         '='.repeat(80),
         `AVC Command Log: ${this.commandName}`,
-        `Timestamp: ${new Date().toISOString()}`,
+        `Timestamp: ${localISO()}`,
         `Project: ${this.projectRoot}`,
         `Log File: ${this.logFileName}`,
         '='.repeat(80),
@@ -76,7 +87,7 @@ class CommandLogger {
     if (!this.logFilePath) return;
 
     try {
-      const timestamp = new Date().toISOString();
+      const timestamp = localISO();
       const message = args.map(arg => {
         if (arg === undefined) return 'undefined';
         if (arg === null) return 'null';
@@ -162,7 +173,7 @@ class CommandLogger {
         const footer = [
           '',
           '='.repeat(80),
-          `Command completed: ${new Date().toISOString()}`,
+          `Command completed: ${localISO()}`,
           `Log saved: ${this.logFilePath}`,
           '='.repeat(80)
         ].join('\n');
