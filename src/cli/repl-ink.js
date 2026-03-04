@@ -2597,8 +2597,9 @@ const App = () => {
       // ── Show project links ──────────────────────────────────────────────
       sendOutput('');
       sendSuccess('Project ready — set your API key in .env then open the Kanban board to get started');
-      sendIndented(`${gray('Kanban Board  ')} http://localhost:${kanbanPort}`, 1);
-      sendIndented(`${gray('Documentation ')} http://localhost:${docPort}`, 1);
+      sendOutput('');
+      sendOutput(`${gray('Kanban Board  ')} http://localhost:${kanbanPort}`);
+      sendOutput(`${gray('Documentation ')} http://localhost:${docPort}`);
       sendOutput('');
     } finally {
       endCommand();
