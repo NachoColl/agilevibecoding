@@ -2595,7 +2595,6 @@ const App = () => {
       fileLog('INFO', 'kanban server started during init', { kanbanProcessId, kanbanPort });
 
       // ── Show project links ──────────────────────────────────────────────
-      sendSuccess('Project ready — set your API key in .env then open the Kanban board to get started');
       sendOutput('');
       sendOutput(`${gray('Kanban Board  ')} http://localhost:${kanbanPort}`);
       sendOutput(`${gray('Documentation ')} http://localhost:${docPort}`);

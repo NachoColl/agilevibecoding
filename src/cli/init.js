@@ -1058,7 +1058,7 @@ Documentation for this project will be generated automatically once the project 
       avcConfig: this.hasAvcConfig(),
     });
 
-    sendOutput('Project initialized.');
+    sendOutput('Project initialized — set your API key in .env then open the Kanban board to get started.');
 
     return;
   }
