@@ -228,9 +228,14 @@ class SprintPlanningProcessor {
    */
   async _withProgressHeartbeat(fn, getMsg, progressCallback, intervalMs = 5000) {
     const startTime = Date.now();
+    let lastMsg = null;
     const timer = setInterval(() => {
       const elapsed = Math.round((Date.now() - startTime) / 1000);
-      progressCallback?.(null, null, { detail: getMsg(elapsed) })?.catch?.(() => {});
+      const msg = getMsg(elapsed);
+      if (msg != null && msg !== lastMsg) {
+        lastMsg = msg;
+        progressCallback?.(null, null, { detail: msg })?.catch?.(() => {});
+      }
     }, intervalMs);
     try {
       return await fn();
@@ -1348,12 +1353,12 @@ Extract content specifically about this ${childType} from the parent document in
       ),
       (elapsed) => {
         if (elapsed < 15) return `Extracting ${childType}-specific content…`;
-        if (elapsed < 30) return `Building ${childItem.name} documentation…`;
-        if (elapsed < 45) return `Refining parent document…`;
-        return `Still distributing… (${elapsed}s)`;
+        if (elapsed < 40) return `Building ${childItem.name} documentation…`;
+        if (elapsed < 65) return `Refining parent document…`;
+        return `Still distributing…`;
       },
       progressCallback,
-      5000
+      10000
     );
 
     const usage = provider.getTokenUsage();
