@@ -41,7 +41,7 @@ class ProjectInitiator {
     this.projectRoot = projectRoot || process.cwd();
     this.avcDir = path.join(this.projectRoot, '.avc');
     this.srcDir = path.join(this.projectRoot, 'src');
-    this.worktreesDir = path.join(this.projectRoot, 'worktrees');
+    this.worktreesDir = path.join(this.avcDir, 'worktrees');
     this.avcConfigPath = path.join(this.avcDir, 'avc.json');
     // Progress files are ceremony-specific
     this.initProgressPath = path.join(this.avcDir, 'init-progress.json');
