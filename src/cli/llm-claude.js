@@ -9,7 +9,9 @@ export class ClaudeProvider extends LLMProvider {
   _createClient() {
     const apiKey = process.env.ANTHROPIC_API_KEY;
     if (!apiKey) throw new Error('ANTHROPIC_API_KEY not set. Add it to your .env file.');
-    return new Anthropic({ apiKey });
+    // 5-minute timeout per request; SDK retries disabled so our retryWithBackoff
+    // handles all retries with full logging visibility.
+    return new Anthropic({ apiKey, timeout: 5 * 60 * 1000, maxRetries: 0 });
   }
 
   async _callProvider(prompt, maxTokens, systemInstructions) {
