@@ -301,10 +301,17 @@ class EpicStoryValidator {
             20000
           );
           if (improved && improved.id === workingEpic.id) {
+            const rawFeatures = improved.features ?? workingEpic.features ?? [];
+            const cappedFeatures = rawFeatures.length > 25
+              ? rawFeatures.slice().sort((a, b) => b.length - a.length).slice(0, 25)
+              : rawFeatures;
+            if (rawFeatures.length > 25) {
+              console.log(`   ↻ Epic features capped: ${rawFeatures.length} → 25 (kept longest/most specific)`);
+            }
             workingEpic = {
               ...workingEpic,
               description:  improved.description  ?? workingEpic.description,
-              features:     improved.features     ?? workingEpic.features,
+              features:     cappedFeatures,
               dependencies: improved.dependencies ?? workingEpic.dependencies,
             };
             const descAfter     = (workingEpic.description || '').slice(0, 100);
@@ -512,10 +519,17 @@ class EpicStoryValidator {
             20000
           );
           if (improved && improved.id === workingStory.id) {
+            const rawAC = improved.acceptance ?? workingStory.acceptance ?? [];
+            const cappedAC = rawAC.length > 15
+              ? rawAC.slice().sort((a, b) => b.length - a.length).slice(0, 15)
+              : rawAC;
+            if (rawAC.length > 15) {
+              console.log(`   ↻ Story AC capped: ${rawAC.length} → 15 (kept longest/most specific)`);
+            }
             workingStory = {
               ...workingStory,
               description:  improved.description  ?? workingStory.description,
-              acceptance:   improved.acceptance   ?? workingStory.acceptance,
+              acceptance:   cappedAC,
               dependencies: improved.dependencies ?? workingStory.dependencies,
             };
             const descAfter = (workingStory.description || '').slice(0, 100);
@@ -776,6 +790,10 @@ ${epicContext}
 ${issueText || 'No critical/major issues — improve overall quality.'}
 
 Improve this Epic to address the issues above. Return the complete improved Epic JSON.
+
+**IMPORTANT CONSTRAINTS:**
+- Features list must contain AT MOST 25 items. If the current list already has 20+, consolidate or replace existing features rather than appending new ones.
+- Each feature must be a single concise sentence (max 30 words). Do not expand them into paragraphs.
 `;
   }
 
@@ -823,6 +841,10 @@ ${storyContext}
 ${issueText || 'No critical/major issues — improve overall quality.'}
 
 Improve this Story to address the issues above. Return the complete improved Story JSON.
+
+**IMPORTANT CONSTRAINTS:**
+- Acceptance criteria list must contain AT MOST 15 items. If the current list already has 12+, consolidate or replace existing criteria rather than appending new ones.
+- Each AC must be a single concrete, testable sentence (max 40 words). Do not expand them into paragraphs.
 `;
   }
 
