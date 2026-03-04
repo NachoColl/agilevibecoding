@@ -13,6 +13,17 @@ import { loadAgent } from './agent-loader.js';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
+/** Local-timezone ISO string (e.g. 2026-03-04T18:05:16.554+01:00) */
+function localISO(date = new Date()) {
+  const p = n => String(n).padStart(2, '0');
+  const ms = String(date.getMilliseconds()).padStart(3, '0');
+  const tz = -date.getTimezoneOffset();
+  const sign = tz >= 0 ? '+' : '-';
+  const tzH = p(Math.floor(Math.abs(tz) / 60));
+  const tzM = p(Math.abs(tz) % 60);
+  return `${date.getFullYear()}-${p(date.getMonth()+1)}-${p(date.getDate())}T${p(date.getHours())}:${p(date.getMinutes())}:${p(date.getSeconds())}.${ms}${sign}${tzH}:${tzM}`;
+}
+
 /**
  * SprintPlanningProcessor - Creates/expands Epics and Stories with duplicate detection
  */
@@ -63,7 +74,7 @@ class SprintPlanningProcessor {
   debug(message, data = null) {
     if (!this.debugMode) return;
 
-    const timestamp = new Date().toISOString();
+    const timestamp = localISO();
     const prefix = `[${timestamp}] [DEBUG]`;
 
     if (data === null) {
@@ -1066,7 +1077,7 @@ Return your response as JSON following the exact structure specified in your ins
         children: (epic.stories || []).map(s => s.id),
         metadata: {
           ...(epic.metadata || {}),
-          created: new Date().toISOString(),
+          created: localISO(),
           ceremony: this.ceremonyName
         }
       };
@@ -1091,7 +1102,7 @@ Return your response as JSON following the exact structure specified in your ins
           children: [],
           metadata: {
             ...(story.metadata || {}),
-            created: new Date().toISOString(),
+            created: localISO(),
             ceremony: this.ceremonyName
           }
         };
@@ -1512,7 +1523,7 @@ Extract and synthesize content from the parent document that is specifically rel
     try {
       // Log ceremony execution metadata
       const runId = Date.now();
-      const runTimestamp = new Date().toISOString();
+      const runTimestamp = localISO();
       this.debug('='.repeat(80));
       this.debug('SPRINT PLANNING CEREMONY - EXECUTION START');
       this.debug('='.repeat(80));
@@ -1672,7 +1683,7 @@ Extract and synthesize content from the parent document that is specifically rel
       this.debug('='.repeat(80));
       this.debug('Run ID:', runId);
       this.debug('Started:', runTimestamp);
-      this.debug('Ended:', new Date().toISOString());
+      this.debug('Ended:', localISO());
       this.debug('Duration:', `${Math.round(runDuration / 1000)} seconds`);
 
       this.debugSection('RUN COMPARISON SUMMARY (compare this block across runs)');
