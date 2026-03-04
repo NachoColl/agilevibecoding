@@ -1059,7 +1059,6 @@ Documentation for this project will be generated automatically once the project 
     });
 
     sendOutput('Project initialized.');
-    sendOutput('');
 
     return;
   }
