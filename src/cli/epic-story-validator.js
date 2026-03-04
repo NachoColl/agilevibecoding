@@ -247,7 +247,10 @@ class EpicStoryValidator {
             return `   [${role}] still validating…`;
           },
           10000
-        );
+        ).catch(err => {
+          console.warn(`   ⚠ Validator ${validatorName} failed: ${err.message.split('\n')[0]}`);
+          return { overallScore: 0, validationStatus: 'error', issues: [], _validatorError: err.message.split('\n')[0] };
+        });
       })
     );
     console.log(`[TIMING] epic parallel batch (${validators.length} validators): ${Date.now() - _t0Parallel}ms`);
@@ -317,21 +320,28 @@ class EpicStoryValidator {
           }
         } catch (err) {
           console.warn(`   ⚠ Solver failed for ${validatorName}: ${err.message} — keeping current epic`);
-          await this._detail(`   ⚠ Solver failed: ${err.message}`);
-          break;
+          const briefErr = err.message.split('\n')[0].slice(0, 120);
+          await this._detail(`   ⚠ Solver failed: ${briefErr}${iter + 1 < maxIterations ? ' — retrying…' : ' — giving up'}`);
+          continue;
         }
 
         // Re-validate after solver
         await this._detail(`   [${vi + 1}/${validators.length}] ${role} — re-validating (iter ${iter + 1})…`);
-        lastResult = await this._withHeartbeat(
-          () => this.runEpicValidator(workingEpic, epicContext, validatorName),
-          (elapsed) => {
-            if (elapsed < 20) return `   [${role}] re-reviewing…`;
-            if (elapsed < 40) return `   [${role}] re-analyzing…`;
-            return `   [${role}] re-validating…`;
-          },
-          10000
-        );
+        try {
+          lastResult = await this._withHeartbeat(
+            () => this.runEpicValidator(workingEpic, epicContext, validatorName),
+            (elapsed) => {
+              if (elapsed < 20) return `   [${role}] re-reviewing…`;
+              if (elapsed < 40) return `   [${role}] re-analyzing…`;
+              return `   [${role}] re-validating…`;
+            },
+            10000
+          );
+        } catch (err) {
+          console.warn(`   ⚠ Re-validator ${validatorName} failed: ${err.message.split('\n')[0]}`);
+          await this._detail(`   ⚠ Re-validate failed: ${err.message.split('\n')[0].slice(0, 120)} — keeping solver result`);
+          break;
+        }
         const newScore   = lastResult.overallScore ?? 0;
         const acceptable = newScore >= acceptanceThreshold;
         const issueStr2  = (lastResult.issues || []).length > 0 ? ` · ${lastResult.issues.length} issues` : '';
@@ -448,7 +458,10 @@ class EpicStoryValidator {
             return `   [${role}] still validating…`;
           },
           10000
-        );
+        ).catch(err => {
+          console.warn(`   ⚠ Validator ${validatorName} failed: ${err.message.split('\n')[0]}`);
+          return { overallScore: 0, validationStatus: 'error', issues: [], _validatorError: err.message.split('\n')[0] };
+        });
       })
     );
     console.log(`[TIMING] story parallel batch (${validators.length} validators): ${Date.now() - _t0Parallel}ms`);
@@ -518,21 +531,28 @@ class EpicStoryValidator {
           }
         } catch (err) {
           console.warn(`   ⚠ Solver failed for ${validatorName}: ${err.message} — keeping current story`);
-          await this._detail(`   ⚠ Solver failed: ${err.message}`);
-          break;
+          const briefErr = err.message.split('\n')[0].slice(0, 120);
+          await this._detail(`   ⚠ Solver failed: ${briefErr}${iter + 1 < maxIterations ? ' — retrying…' : ' — giving up'}`);
+          continue;
         }
 
         // Re-validate after solver
         await this._detail(`   [${vi + 1}/${validators.length}] ${role} — re-validating (iter ${iter + 1})…`);
-        lastResult = await this._withHeartbeat(
-          () => this.runStoryValidator(workingStory, storyContext, epic, validatorName),
-          (elapsed) => {
-            if (elapsed < 20) return `   [${role}] re-reviewing story…`;
-            if (elapsed < 40) return `   [${role}] re-checking acceptance criteria…`;
-            return `   [${role}] re-validating…`;
-          },
-          10000
-        );
+        try {
+          lastResult = await this._withHeartbeat(
+            () => this.runStoryValidator(workingStory, storyContext, epic, validatorName),
+            (elapsed) => {
+              if (elapsed < 20) return `   [${role}] re-reviewing story…`;
+              if (elapsed < 40) return `   [${role}] re-checking acceptance criteria…`;
+              return `   [${role}] re-validating…`;
+            },
+            10000
+          );
+        } catch (err) {
+          console.warn(`   ⚠ Re-validator ${validatorName} failed: ${err.message.split('\n')[0]}`);
+          await this._detail(`   ⚠ Re-validate failed: ${err.message.split('\n')[0].slice(0, 120)} — keeping solver result`);
+          break;
+        }
         const newScore   = lastResult.overallScore ?? 0;
         const acceptable = newScore >= acceptanceThreshold;
         const issueStr2  = (lastResult.issues || []).length > 0 ? ` · ${lastResult.issues.length} issues` : '';

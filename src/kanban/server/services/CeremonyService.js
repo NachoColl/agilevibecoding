@@ -104,6 +104,10 @@ export class CeremonyService {
     this.websocket = ws;
   }
 
+  setReloadCallback(fn) {
+    this._reloadCallback = fn;
+  }
+
   getStatus() {
     return {
       status: this.state.status,
@@ -704,7 +708,7 @@ export class CeremonyService {
    * @param {object} record - ProcessRegistry record
    * @param {ProcessRegistry} registry
    */
-  _dispatchWorkerMessage(msg, record, registry) {
+  async _dispatchWorkerMessage(msg, record, registry) {
     const entry = { ts: Date.now(), level: 'info', text: msg.message || msg.substep || msg.detail || '' };
     const isSP = record.type === 'sprint-planning';
     switch (msg.type) {
@@ -744,6 +748,7 @@ export class CeremonyService {
         this._activeChild = null;
         this._activeProcessId = null;
         registry.setStatus(record.id, 'complete', { result: msg.result });
+        await this._reloadCallback?.();
         if (isSP) this.websocket?.broadcastSprintPlanningComplete(msg.result);
         else this.websocket?.broadcastCeremonyComplete(msg.result);
         this.websocket?.broadcastRefresh();
