@@ -1948,9 +1948,11 @@ Return your response as JSON following the exact structure specified in your ins
 
       await this.reportDetail(`Score: ${validation.overallScore ?? '?'}/100 — ${allIssues.length} issue(s) found`);
 
-      // Check if ready
-      if (validation.readyForPublication && validation.overallScore >= threshold) {
-        await this.reportDetail(`✓ Accepted (score ≥ ${threshold})`);
+      // Check if ready — also accept immediately if no issues found at all
+      const noIssues = allIssues.length === 0 && flowGaps.length === 0;
+      if (noIssues || (validation.readyForPublication && validation.overallScore >= threshold)) {
+        const reason = noIssues ? 'no issues found' : `score ≥ ${threshold}`;
+        await this.reportDetail(`✓ Accepted (${reason})`);
         debug(`${type} passed validation`);
         break;
       }
