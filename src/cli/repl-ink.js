@@ -2598,6 +2598,7 @@ const App = () => {
       sendOutput('');
       sendOutput(`${gray('Kanban Board  ')} http://localhost:${kanbanPort}`);
       sendOutput(`${gray('Documentation ')} http://localhost:${docPort}`);
+      sendOutput('');
     } finally {
       endCommand();
     }
