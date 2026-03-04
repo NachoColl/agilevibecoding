@@ -72,6 +72,8 @@ class EpicStoryValidator {
       if (msg != null && msg !== lastMsg) {
         lastMsg = msg;
         this._detail(msg).catch(() => {});
+        // Also log to debug output so stuck calls are visible in log files
+        console.log(`[HEARTBEAT] ${msg} (${elapsed}s elapsed)`);
       }
     }, intervalMs);
     return fn().finally(() => clearInterval(timer));
@@ -232,6 +234,7 @@ class EpicStoryValidator {
     await this._detail(`Running ${validators.length} validators in parallel…`);
     console.log(`   Running ${validators.length} validators in parallel…`);
 
+    const _t0Parallel = Date.now();
     const parallelResults = await Promise.all(
       validators.map((validatorName, vi) => {
         const role = this.extractDomain(validatorName);
@@ -247,6 +250,7 @@ class EpicStoryValidator {
         );
       })
     );
+    console.log(`[TIMING] epic parallel batch (${validators.length} validators): ${Date.now() - _t0Parallel}ms`);
 
     // Log all parallel results
     for (let vi = 0; vi < validators.length; vi++) {
@@ -431,6 +435,7 @@ class EpicStoryValidator {
     await this._detail(`Running ${validators.length} validators in parallel…`);
     console.log(`   Running ${validators.length} validators in parallel…`);
 
+    const _t0Parallel = Date.now();
     const parallelResults = await Promise.all(
       validators.map((validatorName, vi) => {
         const role = this.extractDomain(validatorName);
@@ -446,6 +451,7 @@ class EpicStoryValidator {
         );
       })
     );
+    console.log(`[TIMING] story parallel batch (${validators.length} validators): ${Date.now() - _t0Parallel}ms`);
 
     // Log all parallel results
     for (let vi = 0; vi < validators.length; vi++) {
@@ -591,7 +597,15 @@ class EpicStoryValidator {
     const provider = await this.getProviderForValidator(validatorName);
 
     // Call LLM with validator agent instructions
+    const _usageBefore = provider.getTokenUsage();
+    const _t0 = Date.now();
+    console.log(`[API-START] ${validatorName} (epic="${epic.name}", promptLen=${prompt.length})`);
     const rawResult = await provider.generateJSON(prompt, agentInstructions);
+    const _elapsed = Date.now() - _t0;
+    const _usageAfter = provider.getTokenUsage();
+    const _deltaIn = _usageAfter.inputTokens - _usageBefore.inputTokens;
+    const _deltaOut = _usageAfter.outputTokens - _usageBefore.outputTokens;
+    console.log(`[API-DONE] ${validatorName} — ${_elapsed}ms | in=${_deltaIn} out=${_deltaOut} tokens`);
 
     // Basic validation of result structure
     if (!rawResult || typeof rawResult !== 'object') {
@@ -623,7 +637,15 @@ class EpicStoryValidator {
     const provider = await this.getProviderForValidator(validatorName);
 
     // Call LLM with validator agent instructions
+    const _usageBefore = provider.getTokenUsage();
+    const _t0 = Date.now();
+    console.log(`[API-START] ${validatorName} (story="${story.name}", promptLen=${prompt.length})`);
     const rawResult = await provider.generateJSON(prompt, agentInstructions);
+    const _elapsed = Date.now() - _t0;
+    const _usageAfter = provider.getTokenUsage();
+    const _deltaIn = _usageAfter.inputTokens - _usageBefore.inputTokens;
+    const _deltaOut = _usageAfter.outputTokens - _usageBefore.outputTokens;
+    console.log(`[API-DONE] ${validatorName} — ${_elapsed}ms | in=${_deltaIn} out=${_deltaOut} tokens`);
 
     // Basic validation of result structure
     if (!rawResult || typeof rawResult !== 'object') {
@@ -651,7 +673,15 @@ class EpicStoryValidator {
     const prompt = this.buildEpicSolverPrompt(epic, epicContext, validationResult, validatorName);
     const provider = await this.getProviderForSolver(role);
 
+    const _usageBefore = provider.getTokenUsage();
+    const _t0 = Date.now();
+    console.log(`[API-START] solver-epic-${role} (epic="${epic.name}", promptLen=${prompt.length})`);
     const improved = await provider.generateJSON(prompt, agentInstructions);
+    const _elapsed = Date.now() - _t0;
+    const _usageAfter = provider.getTokenUsage();
+    const _deltaIn = _usageAfter.inputTokens - _usageBefore.inputTokens;
+    const _deltaOut = _usageAfter.outputTokens - _usageBefore.outputTokens;
+    console.log(`[API-DONE] solver-epic-${role} — ${_elapsed}ms | in=${_deltaIn} out=${_deltaOut} tokens`);
 
     if (this.verificationTracker) {
       this.verificationTracker.recordCheck(`solver-epic-${role}`, 'epic-solving', true);
@@ -670,7 +700,15 @@ class EpicStoryValidator {
     const prompt = this.buildStorySolverPrompt(story, storyContext, epic, validationResult, validatorName);
     const provider = await this.getProviderForSolver(role);
 
+    const _usageBefore = provider.getTokenUsage();
+    const _t0 = Date.now();
+    console.log(`[API-START] solver-story-${role} (story="${story.name}", promptLen=${prompt.length})`);
     const improved = await provider.generateJSON(prompt, agentInstructions);
+    const _elapsed = Date.now() - _t0;
+    const _usageAfter = provider.getTokenUsage();
+    const _deltaIn = _usageAfter.inputTokens - _usageBefore.inputTokens;
+    const _deltaOut = _usageAfter.outputTokens - _usageBefore.outputTokens;
+    console.log(`[API-DONE] solver-story-${role} — ${_elapsed}ms | in=${_deltaIn} out=${_deltaOut} tokens`);
 
     if (this.verificationTracker) {
       this.verificationTracker.recordCheck(`solver-story-${role}`, 'story-solving', true);
