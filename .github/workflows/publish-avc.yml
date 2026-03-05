@@ -70,19 +70,13 @@ jobs:
       - name: Decide if should publish
         id: decide
         run: |
-          # Only publish if:
-          # 1. Version is new (not already on npm)
-          # 2. There are actual code changes (not just version bump)
-
+          # Only publish if version is new (not already on npm)
           if [ "${{ steps.version-check.outputs.version_exists }}" == "true" ]; then
             echo "should_publish=false" >> $GITHUB_OUTPUT
             echo "❌ Skipping: Version already exists on npmjs.org"
-          elif [ "${{ steps.changes.outputs.has_code_changes }}" == "false" ]; then
-            echo "should_publish=false" >> $GITHUB_OUTPUT
-            echo "❌ Skipping: No code changes detected (only version bump)"
           else
             echo "should_publish=true" >> $GITHUB_OUTPUT
-            echo "✅ Proceeding: Version is new and code has changed"
+            echo "✅ Proceeding: Version is new"
           fi
 
   # Job 2: Run tests (only if version is new)
@@ -155,7 +149,7 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: "20"
-          # Don't set registry-url - it creates .npmrc with token auth that interferes with OIDC
+          registry-url: 'https://registry.npmjs.org'
 
       - name: Configure Git
         run: |
@@ -178,11 +172,12 @@ jobs:
           fi
           echo "✅ Security checks passed"
 
-      # Publish to npmjs.org with provenance (OIDC via Trusted Publisher)
       - name: Publish to npmjs.org
         run: |
-          npm publish --provenance --access public
+          npm publish --access public
           echo "✅ Published to npmjs.org"
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
       - name: Publishing Summary
         run: |
