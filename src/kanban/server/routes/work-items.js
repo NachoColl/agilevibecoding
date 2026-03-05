@@ -196,6 +196,7 @@ export function createWorkItemsRouter(dataStore, refineService) {
         provider,
         validatorModelId,
         validatorProvider,
+        itemDirPath: item._dirPath,
       });
 
       res.json({ jobId });
@@ -218,7 +219,21 @@ export function createWorkItemsRouter(dataStore, refineService) {
       const { proposedItem, storyChanges } = req.body;
       if (!proposedItem) return res.status(400).json({ error: 'proposedItem is required' });
 
-      await refineService.applyChanges(req.params.id, proposedItem, storyChanges || []);
+      // Build a dirPath map from the in-memory data store so applyChanges doesn't
+      // need to walk the filesystem (which can silently fail).
+      const { items } = dataStore.getHierarchy();
+      const item = items.get(req.params.id);
+      if (!item) return res.status(404).json({ error: 'Work item not found' });
+
+      const dirPathMap = new Map([[item.id, item._dirPath]]);
+      for (const change of (storyChanges || [])) {
+        if (change.storyId) {
+          const storyItem = items.get(change.storyId);
+          if (storyItem) dirPathMap.set(change.storyId, storyItem._dirPath);
+        }
+      }
+
+      await refineService.applyChanges(req.params.id, proposedItem, storyChanges || [], dirPathMap);
       res.json({ status: 'ok' });
     } catch (err) {
       console.error(`Error applying changes for ${req.params.id}:`, err);

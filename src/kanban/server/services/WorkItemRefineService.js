@@ -55,6 +55,7 @@ export class WorkItemRefineService {
       provider,
       validatorModelId,
       validatorProvider,
+      itemDirPath = null,
     } = options;
 
     const log = new KanbanLogger('refine', this.projectRoot);
@@ -87,7 +88,7 @@ export class WorkItemRefineService {
         : 'No specific issues selected — improve overall quality based on your expertise.';
 
     // Override description from doc.md (canonical source)
-    const itemDir = this._findItemDir(itemId);
+    const itemDir = itemDirPath ?? this._findItemDir(itemId);
     if (itemDir) {
       const docPath = path.join(itemDir, 'doc.md');
       if (fs.existsSync(docPath)) {
@@ -134,7 +135,7 @@ export class WorkItemRefineService {
     let storyImpacts = [];
 
     if (isEpic) {
-      const epicDir = this._findItemDir(itemId);
+      const epicDir = itemDirPath ?? this._findItemDir(itemId);
       const existingStories = epicDir ? await this._loadChildStories(epicDir) : [];
 
       emit(`Checking impact on ${existingStories.length} existing stories…`);
@@ -228,10 +229,11 @@ export class WorkItemRefineService {
   /**
    * Write accepted refinement changes to the filesystem.
    * storyChanges: [{ type: 'update'|'new', storyId?, proposedStory }] — only accepted ones
+   * dirPathMap: Map<id, dirPath> — pre-resolved paths from the data store (preferred over filesystem scan)
    */
-  async applyChanges(itemId, proposedItem, storyChanges = []) {
+  async applyChanges(itemId, proposedItem, storyChanges = [], dirPathMap = new Map()) {
     const isEpic = proposedItem.type === 'epic';
-    const itemDir = this._findItemDir(itemId);
+    const itemDir = dirPathMap.get(itemId) ?? this._findItemDir(itemId);
     if (!itemDir) throw new Error(`Item directory not found for "${itemId}"`);
 
     const workJsonPath = path.join(itemDir, 'work.json');
@@ -264,7 +266,7 @@ export class WorkItemRefineService {
     if (isEpic) {
       // Apply story updates (existing stories)
       for (const change of storyChanges.filter((c) => c.type === 'update' && c.proposedStory)) {
-        const storyDir = this._findItemDir(change.storyId);
+        const storyDir = dirPathMap.get(change.storyId) ?? this._findItemDir(change.storyId);
         if (!storyDir) {
           console.warn(`[RefineService] Story dir not found for ${change.storyId} — skipping`);
           continue;
