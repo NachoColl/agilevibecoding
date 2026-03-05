@@ -391,6 +391,28 @@ class ProjectInitiator {
 
           // Google Gemini models (prices per 1M tokens in USD)
           // Source: https://ai.google.dev/pricing
+          'gemini-3.1-pro-preview': {
+            provider: 'gemini',
+            displayName: 'Gemini 3.1 Pro Preview',
+            pricing: {
+              input: 2.00,
+              output: 12.00,
+              unit: 'million',
+              source: 'https://ai.google.dev/pricing',
+              lastUpdated: '2026-03-05'
+            }
+          },
+          'gemini-3-flash-preview': {
+            provider: 'gemini',
+            displayName: 'Gemini 3 Flash Preview',
+            pricing: {
+              input: 0.50,
+              output: 3.00,
+              unit: 'million',
+              source: 'https://ai.google.dev/pricing',
+              lastUpdated: '2026-03-05'
+            }
+          },
           'gemini-2.5-pro': {
             provider: 'gemini',
             displayName: 'Gemini 2.5 Pro',

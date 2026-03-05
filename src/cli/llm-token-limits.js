@@ -43,7 +43,11 @@ export const MODEL_MAX_TOKENS = {
 
   // Google Gemini models
   // Source: https://docs.cloud.google.com/vertex-ai/generative-ai/docs/models/gemini/
+  'gemini-3.1-pro-preview': 65536, // ACTUAL: 65,536 tokens (verified March 2026)
+  'gemini-3-flash-preview': 65536, // ACTUAL: 65,536 tokens (verified March 2026)
+  'gemini-2.5-pro': 65536,         // ACTUAL: 65,536 tokens
   'gemini-2.5-flash': 65535,       // Was 8192 - ACTUAL: 65,535 tokens
+  'gemini-2.5-flash-lite': 32768,  // ACTUAL: 32,768 tokens
   'gemini-2.0-flash': 8192,        // Correct - max 8,192 tokens
   'gemini-2.0-flash-exp': 8192,
   'gemini-1.5-pro': 8192,

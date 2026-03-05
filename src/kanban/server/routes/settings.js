@@ -24,6 +24,8 @@ const DEFAULT_MODELS = {
   'claude-sonnet-4-6':          { provider: 'claude',  displayName: 'Claude Sonnet 4.6',        pricing: { input: 3.00,  output: 15.00, unit: 'million', source: PRICING_SOURCES.claude, lastUpdated: '2026-02-24' } },
   'claude-haiku-4-5-20251001':  { provider: 'claude',  displayName: 'Claude Haiku 4.5',         pricing: { input: 1.00,  output:  5.00, unit: 'million', source: PRICING_SOURCES.claude, lastUpdated: '2026-02-24' } },
   // Google Gemini models (prices per 1M tokens in USD)
+  'gemini-3.1-pro-preview':     { provider: 'gemini',  displayName: 'Gemini 3.1 Pro Preview',   pricing: { input: 2.00,  output: 12.00, unit: 'million', source: PRICING_SOURCES.gemini, lastUpdated: '2026-03-05' } },
+  'gemini-3-flash-preview':     { provider: 'gemini',  displayName: 'Gemini 3 Flash Preview',   pricing: { input: 0.50,  output:  3.00, unit: 'million', source: PRICING_SOURCES.gemini, lastUpdated: '2026-03-05' } },
   'gemini-2.5-pro':             { provider: 'gemini',  displayName: 'Gemini 2.5 Pro',           pricing: { input: 1.25,  output: 10.00, unit: 'million', source: PRICING_SOURCES.gemini, lastUpdated: '2026-02-24' } },
   'gemini-2.5-flash':           { provider: 'gemini',  displayName: 'Gemini 2.5 Flash',         pricing: { input: 0.30,  output:  2.50, unit: 'million', source: PRICING_SOURCES.gemini, lastUpdated: '2026-02-24' } },
   'gemini-2.5-flash-lite':      { provider: 'gemini',  displayName: 'Gemini 2.5 Flash-Lite',    pricing: { input: 0.10,  output:  0.40, unit: 'million', source: PRICING_SOURCES.gemini, lastUpdated: '2026-02-24' } },

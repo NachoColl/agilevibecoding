@@ -32,18 +32,46 @@ export const MODEL_PRICING = {
   },
 
   // Gemini models
+  'gemini-3.1-pro-preview': {
+    input: 2.0,
+    output: 12.0,
+    unit: 1000000,
+    displayName: 'Gemini 3.1 Pro Preview',
+    provider: 'gemini'
+  },
+  'gemini-3-flash-preview': {
+    input: 0.5,
+    output: 3.0,
+    unit: 1000000,
+    displayName: 'Gemini 3 Flash Preview',
+    provider: 'gemini'
+  },
+  'gemini-2.5-pro': {
+    input: 1.25,
+    output: 10.0,
+    unit: 1000000,
+    displayName: 'Gemini 2.5 Pro',
+    provider: 'gemini'
+  },
+  'gemini-2.5-flash': {
+    input: 0.30,
+    output: 2.50,
+    unit: 1000000,
+    displayName: 'Gemini 2.5 Flash',
+    provider: 'gemini'
+  },
+  'gemini-2.5-flash-lite': {
+    input: 0.10,
+    output: 0.40,
+    unit: 1000000,
+    displayName: 'Gemini 2.5 Flash-Lite',
+    provider: 'gemini'
+  },
   'gemini-2.0-flash-exp': {
     input: 0.0,
     output: 0.0,
     unit: 1000000,
     displayName: 'Gemini 2.0 Flash (Free Tier)',
-    provider: 'gemini'
-  },
-  'gemini-2.5-flash': {
-    input: 0.0,
-    output: 0.0,
-    unit: 1000000,
-    displayName: 'Gemini 2.5 Flash (Free Tier)',
     provider: 'gemini'
   },
   'gemini-1.5-pro': {
