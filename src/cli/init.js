@@ -251,8 +251,8 @@ class ProjectInitiator {
                 model: 'claude-opus-4-6'
               },
               validation: {
-                provider: 'claude',
-                model: 'claude-sonnet-4-6',
+                provider: 'gemini',
+                model: 'gemini-3-flash-preview',
                 useContextualSelection: true
               },
               'doc-distribution': {
@@ -265,7 +265,7 @@ class ProjectInitiator {
               },
               solver: {
                 provider: 'claude',
-                model: 'claude-sonnet-4-6',
+                model: 'claude-haiku-4-5-20251001',
                 maxIterations: 3,
                 acceptanceThreshold: 95
               }
