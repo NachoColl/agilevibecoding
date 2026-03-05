@@ -82,6 +82,38 @@ export function createCeremonyRouter(ceremonyService, processRegistry) {
     }
   });
 
+  // POST /api/ceremony/generate-architecture
+  // Body: { description, modelId, provider }
+  router.post('/generate-architecture', async (req, res) => {
+    const { description, modelId, provider } = req.body;
+    if (!description?.trim() || !modelId || !provider) {
+      return res.status(400).json({ error: 'description, modelId and provider are required' });
+    }
+    try {
+      const arch = await ceremonyService.generateCustomArchitecture(description, modelId, provider);
+      res.json(arch);
+    } catch (err) {
+      console.error('[ceremony] generate-architecture failed:', err.message);
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // POST /api/ceremony/refine-architecture
+  // Body: { currentArch, refinementRequest, modelId, provider }
+  router.post('/refine-architecture', async (req, res) => {
+    const { currentArch, refinementRequest, modelId, provider } = req.body;
+    if (!currentArch || !refinementRequest?.trim() || !modelId || !provider) {
+      return res.status(400).json({ error: 'currentArch, refinementRequest, modelId and provider are required' });
+    }
+    try {
+      const arch = await ceremonyService.refineCustomArchitecture(currentArch, refinementRequest, modelId, provider);
+      res.json(arch);
+    } catch (err) {
+      console.error('[ceremony] refine-architecture failed:', err.message);
+      res.status(500).json({ error: err.message });
+    }
+  });
+
   // POST /api/ceremony/analyze/database
   // Body: { mission, scope, strategy }
   router.post('/analyze/database', async (req, res) => {

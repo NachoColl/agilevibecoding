@@ -559,6 +559,56 @@ export class CeremonyService {
     }
   }
 
+  async generateCustomArchitecture(description, modelId, provider) {
+    const log = new KanbanLogger('arch-custom', this.projectRoot);
+    const { default: dotenv } = await import('dotenv');
+    dotenv.config({ path: path.join(this.projectRoot, '.env') });
+
+    const { LLMProvider } = await import('../../../cli/llm-provider.js');
+    const llm = await LLMProvider.create(provider, modelId);
+    const agentInstruction = loadAgent('architecture-recommender.md', this.projectRoot);
+
+    const prompt =
+      `The user wants a SINGLE custom architecture for their project.\n\n` +
+      `User description: ${description}\n\n` +
+      `Return a JSON object with EXACTLY ONE architecture in the "architectures" array ` +
+      `matching the user's description. Include all required fields: ` +
+      `name, description, requiresCloudProvider, bestFor, costTier. ` +
+      `Optionally include migrationPath if applicable.`;
+
+    const result = await llm.generateJSON(prompt, agentInstruction);
+    const arch = (result.architectures || [])[0];
+    if (!arch?.name || !arch?.description) {
+      throw new Error('Model returned incomplete architecture — missing name or description');
+    }
+    log.info('generateCustomArchitecture result', { archName: arch.name });
+    return arch;
+  }
+
+  async refineCustomArchitecture(currentArch, refinementRequest, modelId, provider) {
+    const log = new KanbanLogger('arch-custom', this.projectRoot);
+    const { default: dotenv } = await import('dotenv');
+    dotenv.config({ path: path.join(this.projectRoot, '.env') });
+
+    const { LLMProvider } = await import('../../../cli/llm-provider.js');
+    const llm = await LLMProvider.create(provider, modelId);
+    const agentInstruction = loadAgent('architecture-recommender.md', this.projectRoot);
+
+    const prompt =
+      `Refine the following architecture based on the user's request.\n\n` +
+      `Current architecture: ${JSON.stringify(currentArch, null, 2)}\n\n` +
+      `Refinement request: ${refinementRequest}\n\n` +
+      `Return a JSON object with EXACTLY ONE updated architecture in the "architectures" array.`;
+
+    const result = await llm.generateJSON(prompt, agentInstruction);
+    const arch = (result.architectures || [])[0];
+    if (!arch?.name || !arch?.description) {
+      throw new Error('Model returned incomplete architecture');
+    }
+    log.info('refineCustomArchitecture result', { archName: arch.name });
+    return arch;
+  }
+
   async analyzeDatabase(mission, scope, strategy) {
     const log = new KanbanLogger('analyze-db', this.projectRoot);
     log.info('analyzeDatabase() called', {

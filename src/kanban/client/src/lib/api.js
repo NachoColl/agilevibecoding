@@ -278,6 +278,20 @@ export async function refineMission(missionStatement, initialScope, refinementRe
   });
 }
 
+export async function generateArchitecture(description, modelId, provider) {
+  return apiFetch('/ceremony/generate-architecture', {
+    method: 'POST',
+    body: JSON.stringify({ description, modelId, provider }),
+  });
+}
+
+export async function refineArchitecture(currentArch, refinementRequest, modelId, provider) {
+  return apiFetch('/ceremony/refine-architecture', {
+    method: 'POST',
+    body: JSON.stringify({ currentArch, refinementRequest, modelId, provider }),
+  });
+}
+
 // ── Sponsor-call draft (resume support) ──────────────────────────────────────
 
 export async function getSponsorCallDraft() {

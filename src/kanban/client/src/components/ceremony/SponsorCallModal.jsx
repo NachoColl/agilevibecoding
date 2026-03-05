@@ -386,7 +386,7 @@ export function SponsorCallModal({ onClose, onOpenSettings, costLimitPending, on
       case 3:
         return <DatabaseStep onNext={handleDatabaseNext} onBack={() => setWizardStep(2)} analyzing={analyzing} />;
       case 4:
-        return <ArchitectureStep onNext={handleArchitectureNext} onBack={() => setWizardStep(hasDb ? 3 : 2)} analyzing={analyzing} />;
+        return <ArchitectureStep onNext={handleArchitectureNext} onBack={() => setWizardStep(hasDb ? 3 : 2)} analyzing={analyzing} onOpenSettings={onOpenSettings} />;
       case 5:
         return <ReviewAnswersStep onNext={handleReviewNext} onBack={() => setWizardStep(4)} />;
       case 6:

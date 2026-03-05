@@ -1,4 +1,7 @@
+import { useState } from 'react';
+import { Wand2 } from 'lucide-react';
 import { useCeremonyStore } from '../../../store/ceremonyStore';
+import { AskArchPopup } from '../AskArchPopup';
 
 const COST_TIER_COLOR = {
   'Free': 'text-green-600',
@@ -53,8 +56,9 @@ function ArchCard({ arch, selected, onSelect }) {
   );
 }
 
-export function ArchitectureStep({ onNext, onBack, analyzing }) {
-  const { archOptions, selectedArch, setSelectedArch } = useCeremonyStore();
+export function ArchitectureStep({ onNext, onBack, analyzing, onOpenSettings }) {
+  const { archOptions, selectedArch, setSelectedArch, setArchOptions } = useCeremonyStore();
+  const [showAskArch, setShowAskArch] = useState(false);
 
   if (!archOptions || archOptions.length === 0) {
     return (
@@ -98,6 +102,15 @@ export function ArchitectureStep({ onNext, onBack, analyzing }) {
         <div className="flex items-center gap-3">
           <button
             type="button"
+            onClick={() => setShowAskArch(true)}
+            disabled={analyzing}
+            className="flex items-center gap-1.5 px-3 py-2 text-sm text-violet-700 bg-violet-50 border border-violet-200 rounded-lg hover:bg-violet-100 disabled:opacity-40 transition-colors"
+          >
+            <Wand2 className="w-3.5 h-3.5" />
+            Ask a Model
+          </button>
+          <button
+            type="button"
             onClick={onNext}
             disabled={analyzing}
             className="text-sm text-slate-400 hover:text-slate-600 disabled:opacity-40 transition-colors"
@@ -120,6 +133,18 @@ export function ArchitectureStep({ onNext, onBack, analyzing }) {
           </button>
         </div>
       </div>
+
+      {showAskArch && (
+        <AskArchPopup
+          onUse={(arch) => {
+            setArchOptions([...archOptions, arch]);
+            setSelectedArch(arch);
+            setShowAskArch(false);
+          }}
+          onClose={() => setShowAskArch(false)}
+          onOpenSettings={onOpenSettings}
+        />
+      )}
     </div>
   );
 }
