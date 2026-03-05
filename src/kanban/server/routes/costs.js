@@ -125,7 +125,10 @@ export function createCostsRouter(projectRoot) {
       const parent = getParentCeremony(key);
 
       if (parent && parentNodes[parent]) {
-        parentNodes[parent].stages.push(entry);
+        // Don't add a ceremony as a stage of itself — only add sub-stages
+        if (key !== parent) {
+          parentNodes[parent].stages.push(entry);
+        }
         parentNodes[parent].calls   += totalExec;
         parentNodes[parent].tokens  += totalInput + totalOutput;
         parentNodes[parent].cost    += totalCost;

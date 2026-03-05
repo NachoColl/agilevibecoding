@@ -381,11 +381,6 @@ function CompleteStep({ onClose }) {
 
   const tokenInput  = r.tokenUsage?.input  || 0;
   const tokenOutput = r.tokenUsage?.output || 0;
-  const tokenTotal  = r.tokenUsage?.total  || tokenInput + tokenOutput;
-
-  const costTotal = tokenTotal > 0
-    ? `$${((tokenInput * 0.000015) + (tokenOutput * 0.000075)).toFixed(4)}`
-    : '—';
 
   return (
     <div className="space-y-6">
@@ -414,10 +409,9 @@ function CompleteStep({ onClose }) {
         </p>
       )}
 
-      <div className="grid grid-cols-3 gap-3">
-        <Stat label="Input tokens"    value={tokenInput.toLocaleString()} />
-        <Stat label="Output tokens"   value={tokenOutput.toLocaleString()} />
-        <Stat label="Estimated cost"  value={costTotal} />
+      <div className="grid grid-cols-2 gap-3">
+        <Stat label="Input tokens"  value={tokenInput.toLocaleString()} />
+        <Stat label="Output tokens" value={tokenOutput.toLocaleString()} />
       </div>
 
       {r.model && (
