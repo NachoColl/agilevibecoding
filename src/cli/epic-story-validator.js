@@ -312,10 +312,15 @@ class EpicStoryValidator {
       );
       console.log(`[TIMING] Phase 2 round ${iter} solvers: ${Date.now() - _t0Round}ms`);
 
-      // 2. Merge all solver results — union features/deps, last-change-wins for description
-      const allFeatures = new Set(workingEpic.features || []);
+      // 2. Merge all solver results — preserve base items, add up to 3 new items per solver
+      // Base items are anchored (never dropped); each solver contributes at most 3 genuinely new features.
+      // Description taken from the solver whose validator scored lowest (most informed fix).
+      const baseFeatures = workingEpic.features || [];
+      const baseFeaturesSet = new Set(baseFeatures);
+      const newFeatureAdditions = []; // items new beyond base, insertion-ordered, deduplicated
       const allDeps = new Set(workingEpic.dependencies || []);
-      let newDescription = workingEpic.description;
+      let bestDescription = workingEpic.description;
+      let worstValidatorScore = Infinity;
       let anyImproved = false;
 
       for (const { vi, improved, error } of solverResults) {
@@ -328,12 +333,18 @@ class EpicStoryValidator {
         }
         if (improved && improved.id === workingEpic.id) {
           anyImproved = true;
-          (improved.features || []).forEach(f => allFeatures.add(f));
+          // Collect only new items not already in base or pending additions (max 3 per solver)
+          const existingAll = new Set([...baseFeaturesSet, ...newFeatureAdditions]);
+          const solverNew = (improved.features || []).filter(f => !existingAll.has(f)).slice(0, 3);
+          newFeatureAdditions.push(...solverNew);
           (improved.dependencies || []).forEach(d => allDeps.add(d));
-          if (improved.description && improved.description !== workingEpic.description) {
-            newDescription = improved.description;
+          // Description: take from the validator with the lowest score (most dissatisfied perspective)
+          const vScore = finalResults[vi]?.overallScore ?? 100;
+          if (improved.description && improved.description !== workingEpic.description && vScore < worstValidatorScore) {
+            worstValidatorScore = vScore;
+            bestDescription = improved.description;
           }
-          console.log(`   ↻ [${role}] solver proposals merged`);
+          console.log(`   ↻ [${role}] solver merged — ${solverNew.length} new features added`);
           await this._detail(`   → [${role}] improvements applied`);
         } else {
           console.log(`   ↻ [${role}] solver returned no valid improvement (id mismatch or empty)`);
@@ -341,22 +352,22 @@ class EpicStoryValidator {
       }
 
       if (anyImproved) {
-        const mergedFeatures = [...allFeatures];
-        const cappedFeatures = mergedFeatures.length > 25
-          ? mergedFeatures.slice().sort((a, b) => b.length - a.length).slice(0, 25)
-          : mergedFeatures;
-        if (mergedFeatures.length > 25) {
-          console.log(`   ↻ Epic features capped after merge: ${mergedFeatures.length} → 25 (kept longest/most specific)`);
+        // Base items always preserved first; cap only the additions portion
+        const merged = [...baseFeatures, ...newFeatureAdditions];
+        const hardCap = baseFeatures.length + 12; // allow up to 12 new features beyond original
+        const finalFeatures = merged.length > hardCap ? merged.slice(0, hardCap) : merged;
+        if (merged.length > hardCap) {
+          console.log(`   ↻ Epic features capped after merge: ${merged.length} → ${hardCap} (base=${baseFeatures.length} + new=${finalFeatures.length - baseFeatures.length})`);
         }
         const descBefore = (workingEpic.description || '').slice(0, 100);
         workingEpic = {
           ...workingEpic,
-          description:  newDescription,
-          features:     cappedFeatures,
+          description:  bestDescription,
+          features:     finalFeatures,
           dependencies: [...allDeps],
         };
         const descAfter = (workingEpic.description || '').slice(0, 100);
-        console.log(`   ↻ Parallel merge applied — desc changed: ${descBefore !== descAfter}, features: ${cappedFeatures.length}`);
+        console.log(`   ↻ Parallel merge applied — desc changed: ${descBefore !== descAfter}, features: ${finalFeatures.length} (base=${baseFeatures.length} + new=${newFeatureAdditions.length})`);
       }
 
       // 3. Re-validate all in parallel
@@ -574,10 +585,15 @@ class EpicStoryValidator {
       );
       console.log(`[TIMING] Phase 2 round ${iter} solvers: ${Date.now() - _t0Round}ms`);
 
-      // 2. Merge all solver results — union AC/deps, last-change-wins for description
-      const allAC = new Set(workingStory.acceptance || []);
+      // 2. Merge all solver results — preserve base items, add up to 3 new items per solver
+      // Base items are anchored (never dropped); each solver contributes at most 3 genuinely new AC.
+      // Description taken from the solver whose validator scored lowest (most informed fix).
+      const baseAC = workingStory.acceptance || [];
+      const baseACSet = new Set(baseAC);
+      const newACAdditions = []; // items new beyond base, insertion-ordered, deduplicated
       const allDeps = new Set(workingStory.dependencies || []);
-      let newDescription = workingStory.description;
+      let bestDescription = workingStory.description;
+      let worstValidatorScore = Infinity;
       let anyImproved = false;
 
       for (const { vi, improved, error } of solverResults) {
@@ -590,12 +606,18 @@ class EpicStoryValidator {
         }
         if (improved && improved.id === workingStory.id) {
           anyImproved = true;
-          (improved.acceptance || []).forEach(a => allAC.add(a));
+          // Collect only new items not already in base or pending additions (max 3 per solver)
+          const existingAll = new Set([...baseACSet, ...newACAdditions]);
+          const solverNew = (improved.acceptance || []).filter(a => !existingAll.has(a)).slice(0, 3);
+          newACAdditions.push(...solverNew);
           (improved.dependencies || []).forEach(d => allDeps.add(d));
-          if (improved.description && improved.description !== workingStory.description) {
-            newDescription = improved.description;
+          // Description: take from the validator with the lowest score (most dissatisfied perspective)
+          const vScore = finalResults[vi]?.overallScore ?? 100;
+          if (improved.description && improved.description !== workingStory.description && vScore < worstValidatorScore) {
+            worstValidatorScore = vScore;
+            bestDescription = improved.description;
           }
-          console.log(`   ↻ [${role}] solver proposals merged`);
+          console.log(`   ↻ [${role}] solver merged — ${solverNew.length} new AC added`);
           await this._detail(`   → [${role}] improvements applied`);
         } else {
           console.log(`   ↻ [${role}] solver returned no valid improvement (id mismatch or empty)`);
@@ -603,22 +625,22 @@ class EpicStoryValidator {
       }
 
       if (anyImproved) {
-        const mergedAC = [...allAC];
-        const cappedAC = mergedAC.length > 15
-          ? mergedAC.slice().sort((a, b) => b.length - a.length).slice(0, 15)
-          : mergedAC;
-        if (mergedAC.length > 15) {
-          console.log(`   ↻ Story AC capped after merge: ${mergedAC.length} → 15 (kept longest/most specific)`);
+        // Base items always preserved first; cap only the additions portion
+        const merged = [...baseAC, ...newACAdditions];
+        const hardCap = baseAC.length + 10; // allow up to 10 new AC beyond original
+        const finalAC = merged.length > hardCap ? merged.slice(0, hardCap) : merged;
+        if (merged.length > hardCap) {
+          console.log(`   ↻ Story AC capped after merge: ${merged.length} → ${hardCap} (base=${baseAC.length} + new=${finalAC.length - baseAC.length})`);
         }
         const descBefore = (workingStory.description || '').slice(0, 100);
         workingStory = {
           ...workingStory,
-          description:  newDescription,
-          acceptance:   cappedAC,
+          description:  bestDescription,
+          acceptance:   finalAC,
           dependencies: [...allDeps],
         };
         const descAfter = (workingStory.description || '').slice(0, 100);
-        console.log(`   ↻ Parallel merge applied — desc changed: ${descBefore !== descAfter}, AC: ${cappedAC.length}`);
+        console.log(`   ↻ Parallel merge applied — desc changed: ${descBefore !== descAfter}, AC: ${finalAC.length} (base=${baseAC.length} + new=${newACAdditions.length})`);
       }
 
       // 3. Re-validate all in parallel
@@ -880,7 +902,7 @@ ${issueText || 'No critical/major issues — improve overall quality.'}
 Improve this Epic to address the issues above. Return the complete improved Epic JSON.
 
 **IMPORTANT CONSTRAINTS:**
-- Features list must contain AT MOST 25 items. If the current list already has 20+, consolidate or replace existing features rather than appending new ones.
+- Do NOT remove or consolidate existing features — only add new ones to address the issues above.
 - Each feature must be a single concise sentence (max 30 words). Do not expand them into paragraphs.
 `;
   }
@@ -931,7 +953,7 @@ ${issueText || 'No critical/major issues — improve overall quality.'}
 Improve this Story to address the issues above. Return the complete improved Story JSON.
 
 **IMPORTANT CONSTRAINTS:**
-- Acceptance criteria list must contain AT MOST 15 items. If the current list already has 12+, consolidate or replace existing criteria rather than appending new ones.
+- Do NOT remove or consolidate existing acceptance criteria — only add new ones to address the issues above.
 - Each AC must be a single concrete, testable sentence (max 40 words). Do not expand them into paragraphs.
 `;
   }
