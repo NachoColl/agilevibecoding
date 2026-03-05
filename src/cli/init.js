@@ -251,8 +251,8 @@ class ProjectInitiator {
                 model: 'claude-opus-4-6'
               },
               validation: {
-                provider: 'gemini',
-                model: 'gemini-3-flash-preview',
+                provider: 'claude',
+                model: 'claude-sonnet-4-6',
                 useContextualSelection: true
               },
               'doc-distribution': {
