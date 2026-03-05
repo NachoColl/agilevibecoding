@@ -140,7 +140,7 @@ class EpicStoryValidator {
 
     // Create new provider
     const providerInstance = await LLMProvider.create(provider, model);
-    if (this._tokenCallback) providerInstance.onCall(this._tokenCallback);
+    if (this._tokenCallback) providerInstance.onCall((delta) => this._tokenCallback(delta, 'validation'));
     this._validatorProviders[cacheKey] = providerInstance;
 
     return providerInstance;
@@ -159,7 +159,7 @@ class EpicStoryValidator {
     if (this._validatorProviders[cacheKey]) return this._validatorProviders[cacheKey];
 
     const instance = await LLMProvider.create(solverConfig.provider, solverConfig.model);
-    if (this._tokenCallback) instance.onCall(this._tokenCallback);
+    if (this._tokenCallback) instance.onCall((delta) => this._tokenCallback(delta, 'solver'));
     this._validatorProviders[cacheKey] = instance;
     return instance;
   }
@@ -174,7 +174,7 @@ class EpicStoryValidator {
       const cacheKey = `selection:${this.validationStageConfig.provider}:${this.validationStageConfig.model}`;
       if (this._validatorProviders[cacheKey]) return this._validatorProviders[cacheKey];
       const instance = await LLMProvider.create(this.validationStageConfig.provider, this.validationStageConfig.model);
-      if (this._tokenCallback) instance.onCall(this._tokenCallback);
+      if (this._tokenCallback) instance.onCall((delta) => this._tokenCallback(delta, 'validation'));
       this._validatorProviders[cacheKey] = instance;
       return instance;
     }

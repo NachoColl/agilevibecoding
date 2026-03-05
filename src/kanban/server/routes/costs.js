@@ -17,11 +17,16 @@ export function createCostsRouter(projectRoot) {
 
   // Explicit stage → parent mapping for stages whose names don't carry a prefix
   const STAGE_PARENT_MAP = {
-    'mission-scope':       'sponsor-call',
-    'mission-refine':      'sponsor-call',
-    'analyze-database':    'sponsor-call',
-    'analyze-architecture':'sponsor-call',
-    'prefill-answers':     'sponsor-call',
+    'mission-scope':                   'sponsor-call',
+    'mission-refine':                  'sponsor-call',
+    'analyze-database':                'sponsor-call',
+    'analyze-architecture':            'sponsor-call',
+    'prefill-answers':                 'sponsor-call',
+    'sprint-planning-decomposition':   'sprint-planning',
+    'sprint-planning-validation':      'sprint-planning',
+    'sprint-planning-solver':          'sprint-planning',
+    'sprint-planning-doc-distribution':'sprint-planning',
+    'sprint-planning-enrichment':      'sprint-planning',
   };
 
   function getParentCeremony(key) {

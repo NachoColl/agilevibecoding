@@ -235,7 +235,7 @@ class SprintPlanningProcessor {
     // Create new provider
     this.debug(`Creating new provider for ${stageName}: ${provider} (${model})`);
     const providerInstance = await LLMProvider.create(provider, model);
-    this._registerTokenCallback(providerInstance);
+    this._registerTokenCallback(providerInstance, `${this.ceremonyName}-${stageName}`);
     this._stageProviders[cacheKey] = providerInstance;
 
     return providerInstance;
@@ -291,11 +291,15 @@ class SprintPlanningProcessor {
   /**
    * Register a per-call token callback on a provider instance.
    * Each LLM API call fires addIncremental() so tokens are persisted crash-safely.
+   * @param {object} provider - LLM provider instance
+   * @param {string} [stageKey] - Stage-specific key (e.g. 'sprint-planning-decomposition').
+   *   Defaults to this.ceremonyName so the parent roll-up bucket still accumulates totals.
    */
-  _registerTokenCallback(provider) {
+  _registerTokenCallback(provider, stageKey) {
     if (!provider) return;
+    const key = stageKey ?? this.ceremonyName;
     provider.onCall((delta) => {
-      this.tokenTracker.addIncremental(this.ceremonyName, delta);
+      this.tokenTracker.addIncremental(key, delta);
       if (delta.model) {
         const cost = this.tokenTracker.calculateCost(delta.input, delta.output, delta.model);
         this._runningCost += cost?.total ?? 0;
@@ -797,8 +801,11 @@ Return your response as JSON following the exact structure specified in your ins
       projectContext
     );
     this._validator = validator;
-    this._validator.setTokenCallback((delta) => {
-      this.tokenTracker.addIncremental(this.ceremonyName, delta);
+    this._validator.setTokenCallback((delta, stageHint) => {
+      const key = stageHint
+        ? `${this.ceremonyName}-${stageHint}`
+        : this.ceremonyName;
+      this.tokenTracker.addIncremental(key, delta);
       if (delta.model) {
         const cost = this.tokenTracker.calculateCost(delta.input, delta.output, delta.model);
         this._runningCost += cost?.total ?? 0;
