@@ -200,7 +200,7 @@ class ProjectInitiator {
               },
               'architecture-recommendation': {
                 provider: 'claude',
-                model: 'claude-opus-4-6'
+                model: 'claude-sonnet-4-6'
               },
               'question-prefilling': {
                 provider: 'claude',
