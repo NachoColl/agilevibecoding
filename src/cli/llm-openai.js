@@ -59,7 +59,6 @@ export class OpenAIProvider extends LLMProvider {
    */
   async _callChatGPTCodex(prompt, agentInstructions) {
     const { access, accountId } = await this._loadOAuthTokens();
-    const fullInput = agentInstructions ? `${agentInstructions}\n\n${prompt}` : prompt;
 
     const t0 = Date.now();
     const resp = await fetch('https://chatgpt.com/backend-api/codex/responses', {
@@ -72,8 +71,9 @@ export class OpenAIProvider extends LLMProvider {
         'accept':              'application/json',
       },
       body: JSON.stringify({
-        model: this.model,
-        input: fullInput,
+        model:        this.model,
+        instructions: agentInstructions || 'You are a helpful assistant.',
+        input:        prompt,
       }),
     });
 
@@ -208,8 +208,9 @@ export class OpenAIProvider extends LLMProvider {
     // OAuth path — route through ChatGPT Codex endpoint
     if (this._client?.mode === 'oauth') {
       try {
-        const systemPrefix = 'You are a helpful assistant that always returns valid JSON. Your response must be a valid JSON object or array, nothing else.\n\n';
-        const text = await this._callChatGPTCodex(systemPrefix + prompt, agentInstructions);
+        const jsonInstructions = (agentInstructions ? agentInstructions + '\n\n' : '')
+          + 'You are a helpful assistant that always returns valid JSON. Your response must be a valid JSON object or array, nothing else.';
+        const text = await this._callChatGPTCodex(prompt, jsonInstructions);
         let jsonStr = text.trim();
         if (jsonStr.startsWith('```')) {
           jsonStr = jsonStr.replace(/^```(?:json)?\s*\n?/, '').replace(/\n?\s*```\s*$/, '').trim();

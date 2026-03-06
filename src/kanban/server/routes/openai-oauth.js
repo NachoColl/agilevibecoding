@@ -280,6 +280,7 @@ export function createOpenAIOAuthRouter(projectRoot, getWebSocket) {
         },
         body: JSON.stringify({
           model: 'gpt-5.2-codex',
+          instructions: 'You are a helpful assistant.',
           input: 'Reply with exactly: "AVC OAuth test OK"',
         }),
       });

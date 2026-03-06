@@ -355,14 +355,11 @@ export function OpenAIAuthSection({ apiKeyInfo, onSaved }) {
                     type="button"
                     onClick={handleTest}
                     disabled={testStatus === 'running'}
-                    className="px-3 py-1 text-xs font-medium border border-emerald-300 rounded-md text-emerald-700 hover:bg-emerald-50 transition-colors disabled:opacity-40"
+                    className="w-14 flex items-center justify-center py-1 text-xs font-medium border border-emerald-300 rounded-md text-emerald-700 hover:bg-emerald-50 transition-colors disabled:opacity-40"
                   >
-                    {testStatus === 'running' ? (
-                      <span className="inline-flex items-center gap-1">
-                        <span className="w-3 h-3 border border-emerald-400 border-t-emerald-700 rounded-full animate-spin" />
-                        Testing…
-                      </span>
-                    ) : 'Test'}
+                    {testStatus === 'running'
+                      ? <span className="w-3 h-3 border border-emerald-400 border-t-emerald-700 rounded-full animate-spin" />
+                      : 'Test'}
                   </button>
                   <button
                     type="button"
