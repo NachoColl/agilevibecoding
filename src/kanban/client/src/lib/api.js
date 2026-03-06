@@ -396,6 +396,10 @@ export async function testOpenAIOAuth() {
   return apiFetch('/settings/openai-oauth/test', { method: 'POST' });
 }
 
+export async function setOpenAIOAuthFallback(enabled) {
+  return apiFetch('/settings/openai-oauth/fallback', { method: 'POST', body: JSON.stringify({ enabled }) });
+}
+
 // ── Costs API ─────────────────────────────────────────────────────────────────
 
 /**

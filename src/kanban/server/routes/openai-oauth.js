@@ -233,6 +233,7 @@ export function createOpenAIOAuthRouter(projectRoot, getWebSocket) {
         accountId,
         expiresAt:  expires,
         expiresIn:  Math.max(0, Math.round((expires - Date.now()) / 1000)),
+        fallback:   env.OPENAI_OAUTH_FALLBACK === 'true',
       });
     } catch (err) {
       res.status(500).json({ error: err.message });
@@ -291,6 +292,36 @@ export function createOpenAIOAuthRouter(projectRoot, getWebSocket) {
       const data = await apiResp.json();
       const text = data.output_text ?? data.output?.[0]?.content?.[0]?.text ?? '(empty)';
       res.json({ ok: true, response: text.trim(), model: 'gpt-5.2-codex', elapsed: Date.now() - t0 });
+    } catch (err) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // POST /fallback — enable or disable API-key fallback
+  router.post('/fallback', async (req, res) => {
+    try {
+      const { enabled } = req.body;
+      if (typeof enabled !== 'boolean') return res.status(400).json({ error: 'enabled must be boolean' });
+
+      if (enabled) {
+        // Verify the API key exists and can reach OpenAI before enabling
+        const env = await readEnv(envPath);
+        if (!env.OPENAI_API_KEY) {
+          return res.status(400).json({ error: 'OPENAI_API_KEY is not set. Add it first.' });
+        }
+        // Quick validation call
+        const verifyResp = await fetch('https://api.openai.com/v1/models', {
+          headers: { 'Authorization': `Bearer ${env.OPENAI_API_KEY}` },
+        });
+        if (!verifyResp.ok) {
+          return res.status(400).json({ error: `API key verification failed (${verifyResp.status}). Check the key.` });
+        }
+        await upsertEnvKey(envPath, 'OPENAI_OAUTH_FALLBACK', 'true');
+      } else {
+        await upsertEnvKey(envPath, 'OPENAI_OAUTH_FALLBACK', '');
+      }
+
+      res.json({ status: 'ok', enabled });
     } catch (err) {
       res.status(500).json({ error: err.message });
     }

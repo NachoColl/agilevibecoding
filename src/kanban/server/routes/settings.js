@@ -39,13 +39,14 @@ const DEFAULT_MODELS = {
   'gpt-5.2-codex':              { provider: 'openai',  displayName: 'GPT-5.2-Codex',            pricing: { input: 1.75,  output: 14.00, unit: 'million', source: PRICING_SOURCES.openai, lastUpdated: '2026-02-24' } },
 };
 
-async function readOAuthStatus(projectRoot) {
+async function readOAuthStatus(projectRoot, env = {}) {
   try {
     const raw = await fs.readFile(path.join(projectRoot, '.avc', 'openai-oauth.json'), 'utf8');
     const { accountId, expires } = JSON.parse(raw);
     return { connected: true, accountId, expiresAt: expires,
-             expiresIn: Math.max(0, Math.round((expires - Date.now()) / 1000)) };
-  } catch { return { connected: false }; }
+             expiresIn: Math.max(0, Math.round((expires - Date.now()) / 1000)),
+             fallback: env.OPENAI_OAUTH_FALLBACK === 'true' };
+  } catch { return { connected: false, fallback: false }; }
 }
 
 /**
@@ -107,7 +108,8 @@ export function createSettingsRouter(projectRoot) {
   // GET /api/settings — snapshot of all configurable settings
   router.get('/', async (req, res) => {
     try {
-      const [config, env, oauthStatus] = await Promise.all([readAvcConfig(), readEnv(), readOAuthStatus(projectRoot)]);
+      const [config, env] = await Promise.all([readAvcConfig(), readEnv()]);
+      const oauthStatus = await readOAuthStatus(projectRoot, env);
       res.json({
         apiKeys: {
           anthropic: {

@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { Eye, EyeOff } from 'lucide-react';
-import { saveApiKeys, connectOpenAIOAuth, disconnectOpenAIOAuth, getOpenAIOAuthStatus, testOpenAIOAuth } from '../../lib/api';
+import { saveApiKeys, connectOpenAIOAuth, disconnectOpenAIOAuth, getOpenAIOAuthStatus, testOpenAIOAuth, setOpenAIOAuthFallback } from '../../lib/api';
 
 function formatExpiresIn(seconds) {
   if (seconds <= 0) return 'expired';
@@ -30,11 +30,16 @@ export function OpenAIAuthSection({ apiKeyInfo, onSaved }) {
   // Test sub-state
   const [testStatus, setTestStatus] = useState(null); // null | 'running' | { ok, response, model, elapsed } | { error }
 
+  // Fallback sub-state
+  const [fallbackEnabled, setFallbackEnabled] = useState(apiKeyInfo?.oauth?.fallback ?? false);
+  const [fallbackStatus, setFallbackStatus] = useState(null); // null | 'saving' | { error }
+
 
   // Sync from parent settings refresh
   useEffect(() => {
     setAuthMode(apiKeyInfo?.authMode || 'api-key');
     setOauthInfo(apiKeyInfo?.oauth || { connected: false });
+    setFallbackEnabled(apiKeyInfo?.oauth?.fallback ?? false);
     if (apiKeyInfo?.oauth?.connected) {
       setOauthPhase('connected');
     }
@@ -115,6 +120,18 @@ export function OpenAIAuthSection({ apiKeyInfo, onSaved }) {
     setTestStatus(null);
     setAuthMode('api-key');
     onSaved();
+  };
+
+  const handleFallbackToggle = async (enabled) => {
+    setFallbackStatus('saving');
+    try {
+      await setOpenAIOAuthFallback(enabled);
+      setFallbackEnabled(enabled);
+      setFallbackStatus(null);
+    } catch (err) {
+      setFallbackStatus({ error: err.message });
+      setTimeout(() => setFallbackStatus(null), 4000);
+    }
   };
 
   const handleTest = async () => {
@@ -361,6 +378,32 @@ export function OpenAIAuthSection({ apiKeyInfo, onSaved }) {
                   {testStatus.error
                     ? `✗ ${testStatus.error}`
                     : `✓ ${testStatus.response}  [${testStatus.model} · ${testStatus.elapsed}ms]`}
+                </div>
+              )}
+              {/* Fallback toggle — only shown when an API key is also configured */}
+              {apiKeyInfo?.isSet && (
+                <div className="flex items-center gap-3 pt-1 border-t border-slate-100">
+                  <label className="flex items-center gap-2 cursor-pointer select-none">
+                    <div className="relative">
+                      <input
+                        type="checkbox"
+                        checked={fallbackEnabled}
+                        disabled={fallbackStatus === 'saving'}
+                        onChange={(e) => handleFallbackToggle(e.target.checked)}
+                        className="sr-only"
+                      />
+                      <div
+                        onClick={() => fallbackStatus !== 'saving' && handleFallbackToggle(!fallbackEnabled)}
+                        className={`w-8 h-4 rounded-full transition-colors cursor-pointer ${fallbackEnabled ? 'bg-blue-500' : 'bg-slate-300'} ${fallbackStatus === 'saving' ? 'opacity-40' : ''}`}
+                      >
+                        <div className={`absolute top-0.5 left-0.5 w-3 h-3 bg-white rounded-full shadow transition-transform ${fallbackEnabled ? 'translate-x-4' : ''}`} />
+                      </div>
+                    </div>
+                    <span className="text-xs text-slate-600">Fallback to API Key on failure</span>
+                  </label>
+                  {fallbackStatus?.error && (
+                    <span className="text-xs text-red-600">{fallbackStatus.error}</span>
+                  )}
                 </div>
               )}
             </div>

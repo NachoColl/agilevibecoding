@@ -188,6 +188,18 @@ export class OpenAIProvider extends LLMProvider {
     }
   }
 
+  /** True when oauth mode is active AND fallback to api-key is enabled AND key is present */
+  _hasFallback() {
+    return process.env.OPENAI_AUTH_MODE === 'oauth'
+      && process.env.OPENAI_OAUTH_FALLBACK === 'true'
+      && !!process.env.OPENAI_API_KEY;
+  }
+
+  /** Create a plain OpenAI SDK client using OPENAI_API_KEY (for fallback) */
+  _createApiKeyClient() {
+    return new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+  }
+
   async generateJSON(prompt, agentInstructions = null) {
     if (!this._client) {
       this._client = this._createClient();
@@ -195,19 +207,26 @@ export class OpenAIProvider extends LLMProvider {
 
     // OAuth path — route through ChatGPT Codex endpoint
     if (this._client?.mode === 'oauth') {
-      const systemPrefix = 'You are a helpful assistant that always returns valid JSON. Your response must be a valid JSON object or array, nothing else.\n\n';
-      const text = await this._callChatGPTCodex(systemPrefix + prompt, agentInstructions);
-      let jsonStr = text.trim();
-      if (jsonStr.startsWith('```')) {
-        jsonStr = jsonStr.replace(/^```(?:json)?\s*\n?/, '').replace(/\n?\s*```\s*$/, '').trim();
-      }
       try {
-        return JSON.parse(jsonStr);
-      } catch (firstError) {
-        if (jsonStr.startsWith('{') || jsonStr.startsWith('[')) {
-          try { return JSON.parse(jsonrepair(jsonStr)); } catch { /* fall through */ }
+        const systemPrefix = 'You are a helpful assistant that always returns valid JSON. Your response must be a valid JSON object or array, nothing else.\n\n';
+        const text = await this._callChatGPTCodex(systemPrefix + prompt, agentInstructions);
+        let jsonStr = text.trim();
+        if (jsonStr.startsWith('```')) {
+          jsonStr = jsonStr.replace(/^```(?:json)?\s*\n?/, '').replace(/\n?\s*```\s*$/, '').trim();
         }
-        throw new Error(`Failed to parse JSON response: ${firstError.message}\n\nResponse was:\n${text}`);
+        try {
+          return JSON.parse(jsonStr);
+        } catch (firstError) {
+          if (jsonStr.startsWith('{') || jsonStr.startsWith('[')) {
+            try { return JSON.parse(jsonrepair(jsonStr)); } catch { /* fall through */ }
+          }
+          throw new Error(`Failed to parse JSON response: ${firstError.message}\n\nResponse was:\n${text}`);
+        }
+      } catch (oauthErr) {
+        if (!this._hasFallback()) throw oauthErr;
+        console.warn(`[openai] OAuth call failed, falling back to API key: ${oauthErr.message}`);
+        this._client = this._createApiKeyClient();
+        // fall through to standard paths below
       }
     }
 
@@ -312,7 +331,14 @@ export class OpenAIProvider extends LLMProvider {
 
     // OAuth path — route through ChatGPT Codex endpoint
     if (this._client?.mode === 'oauth') {
-      return this._callChatGPTCodex(prompt, agentInstructions);
+      try {
+        return await this._callChatGPTCodex(prompt, agentInstructions);
+      } catch (oauthErr) {
+        if (!this._hasFallback()) throw oauthErr;
+        console.warn(`[openai] OAuth call failed, falling back to API key: ${oauthErr.message}`);
+        this._client = this._createApiKeyClient();
+        // fall through to standard paths below
+      }
     }
 
     const fullPrompt = agentInstructions ? `${agentInstructions}\n\n${prompt}` : prompt;
