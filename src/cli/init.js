@@ -12,6 +12,23 @@ import { sendError, sendWarning, sendSuccess, sendInfo, sendOutput, sendIndented
 import { boldCyan, yellow, green, cyan } from './ansi-colors.js';
 
 /**
+ * Reliable recursive mkdir for WSL2 /mnt/ Windows paths.
+ * Node's { recursive: true } can fail with ENOENT on DrvFS/9P mounts
+ * because the kernel reports the parent as absent immediately after creation.
+ * Walking the tree manually and creating each segment avoids that race.
+ */
+function mkdirp(dirPath) {
+  if (fs.existsSync(dirPath)) return;
+  const parent = path.dirname(dirPath);
+  if (parent !== dirPath) mkdirp(parent);
+  try {
+    fs.mkdirSync(dirPath);
+  } catch (err) {
+    if (err.code !== 'EEXIST') throw err;
+  }
+}
+
+/**
  * Write a structured entry to the active command log file only.
  * Uses [DEBUG] prefix so ConsoleOutputManager routes to file, never terminal.
  */
@@ -125,7 +142,7 @@ class ProjectInitiator {
    */
   createAvcFolder() {
     if (!this.hasAvcFolder()) {
-      fs.mkdirSync(this.avcDir, { recursive: true });
+      mkdirp(this.avcDir);
       return true;
     }
     return false;
@@ -143,7 +160,7 @@ class ProjectInitiator {
    */
   createSrcFolder() {
     if (!this.hasSrcFolder()) {
-      fs.mkdirSync(this.srcDir, { recursive: true });
+      mkdirp(this.srcDir);
       return true;
     }
     return false;
@@ -161,10 +178,7 @@ class ProjectInitiator {
    */
   createWorktreesFolder() {
     if (!this.hasWorktreesFolder()) {
-      // Explicitly ensure parent exists first — fixes WSL/DrvFS timing on /mnt/ Windows paths
-      // where a just-created directory may not yet be visible to a child mkdir call.
-      fs.mkdirSync(this.avcDir, { recursive: true });
-      fs.mkdirSync(this.worktreesDir, { recursive: true });
+      mkdirp(this.worktreesDir);
       return true;
     }
     return false;
@@ -813,11 +827,11 @@ class ProjectInitiator {
 
     // Create directory structure
     if (!fs.existsSync(vitepressDir)) {
-      fs.mkdirSync(vitepressDir, { recursive: true });
+      mkdirp(vitepressDir);
     }
 
     if (!fs.existsSync(publicDir)) {
-      fs.mkdirSync(publicDir, { recursive: true });
+      mkdirp(publicDir);
     }
 
     // Create VitePress config
@@ -864,7 +878,7 @@ Documentation for this project will be generated automatically once the project 
    */
   writeProgress(progress, progressPath) {
     if (!fs.existsSync(this.avcDir)) {
-      fs.mkdirSync(this.avcDir, { recursive: true });
+      mkdirp(this.avcDir);
     }
     fs.writeFileSync(progressPath, JSON.stringify(progress, null, 2), 'utf8');
   }
