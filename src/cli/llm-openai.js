@@ -73,7 +73,7 @@ export class OpenAIProvider extends LLMProvider {
       body: JSON.stringify({
         model:        this.model,
         instructions: agentInstructions || 'You are a helpful assistant.',
-        input:        prompt,
+        input:        [{ role: 'user', content: prompt }],
       }),
     });
 
