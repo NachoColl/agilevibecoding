@@ -74,6 +74,8 @@ export class OpenAIProvider extends LLMProvider {
         model:        this.model,
         instructions: agentInstructions || 'You are a helpful assistant.',
         input:        [{ role: 'user', content: prompt }],
+        store:        false,
+        stream:       false,
       }),
     });
 
