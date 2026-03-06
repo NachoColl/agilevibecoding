@@ -624,28 +624,6 @@ class ProjectInitiator {
               lastUpdated: '2026-03-06'
             }
           },
-          'gpt-5.2': {
-            provider: 'openai',
-            displayName: 'GPT-5.2',
-            pricing: {
-              input: 1.75,
-              output: 14.00,
-              unit: 'million',
-              source: 'https://openai.com/api/pricing',
-              lastUpdated: '2026-02-24'
-            }
-          },
-          'gpt-5.1': {
-            provider: 'openai',
-            displayName: 'GPT-5.1',
-            pricing: {
-              input: 1.25,
-              output: 10.00,
-              unit: 'million',
-              source: 'https://openai.com/api/pricing',
-              lastUpdated: '2026-02-24'
-            }
-          },
           'gpt-5-mini': {
             provider: 'openai',
             displayName: 'GPT-5 mini',
@@ -668,50 +646,6 @@ class ProjectInitiator {
               lastUpdated: '2026-03-06'
             }
           },
-          'o4-mini': {
-            provider: 'openai',
-            displayName: 'o4-mini',
-            pricing: {
-              input: 1.10,
-              output: 4.40,
-              unit: 'million',
-              source: 'https://openai.com/api/pricing',
-              lastUpdated: '2026-02-24'
-            }
-          },
-          'o3': {
-            provider: 'openai',
-            displayName: 'o3',
-            pricing: {
-              input: 2.00,
-              output: 8.00,
-              unit: 'million',
-              source: 'https://openai.com/api/pricing',
-              lastUpdated: '2026-02-24'
-            }
-          },
-          'o3-mini': {
-            provider: 'openai',
-            displayName: 'o3-mini',
-            pricing: {
-              input: 0.50,
-              output: 2.00,
-              unit: 'million',
-              source: 'https://openai.com/api/pricing',
-              lastUpdated: '2026-02-24'
-            }
-          },
-          'gpt-5.2-codex': {
-            provider: 'openai',
-            displayName: 'GPT-5.2-Codex',
-            pricing: {
-              input: 1.75,
-              output: 14.00,
-              unit: 'million',
-              source: 'https://openai.com/api/pricing',
-              lastUpdated: '2026-02-24'
-            }
-          }
         }
       }
     };
