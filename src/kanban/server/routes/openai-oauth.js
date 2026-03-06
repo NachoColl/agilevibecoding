@@ -283,17 +283,32 @@ export function createOpenAIOAuthRouter(projectRoot, getWebSocket) {
           instructions: 'You are a helpful assistant.',
           input:        [{ role: 'user', content: 'Reply with exactly: "AVC OAuth test OK"' }],
           store:        false,
-          stream:       false,
+          stream:       true,
         }),
       });
 
       if (!apiResp.ok) {
-        const text = await apiResp.text();
-        return res.status(502).json({ error: `API error ${apiResp.status}: ${text}` });
+        const raw = await apiResp.text();
+        return res.status(502).json({ error: `API error ${apiResp.status}: ${raw}` });
       }
 
-      const data = await apiResp.json();
-      const text = data.output_text ?? data.output?.[0]?.content?.[0]?.text ?? '(empty)';
+      // Parse SSE stream — find response.done which carries the full response
+      const body = await apiResp.text();
+      let finalEvent = null;
+      for (const line of body.split('\n')) {
+        if (!line.startsWith('data: ')) continue;
+        const chunk = line.slice(6).trim();
+        if (chunk === '[DONE]') break;
+        try {
+          const event = JSON.parse(chunk);
+          if (event.type === 'response.done' || event.type === 'response.completed') {
+            finalEvent = event.response ?? event;
+            break;
+          }
+        } catch { /* skip malformed lines */ }
+      }
+
+      const text = finalEvent?.output_text ?? finalEvent?.output?.[0]?.content?.[0]?.text ?? '(empty)';
       res.json({ ok: true, response: text.trim(), model: 'gpt-5.2-codex', elapsed: Date.now() - t0 });
     } catch (err) {
       res.status(500).json({ error: err.message });

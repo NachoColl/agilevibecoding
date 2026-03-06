@@ -75,18 +75,33 @@ export class OpenAIProvider extends LLMProvider {
         instructions: agentInstructions || 'You are a helpful assistant.',
         input:        [{ role: 'user', content: prompt }],
         store:        false,
-        stream:       false,
+        stream:       true,
       }),
     });
 
     if (!resp.ok) {
-      const text = await resp.text();
-      throw new Error(`ChatGPT Codex API error (${resp.status}): ${text}`);
+      const raw = await resp.text();
+      throw new Error(`ChatGPT Codex API error (${resp.status}): ${raw}`);
     }
 
-    const data = await resp.json();
-    const text = data.output_text ?? data.output?.[0]?.content?.[0]?.text ?? '';
-    const usage = data.usage ?? null;
+    // Parse SSE stream — find the response.done event which carries the full response
+    const body = await resp.text();
+    let finalEvent = null;
+    for (const line of body.split('\n')) {
+      if (!line.startsWith('data: ')) continue;
+      const chunk = line.slice(6).trim();
+      if (chunk === '[DONE]') break;
+      try {
+        const event = JSON.parse(chunk);
+        if (event.type === 'response.done' || event.type === 'response.completed') {
+          finalEvent = event.response ?? event;
+          break;
+        }
+      } catch { /* skip malformed lines */ }
+    }
+
+    const text = finalEvent?.output_text ?? finalEvent?.output?.[0]?.content?.[0]?.text ?? '';
+    const usage = finalEvent?.usage ?? null;
 
     this._trackTokens(usage, {
       prompt,
