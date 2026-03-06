@@ -292,8 +292,9 @@ export function createOpenAIOAuthRouter(projectRoot, getWebSocket) {
         return res.status(502).json({ error: `API error ${apiResp.status}: ${raw}` });
       }
 
-      // Parse SSE stream — find response.done which carries the full response
+      // Parse SSE stream — accumulate deltas; use response.done for final text
       const body = await apiResp.text();
+      let text = '';
       let finalEvent = null;
       for (const line of body.split('\n')) {
         if (!line.startsWith('data: ')) continue;
@@ -301,14 +302,19 @@ export function createOpenAIOAuthRouter(projectRoot, getWebSocket) {
         if (chunk === '[DONE]') break;
         try {
           const event = JSON.parse(chunk);
-          if (event.type === 'response.done' || event.type === 'response.completed') {
+          if (event.type === 'response.output_text.delta') {
+            text += event.delta ?? '';
+          } else if (event.type === 'response.output_text.done') {
+            text = event.text ?? text;
+          } else if (event.type === 'response.done' || event.type === 'response.completed') {
             finalEvent = event.response ?? event;
+            if (!text) {
+              text = finalEvent?.output_text ?? finalEvent?.output?.[0]?.content?.[0]?.text ?? '';
+            }
             break;
           }
         } catch { /* skip malformed lines */ }
       }
-
-      const text = finalEvent?.output_text ?? finalEvent?.output?.[0]?.content?.[0]?.text ?? '(empty)';
       res.json({ ok: true, response: text.trim(), model: 'gpt-5.2-codex', elapsed: Date.now() - t0 });
     } catch (err) {
       res.status(500).json({ error: err.message });

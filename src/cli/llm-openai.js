@@ -84,8 +84,9 @@ export class OpenAIProvider extends LLMProvider {
       throw new Error(`ChatGPT Codex API error (${resp.status}): ${raw}`);
     }
 
-    // Parse SSE stream — find the response.done event which carries the full response
+    // Parse SSE stream — accumulate text from delta events; use response.done for final text + usage
     const body = await resp.text();
+    let text = '';
     let finalEvent = null;
     for (const line of body.split('\n')) {
       if (!line.startsWith('data: ')) continue;
@@ -93,14 +94,20 @@ export class OpenAIProvider extends LLMProvider {
       if (chunk === '[DONE]') break;
       try {
         const event = JSON.parse(chunk);
-        if (event.type === 'response.done' || event.type === 'response.completed') {
+        if (event.type === 'response.output_text.delta') {
+          text += event.delta ?? '';
+        } else if (event.type === 'response.output_text.done') {
+          text = event.text ?? text;   // prefer the complete text when available
+        } else if (event.type === 'response.done' || event.type === 'response.completed') {
           finalEvent = event.response ?? event;
+          // response.done may carry output_text if delta events were absent
+          if (!text) {
+            text = finalEvent?.output_text ?? finalEvent?.output?.[0]?.content?.[0]?.text ?? '';
+          }
           break;
         }
       } catch { /* skip malformed lines */ }
     }
-
-    const text = finalEvent?.output_text ?? finalEvent?.output?.[0]?.content?.[0]?.text ?? '';
     const usage = finalEvent?.usage ?? null;
 
     this._trackTokens(usage, {

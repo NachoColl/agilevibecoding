@@ -374,7 +374,7 @@ export function OpenAIAuthSection({ apiKeyInfo, onSaved }) {
                 <div className={`text-xs rounded-md px-3 py-2 font-mono ${testStatus.error ? 'bg-red-50 text-red-700 border border-red-200' : 'bg-slate-50 text-slate-700 border border-slate-200'}`}>
                   {testStatus.error
                     ? `✗ ${testStatus.error}`
-                    : `✓ ${testStatus.response}  [${testStatus.model} · ${testStatus.elapsed}ms]`}
+                    : `✓ ${testStatus.response || 'Connected'}  [${testStatus.model} · ${testStatus.elapsed}ms]`}
                 </div>
               )}
               {/* Fallback toggle — only shown when an API key is also configured */}
