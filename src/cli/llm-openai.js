@@ -2,6 +2,8 @@ import OpenAI from 'openai';
 import { jsonrepair } from 'jsonrepair';
 import { LLMProvider } from './llm-provider.js';
 import { getMaxTokensForModel } from './llm-token-limits.js';
+import fs from 'node:fs/promises';
+import path from 'node:path';
 
 export class OpenAIProvider extends LLMProvider {
   constructor(model = 'gpt-5.2-chat-latest', reasoningEffort = 'medium') {
@@ -10,9 +12,88 @@ export class OpenAIProvider extends LLMProvider {
   }
 
   _createClient() {
+    if (process.env.OPENAI_AUTH_MODE === 'oauth') {
+      return { mode: 'oauth' };
+    }
     const apiKey = process.env.OPENAI_API_KEY;
     if (!apiKey) throw new Error('OPENAI_API_KEY not set. Add it to your .env file.');
     return new OpenAI({ apiKey });
+  }
+
+  /**
+   * Load OAuth tokens from .avc/openai-oauth.json, refreshing if close to expiry.
+   */
+  async _loadOAuthTokens() {
+    const oauthPath = path.join(process.cwd(), '.avc', 'openai-oauth.json');
+    const raw = await fs.readFile(oauthPath, 'utf8');
+    let tokens = JSON.parse(raw);
+
+    // Refresh if within 60s of expiry
+    if (tokens.expires - Date.now() < 60_000) {
+      const body = new URLSearchParams({
+        grant_type:    'refresh_token',
+        client_id:     'app_EMoamEEZ73f0CkXaXp7hrann',
+        refresh_token: tokens.refresh,
+      });
+      const resp = await fetch('https://auth.openai.com/oauth/token', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: body.toString(),
+      });
+      if (!resp.ok) throw new Error(`OAuth token refresh failed: ${resp.status}`);
+      const refreshed = await resp.json();
+      tokens = {
+        access:    refreshed.access_token,
+        refresh:   refreshed.refresh_token || tokens.refresh,
+        expires:   Date.now() + (refreshed.expires_in || 3600) * 1000,
+        accountId: tokens.accountId,
+      };
+      await fs.writeFile(oauthPath, JSON.stringify(tokens, null, 2), 'utf8');
+    }
+
+    return { access: tokens.access, accountId: tokens.accountId };
+  }
+
+  /**
+   * Call the ChatGPT Codex endpoint using OAuth bearer token.
+   */
+  async _callChatGPTCodex(prompt, agentInstructions) {
+    const { access, accountId } = await this._loadOAuthTokens();
+    const fullInput = agentInstructions ? `${agentInstructions}\n\n${prompt}` : prompt;
+
+    const t0 = Date.now();
+    const resp = await fetch('https://chatgpt.com/backend-api/codex/responses', {
+      method: 'POST',
+      headers: {
+        'Authorization':       `Bearer ${access}`,
+        'chatgpt-account-id':  accountId,
+        'Content-Type':        'application/json',
+        'OpenAI-Beta':         'responses=experimental',
+        'accept':              'application/json',
+      },
+      body: JSON.stringify({
+        model: this.model,
+        input: fullInput,
+      }),
+    });
+
+    if (!resp.ok) {
+      const text = await resp.text();
+      throw new Error(`ChatGPT Codex API error (${resp.status}): ${text}`);
+    }
+
+    const data = await resp.json();
+    const text = data.output_text ?? data.output?.[0]?.content?.[0]?.text ?? '';
+    const usage = data.usage ?? null;
+
+    this._trackTokens(usage, {
+      prompt,
+      agentInstructions: agentInstructions ?? null,
+      response: text,
+      elapsed: Date.now() - t0,
+    });
+
+    return text;
   }
 
   /**
@@ -112,6 +193,24 @@ export class OpenAIProvider extends LLMProvider {
       this._client = this._createClient();
     }
 
+    // OAuth path — route through ChatGPT Codex endpoint
+    if (this._client?.mode === 'oauth') {
+      const systemPrefix = 'You are a helpful assistant that always returns valid JSON. Your response must be a valid JSON object or array, nothing else.\n\n';
+      const text = await this._callChatGPTCodex(systemPrefix + prompt, agentInstructions);
+      let jsonStr = text.trim();
+      if (jsonStr.startsWith('```')) {
+        jsonStr = jsonStr.replace(/^```(?:json)?\s*\n?/, '').replace(/\n?\s*```\s*$/, '').trim();
+      }
+      try {
+        return JSON.parse(jsonStr);
+      } catch (firstError) {
+        if (jsonStr.startsWith('{') || jsonStr.startsWith('[')) {
+          try { return JSON.parse(jsonrepair(jsonStr)); } catch { /* fall through */ }
+        }
+        throw new Error(`Failed to parse JSON response: ${firstError.message}\n\nResponse was:\n${text}`);
+      }
+    }
+
     const fullPrompt = agentInstructions ? `${agentInstructions}\n\n${prompt}` : prompt;
 
     if (this._usesResponsesAPI()) {
@@ -209,6 +308,11 @@ export class OpenAIProvider extends LLMProvider {
   async generateText(prompt, agentInstructions = null) {
     if (!this._client) {
       this._client = this._createClient();
+    }
+
+    // OAuth path — route through ChatGPT Codex endpoint
+    if (this._client?.mode === 'oauth') {
+      return this._callChatGPTCodex(prompt, agentInstructions);
     }
 
     const fullPrompt = agentInstructions ? `${agentInstructions}\n\n${prompt}` : prompt;

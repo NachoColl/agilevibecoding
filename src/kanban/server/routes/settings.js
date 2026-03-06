@@ -39,6 +39,15 @@ const DEFAULT_MODELS = {
   'gpt-5.2-codex':              { provider: 'openai',  displayName: 'GPT-5.2-Codex',            pricing: { input: 1.75,  output: 14.00, unit: 'million', source: PRICING_SOURCES.openai, lastUpdated: '2026-02-24' } },
 };
 
+async function readOAuthStatus(projectRoot) {
+  try {
+    const raw = await fs.readFile(path.join(projectRoot, '.avc', 'openai-oauth.json'), 'utf8');
+    const { accountId, expires } = JSON.parse(raw);
+    return { connected: true, accountId, expiresAt: expires,
+             expiresIn: Math.max(0, Math.round((expires - Date.now()) / 1000)) };
+  } catch { return { connected: false }; }
+}
+
 /**
  * Settings Router
  * Handles GET /api/settings and PUT sub-routes for project configuration.
@@ -98,7 +107,7 @@ export function createSettingsRouter(projectRoot) {
   // GET /api/settings — snapshot of all configurable settings
   router.get('/', async (req, res) => {
     try {
-      const [config, env] = await Promise.all([readAvcConfig(), readEnv()]);
+      const [config, env, oauthStatus] = await Promise.all([readAvcConfig(), readEnv(), readOAuthStatus(projectRoot)]);
       res.json({
         apiKeys: {
           anthropic: {
@@ -110,8 +119,10 @@ export function createSettingsRouter(projectRoot) {
             preview: env.GEMINI_API_KEY ? env.GEMINI_API_KEY.slice(0, 10) + '…' : '',
           },
           openai: {
-            isSet: !!env.OPENAI_API_KEY,
-            preview: env.OPENAI_API_KEY ? env.OPENAI_API_KEY.slice(0, 10) + '…' : '',
+            isSet:    !!env.OPENAI_API_KEY,
+            preview:  env.OPENAI_API_KEY ? env.OPENAI_API_KEY.slice(0, 10) + '…' : '',
+            authMode: env.OPENAI_AUTH_MODE || 'api-key',
+            oauth:    oauthStatus,
           },
         },
         ceremonies: config?.settings?.ceremonies || [],

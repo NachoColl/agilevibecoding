@@ -13,6 +13,7 @@ import { createWorkItemsRouter } from './routes/work-items.js';
 import { createCeremonyRouter } from './routes/ceremony.js';
 import { createProcessesRouter } from './routes/processes.js';
 import { createSettingsRouter } from './routes/settings.js';
+import { createOpenAIOAuthRouter } from './routes/openai-oauth.js';
 import { createCostsRouter } from './routes/costs.js';
 import { setupWebSocket } from './routes/websocket.js';
 import { renderMarkdown } from './utils/markdown.js';
@@ -185,6 +186,13 @@ export class KanbanServer {
     // Settings router (GET /api/settings + PUT sub-routes)
     const settingsRouter = createSettingsRouter(this.projectRoot);
     this.app.use('/api/settings', settingsRouter);
+
+    // OpenAI OAuth router
+    const openaiOAuthRouter = createOpenAIOAuthRouter(
+      this.projectRoot,
+      () => this.websocket,
+    );
+    this.app.use('/api/settings/openai-oauth', openaiOAuthRouter);
 
     // Board title setting (read/write from avc.json)
     const avcJsonPath = path.join(this.projectRoot, '.avc', 'avc.json');

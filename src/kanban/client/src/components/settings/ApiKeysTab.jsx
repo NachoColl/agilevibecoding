@@ -1,11 +1,11 @@
 import { useState } from 'react';
 import { Eye, EyeOff } from 'lucide-react';
 import { saveApiKeys } from '../../lib/api';
+import { OpenAIAuthSection } from './OpenAIAuthSection';
 
 const PROVIDERS = [
   { key: 'anthropic', label: 'Anthropic', envKey: 'ANTHROPIC_API_KEY', placeholder: 'sk-ant-…' },
   { key: 'gemini',    label: 'Google (Gemini)', envKey: 'GEMINI_API_KEY', placeholder: 'AIza…' },
-  { key: 'openai',    label: 'OpenAI', envKey: 'OPENAI_API_KEY', placeholder: 'sk-…' },
 ];
 
 function ApiKeyRow({ provider, apiKeyInfo, onSaved }) {
@@ -107,6 +107,10 @@ export function ApiKeysTab({ settings, onSaved }) {
             onSaved={onSaved}
           />
         ))}
+        <OpenAIAuthSection
+          apiKeyInfo={settings.apiKeys.openai}
+          onSaved={onSaved}
+        />
       </div>
     </div>
   );

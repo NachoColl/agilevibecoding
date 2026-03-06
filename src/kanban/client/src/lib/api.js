@@ -378,6 +378,20 @@ export async function applyWorkItemChanges(id, proposedItem, storyChanges = []) 
   });
 }
 
+// ── OpenAI OAuth API ──────────────────────────────────────────────────────────
+
+export async function connectOpenAIOAuth() {
+  return apiFetch('/settings/openai-oauth/login', { method: 'POST' });
+}
+
+export async function disconnectOpenAIOAuth() {
+  return apiFetch('/settings/openai-oauth/logout', { method: 'POST' });
+}
+
+export async function getOpenAIOAuthStatus() {
+  return apiFetch('/settings/openai-oauth/status');
+}
+
 // ── Costs API ─────────────────────────────────────────────────────────────────
 
 /**
