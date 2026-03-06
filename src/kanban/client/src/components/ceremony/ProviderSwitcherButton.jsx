@@ -49,6 +49,13 @@ function applyProviderPreset(ceremony, providerKey) {
         model: preset.validation.refinement.model,
       };
     }
+    if (preset.validation.documentation && updated.validation.documentation) {
+      updated.validation.documentation = {
+        ...updated.validation.documentation,
+        provider: preset.validation.documentation.provider,
+        model: preset.validation.documentation.model,
+      };
+    }
   }
 
   return updated;

@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { X, Pencil } from 'lucide-react';
 import { AgentEditorPopup } from '../settings/AgentEditorPopup';
+import { ProviderSwitcherButton } from './ProviderSwitcherButton';
 
 // Human-readable labels for agent slugs
 const AGENT_LABELS = {
@@ -729,10 +730,13 @@ function Connector() {
 
 export function CeremonyWorkflowModal({
   ceremony,
+  allCeremonies,
+  apiKeys,
   models = [],
   missionGenValidation = null,
   onClose,
   onSave,
+  onCeremoniesUpdated,
   readOnly = false,
 }) {
   const [draft, setDraft] = useState(() => JSON.parse(JSON.stringify(ceremony || {})));
@@ -851,13 +855,27 @@ export function CeremonyWorkflowModal({
               {ceremony?.displayName || ceremony?.name || 'Unknown ceremony'}
             </p>
           </div>
-          <button
-            type="button"
-            onClick={isEditable ? handleCancel : onClose}
-            className="text-slate-400 hover:text-slate-600 transition-colors"
-          >
-            <X className="w-4 h-4" />
-          </button>
+          <div className="flex items-center gap-2">
+            {isEditable && allCeremonies && (
+              <ProviderSwitcherButton
+                ceremonyName={ceremony?.name}
+                ceremonies={allCeremonies}
+                apiKeys={apiKeys}
+                onApplied={(updated) => {
+                  const updatedCeremony = updated.find((c) => c.name === ceremony?.name);
+                  if (updatedCeremony) setDraft(JSON.parse(JSON.stringify(updatedCeremony)));
+                  onCeremoniesUpdated?.(updated);
+                }}
+              />
+            )}
+            <button
+              type="button"
+              onClick={isEditable ? handleCancel : onClose}
+              className="text-slate-400 hover:text-slate-600 transition-colors"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
         </div>
 
         {/* Scrollable body */}

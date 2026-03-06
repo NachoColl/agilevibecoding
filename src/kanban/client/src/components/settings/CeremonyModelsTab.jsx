@@ -87,10 +87,16 @@ export function CeremonyModelsTab({ settings, models, onSaved }) {
       {activeWorkflow && activeWorkflowCeremony && (
         <CeremonyWorkflowModal
           ceremony={activeWorkflowCeremony}
+          allCeremonies={ceremonies}
+          apiKeys={settings.apiKeys}
           models={models}
           missionGenValidation={activeWorkflow === 'sponsor-call' ? missionGenValidation : null}
           onClose={() => setActiveWorkflow(null)}
           onSave={handleCeremonySave}
+          onCeremoniesUpdated={(updated) => {
+            setCeremonies(updated);
+            onSaved();
+          }}
         />
       )}
     </div>

@@ -55,6 +55,7 @@ const PROVIDER_PRESETS = {
       },
       validation: {
         provider: 'claude', model: 'claude-haiku-4-5-20251001',
+        documentation: { provider: 'claude', model: 'claude-haiku-4-5-20251001' },
         refinement: { provider: 'claude', model: 'claude-sonnet-4-6' },
       },
     },
@@ -68,6 +69,7 @@ const PROVIDER_PRESETS = {
       },
       validation: {
         provider: 'gemini', model: 'gemini-2.5-flash-lite',
+        documentation: { provider: 'gemini', model: 'gemini-2.5-flash-lite' },
         refinement: { provider: 'gemini', model: 'gemini-2.5-flash' },
       },
     },
@@ -81,6 +83,7 @@ const PROVIDER_PRESETS = {
       },
       validation: {
         provider: 'openai', model: 'gpt-5-mini',
+        documentation: { provider: 'openai', model: 'gpt-5-mini' },
         refinement: { provider: 'openai', model: 'gpt-5.1' },
       },
     },
