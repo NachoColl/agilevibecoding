@@ -141,6 +141,19 @@ export function OpenAIAuthSection({ apiKeyInfo, onSaved }) {
     }
   };
 
+  const handleClearKey = async () => {
+    setSaveStatus('clearing');
+    try {
+      await saveApiKeys({ openai: '' });
+      setSaveStatus('saved');
+      onSaved();
+      setTimeout(() => setSaveStatus(null), 2000);
+    } catch {
+      setSaveStatus('error');
+      setTimeout(() => setSaveStatus(null), 2000);
+    }
+  };
+
   return (
     <div className="py-3 border-b border-slate-100 last:border-0">
       {/* Header row */}
@@ -218,6 +231,17 @@ export function OpenAIAuthSection({ apiKeyInfo, onSaved }) {
                 {showKey ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
               </button>
             </div>
+
+            {apiKeyInfo?.isSet && !keyValue && (
+              <button
+                type="button"
+                onClick={handleClearKey}
+                disabled={saveStatus === 'clearing'}
+                className="px-3 py-1.5 text-xs font-medium border border-red-200 text-red-600 rounded-md hover:bg-red-50 transition-colors disabled:opacity-40 flex-shrink-0"
+              >
+                {saveStatus === 'clearing' ? '…' : 'Reset'}
+              </button>
+            )}
 
             <button
               type="button"

@@ -11,7 +11,7 @@ const PROVIDERS = [
 function ApiKeyRow({ provider, apiKeyInfo, onSaved }) {
   const [value, setValue] = useState('');
   const [showKey, setShowKey] = useState(false);
-  const [status, setStatus] = useState(null); // null | 'saving' | 'saved' | 'error'
+  const [status, setStatus] = useState(null); // null | 'saving' | 'saved' | 'error' | 'clearing'
 
   const handleSave = async () => {
     setStatus('saving');
@@ -19,6 +19,19 @@ function ApiKeyRow({ provider, apiKeyInfo, onSaved }) {
       await saveApiKeys({ [provider.key]: value });
       setStatus('saved');
       setValue('');
+      onSaved();
+      setTimeout(() => setStatus(null), 2000);
+    } catch {
+      setStatus('error');
+      setTimeout(() => setStatus(null), 2000);
+    }
+  };
+
+  const handleClear = async () => {
+    setStatus('clearing');
+    try {
+      await saveApiKeys({ [provider.key]: '' });
+      setStatus('saved');
       onSaved();
       setTimeout(() => setStatus(null), 2000);
     } catch {
@@ -72,6 +85,17 @@ function ApiKeyRow({ provider, apiKeyInfo, onSaved }) {
             {showKey ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
           </button>
         </div>
+
+        {apiKeyInfo.isSet && !value && (
+          <button
+            type="button"
+            onClick={handleClear}
+            disabled={status === 'clearing'}
+            className="px-3 py-1.5 text-xs font-medium border border-red-200 text-red-600 rounded-md hover:bg-red-50 transition-colors disabled:opacity-40 flex-shrink-0"
+          >
+            {status === 'clearing' ? '…' : 'Reset'}
+          </button>
+        )}
 
         <button
           type="button"
