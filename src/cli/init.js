@@ -12,19 +12,56 @@ import { sendError, sendWarning, sendSuccess, sendInfo, sendOutput, sendIndented
 import { boldCyan, yellow, green, cyan } from './ansi-colors.js';
 
 /**
+ * Trace log written directly to /tmp/avc-init.log so we can diagnose mkdir
+ * failures that occur before .avc/ exists (where normal logging goes).
+ */
+function initTrace(message, data = null) {
+  try {
+    const ts = new Date().toISOString();
+    const line = data
+      ? `[${ts}] ${message} ${JSON.stringify(data)}\n`
+      : `[${ts}] ${message}\n`;
+    fs.appendFileSync('/tmp/avc-init.log', line);
+  } catch { /* never let tracing break init */ }
+}
+
+/**
  * Reliable recursive mkdir for WSL2 /mnt/ Windows paths.
- * Node's { recursive: true } can fail with ENOENT on DrvFS/9P mounts
- * because the kernel reports the parent as absent immediately after creation.
- * Walking the tree manually and creating each segment avoids that race.
+ *
+ * Two-layer strategy:
+ *  1. Walk the tree manually and call plain mkdirSync() for each segment
+ *     (avoids Node's { recursive:true } which can race on DrvFS/9P).
+ *  2. If mkdirSync() still fails with ENOENT (VFS dentry-cache stale —
+ *     stat() says parent exists but mkdir() syscall disagrees), fall back
+ *     to a subprocess `mkdir -p`.  The subprocess starts with a clean
+ *     dentry cache and sees the filesystem state the kernel actually has.
  */
 function mkdirp(dirPath) {
+  initTrace('mkdirp enter', { dirPath, exists: fs.existsSync(dirPath) });
   if (fs.existsSync(dirPath)) return;
   const parent = path.dirname(dirPath);
   if (parent !== dirPath) mkdirp(parent);
   try {
     fs.mkdirSync(dirPath);
+    initTrace('mkdirp created via mkdirSync', { dirPath });
   } catch (err) {
-    if (err.code !== 'EEXIST') throw err;
+    if (err.code === 'EEXIST') return;
+    if (err.code === 'ENOENT') {
+      // WSL2/DrvFS: VFS dentry cache reports parent as present but the 9P
+      // server disagrees at mkdir() time.  Spawn a fresh process whose cache
+      // is clean — shell mkdir -p goes straight to the 9P server correctly.
+      initTrace('mkdirp mkdirSync ENOENT — falling back to shell mkdir -p', { dirPath, parentExists: fs.existsSync(parent) });
+      try {
+        execSync(`mkdir -p ${JSON.stringify(dirPath)}`, { stdio: 'pipe' });
+        initTrace('mkdirp created via shell mkdir -p', { dirPath });
+        return;
+      } catch (shellErr) {
+        initTrace('mkdirp shell mkdir -p also failed', { dirPath, shellErr: shellErr.message });
+        if (!fs.existsSync(dirPath)) throw err; // throw original ENOENT
+        return; // shell failed but dir now exists — tolerate
+      }
+    }
+    throw err;
   }
 }
 
