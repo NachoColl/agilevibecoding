@@ -291,17 +291,17 @@ class ProjectInitiator {
                 }
               },
               openai: {
-                provider: 'openai', defaultModel: 'gpt-5.1',
+                provider: 'openai', defaultModel: 'gpt-5.4',
                 stages: {
-                  suggestions:                   { provider: 'openai', model: 'gpt-5.1' },
-                  documentation:                 { provider: 'openai', model: 'gpt-5.1' },
-                  'architecture-recommendation': { provider: 'openai', model: 'gpt-5.2' },
+                  suggestions:                   { provider: 'openai', model: 'gpt-5.4' },
+                  documentation:                 { provider: 'openai', model: 'gpt-5.4' },
+                  'architecture-recommendation': { provider: 'openai', model: 'gpt-5.4' },
                   'question-prefilling':         { provider: 'openai', model: 'gpt-5-mini' }
                 },
                 validation: {
                   provider: 'openai', model: 'gpt-5-mini',
                   documentation: { provider: 'openai', model: 'gpt-5-mini' },
-                  refinement: { provider: 'openai', model: 'gpt-5.1' }
+                  refinement: { provider: 'openai', model: 'gpt-5.4' }
                 }
               }
             },
@@ -390,12 +390,12 @@ class ProjectInitiator {
                 }
               },
               openai: {
-                provider: 'openai', defaultModel: 'gpt-5.1',
+                provider: 'openai', defaultModel: 'gpt-5.4',
                 stages: {
-                  decomposition:      { provider: 'openai', model: 'gpt-5.2' },
-                  validation:         { provider: 'openai', model: 'gpt-5.1', useContextualSelection: true },
+                  decomposition:      { provider: 'openai', model: 'gpt-5.4' },
+                  validation:         { provider: 'openai', model: 'gpt-5.4', useContextualSelection: true },
                   'doc-distribution': { provider: 'openai', model: 'gpt-5-mini' },
-                  enrichment:         { provider: 'openai', model: 'gpt-5.1' },
+                  enrichment:         { provider: 'openai', model: 'gpt-5.4' },
                   solver:             { provider: 'openai', model: 'gpt-5-mini', maxIterations: 3, acceptanceThreshold: 95 }
                 }
               }
@@ -458,10 +458,10 @@ class ProjectInitiator {
                 }
               },
               openai: {
-                provider: 'openai', defaultModel: 'gpt-5.1',
+                provider: 'openai', defaultModel: 'gpt-5.4',
                 stages: {
-                  decomposition:      { provider: 'openai', model: 'gpt-5.2' },
-                  'doc-distribution': { provider: 'openai', model: 'gpt-5.1' }
+                  decomposition:      { provider: 'openai', model: 'gpt-5.4' },
+                  'doc-distribution': { provider: 'openai', model: 'gpt-5.4' }
                 }
               }
             },
@@ -602,6 +602,28 @@ class ProjectInitiator {
 
           // OpenAI models (prices per 1M tokens in USD)
           // Source: https://openai.com/api/pricing
+          'gpt-5.4': {
+            provider: 'openai',
+            displayName: 'GPT-5.4',
+            pricing: {
+              input: 2.50,
+              output: 15.00,
+              unit: 'million',
+              source: 'https://openai.com/api/pricing',
+              lastUpdated: '2026-03-06'
+            }
+          },
+          'gpt-5.4-pro': {
+            provider: 'openai',
+            displayName: 'GPT-5.4 Pro',
+            pricing: {
+              input: 30.00,
+              output: 180.00,
+              unit: 'million',
+              source: 'https://openai.com/api/pricing',
+              lastUpdated: '2026-03-06'
+            }
+          },
           'gpt-5.2': {
             provider: 'openai',
             displayName: 'GPT-5.2',
@@ -633,6 +655,17 @@ class ProjectInitiator {
               unit: 'million',
               source: 'https://openai.com/api/pricing',
               lastUpdated: '2026-02-24'
+            }
+          },
+          'gpt-5-nano': {
+            provider: 'openai',
+            displayName: 'GPT-5 nano',
+            pricing: {
+              input: 0.05,
+              output: 0.40,
+              unit: 'million',
+              source: 'https://openai.com/api/pricing',
+              lastUpdated: '2026-03-06'
             }
           },
           'o4-mini': {
