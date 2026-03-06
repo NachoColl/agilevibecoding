@@ -3,6 +3,7 @@ import { X, Info, ArrowDownToLine } from 'lucide-react';
 import { useSprintPlanningStore } from '../../store/sprintPlanningStore';
 import { runSprintPlanning, getSettings, getModels, saveCeremonies, pauseCeremony, resumeCeremony, cancelCeremony, resetCeremony } from '../../lib/api';
 import { CeremonyWorkflowModal } from './CeremonyWorkflowModal';
+import { ProviderSwitcherButton } from './ProviderSwitcherButton';
 
 // ── Step progress header ─────────────────────────────────────────────────────
 
@@ -475,6 +476,11 @@ export function SprintPlanningModal({ onClose, costLimitPending, onContinuePastC
   const [workflowAllCeremonies, setWorkflowAllCeremonies] = useState([]);
   const [showCancelConfirm, setShowCancelConfirm] = useState(false);
   const [transitioning, setTransitioning] = useState(null); // null | 'pausing' | 'cancelling'
+  const [settings, setSettings] = useState({ ceremonies: [], apiKeys: {} });
+
+  useEffect(() => {
+    getSettings().then(setSettings).catch(() => {});
+  }, []);
 
   if (!isOpen) return null;
 
@@ -502,6 +508,7 @@ export function SprintPlanningModal({ onClose, costLimitPending, onContinuePastC
   const openWorkflow = async () => {
     try {
       const [s, m] = await Promise.all([getSettings(), getModels()]);
+      setSettings(s);
       const sc = s.ceremonies?.find((c) => c.name === 'sprint-planning') ?? { name: 'sprint-planning' };
       setWorkflowCeremony(sc);
       setWorkflowModels(m);
@@ -656,6 +663,14 @@ export function SprintPlanningModal({ onClose, costLimitPending, onContinuePastC
                 <Info className="w-3.5 h-3.5" />
                 How it works
               </button>
+            )}
+            {!isBlocked && (
+              <ProviderSwitcherButton
+                ceremonyName="sprint-planning"
+                ceremonies={settings.ceremonies}
+                apiKeys={settings.apiKeys}
+                onApplied={(updated) => setSettings((prev) => ({ ...prev, ceremonies: updated }))}
+              />
             )}
             {!isBlocked && (
               <button

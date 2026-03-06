@@ -39,6 +39,109 @@ const DEFAULT_MODELS = {
   'gpt-5.2-codex':              { provider: 'openai',  displayName: 'GPT-5.2-Codex',            pricing: { input: 1.75,  output: 14.00, unit: 'million', source: PRICING_SOURCES.openai, lastUpdated: '2026-02-24' } },
 };
 
+/**
+ * Provider preset defaults — mirrors providerPresets in src/cli/init.js.
+ * Injected server-side into ceremony objects that pre-date this feature.
+ */
+const PROVIDER_PRESETS = {
+  'sponsor-call': {
+    claude: {
+      provider: 'claude', defaultModel: 'claude-sonnet-4-6',
+      stages: {
+        suggestions:                   { provider: 'claude', model: 'claude-sonnet-4-6' },
+        documentation:                 { provider: 'claude', model: 'claude-sonnet-4-6' },
+        'architecture-recommendation': { provider: 'claude', model: 'claude-opus-4-6' },
+        'question-prefilling':         { provider: 'claude', model: 'claude-haiku-4-5-20251001' },
+      },
+      validation: {
+        provider: 'claude', model: 'claude-haiku-4-5-20251001',
+        refinement: { provider: 'claude', model: 'claude-sonnet-4-6' },
+      },
+    },
+    gemini: {
+      provider: 'gemini', defaultModel: 'gemini-2.5-flash',
+      stages: {
+        suggestions:                   { provider: 'gemini', model: 'gemini-2.5-flash' },
+        documentation:                 { provider: 'gemini', model: 'gemini-2.5-flash' },
+        'architecture-recommendation': { provider: 'gemini', model: 'gemini-2.5-pro' },
+        'question-prefilling':         { provider: 'gemini', model: 'gemini-2.5-flash-lite' },
+      },
+      validation: {
+        provider: 'gemini', model: 'gemini-2.5-flash-lite',
+        refinement: { provider: 'gemini', model: 'gemini-2.5-flash' },
+      },
+    },
+    openai: {
+      provider: 'openai', defaultModel: 'gpt-5.1',
+      stages: {
+        suggestions:                   { provider: 'openai', model: 'gpt-5.1' },
+        documentation:                 { provider: 'openai', model: 'gpt-5.1' },
+        'architecture-recommendation': { provider: 'openai', model: 'gpt-5.2' },
+        'question-prefilling':         { provider: 'openai', model: 'gpt-5-mini' },
+      },
+      validation: {
+        provider: 'openai', model: 'gpt-5-mini',
+        refinement: { provider: 'openai', model: 'gpt-5.1' },
+      },
+    },
+  },
+  'sprint-planning': {
+    claude: {
+      provider: 'claude', defaultModel: 'claude-sonnet-4-6',
+      stages: {
+        decomposition:      { provider: 'claude', model: 'claude-opus-4-6' },
+        validation:         { provider: 'claude', model: 'claude-sonnet-4-6', useContextualSelection: true },
+        'doc-distribution': { provider: 'claude', model: 'claude-haiku-4-5-20251001' },
+        enrichment:         { provider: 'claude', model: 'claude-sonnet-4-6' },
+        solver:             { provider: 'claude', model: 'claude-haiku-4-5-20251001', maxIterations: 3, acceptanceThreshold: 95 },
+      },
+    },
+    gemini: {
+      provider: 'gemini', defaultModel: 'gemini-2.5-flash',
+      stages: {
+        decomposition:      { provider: 'gemini', model: 'gemini-2.5-pro' },
+        validation:         { provider: 'gemini', model: 'gemini-2.5-flash', useContextualSelection: true },
+        'doc-distribution': { provider: 'gemini', model: 'gemini-2.5-flash-lite' },
+        enrichment:         { provider: 'gemini', model: 'gemini-2.5-flash' },
+        solver:             { provider: 'gemini', model: 'gemini-2.5-flash-lite', maxIterations: 3, acceptanceThreshold: 95 },
+      },
+    },
+    openai: {
+      provider: 'openai', defaultModel: 'gpt-5.1',
+      stages: {
+        decomposition:      { provider: 'openai', model: 'gpt-5.2' },
+        validation:         { provider: 'openai', model: 'gpt-5.1', useContextualSelection: true },
+        'doc-distribution': { provider: 'openai', model: 'gpt-5-mini' },
+        enrichment:         { provider: 'openai', model: 'gpt-5.1' },
+        solver:             { provider: 'openai', model: 'gpt-5-mini', maxIterations: 3, acceptanceThreshold: 95 },
+      },
+    },
+  },
+  'seed': {
+    claude: {
+      provider: 'claude', defaultModel: 'claude-sonnet-4-6',
+      stages: {
+        decomposition:      { provider: 'claude', model: 'claude-opus-4-6' },
+        'doc-distribution': { provider: 'claude', model: 'claude-sonnet-4-6' },
+      },
+    },
+    gemini: {
+      provider: 'gemini', defaultModel: 'gemini-2.5-flash',
+      stages: {
+        decomposition:      { provider: 'gemini', model: 'gemini-2.5-pro' },
+        'doc-distribution': { provider: 'gemini', model: 'gemini-2.5-flash' },
+      },
+    },
+    openai: {
+      provider: 'openai', defaultModel: 'gpt-5.1',
+      stages: {
+        decomposition:      { provider: 'openai', model: 'gpt-5.2' },
+        'doc-distribution': { provider: 'openai', model: 'gpt-5.1' },
+      },
+    },
+  },
+};
+
 async function readOAuthStatus(projectRoot, env = {}) {
   try {
     const raw = await fs.readFile(path.join(projectRoot, '.avc', 'openai-oauth.json'), 'utf8');
@@ -110,6 +213,13 @@ export function createSettingsRouter(projectRoot) {
     try {
       const [config, env] = await Promise.all([readAvcConfig(), readEnv()]);
       const oauthStatus = await readOAuthStatus(projectRoot, env);
+      // Migrate existing projects: inject providerPresets if missing
+      const ceremonies = config?.settings?.ceremonies || [];
+      ceremonies.forEach((ceremony) => {
+        if (!ceremony.providerPresets && PROVIDER_PRESETS[ceremony.name]) {
+          ceremony.providerPresets = PROVIDER_PRESETS[ceremony.name];
+        }
+      });
       res.json({
         apiKeys: {
           anthropic: {
@@ -127,7 +237,7 @@ export function createSettingsRouter(projectRoot) {
             oauth:    oauthStatus,
           },
         },
-        ceremonies: config?.settings?.ceremonies || [],
+        ceremonies,
         models: (config?.settings?.models && Object.keys(config.settings.models).length > 0)
           ? config.settings.models
           : DEFAULT_MODELS,

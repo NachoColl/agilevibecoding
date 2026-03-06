@@ -17,6 +17,7 @@ import {
   deleteSponsorCallDraft,
 } from '../../lib/api';
 import { CeremonyWorkflowModal } from './CeremonyWorkflowModal';
+import { ProviderSwitcherButton } from './ProviderSwitcherButton';
 
 import { DeploymentStep } from './steps/DeploymentStep';
 import { MissionStep } from './steps/MissionStep';
@@ -159,6 +160,7 @@ export function SponsorCallModal({ onClose, onOpenSettings, costLimitPending, on
   const [workflowMissionGenValidation, setWorkflowMissionGenValidation] = useState(null);
   const [workflowAllCeremonies, setWorkflowAllCeremonies] = useState([]);
   const [apiKeyCheck, setApiKeyCheck] = useState({ loading: true, missing: [] });
+  const [settings, setSettings] = useState({ ceremonies: [], apiKeys: {} });
   const [showResumePrompt, setShowResumePrompt] = useState(false);
   const [draftData, setDraftData] = useState(null);
 
@@ -167,7 +169,10 @@ export function SponsorCallModal({ onClose, onOpenSettings, costLimitPending, on
     let cancelled = false;
     getSettings()
       .then((s) => {
-        if (!cancelled) setApiKeyCheck({ loading: false, missing: computeMissingProviders(s) });
+        if (!cancelled) {
+          setApiKeyCheck({ loading: false, missing: computeMissingProviders(s) });
+          setSettings(s);
+        }
       })
       .catch(() => {
         if (!cancelled) setApiKeyCheck({ loading: false, missing: [] }); // fail open
@@ -535,6 +540,14 @@ export function SponsorCallModal({ onClose, onOpenSettings, costLimitPending, on
                 <Info className="w-3.5 h-3.5" />
                 How it works
               </button>
+            )}
+            {ceremonyStatus !== 'running' && (
+              <ProviderSwitcherButton
+                ceremonyName="sponsor-call"
+                ceremonies={settings.ceremonies}
+                apiKeys={settings.apiKeys}
+                onApplied={(updated) => setSettings((prev) => ({ ...prev, ceremonies: updated }))}
+              />
             )}
             {ceremonyStatus !== 'running' && (
               <button
