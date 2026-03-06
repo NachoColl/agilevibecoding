@@ -149,7 +149,7 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: "20"
-          registry-url: 'https://registry.npmjs.org'
+          # Don't set registry-url - it creates .npmrc with token auth that interferes with OIDC
 
       - name: Configure Git
         run: |
@@ -172,12 +172,11 @@ jobs:
           fi
           echo "✅ Security checks passed"
 
+      # Publish to npmjs.org with provenance (OIDC via Trusted Publisher)
       - name: Publish to npmjs.org
         run: |
-          npm publish --access public
+          npm publish --provenance --access public
           echo "✅ Published to npmjs.org"
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
       - name: Publishing Summary
         run: |
