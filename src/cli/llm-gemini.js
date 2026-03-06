@@ -50,6 +50,7 @@ export class GeminiProvider extends LLMProvider {
       }
     };
 
+    const _t0Json = Date.now();
     const response = await this._withRetry(
       () => this._client.models.generateContent(params),
       'JSON generation (Gemini)'
@@ -58,8 +59,13 @@ export class GeminiProvider extends LLMProvider {
       throw new Error('Gemini returned no text (possible safety filter block).');
     }
 
-    this._trackTokens(response.usageMetadata);
     const content = response.text;
+    this._trackTokens(response.usageMetadata, {
+      prompt: fullPrompt,
+      agentInstructions: agentInstructions ?? null,
+      response: content,
+      elapsed: Date.now() - _t0Json,
+    });
 
     // Strip markdown code fences if present (more robust)
     let jsonStr = content.trim();
@@ -101,6 +107,7 @@ export class GeminiProvider extends LLMProvider {
       }
     };
 
+    const _t0Text = Date.now();
     const response = await this._withRetry(
       () => this._client.models.generateContent(params),
       'Text generation (Gemini)'
@@ -109,7 +116,13 @@ export class GeminiProvider extends LLMProvider {
       throw new Error('Gemini returned no text (possible safety filter block).');
     }
 
-    this._trackTokens(response.usageMetadata);
-    return response.text;
+    const text = response.text;
+    this._trackTokens(response.usageMetadata, {
+      prompt: fullPrompt,
+      agentInstructions: agentInstructions ?? null,
+      response: text,
+      elapsed: Date.now() - _t0Text,
+    });
+    return text;
   }
 }

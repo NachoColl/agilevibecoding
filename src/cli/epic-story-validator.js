@@ -53,6 +53,14 @@ class EpicStoryValidator {
     this._tokenCallback = fn;
   }
 
+  /**
+   * Attach a PromptLogger so all providers created by this validator write payloads.
+   * @param {import('./prompt-logger.js').PromptLogger} logger
+   */
+  setPromptLogger(logger) {
+    this._promptLogger = logger;
+  }
+
   /** Emit a Level-3 detail line to the UI (fire-and-forget safe) */
   async _detail(msg) {
     await this.progressCallback?.(null, null, { detail: msg });
@@ -139,8 +147,10 @@ class EpicStoryValidator {
     }
 
     // Create new provider
+    const role = this.extractDomain(validatorName);
     const providerInstance = await LLMProvider.create(provider, model);
     if (this._tokenCallback) providerInstance.onCall((delta) => this._tokenCallback(delta, 'validation'));
+    if (this._promptLogger) providerInstance.setPromptLogger(this._promptLogger, `validation-${role}`);
     this._validatorProviders[cacheKey] = providerInstance;
 
     return providerInstance;
@@ -160,6 +170,7 @@ class EpicStoryValidator {
 
     const instance = await LLMProvider.create(solverConfig.provider, solverConfig.model);
     if (this._tokenCallback) instance.onCall((delta) => this._tokenCallback(delta, 'solver'));
+    if (this._promptLogger) instance.setPromptLogger(this._promptLogger, `solver-${role}`);
     this._validatorProviders[cacheKey] = instance;
     return instance;
   }
@@ -175,6 +186,7 @@ class EpicStoryValidator {
       if (this._validatorProviders[cacheKey]) return this._validatorProviders[cacheKey];
       const instance = await LLMProvider.create(this.validationStageConfig.provider, this.validationStageConfig.model);
       if (this._tokenCallback) instance.onCall((delta) => this._tokenCallback(delta, 'validation'));
+      if (this._promptLogger) instance.setPromptLogger(this._promptLogger, 'selection');
       this._validatorProviders[cacheKey] = instance;
       return instance;
     }

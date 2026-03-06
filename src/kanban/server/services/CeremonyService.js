@@ -5,6 +5,7 @@ import { fileURLToPath } from 'url';
 import { KanbanLogger } from '../utils/kanban-logger.js';
 import { TokenTracker } from '../../../cli/token-tracker.js';
 import { loadAgent } from '../../../cli/agent-loader.js';
+import { PromptLogger } from '../../../cli/prompt-logger.js';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 const PROVIDER_KEY_MAP = {
@@ -176,6 +177,11 @@ export class CeremonyService {
         generator: `${provider}/${modelId}`,
         validator: `${validatorProvider}/${validatorModelId}`,
       });
+
+      // Attach prompt logger
+      const _missionPromptLogger = new PromptLogger(this.projectRoot, 'sponsor-call');
+      generatorLLM.setPromptLogger(_missionPromptLogger, 'mission-generate');
+      validatorLLM.setPromptLogger(_missionPromptLogger, 'mission-validate');
 
       // Load agent files
       log.debug('Loading agent files');
@@ -400,6 +406,11 @@ export class CeremonyService {
       const generatorLLM = await LLMProvider.create(provider, modelId);
       const validatorLLM = await LLMProvider.create(validatorProvider, validatorModelId);
 
+      // Attach prompt logger
+      const _refinePromptLogger = new PromptLogger(this.projectRoot, 'sponsor-call');
+      generatorLLM.setPromptLogger(_refinePromptLogger, 'mission-refine-generate');
+      validatorLLM.setPromptLogger(_refinePromptLogger, 'mission-refine-validate');
+
       const generatorAgent = loadAgent('mission-scope-generator.md', this.projectRoot);
       const validatorAgent = loadAgent('mission-scope-validator.md', this.projectRoot);
 
@@ -566,6 +577,7 @@ export class CeremonyService {
 
     const { LLMProvider } = await import('../../../cli/llm-provider.js');
     const llm = await LLMProvider.create(provider, modelId);
+    llm.setPromptLogger(new PromptLogger(this.projectRoot, 'sponsor-call'), 'arch-generate');
     const agentInstruction = loadAgent('architecture-recommender.md', this.projectRoot);
 
     const prompt =
@@ -592,6 +604,7 @@ export class CeremonyService {
 
     const { LLMProvider } = await import('../../../cli/llm-provider.js');
     const llm = await LLMProvider.create(provider, modelId);
+    llm.setPromptLogger(new PromptLogger(this.projectRoot, 'sponsor-call'), 'arch-refine');
     const agentInstruction = loadAgent('architecture-recommender.md', this.projectRoot);
 
     const prompt =

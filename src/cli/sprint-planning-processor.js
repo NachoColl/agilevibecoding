@@ -1,6 +1,7 @@
 import fs from 'fs';
 import path from 'path';
 import { LLMProvider } from './llm-provider.js';
+import { PromptLogger } from './prompt-logger.js';
 import { TokenTracker } from './token-tracker.js';
 import { EpicStoryValidator } from './epic-story-validator.js';
 import { VerificationTracker } from './verification-tracker.js';
@@ -45,6 +46,9 @@ class SprintPlanningProcessor {
 
     // Stage provider cache
     this._stageProviders = {};
+
+    // Initialize prompt logger (writes per-call prompt/response JSON files)
+    this._promptLogger = new PromptLogger(process.cwd(), 'sprint-planning');
 
     // Initialize token tracker
     this.tokenTracker = new TokenTracker(this.avcPath);
@@ -236,6 +240,7 @@ class SprintPlanningProcessor {
     this.debug(`Creating new provider for ${stageName}: ${provider} (${model})`);
     const providerInstance = await LLMProvider.create(provider, model);
     this._registerTokenCallback(providerInstance, `${this.ceremonyName}-${stageName}`);
+    providerInstance.setPromptLogger(this._promptLogger, stageName);
     this._stageProviders[cacheKey] = providerInstance;
 
     return providerInstance;
@@ -311,6 +316,7 @@ class SprintPlanningProcessor {
     try {
       this.llmProvider = await LLMProvider.create(this._providerName, this._modelName);
       this._registerTokenCallback(this.llmProvider);
+      this.llmProvider.setPromptLogger(this._promptLogger, 'main');
       return this.llmProvider;
     } catch (error) {
       this.debug(`Could not initialize ${this._providerName} provider`);
@@ -801,6 +807,7 @@ Return your response as JSON following the exact structure specified in your ins
       projectContext
     );
     this._validator = validator;
+    this._validator.setPromptLogger(this._promptLogger);
     this._validator.setTokenCallback((delta, stageHint) => {
       const key = stageHint
         ? `${this.ceremonyName}-${stageHint}`

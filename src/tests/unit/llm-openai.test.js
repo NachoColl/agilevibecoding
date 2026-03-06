@@ -669,11 +669,10 @@ describe('OpenAIProvider', () => {
 
         await provider._callResponsesAPI('Prompt', null);
 
-        expect(trackTokensSpy).toHaveBeenCalledWith({
-          prompt_tokens: 50,
-          completion_tokens: 100,
-          total_tokens: 150
-        });
+        expect(trackTokensSpy).toHaveBeenCalledWith(
+          { prompt_tokens: 50, completion_tokens: 100, total_tokens: 150 },
+          null
+        );
       });
     });
 

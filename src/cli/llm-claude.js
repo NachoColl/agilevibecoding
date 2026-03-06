@@ -40,6 +40,7 @@ export class ClaudeProvider extends LLMProvider {
     // Use model-specific maximum tokens
     const maxTokens = getMaxTokensForModel(this.model);
 
+    const _t0Json = Date.now();
     const response = await this._withRetry(
       () => this._client.messages.create({
         model: this.model,
@@ -53,8 +54,13 @@ export class ClaudeProvider extends LLMProvider {
       'JSON generation (Claude)'
     );
 
-    this._trackTokens(response.usage);
     const content = response.content[0].text;
+    this._trackTokens(response.usage, {
+      prompt: fullPrompt,
+      agentInstructions: agentInstructions ?? null,
+      response: content,
+      elapsed: Date.now() - _t0Json,
+    });
 
     // Extract JSON from response (handle markdown code blocks)
     // Strip markdown code fences if present (more robust)
@@ -91,6 +97,7 @@ export class ClaudeProvider extends LLMProvider {
     // Use model-specific maximum tokens
     const maxTokens = getMaxTokensForModel(this.model);
 
+    const _t0Text = Date.now();
     const response = await this._withRetry(
       () => this._client.messages.create({
         model: this.model,
@@ -103,7 +110,13 @@ export class ClaudeProvider extends LLMProvider {
       'Text generation (Claude)'
     );
 
-    this._trackTokens(response.usage);
-    return response.content[0].text;
+    const text = response.content[0].text;
+    this._trackTokens(response.usage, {
+      prompt: fullPrompt,
+      agentInstructions: agentInstructions ?? null,
+      response: text,
+      elapsed: Date.now() - _t0Text,
+    });
+    return text;
   }
 }

@@ -175,10 +175,22 @@ export class LLMProvider {
   }
 
   /**
-   * Track token usage from API response and fire per-call callbacks.
-   * @param {Object} usage - Usage object from API response
+   * Attach a PromptLogger instance and set the stage label for subsequent calls.
+   * @param {import('./prompt-logger.js').PromptLogger} promptLogger
+   * @param {string} [stage]
    */
-  _trackTokens(usage) {
+  setPromptLogger(promptLogger, stage) {
+    this._promptLogger = promptLogger;
+    this._promptLoggerStage = stage || 'unknown';
+  }
+
+  /**
+   * Track token usage from API response and fire per-call callbacks.
+   * Optionally writes a prompt/response payload to the attached PromptLogger.
+   * @param {Object} usage - Usage object from API response
+   * @param {Object|null} [promptPayload] - Optional { prompt, agentInstructions, response, elapsed }
+   */
+  _trackTokens(usage, promptPayload = null) {
     if (usage) {
       const deltaIn  = usage.input_tokens  || usage.inputTokens  || usage.promptTokenCount    || usage.prompt_tokens    || 0;
       const deltaOut = usage.output_tokens || usage.outputTokens || usage.candidatesTokenCount || usage.completion_tokens || 0;
@@ -190,6 +202,21 @@ export class LLMProvider {
         for (const fn of this._callCallbacks) {
           try { fn(delta); } catch (_) {}
         }
+      }
+      if (this._promptLogger && promptPayload) {
+        this._promptLogger.write({
+          ceremony: this._promptLogger.ceremony,
+          stage: this._promptLoggerStage || 'unknown',
+          call: (this._promptLogger.callCount || 0) + 1,
+          timestamp: new Date().toISOString(),
+          elapsed_ms: promptPayload.elapsed ?? null,
+          provider: this.providerName,
+          model: this.model,
+          tokens: { input: deltaIn, output: deltaOut },
+          prompt: promptPayload.prompt ?? null,
+          agentInstructions: promptPayload.agentInstructions ?? null,
+          response: promptPayload.response ?? null,
+        });
       }
     }
   }

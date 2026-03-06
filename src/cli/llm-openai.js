@@ -57,8 +57,11 @@ export class OpenAIProvider extends LLMProvider {
 
   /**
    * Call using Responses API (pro/codex models)
+   * @param {string} prompt
+   * @param {string|null} systemInstructions
+   * @param {Object|null} [promptPayload] - Partial payload { prompt, agentInstructions } to log
    */
-  async _callResponsesAPI(prompt, systemInstructions) {
+  async _callResponsesAPI(prompt, systemInstructions, promptPayload = null) {
     // Combine system instructions with prompt
     const fullInput = systemInstructions
       ? `${systemInstructions}\n\n${prompt}`
@@ -74,17 +77,26 @@ export class OpenAIProvider extends LLMProvider {
       params.reasoning = { effort: this.reasoningEffort };
     }
 
+    const _t0 = Date.now();
     const response = await this._withRetry(
       () => this._client.responses.create(params),
       'Responses API call'
     );
+    const _elapsed = Date.now() - _t0;
+
+    const text = response.output_text;
 
     // Track tokens if usage data is available
     if (response.usage) {
-      this._trackTokens(response.usage);
+      const finalPayload = promptPayload ? {
+        ...promptPayload,
+        response: text,
+        elapsed: _elapsed,
+      } : null;
+      this._trackTokens(response.usage, finalPayload);
     }
 
-    return response.output_text;
+    return text;
   }
 
   async _callProvider(prompt, maxTokens, systemInstructions) {
@@ -105,7 +117,8 @@ export class OpenAIProvider extends LLMProvider {
     if (this._usesResponsesAPI()) {
       // Responses API: Use system instructions to enforce JSON
       const systemInstructions = 'You are a helpful assistant that always returns valid JSON. Your response must be a valid JSON object or array, nothing else.';
-      const response = await this._callResponsesAPI(fullPrompt, systemInstructions);
+      const _rApiPayload = this._promptLogger ? { prompt: fullPrompt, agentInstructions: agentInstructions ?? null } : null;
+      const response = await this._callResponsesAPI(fullPrompt, systemInstructions, _rApiPayload);
 
       // Parse and return JSON
       let jsonStr = response.trim();
@@ -158,13 +171,19 @@ export class OpenAIProvider extends LLMProvider {
         params.response_format = { type: 'json_object' };
       }
 
+      const _t0Json = Date.now();
       const response = await this._withRetry(
         () => this._client.chat.completions.create(params),
         'JSON generation (Chat Completions)'
       );
 
-      this._trackTokens(response.usage);
       const content = response.choices[0].message.content;
+      this._trackTokens(response.usage, {
+        prompt: fullPrompt,
+        agentInstructions: agentInstructions ?? null,
+        response: content,
+        elapsed: Date.now() - _t0Json,
+      });
 
       // Strip markdown code fences if present (defense-in-depth)
       let jsonStr = content.trim();
@@ -196,7 +215,8 @@ export class OpenAIProvider extends LLMProvider {
 
     if (this._usesResponsesAPI()) {
       // Responses API
-      return await this._callResponsesAPI(fullPrompt, null);
+      const _rApiPayload = this._promptLogger ? { prompt: fullPrompt, agentInstructions: agentInstructions ?? null } : null;
+      return await this._callResponsesAPI(fullPrompt, null, _rApiPayload);
     } else {
       // Chat Completions API
       const messages = [
@@ -221,13 +241,20 @@ export class OpenAIProvider extends LLMProvider {
         params.max_tokens = maxTokens;
       }
 
+      const _t0Text = Date.now();
       const response = await this._withRetry(
         () => this._client.chat.completions.create(params),
         'Text generation (Chat Completions)'
       );
 
-      this._trackTokens(response.usage);
-      return response.choices[0].message.content;
+      const textContent = response.choices[0].message.content;
+      this._trackTokens(response.usage, {
+        prompt: fullPrompt,
+        agentInstructions: agentInstructions ?? null,
+        response: textContent,
+        elapsed: Date.now() - _t0Text,
+      });
+      return textContent;
     }
   }
 }
