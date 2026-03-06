@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { Eye, EyeOff } from 'lucide-react';
-import { saveApiKeys, connectOpenAIOAuth, disconnectOpenAIOAuth, getOpenAIOAuthStatus } from '../../lib/api';
+import { saveApiKeys, connectOpenAIOAuth, disconnectOpenAIOAuth, getOpenAIOAuthStatus, testOpenAIOAuth } from '../../lib/api';
 
 function formatExpiresIn(seconds) {
   if (seconds <= 0) return 'expired';
@@ -26,6 +26,10 @@ export function OpenAIAuthSection({ apiKeyInfo, onSaved }) {
   const [authorizeUrl, setAuthorizeUrl] = useState(null);
   const pollRef = useRef(null);
   const pollTimeoutRef = useRef(null);
+
+  // Test sub-state
+  const [testStatus, setTestStatus] = useState(null); // null | 'running' | { ok, response, model, elapsed } | { error }
+
 
   // Sync from parent settings refresh
   useEffect(() => {
@@ -70,15 +74,17 @@ export function OpenAIAuthSection({ apiKeyInfo, onSaved }) {
     if (pollTimeoutRef.current) { clearTimeout(pollTimeoutRef.current); pollTimeoutRef.current = null; }
   };
 
-  const handleModeToggle = async (mode) => {
+  const handleModeToggle = (mode) => {
     if (mode === authMode) return;
-    if (authMode === 'oauth') {
-      // Switching away from OAuth — clear tokens
-      try { await disconnectOpenAIOAuth(); } catch { /* ignore */ }
+    if (authMode === 'oauth' && oauthPhase === 'connecting') {
+      // Cancel an in-progress connection attempt when switching away
       stopPolling();
       setOauthPhase('idle');
       setAuthorizeUrl(null);
-      setOauthInfo({ connected: false });
+    }
+    if (mode === 'oauth') {
+      // Restore the correct phase when switching back to Subscription tab
+      setOauthPhase(oauthInfo.connected ? 'connected' : 'idle');
     }
     setAuthMode(mode);
   };
@@ -106,8 +112,19 @@ export function OpenAIAuthSection({ apiKeyInfo, onSaved }) {
     try { await disconnectOpenAIOAuth(); } catch { /* ignore */ }
     setOauthPhase('idle');
     setOauthInfo({ connected: false });
+    setTestStatus(null);
     setAuthMode('api-key');
     onSaved();
+  };
+
+  const handleTest = async () => {
+    setTestStatus('running');
+    try {
+      const result = await testOpenAIOAuth();
+      setTestStatus(result);
+    } catch (err) {
+      setTestStatus({ error: err.message });
+    }
   };
 
   const handleSaveKey = async () => {
@@ -279,25 +296,49 @@ export function OpenAIAuthSection({ apiKeyInfo, onSaved }) {
 
           {/* Connected */}
           {oauthPhase === 'connected' && (
-            <div className="flex items-center gap-3">
-              <span className="inline-flex items-center gap-1 text-xs font-medium text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-full px-2 py-0.5">
-                ✓ Connected
-              </span>
-              {oauthInfo.accountId && (
-                <span className="text-xs text-slate-500 font-mono">{oauthInfo.accountId}</span>
-              )}
-              {oauthInfo.expiresIn != null && (
-                <span className="text-xs text-slate-400">
-                  · expires in {formatExpiresIn(oauthInfo.expiresIn)}
+            <div className="flex flex-col gap-2">
+              <div className="flex items-center gap-3">
+                <span className="inline-flex items-center gap-1 text-xs font-medium text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-full px-2 py-0.5">
+                  ✓ Connected
                 </span>
+                {oauthInfo.accountId && (
+                  <span className="text-xs text-slate-500 font-mono">{oauthInfo.accountId}</span>
+                )}
+                {oauthInfo.expiresIn != null && (
+                  <span className="text-xs text-slate-400">
+                    · expires in {formatExpiresIn(oauthInfo.expiresIn)}
+                  </span>
+                )}
+                <div className="ml-auto flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={handleTest}
+                    disabled={testStatus === 'running'}
+                    className="px-3 py-1 text-xs font-medium border border-emerald-300 rounded-md text-emerald-700 hover:bg-emerald-50 transition-colors disabled:opacity-40"
+                  >
+                    {testStatus === 'running' ? (
+                      <span className="inline-flex items-center gap-1">
+                        <span className="w-3 h-3 border border-emerald-400 border-t-emerald-700 rounded-full animate-spin" />
+                        Testing…
+                      </span>
+                    ) : 'Test'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleDisconnect}
+                    className="px-3 py-1 text-xs font-medium border border-slate-300 rounded-md text-slate-600 hover:bg-slate-50 transition-colors"
+                  >
+                    Disconnect
+                  </button>
+                </div>
+              </div>
+              {testStatus && testStatus !== 'running' && (
+                <div className={`text-xs rounded-md px-3 py-2 font-mono ${testStatus.error ? 'bg-red-50 text-red-700 border border-red-200' : 'bg-slate-50 text-slate-700 border border-slate-200'}`}>
+                  {testStatus.error
+                    ? `✗ ${testStatus.error}`
+                    : `✓ ${testStatus.response}  [${testStatus.model} · ${testStatus.elapsed}ms]`}
+                </div>
               )}
-              <button
-                type="button"
-                onClick={handleDisconnect}
-                className="ml-auto px-3 py-1 text-xs font-medium border border-slate-300 rounded-md text-slate-600 hover:bg-slate-50 transition-colors"
-              >
-                Disconnect
-              </button>
             </div>
           )}
         </div>

@@ -392,6 +392,10 @@ export async function getOpenAIOAuthStatus() {
   return apiFetch('/settings/openai-oauth/status');
 }
 
+export async function testOpenAIOAuth() {
+  return apiFetch('/settings/openai-oauth/test', { method: 'POST' });
+}
+
 // ── Costs API ─────────────────────────────────────────────────────────────────
 
 /**

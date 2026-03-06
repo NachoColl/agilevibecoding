@@ -239,6 +239,63 @@ export function createOpenAIOAuthRouter(projectRoot, getWebSocket) {
     }
   });
 
+  // POST /test — fire a minimal prompt to verify the OAuth tokens work
+  router.post('/test', async (req, res) => {
+    try {
+      const oauthRaw = await fs.readFile(oauthFilePath(projectRoot), 'utf8').catch(() => null);
+      if (!oauthRaw) return res.status(400).json({ error: 'Not connected' });
+
+      let { access, accountId, expires, refresh } = JSON.parse(oauthRaw);
+
+      // Refresh if within 60s of expiry
+      if (expires - Date.now() < 60_000) {
+        const body = new URLSearchParams({
+          grant_type:    'refresh_token',
+          client_id:     CLIENT_ID,
+          refresh_token: refresh,
+        });
+        const refreshResp = await fetch(TOKEN_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+          body: body.toString(),
+        });
+        if (!refreshResp.ok) return res.status(401).json({ error: 'Token refresh failed' });
+        const refreshed = await refreshResp.json();
+        access  = refreshed.access_token;
+        refresh = refreshed.refresh_token || refresh;
+        expires = Date.now() + (refreshed.expires_in || 3600) * 1000;
+        await fs.writeFile(oauthFilePath(projectRoot), JSON.stringify({ access, refresh, expires, accountId }, null, 2), 'utf8');
+      }
+
+      const t0 = Date.now();
+      const apiResp = await fetch('https://chatgpt.com/backend-api/codex/responses', {
+        method: 'POST',
+        headers: {
+          'Authorization':      `Bearer ${access}`,
+          'chatgpt-account-id': accountId,
+          'Content-Type':       'application/json',
+          'OpenAI-Beta':        'responses=experimental',
+          'accept':             'application/json',
+        },
+        body: JSON.stringify({
+          model: 'gpt-5.2-codex',
+          input: 'Reply with exactly: "AVC OAuth test OK"',
+        }),
+      });
+
+      if (!apiResp.ok) {
+        const text = await apiResp.text();
+        return res.status(502).json({ error: `API error ${apiResp.status}: ${text}` });
+      }
+
+      const data = await apiResp.json();
+      const text = data.output_text ?? data.output?.[0]?.content?.[0]?.text ?? '(empty)';
+      res.json({ ok: true, response: text.trim(), model: 'gpt-5.2-codex', elapsed: Date.now() - t0 });
+    } catch (err) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
   // POST /logout
   router.post('/logout', async (req, res) => {
     try {
