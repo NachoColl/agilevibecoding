@@ -894,6 +894,21 @@ Documentation for this project will be generated automatically once the project 
       'openai': 'https://platform.openai.com/api-keys'
     };
 
+    // Check if a provider has any valid auth credential (API key OR oauth token)
+    const hasProviderAuth = (provider) => {
+      if (provider === 'openai') {
+        const oauthFile = path.join(this.projectRoot, '.avc', 'openai-oauth.json');
+        return !!(process.env.OPENAI_API_KEY ||
+          (process.env.OPENAI_AUTH_MODE === 'oauth' && fs.existsSync(oauthFile)));
+      }
+      return !!process.env[envVarMap[provider]];
+    };
+
+    const authLabel = (provider) => {
+      if (provider === 'openai' && process.env.OPENAI_AUTH_MODE === 'oauth') return 'OpenAI OAuth token';
+      return envVarMap[provider];
+    };
+
     // Validate main provider
     const mainEnvVar = envVarMap[mainProvider];
     if (!mainEnvVar) {
@@ -903,7 +918,7 @@ Documentation for this project will be generated automatically once the project 
       };
     }
 
-    if (!process.env[mainEnvVar]) {
+    if (!hasProviderAuth(mainProvider)) {
       return {
         valid: false,
         message: `${mainEnvVar} not found in .env file.\n\n   Steps to fix:\n   1. Open .env file in the current directory\n   2. Add your API key: ${mainEnvVar}=your-key-here\n   3. Save the file and run /sponsor-call again\n\n   Get your API key:\n   • ${urlMap[mainProvider]}`
@@ -941,7 +956,8 @@ Documentation for this project will be generated automatically once the project 
         };
       }
 
-      if (!process.env[validationEnvVar]) {
+      if (!hasProviderAuth(validationProvider)) {
+        const missingLabel = authLabel(validationProvider);
         // Enhanced error message with 3 options
         return {
           valid: false,
@@ -952,7 +968,7 @@ Documentation for this project will be generated automatically once the project 
             validationProvider,
             validationModel
           },
-          message: `Validation Provider API Key Missing\n\nYour ceremony is configured to use:\n  • Generation: ${mainProvider} (${mainModel}) ✓\n  • Validation: ${validationProvider} (${validationModel}) ✗ (${validationEnvVar} not found)\n\nYou have 3 options:\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\nOption 1: Add the missing API key\n\n  1. Get API key: ${urlMap[validationProvider]}\n  2. Add to .env file: ${validationEnvVar}=your-key-here\n  3. Run /sponsor-call again\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\nOption 2: Disable validation (faster, lower quality)\n\n  1. Edit .avc/avc.json\n  2. Find "sponsor-call" ceremony config\n  3. Set:\n     "validation": {\n       "enabled": false\n     }\n  4. Run /sponsor-call again\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\nOption 3: Use same provider for validation (simpler setup)\n\n  1. Edit .avc/avc.json\n  2. Find "sponsor-call" ceremony config\n  3. Change:\n     "validation": {\n       "enabled": true,\n       "provider": "${mainProvider}",\n       "model": "${mainModel}"\n     }\n  4. Run /sponsor-call again\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`
+          message: `Validation Provider API Key Missing\n\nYour ceremony is configured to use:\n  • Generation: ${mainProvider} (${mainModel}) ✓\n  • Validation: ${validationProvider} (${validationModel}) ✗ (${missingLabel} not found)\n\nYou have 3 options:\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\nOption 1: Add the missing API key\n\n  1. Get API key: ${urlMap[validationProvider]}\n  2. Add to .env file: ${validationEnvVar}=your-key-here\n  3. Run /sponsor-call again\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\nOption 2: Disable validation (faster, lower quality)\n\n  1. Edit .avc/avc.json\n  2. Find "sponsor-call" ceremony config\n  3. Set:\n     "validation": {\n       "enabled": false\n     }\n  4. Run /sponsor-call again\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\nOption 3: Use same provider for validation (simpler setup)\n\n  1. Edit .avc/avc.json\n  2. Find "sponsor-call" ceremony config\n  3. Change:\n     "validation": {\n       "enabled": true,\n       "provider": "${mainProvider}",\n       "model": "${mainModel}"\n     }\n  4. Run /sponsor-call again\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`
         };
       }
 

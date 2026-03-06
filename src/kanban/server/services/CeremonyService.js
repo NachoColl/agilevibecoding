@@ -14,6 +14,19 @@ const PROVIDER_KEY_MAP = {
   openai: 'OPENAI_API_KEY',
 };
 
+// Returns true if a provider has any valid auth credential (API key or token/oauth)
+function hasProviderAuth(provider, projectRoot) {
+  if (provider === 'claude') {
+    return !!process.env.ANTHROPIC_API_KEY;
+  }
+  if (provider === 'openai') {
+    const oauthFile = path.join(projectRoot, '.avc', 'openai-oauth.json');
+    return !!(process.env.OPENAI_API_KEY ||
+      (process.env.OPENAI_AUTH_MODE === 'oauth' && fs.existsSync(oauthFile)));
+  }
+  return !!process.env[PROVIDER_KEY_MAP[provider]];
+}
+
 /**
  * CeremonyService
  * Orchestrates the sponsor-call ceremony from the web UI.
@@ -134,7 +147,7 @@ export class CeremonyService {
       modelId,
       displayName: info.displayName,
       provider: info.provider,
-      hasApiKey: !!process.env[PROVIDER_KEY_MAP[info.provider]],
+      hasApiKey: hasProviderAuth(info.provider, this.projectRoot),
     }));
   }
 

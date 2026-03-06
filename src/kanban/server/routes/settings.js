@@ -113,7 +113,7 @@ export function createSettingsRouter(projectRoot) {
       res.json({
         apiKeys: {
           anthropic: {
-            isSet: !!env.ANTHROPIC_API_KEY,
+            isSet:   !!env.ANTHROPIC_API_KEY,
             preview: env.ANTHROPIC_API_KEY ? env.ANTHROPIC_API_KEY.slice(0, 10) + '…' : '',
           },
           gemini: {
@@ -121,7 +121,7 @@ export function createSettingsRouter(projectRoot) {
             preview: env.GEMINI_API_KEY ? env.GEMINI_API_KEY.slice(0, 10) + '…' : '',
           },
           openai: {
-            isSet:    !!env.OPENAI_API_KEY,
+            isSet:    !!(env.OPENAI_API_KEY || oauthStatus.connected),
             preview:  env.OPENAI_API_KEY ? env.OPENAI_API_KEY.slice(0, 10) + '…' : '',
             authMode: env.OPENAI_AUTH_MODE || 'api-key',
             oauth:    oauthStatus,
@@ -147,8 +147,8 @@ export function createSettingsRouter(projectRoot) {
     try {
       const { anthropic, gemini, openai } = req.body;
       if (anthropic !== undefined) await upsertEnvKey('ANTHROPIC_API_KEY', anthropic);
-      if (gemini !== undefined) await upsertEnvKey('GEMINI_API_KEY', gemini);
-      if (openai !== undefined) await upsertEnvKey('OPENAI_API_KEY', openai);
+      if (gemini !== undefined)    await upsertEnvKey('GEMINI_API_KEY', gemini);
+      if (openai !== undefined)    await upsertEnvKey('OPENAI_API_KEY', openai);
       res.json({ status: 'ok' });
     } catch (err) {
       res.status(500).json({ error: err.message });

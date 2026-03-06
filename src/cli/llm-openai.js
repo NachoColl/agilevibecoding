@@ -147,11 +147,11 @@ export class OpenAIProvider extends LLMProvider {
       messages
     };
 
-    // GPT-5+ models use max_completion_tokens, older models use max_tokens
-    if (this.model.startsWith('gpt-5') || this.model.startsWith('o1') || this.model.startsWith('o3')) {
-      params.max_completion_tokens = maxTokens;
-    } else {
+    // max_completion_tokens is the modern unified parameter; max_tokens is only for legacy gpt-3.5-turbo
+    if (this.model.startsWith('gpt-3.5')) {
       params.max_tokens = maxTokens;
+    } else {
+      params.max_completion_tokens = maxTokens;
     }
 
     const response = await this._client.chat.completions.create(params);
@@ -302,11 +302,11 @@ export class OpenAIProvider extends LLMProvider {
       // Use model-specific maximum tokens
       const maxTokens = getMaxTokensForModel(this.model);
 
-      // GPT-5+ models use max_completion_tokens, older models use max_tokens
-      if (this.model.startsWith('gpt-5') || this.model.startsWith('o1') || this.model.startsWith('o3')) {
-        params.max_completion_tokens = maxTokens;
-      } else {
+      // max_completion_tokens is the modern unified parameter; max_tokens is only for legacy gpt-3.5-turbo
+      if (this.model.startsWith('gpt-3.5')) {
         params.max_tokens = maxTokens;
+      } else {
+        params.max_completion_tokens = maxTokens;
       }
 
       // Enable JSON mode if model supports it (GPT-4+)
@@ -389,11 +389,11 @@ export class OpenAIProvider extends LLMProvider {
       // Use model-specific maximum tokens
       const maxTokens = getMaxTokensForModel(this.model);
 
-      // GPT-5+ models use max_completion_tokens, older models use max_tokens
-      if (this.model.startsWith('gpt-5') || this.model.startsWith('o1') || this.model.startsWith('o3')) {
-        params.max_completion_tokens = maxTokens;
-      } else {
+      // max_completion_tokens is the modern unified parameter; max_tokens is only for legacy gpt-3.5-turbo
+      if (this.model.startsWith('gpt-3.5')) {
         params.max_tokens = maxTokens;
+      } else {
+        params.max_completion_tokens = maxTokens;
       }
 
       const _t0Text = Date.now();

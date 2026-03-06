@@ -46,8 +46,8 @@ function displayEnvironmentCheck() {
 
   const keys = {
     'ANTHROPIC_API_KEY': !!process.env.ANTHROPIC_API_KEY,
-    'OPENAI_API_KEY': !!process.env.OPENAI_API_KEY,
-    'GEMINI_API_KEY': !!process.env.GEMINI_API_KEY
+    'OPENAI_API_KEY':    !!(process.env.OPENAI_API_KEY || process.env.OPENAI_OAUTH_TOKEN),
+    'GEMINI_API_KEY':    !!process.env.GEMINI_API_KEY,
   };
 
   for (const [key, available] of Object.entries(keys)) {

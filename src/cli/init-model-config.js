@@ -29,16 +29,15 @@ export class ModelConfigurator {
 
     const providers = [];
 
-    // Check for each provider's API key
-    if (process.env.ANTHROPIC_API_KEY) {
-      providers.push('claude');
-    }
-    if (process.env.GEMINI_API_KEY) {
-      providers.push('gemini');
-    }
-    if (process.env.OPENAI_API_KEY) {
-      providers.push('openai');
-    }
+    // Check for each provider's API key or alternative auth token
+    if (process.env.ANTHROPIC_API_KEY) providers.push('claude');
+
+    if (process.env.GEMINI_API_KEY) providers.push('gemini');
+
+    const oauthFile = path.join(this.projectRoot, '.avc', 'openai-oauth.json');
+    const openaiOk = !!(process.env.OPENAI_API_KEY ||
+      (process.env.OPENAI_AUTH_MODE === 'oauth' && fs.existsSync(oauthFile)));
+    if (openaiOk) providers.push('openai');
 
     return providers;
   }
