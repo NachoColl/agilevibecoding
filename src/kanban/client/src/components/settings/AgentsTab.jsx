@@ -44,8 +44,10 @@ const CEREMONY_STRUCTURE = [
           { slug: 'agent-selector',            label: 'Agent Selector',            note: 'Selects relevant validators per Epic/Story based on project context' },
       ]},
       { phase: 'Context Generation', agents: [
-          { slug: 'context-writer-epic',  label: 'Context Writer (Epic)',  note: 'LLM-generates complete canonical context.md for each epic — Purpose, Scope, NFRs, Success Criteria (with self-scored iteration)' },
-          { slug: 'context-writer-story', label: 'Context Writer (Story)', note: 'LLM-generates complete canonical context.md for each story — User Story framing, Technical Notes, Scope boundaries' },
+          { slug: 'context-writer-epic',   label: 'Context Writer (Epic)',   note: 'Writes complete canonical context.md — Purpose, Scope, NFRs, Success Criteria' },
+          { slug: 'context-reviewer-epic', label: 'Context Reviewer (Epic)', note: 'Independent accuracy audit: checks all features present, no hallucinations, sections complete' },
+          { slug: 'context-writer-story',   label: 'Context Writer (Story)',   note: 'Writes complete canonical context.md — User Story framing, Technical Notes, Scope boundaries' },
+          { slug: 'context-reviewer-story', label: 'Context Reviewer (Story)', note: 'Independent accuracy audit: checks all ACs present, no hallucinations, sections complete' },
       ]},
       { phase: 'Documentation & Enrichment', agents: [
           { slug: 'doc-writer-epic',    label: 'Doc Writer (Epic)',    note: 'Generates narrative epic doc.md from canonical context.md' },

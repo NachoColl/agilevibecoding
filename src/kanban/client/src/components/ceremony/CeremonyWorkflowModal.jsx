@@ -25,7 +25,9 @@ const AGENT_LABELS = {
   'project-context-extractor':            'Project Context Extractor',
   'agent-selector':                       'Agent Selector',
   'context-writer-epic':                  'Context Writer (Epic)',
+  'context-reviewer-epic':                'Context Reviewer (Epic)',
   'context-writer-story':                 'Context Writer (Story)',
+  'context-reviewer-story':               'Context Reviewer (Story)',
   'doc-writer-epic':                      'Doc Writer (Epic)',
   'doc-writer-story':                     'Doc Writer (Story)',
   'story-doc-enricher':                   'Story Doc Enricher',
@@ -310,12 +312,14 @@ function buildSprintPlanningPhases(ceremony) {
       steps: [
         {
           type:     'generate',
-          label:    'Generate complete canonical context.md for each Epic — Purpose, Scope, NFRs, Success Criteria (with self-scored iteration)',
+          label:    'Write + independently review each Epic/Story context.md (Write → Review → Refine, up to 3 rounds per item)',
           model:    ceremony.stages?.['context-generation']?.model ?? fallbackModel,
           stageKey: 'context-generation',
           agents: [
-            { slug: 'context-writer-epic',  note: 'writes epic context.md' },
-            { slug: 'context-writer-story', note: 'writes story context.md' },
+            { slug: 'context-writer-epic',   note: 'writes epic context.md' },
+            { slug: 'context-reviewer-epic',  note: 'audits epic context against source JSON' },
+            { slug: 'context-writer-story',   note: 'writes story context.md' },
+            { slug: 'context-reviewer-story', note: 'audits story context against source JSON' },
           ],
           files: [
             { name: '{epic}/context.md',  direction: 'out' },

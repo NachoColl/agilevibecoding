@@ -895,9 +895,11 @@ Return your response as JSON following the exact structure specified in your ins
    * @returns {Promise<string>} context.md text
    */
   async generateEpicContextMdLLM(epic, provider) {
-    const agentInstructions = loadAgent('context-writer-epic.md');
+    const writerInstructions  = loadAgent('context-writer-epic.md');
+    const reviewerInstructions = loadAgent('context-reviewer-epic.md');
     const rootSection = this.rootContextMd ? `## Project Context\n\n${this.rootContextMd}\n\n` : '';
-    // Include stories as lightweight refs (id + name only — no full story JSON to keep prompt size reasonable)
+
+    // Canonical source for both writer and reviewer
     const epicForContext = {
       id: epic.id,
       name: epic.name,
@@ -908,30 +910,52 @@ Return your response as JSON following the exact structure specified in your ins
       stories: (epic.stories || []).map(s => ({ id: s.id || 'TBD', name: s.name })),
     };
     const epicJson = JSON.stringify(epicForContext, null, 2);
-    const basePrompt = `${rootSection}## Epic JSON\n\n\`\`\`json\n${epicJson}\n\`\`\``;
+    const baseWriterPrompt   = `${rootSection}## Epic JSON\n\n\`\`\`json\n${epicJson}\n\`\`\``;
+    const baseReviewerPrompt = `${rootSection}## Original Epic JSON\n\n\`\`\`json\n${epicJson}\n\`\`\``;
 
-    let prompt = `${basePrompt}\n\nWrite the complete context.md for this epic.`;
     let bestContext = null;
-    let bestScore = 0;
+    let bestScore   = 0;
+    let writerPrompt = `${baseWriterPrompt}\n\nWrite the complete context.md for this epic.`;
 
+    // Write → Review → Refine loop (max 2 review rounds = max 3 LLM calls total)
     for (let iter = 0; iter < 3; iter++) {
-      const result = await provider.generateJSON(prompt, agentInstructions);
-      const contextText = (typeof result?.context === 'string' && result.context.trim()) ? result.context : null;
-      const score = typeof result?.completenessScore === 'number' ? result.completenessScore : 100;
-      const gaps = Array.isArray(result?.gaps) ? result.gaps : [];
+      // Step 1: Write (or refine)
+      const writeResult  = await provider.generateJSON(writerPrompt, writerInstructions);
+      const contextText  = (typeof writeResult?.context === 'string' && writeResult.context.trim()) ? writeResult.context : null;
+      const writerScore  = typeof writeResult?.completenessScore === 'number' ? writeResult.completenessScore : 100;
+      const writerGaps   = Array.isArray(writeResult?.gaps) ? writeResult.gaps : [];
 
-      if (contextText && score > bestScore) {
-        bestContext = contextText;
-        bestScore = score;
+      if (!contextText) {
+        this.debug(`[context-writer-epic] iter=${iter + 1} — no context returned, stopping (epic: ${epic.name})`);
+        break;
       }
 
-      this.debug(`[context-writer-epic] iter=${iter + 1} score=${score} gaps=${gaps.length} (epic: ${epic.name})`);
+      // Step 2: Independent review — verifies accuracy against source JSON
+      const reviewPrompt  = `${baseReviewerPrompt}\n\n## Generated context.md\n\n${contextText}\n\nAudit this context.md against the source JSON.`;
+      const reviewResult  = await provider.generateJSON(reviewPrompt, reviewerInstructions);
+      const reviewScore   = typeof reviewResult?.score === 'number' ? reviewResult.score : writerScore;
+      const reviewIssues  = Array.isArray(reviewResult?.issues) ? reviewResult.issues : [];
+      const accurate      = reviewResult?.accurate === true;
 
-      if (score >= 85 || gaps.length === 0 || iter === 2 || !contextText) break;
+      // Keep the best version seen so far
+      if (reviewScore > bestScore) {
+        bestContext = contextText;
+        bestScore   = reviewScore;
+      }
 
-      // Prepare refinement prompt with gaps
-      const gapText = gaps.map((g, i) => `${i + 1}. ${g}`).join('\n');
-      prompt = `${basePrompt}\n\n## Draft Context (Completeness: ${score}/100)\n\n${bestContext}\n\n## Gaps to Address\n\n${gapText}\n\nRevise the context.md to address all gaps above. Return improved JSON.`;
+      this.debug(`[context-epic] iter=${iter + 1} writerScore=${writerScore} reviewScore=${reviewScore} accurate=${accurate} issues=${reviewIssues.length} (epic: ${epic.name})`);
+
+      // Stop if reviewer confirms accuracy and score is high enough
+      if (accurate && reviewScore >= 85) break;
+      if (iter === 2) break; // max iterations reached
+
+      // Step 3: Build refinement prompt combining writer gaps + reviewer issues
+      const allFeedback = [
+        ...reviewIssues,
+        ...writerGaps.filter(g => !reviewIssues.some(i => i.includes(g.slice(0, 30)))),
+      ];
+      const feedbackText = allFeedback.map((f, i) => `${i + 1}. ${f}`).join('\n');
+      writerPrompt = `${baseWriterPrompt}\n\n## Draft Context (Review Score: ${reviewScore}/100)\n\n${contextText}\n\n## Issues to Fix\n\n${feedbackText}\n\nRevise the context.md to address all issues above. Return improved JSON.`;
     }
 
     return bestContext || this.generateEpicContextMd(epic);
@@ -948,9 +972,12 @@ Return your response as JSON following the exact structure specified in your ins
    * @returns {Promise<string>} context.md text
    */
   async generateStoryContextMdLLM(story, epic, epicContextMd, provider) {
-    const agentInstructions = loadAgent('context-writer-story.md');
-    const rootSection = this.rootContextMd ? `## Project Context\n\n${this.rootContextMd}\n\n` : '';
-    const epicSection = epicContextMd ? `## Parent Epic Context\n\n${epicContextMd}\n\n` : '';
+    const writerInstructions   = loadAgent('context-writer-story.md');
+    const reviewerInstructions = loadAgent('context-reviewer-story.md');
+    const rootSection  = this.rootContextMd ? `## Project Context\n\n${this.rootContextMd}\n\n` : '';
+    const epicSection  = epicContextMd ? `## Parent Epic Context\n\n${epicContextMd}\n\n` : '';
+
+    // Canonical source for both writer and reviewer
     const storyForContext = {
       id: story.id || 'TBD',
       name: story.name,
@@ -962,29 +989,50 @@ Return your response as JSON following the exact structure specified in your ins
       epicName: epic.name,
     };
     const storyJson = JSON.stringify(storyForContext, null, 2);
-    const basePrompt = `${rootSection}${epicSection}## Story JSON\n\n\`\`\`json\n${storyJson}\n\`\`\``;
+    const baseWriterPrompt   = `${rootSection}${epicSection}## Story JSON\n\n\`\`\`json\n${storyJson}\n\`\`\``;
+    const baseReviewerPrompt = `${rootSection}## Original Story JSON\n\n\`\`\`json\n${storyJson}\n\`\`\``;
 
-    let prompt = `${basePrompt}\n\nWrite the complete context.md for this story.`;
     let bestContext = null;
-    let bestScore = 0;
+    let bestScore   = 0;
+    let writerPrompt = `${baseWriterPrompt}\n\nWrite the complete context.md for this story.`;
 
+    // Write → Review → Refine loop (max 2 review rounds = max 3 LLM calls total)
     for (let iter = 0; iter < 3; iter++) {
-      const result = await provider.generateJSON(prompt, agentInstructions);
-      const contextText = (typeof result?.context === 'string' && result.context.trim()) ? result.context : null;
-      const score = typeof result?.completenessScore === 'number' ? result.completenessScore : 100;
-      const gaps = Array.isArray(result?.gaps) ? result.gaps : [];
+      // Step 1: Write (or refine)
+      const writeResult = await provider.generateJSON(writerPrompt, writerInstructions);
+      const contextText = (typeof writeResult?.context === 'string' && writeResult.context.trim()) ? writeResult.context : null;
+      const writerScore = typeof writeResult?.completenessScore === 'number' ? writeResult.completenessScore : 100;
+      const writerGaps  = Array.isArray(writeResult?.gaps) ? writeResult.gaps : [];
 
-      if (contextText && score > bestScore) {
-        bestContext = contextText;
-        bestScore = score;
+      if (!contextText) {
+        this.debug(`[context-writer-story] iter=${iter + 1} — no context returned, stopping (story: ${story.name})`);
+        break;
       }
 
-      this.debug(`[context-writer-story] iter=${iter + 1} score=${score} gaps=${gaps.length} (story: ${story.name})`);
+      // Step 2: Independent review — verifies accuracy against source JSON
+      const reviewPrompt  = `${baseReviewerPrompt}\n\n## Generated context.md\n\n${contextText}\n\nAudit this context.md against the source JSON.`;
+      const reviewResult  = await provider.generateJSON(reviewPrompt, reviewerInstructions);
+      const reviewScore   = typeof reviewResult?.score === 'number' ? reviewResult.score : writerScore;
+      const reviewIssues  = Array.isArray(reviewResult?.issues) ? reviewResult.issues : [];
+      const accurate      = reviewResult?.accurate === true;
 
-      if (score >= 85 || gaps.length === 0 || iter === 2 || !contextText) break;
+      if (reviewScore > bestScore) {
+        bestContext = contextText;
+        bestScore   = reviewScore;
+      }
 
-      const gapText = gaps.map((g, i) => `${i + 1}. ${g}`).join('\n');
-      prompt = `${basePrompt}\n\n## Draft Context (Completeness: ${score}/100)\n\n${bestContext}\n\n## Gaps to Address\n\n${gapText}\n\nRevise the context.md to address all gaps above. Return improved JSON.`;
+      this.debug(`[context-story] iter=${iter + 1} writerScore=${writerScore} reviewScore=${reviewScore} accurate=${accurate} issues=${reviewIssues.length} (story: ${story.name})`);
+
+      if (accurate && reviewScore >= 85) break;
+      if (iter === 2) break;
+
+      // Step 3: Refinement prompt combining reviewer issues + writer gaps
+      const allFeedback = [
+        ...reviewIssues,
+        ...writerGaps.filter(g => !reviewIssues.some(i => i.includes(g.slice(0, 30)))),
+      ];
+      const feedbackText = allFeedback.map((f, i) => `${i + 1}. ${f}`).join('\n');
+      writerPrompt = `${baseWriterPrompt}\n\n## Draft Context (Review Score: ${reviewScore}/100)\n\n${contextText}\n\n## Issues to Fix\n\n${feedbackText}\n\nRevise the context.md to address all issues above. Return improved JSON.`;
     }
 
     return bestContext || this.generateStoryContextMd(story, epic);
