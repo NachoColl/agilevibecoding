@@ -237,10 +237,19 @@ export function AskModelPopup({ onUse, onClose, onOpenSettings }) {
   }, []);
 
   function recheckKeys() {
-    getSettings()
-      .then((s) => setApiKeyStatus(s.apiKeys ?? {}))
+    Promise.all([getSettings(), getModels()])
+      .then(([s, updatedModels]) => {
+        setApiKeyStatus(s.apiKeys ?? {});
+        setModels(updatedModels);
+      })
       .catch(() => {});
   }
+
+  // Auto-recheck when settings are saved from anywhere in the app
+  useEffect(() => {
+    document.addEventListener('avc:settings-saved', recheckKeys);
+    return () => document.removeEventListener('avc:settings-saved', recheckKeys);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const selectedModel = models.find((m) => m.modelId === selectedModelId);
   const selectedValidatorModel = models.find((m) => m.modelId === selectedValidatorModelId);

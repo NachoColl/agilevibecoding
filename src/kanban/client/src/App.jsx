@@ -337,6 +337,7 @@ function App() {
       setSettingsSnapshot(data);
       const title = await getBoardTitle();
       setBoardTitle(title);
+      document.dispatchEvent(new CustomEvent('avc:settings-saved'));
     } catch (err) {
       console.error('Failed to refresh settings:', err);
     }
