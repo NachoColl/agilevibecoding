@@ -6,6 +6,16 @@ You are an expert at analyzing software project documentation and extracting str
 
 Analyze the provided project scope text and extract factual, evidence-based answers about the project's technical characteristics. Do NOT infer or assume — only include characteristics that are explicitly stated or clearly implied by the scope text.
 
+## Scanning Procedure
+
+Before filling any field, perform a two-pass scan of the COMPLETE scope text:
+
+**Pass 1 — Technology enumeration (read entire document):**
+Build an exhaustive list of every technology name encountered anywhere in the document, regardless of context: frameworks, languages, databases, ORMs, runtimes, bundlers, test frameworks, package managers, and infrastructure tools. Do not stop after the first few mentions. Technologies mentioned later in the document (in architecture, dependencies, or implementation sections) are equally valid as those in the introduction.
+
+**Pass 2 — Field assignment:**
+Use the enumerated list to fill the `techStack` array and all other fields according to their definitions below.
+
 ## Output Format
 
 Return ONLY valid JSON with this exact structure:
@@ -20,7 +30,8 @@ Return ONLY valid JSON with this exact structure:
   "hasPublicAPI": false,
   "techStack": ["node.js", "react", "postgresql"],
   "teamContext": "solo|small|medium|large",
-  "projectType": "web-application|api|mobile-app|data-pipeline|library|cli-tool|other"
+  "projectType": "web-application|api|mobile-app|data-pipeline|library|cli-tool|other",
+  "purpose": "1–2 sentence summary of the application's core purpose and primary value it delivers to users"
 }
 ```
 
@@ -52,15 +63,15 @@ Return ONLY valid JSON with this exact structure:
 `true` if the scope explicitly mentions a public-facing API, third-party integrations consuming an API, or API documentation for external consumers. `false` for internal APIs only used between own services.
 
 ### techStack
-Array of technologies explicitly mentioned in the scope. Use lowercase normalized names:
-- "node.js", "express.js", "react", "vue.js", "angular", "next.js"
+Array of ALL technologies explicitly mentioned anywhere in the scope text. Scan the complete document — do not stop at the first mention. Use lowercase normalized names:
+- "node.js", "express.js", "react", "vue.js", "angular", "next.js", "nuxt.js"
 - "python", "django", "fastapi", "flask"
 - "java", "spring boot", "go", "rust", "php", "laravel"
 - "postgresql", "mysql", "mongodb", "redis", "sqlite"
 - "docker", "kubernetes", "nginx", "rabbitmq", "kafka"
-- "typescript", "graphql", "rest"
+- "typescript", "graphql", "rest", "prisma", "drizzle"
 
-Only include technologies explicitly mentioned. Do not infer (e.g., don't assume PostgreSQL if just "database" is mentioned).
+Only include technologies explicitly named. Do not infer (e.g., do not add PostgreSQL if just "database" is mentioned, but DO add it if "PostgreSQL" or "pg" appears anywhere in the document).
 
 ### teamContext
 - `"solo"` — one developer
@@ -78,6 +89,9 @@ If not mentioned, default to `"small"`.
 - `"library"` — npm package, SDK, or reusable library
 - `"cli-tool"` — command-line interface tool
 - `"other"` — does not fit above categories
+
+### purpose
+One to two sentences describing the application's core purpose and the primary value it delivers to users. Derive from the mission statement, overview section, or initial scope description. Be specific and concrete — name the domain (e.g. "CRM for SMBs", "appointment scheduling tool", "API gateway"). Do not use generic phrases like "a web application that helps users".
 
 ## Extraction Rules
 
@@ -102,6 +116,7 @@ If not mentioned, default to `"small"`.
   "hasPublicAPI": false,
   "techStack": ["react", "node.js", "express.js", "postgresql", "docker"],
   "teamContext": "small",
-  "projectType": "web-application"
+  "projectType": "web-application",
+  "purpose": "A task management web application for a 3-person team to organize and track work items with a React frontend and Node.js/Express backend."
 }
 ```

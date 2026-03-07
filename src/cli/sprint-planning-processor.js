@@ -47,6 +47,11 @@ class SprintPlanningProcessor {
     // Stage provider cache
     this._stageProviders = {};
 
+    // LLM-generated context.md cache (keyed by epic.name / "epicName::storyName")
+    // Populated by generateContextFiles() before validation; consumed by validation loop and writeHierarchyFiles()
+    this._epicContextCache = new Map();
+    this._storyContextCache = new Map();
+
     // Initialize prompt logger (writes per-call prompt/response JSON files)
     this._promptLogger = new PromptLogger(process.cwd(), 'sprint-planning');
 
@@ -759,13 +764,411 @@ Return your response as JSON following the exact structure specified in your ins
     try {
       const provider = await this.getProviderForStageInstance('validation');
       const agent = loadAgent('project-context-extractor.md');
-      const prompt = `PROJECT SCOPE:\n\n${scope.substring(0, 3000)}\n\nExtract the structured project context as JSON.`;
+      // Use full doc.md for tech stack extraction — the "Initial Scope" section alone
+      // omits tech info from Overview (§1), UI/UX Design (§5), and Technical Architecture (§6).
+      let extractionText = scope || '';
+      if (fs.existsSync(this.projectDocPath)) {
+        extractionText = fs.readFileSync(this.projectDocPath, 'utf8');
+        this.debug(`Using full doc.md for context extraction (${extractionText.length} chars)`);
+      }
+      const prompt = `PROJECT SCOPE:\n\n${extractionText.substring(0, 20000)}\n\nScan the entire document above from start to finish for ALL technology mentions before filling each field. Do not stop at the first occurrence. Extract the structured project context as JSON.`;
       const result = await provider.generateJSON(prompt, agent);
       return result || {};
     } catch (err) {
       this.debug('Project context extraction failed, continuing without context', { error: err.message });
       return {};
     }
+  }
+
+  /**
+   * Generate canonical root context.md content from extracted project context + doc.md.
+   * Written once per run to {projectPath}/context.md — no LLM call needed.
+   * @param {Object} projectContext - JSON from project-context-extractor
+   * @param {string} docMdContent - Full root doc.md content
+   * @returns {string}
+   */
+  generateRootContextMd(projectContext, docMdContent) {
+    const ctx = projectContext || {};
+    const stack = (ctx.techStack || []).map(t => `- ${t}`).join('\n') || '- (not detected)';
+
+    // Purpose comes from the LLM-extracted field — no regex needed.
+    const purposeText = (ctx.purpose || '').trim();
+
+    const lines = [
+      '# Project Context',
+      '',
+      '## Identity',
+      `- type: ${ctx.projectType || 'web-application'}`,
+      `- deployment: ${ctx.deploymentType || 'local'}`,
+      `- team: ${ctx.teamContext || 'small'}`,
+      '',
+      '## Purpose',
+      purposeText || '(see root doc.md)',
+      '',
+      '## Tech Stack',
+      stack,
+      '',
+      '## Project Characteristics',
+      `- hasCloud: ${ctx.hasCloud ?? false}`,
+      `- hasCI_CD: ${ctx.hasCI_CD ?? false}`,
+      `- hasMobileApp: ${ctx.hasMobileApp ?? false}`,
+      `- hasFrontend: ${ctx.hasFrontend ?? true}`,
+      `- hasPublicAPI: ${ctx.hasPublicAPI ?? false}`,
+    ];
+    return lines.join('\n');
+  }
+
+  /**
+   * Generate canonical context.md string for an epic from its JSON fields.
+   * No LLM call needed — derived directly from decomposition output.
+   * @param {Object} epic
+   * @returns {string}
+   */
+  generateEpicContextMd(epic) {
+    const features = (epic.features || []).map(f => `- ${f}`).join('\n') || '- (none)';
+    const deps = epic.dependencies || [];
+    const optional = deps.filter(d => /optional/i.test(d));
+    const required = deps.filter(d => !/optional/i.test(d));
+    const reqLines = required.length ? required.map(d => `- ${d}`).join('\n') : '- (none)';
+    const storyCount = (epic.stories || []).length;
+    const lines = [
+      `# Epic: ${epic.name}`,
+      '',
+      '## Identity',
+      `- id: ${epic.id || '(pending)'}`,
+      `- domain: ${epic.domain}`,
+      `- stories: ${storyCount}`,
+      '',
+      '## Summary',
+      epic.description || '(no description)',
+      '',
+      '## Features',
+      features,
+      '',
+      '## Dependencies',
+      '',
+      '### Required',
+      reqLines,
+    ];
+    if (optional.length) {
+      lines.push('', '### Optional');
+      optional.forEach(d => lines.push(`- ${d}`));
+    }
+    return lines.join('\n');
+  }
+
+  /**
+   * Generate canonical context.md string for a story from its JSON fields.
+   * No LLM call needed — derived directly from decomposition output.
+   * @param {Object} story
+   * @param {Object} epic - Parent epic for identity context
+   * @returns {string}
+   */
+  generateStoryContextMd(story, epic) {
+    const ac = (story.acceptance || []).map((a, i) => `${i + 1}. ${a}`).join('\n') || '1. (none)';
+    const deps = (story.dependencies || []).map(d => `- ${d}`).join('\n') || '- (none)';
+    return [
+      `# Story: ${story.name}`,
+      '',
+      '## Identity',
+      `- id: ${story.id || '(pending)'}`,
+      `- epic: ${epic.id || '(pending)'} (${epic.name})`,
+      `- userType: ${story.userType || 'team member'}`,
+      '',
+      '## Summary',
+      story.description || '(no description)',
+      '',
+      '## Acceptance Criteria',
+      ac,
+      '',
+      '## Dependencies',
+      deps,
+    ].join('\n');
+  }
+
+  /**
+   * Generate a complete canonical context.md for an epic using an LLM agent.
+   * Iterates up to 2 refinement rounds if the agent self-reports completenessScore < 85.
+   * Falls back to the structured formatter if the LLM call fails.
+   * @param {Object} epic
+   * @param {LLMProvider} provider
+   * @returns {Promise<string>} context.md text
+   */
+  async generateEpicContextMdLLM(epic, provider) {
+    const agentInstructions = loadAgent('context-writer-epic.md');
+    const rootSection = this.rootContextMd ? `## Project Context\n\n${this.rootContextMd}\n\n` : '';
+    // Include stories as lightweight refs (id + name only — no full story JSON to keep prompt size reasonable)
+    const epicForContext = {
+      id: epic.id,
+      name: epic.name,
+      domain: epic.domain,
+      description: epic.description,
+      features: epic.features || [],
+      dependencies: epic.dependencies || [],
+      stories: (epic.stories || []).map(s => ({ id: s.id || 'TBD', name: s.name })),
+    };
+    const epicJson = JSON.stringify(epicForContext, null, 2);
+    const basePrompt = `${rootSection}## Epic JSON\n\n\`\`\`json\n${epicJson}\n\`\`\``;
+
+    let prompt = `${basePrompt}\n\nWrite the complete context.md for this epic.`;
+    let bestContext = null;
+    let bestScore = 0;
+
+    for (let iter = 0; iter < 3; iter++) {
+      const result = await provider.generateJSON(prompt, agentInstructions);
+      const contextText = (typeof result?.context === 'string' && result.context.trim()) ? result.context : null;
+      const score = typeof result?.completenessScore === 'number' ? result.completenessScore : 100;
+      const gaps = Array.isArray(result?.gaps) ? result.gaps : [];
+
+      if (contextText && score > bestScore) {
+        bestContext = contextText;
+        bestScore = score;
+      }
+
+      this.debug(`[context-writer-epic] iter=${iter + 1} score=${score} gaps=${gaps.length} (epic: ${epic.name})`);
+
+      if (score >= 85 || gaps.length === 0 || iter === 2 || !contextText) break;
+
+      // Prepare refinement prompt with gaps
+      const gapText = gaps.map((g, i) => `${i + 1}. ${g}`).join('\n');
+      prompt = `${basePrompt}\n\n## Draft Context (Completeness: ${score}/100)\n\n${bestContext}\n\n## Gaps to Address\n\n${gapText}\n\nRevise the context.md to address all gaps above. Return improved JSON.`;
+    }
+
+    return bestContext || this.generateEpicContextMd(epic);
+  }
+
+  /**
+   * Generate a complete canonical context.md for a story using an LLM agent.
+   * Iterates up to 2 refinement rounds if the agent self-reports completenessScore < 85.
+   * Falls back to the structured formatter if the LLM call fails.
+   * @param {Object} story
+   * @param {Object} epic - Parent epic
+   * @param {string} epicContextMd - Parent epic's generated context.md
+   * @param {LLMProvider} provider
+   * @returns {Promise<string>} context.md text
+   */
+  async generateStoryContextMdLLM(story, epic, epicContextMd, provider) {
+    const agentInstructions = loadAgent('context-writer-story.md');
+    const rootSection = this.rootContextMd ? `## Project Context\n\n${this.rootContextMd}\n\n` : '';
+    const epicSection = epicContextMd ? `## Parent Epic Context\n\n${epicContextMd}\n\n` : '';
+    const storyForContext = {
+      id: story.id || 'TBD',
+      name: story.name,
+      userType: story.userType || 'team member',
+      description: story.description,
+      acceptance: story.acceptance || [],
+      dependencies: story.dependencies || [],
+      epicId: epic.id || 'TBD',
+      epicName: epic.name,
+    };
+    const storyJson = JSON.stringify(storyForContext, null, 2);
+    const basePrompt = `${rootSection}${epicSection}## Story JSON\n\n\`\`\`json\n${storyJson}\n\`\`\``;
+
+    let prompt = `${basePrompt}\n\nWrite the complete context.md for this story.`;
+    let bestContext = null;
+    let bestScore = 0;
+
+    for (let iter = 0; iter < 3; iter++) {
+      const result = await provider.generateJSON(prompt, agentInstructions);
+      const contextText = (typeof result?.context === 'string' && result.context.trim()) ? result.context : null;
+      const score = typeof result?.completenessScore === 'number' ? result.completenessScore : 100;
+      const gaps = Array.isArray(result?.gaps) ? result.gaps : [];
+
+      if (contextText && score > bestScore) {
+        bestContext = contextText;
+        bestScore = score;
+      }
+
+      this.debug(`[context-writer-story] iter=${iter + 1} score=${score} gaps=${gaps.length} (story: ${story.name})`);
+
+      if (score >= 85 || gaps.length === 0 || iter === 2 || !contextText) break;
+
+      const gapText = gaps.map((g, i) => `${i + 1}. ${g}`).join('\n');
+      prompt = `${basePrompt}\n\n## Draft Context (Completeness: ${score}/100)\n\n${bestContext}\n\n## Gaps to Address\n\n${gapText}\n\nRevise the context.md to address all gaps above. Return improved JSON.`;
+    }
+
+    return bestContext || this.generateStoryContextMd(story, epic);
+  }
+
+  /**
+   * Pre-generate LLM context.md for all epics and stories before validation.
+   * Results are cached in _epicContextCache (keyed by epic.name) and
+   * _storyContextCache (keyed by "epicName::storyName").
+   * Uses 'context-generation' stage config if defined; falls back to 'doc-generation'.
+   * @param {Object} hierarchy
+   * @param {Function} progressCallback
+   */
+  async generateContextFiles(hierarchy, progressCallback = null) {
+    this.debugStage(4.8, 'Pre-generate LLM Context Files');
+    this._epicContextCache = new Map();
+    this._storyContextCache = new Map();
+
+    // Use context-generation stage if configured; fall back to doc-generation then ceremony default
+    const stageName = this.stagesConfig?.['context-generation'] ? 'context-generation' : 'doc-generation';
+    const provider = await this.getProviderForStageInstance(stageName);
+    const { model: modelName } = this.getProviderForStage(stageName);
+    this.debug(`Context generation using model: ${modelName}`);
+
+    const epicCount = hierarchy.epics.length;
+    const storyCount = hierarchy.epics.reduce((s, e) => s + (e.stories?.length || 0), 0);
+    await progressCallback?.(null, `Generating context for ${epicCount} epics + ${storyCount} stories…`, {});
+
+    // Phase 1: Generate all epic contexts in parallel
+    await Promise.all(hierarchy.epics.map(async (epic) => {
+      try {
+        this.debug(`Generating context for epic: ${epic.name}`);
+        const epicContextMd = await this.generateEpicContextMdLLM(epic, provider);
+        this._epicContextCache.set(epic.name, epicContextMd);
+        this.debug(`Epic context generated: ${epic.name} (${epicContextMd.length} bytes)`);
+      } catch (err) {
+        this.debug(`Epic context generation failed — using structured fallback (${epic.name})`, { error: err.message });
+        this._epicContextCache.set(epic.name, this.generateEpicContextMd(epic));
+      }
+    }));
+
+    // Phase 2: Generate all story contexts in parallel (stories can use cached epic context)
+    const storyTasks = hierarchy.epics.flatMap(epic =>
+      (epic.stories || []).map(story => ({ epic, story }))
+    );
+
+    await Promise.all(storyTasks.map(async ({ epic, story }) => {
+      const epicContextMd = this._epicContextCache.get(epic.name) || this.generateEpicContextMd(epic);
+      const cacheKey = `${epic.name}::${story.name}`;
+      try {
+        this.debug(`Generating context for story: ${story.name}`);
+        const storyContextMd = await this.generateStoryContextMdLLM(story, epic, epicContextMd, provider);
+        this._storyContextCache.set(cacheKey, storyContextMd);
+        this.debug(`Story context generated: ${story.name} (${storyContextMd.length} bytes)`);
+      } catch (err) {
+        this.debug(`Story context generation failed — using structured fallback (${story.name})`, { error: err.message });
+        this._storyContextCache.set(cacheKey, this.generateStoryContextMd(story, epic));
+      }
+    }));
+
+    this.debug(`Context generation complete: ${this._epicContextCache.size} epic contexts, ${this._storyContextCache.size} story contexts`);
+  }
+
+  /**
+   * Generate narrative doc.md files for all epics and stories from their canonical context.md.
+   * Replaces the old doc-distribution stage. Uses doc-writer-epic.md and doc-writer-story.md agents.
+   *
+   * Context chain:
+   *   Epic doc.md  : root doc.md + epic context.md → narrative
+   *   Story doc.md : root doc.md + parent epic context.md + story context.md → narrative
+   *
+   * Strict: agents are instructed not to add scope beyond what is in context.md.
+   *
+   * @param {Object} hierarchy - Hierarchy with final validated epics and stories (real IDs)
+   * @param {string} rootDocContent - Content of root doc.md
+   * @param {Function} progressCallback
+   */
+  async generateDocFiles(hierarchy, rootDocContent, progressCallback = null) {
+    this.debugStage(6.5, 'Generate Narrative doc.md Files from Canonical context.md');
+
+    const epicAgentInstructions = loadAgent('doc-writer-epic.md');
+    const storyAgentInstructions = loadAgent('doc-writer-story.md');
+    // Uses 'doc-generation' stage config if defined; falls back to ceremony-level provider
+    const provider = await this.getProviderForStageInstance('doc-generation');
+
+    const doGenerate = rootDocContent && rootDocContent.length > 0;
+    if (!doGenerate) {
+      this.debug('No root doc.md content — skipping doc generation, writing minimal stubs');
+    }
+
+    await Promise.all(hierarchy.epics.map(async (epic) => {
+      const epicDir = path.join(this.projectPath, epic.id);
+      const epicContextPath = path.join(epicDir, 'context.md');
+      const epicDocPath = path.join(epicDir, 'doc.md');
+
+      // Read the epic's canonical context.md (written earlier in writeHierarchyFiles)
+      let epicContextMd = '';
+      if (fs.existsSync(epicContextPath)) {
+        epicContextMd = fs.readFileSync(epicContextPath, 'utf8');
+      } else {
+        epicContextMd = this.generateEpicContextMd(epic);
+      }
+
+      // Generate epic doc.md
+      if (doGenerate) {
+        await progressCallback?.(null, `Generating documentation → ${epic.name}`, {});
+        this.debug(`Generating doc.md for epic ${epic.id}: ${epic.name}`);
+        try {
+          const prompt = `## Project Documentation\n\n${rootDocContent}\n\n---\n\n## Epic Canonical Specification\n\n${epicContextMd}\n\nWrite the epic's doc.md. Return JSON with a \`doc\` field.`;
+          const result = await this._withProgressHeartbeat(
+            () => this.retryWithBackoff(
+              () => provider.generateJSON(prompt, epicAgentInstructions),
+              `doc generation for epic: ${epic.name}`
+            ),
+            (elapsed) => {
+              if (elapsed < 15) return `Writing ${epic.name} documentation…`;
+              if (elapsed < 40) return `Expanding ${epic.name} narrative…`;
+              return `Still writing…`;
+            },
+            progressCallback,
+            10000
+          );
+          const epicDoc = (typeof result.doc === 'string' && result.doc.trim())
+            ? result.doc
+            : `# ${epic.name}\n\n${epic.description || ''}\n`;
+          fs.writeFileSync(epicDocPath, epicDoc, 'utf8');
+          this.debug(`Epic doc.md written: ${epicDoc.length} bytes`);
+        } catch (err) {
+          this.debug(`Epic doc generation failed for ${epic.id} — writing stub`, { error: err.message });
+          fs.writeFileSync(epicDocPath, `# ${epic.name}\n\n${epic.description || ''}\n`, 'utf8');
+        }
+      } else {
+        fs.writeFileSync(epicDocPath, `# ${epic.name}\n\n${epic.description || ''}\n`, 'utf8');
+      }
+
+      // Generate story doc.md files in parallel within this epic
+      await Promise.all((epic.stories || []).map(async (story) => {
+        const storyDir = path.join(epicDir, story.id);
+        const storyContextPath = path.join(storyDir, 'context.md');
+        const storyDocPath = path.join(storyDir, 'doc.md');
+
+        let storyContextMd = '';
+        if (fs.existsSync(storyContextPath)) {
+          storyContextMd = fs.readFileSync(storyContextPath, 'utf8');
+        } else {
+          storyContextMd = this.generateStoryContextMd(story, epic);
+        }
+
+        if (doGenerate) {
+          await progressCallback?.(null, `  Generating documentation → ${story.name}`, {});
+          this.debug(`Generating doc.md for story ${story.id}: ${story.name}`);
+          try {
+            const prompt = `## Project Documentation\n\n${rootDocContent}\n\n---\n\n## Parent Epic Canonical Specification\n\n${epicContextMd}\n\n---\n\n## Story Canonical Specification\n\n${storyContextMd}\n\nWrite the story's doc.md. Return JSON with a \`doc\` field.`;
+            const result = await this._withProgressHeartbeat(
+              () => this.retryWithBackoff(
+                () => provider.generateJSON(prompt, storyAgentInstructions),
+                `doc generation for story: ${story.name}`
+              ),
+              (elapsed) => {
+                if (elapsed < 15) return `Writing ${story.name} documentation…`;
+                if (elapsed < 40) return `Expanding ${story.name} narrative…`;
+                return `Still writing…`;
+              },
+              progressCallback,
+              10000
+            );
+            const storyDoc = (typeof result.doc === 'string' && result.doc.trim())
+              ? result.doc
+              : `# ${story.name}\n\n${story.description || ''}\n`;
+            fs.writeFileSync(storyDocPath, storyDoc, 'utf8');
+            this.debug(`Story doc.md written: ${storyDoc.length} bytes`);
+          } catch (err) {
+            this.debug(`Story doc generation failed for ${story.id} — writing stub`, { error: err.message });
+            fs.writeFileSync(storyDocPath, `# ${story.name}\n\n${story.description || ''}\n`, 'utf8');
+          }
+        } else {
+          fs.writeFileSync(storyDocPath, `# ${story.name}\n\n${story.description || ''}\n`, 'utf8');
+        }
+      }));
+    }));
+
+    const epicCount = hierarchy.epics.length;
+    const storyCount = hierarchy.epics.reduce((s, e) => s + (e.stories?.length || 0), 0);
+    this.debug(`Doc generation complete: ${epicCount} epics + ${storyCount} stories`);
   }
 
   // STAGE 5: Multi-Agent Validation
@@ -798,6 +1201,31 @@ Return your response as JSON following the exact structure specified in your ins
       this.debug('useContextualSelection=true but no scope available — skipping context extraction');
     }
 
+    // Generate and write root context.md (canonical project representation)
+    let rootContextMd = null;
+    try {
+      let docMdContent = '';
+      if (fs.existsSync(this.projectDocPath)) {
+        docMdContent = fs.readFileSync(this.projectDocPath, 'utf8');
+      }
+      rootContextMd = this.generateRootContextMd(projectContext || {}, docMdContent);
+      const rootContextPath = path.join(this.projectPath, 'context.md');
+      fs.writeFileSync(rootContextPath, rootContextMd, 'utf8');
+      this.debug(`Root context.md written (${rootContextMd.length} bytes)`);
+    } catch (err) {
+      this.debug('Failed to write root context.md — continuing without it', { error: err.message });
+    }
+
+    // Store root context on this instance so LLM context writers can access it
+    this.rootContextMd = rootContextMd;
+
+    // Pre-generate LLM context.md for all epics and stories before validation
+    // This gives validators rich, complete context rather than sparse structured stubs
+    await progressCallback?.(null, 'Generating canonical context for epics and stories…', {});
+    const _tsCtx = Date.now();
+    await this.generateContextFiles(hierarchy, progressCallback);
+    this.debugTiming('generateContextFiles', _tsCtx);
+
     const validator = new EpicStoryValidator(
       this.llmProvider,
       this.verificationTracker,
@@ -807,6 +1235,7 @@ Return your response as JSON following the exact structure specified in your ins
       projectContext
     );
     this._validator = validator;
+    if (rootContextMd) this._validator.setRootContextMd(rootContextMd);
     this._validator.setPromptLogger(this._promptLogger);
     this._validator.setTokenCallback((delta, stageHint) => {
       const key = stageHint
@@ -824,8 +1253,8 @@ Return your response as JSON following the exact structure specified in your ins
       this.debug(`\nValidating Epic: ${epic.id} "${epic.name}"`);
       await progressCallback?.(null, `Validating Epic: ${epic.name}`, {});
 
-      // Build epic context string for validation
-      const epicContext = `# Epic: ${epic.name}\n\n**Description:** ${epic.description}\n\n**Domain:** ${epic.domain}\n\n**Features:**\n${(epic.features || []).map(f => `- ${f}`).join('\n')}\n`;
+      // Use LLM-generated context if available; fall back to structured format
+      const epicContext = this._epicContextCache.get(epic.name) || this.generateEpicContextMd(epic);
 
       // Validate epic with multiple domain validators
       const _tsEpic = Date.now();
@@ -846,8 +1275,8 @@ Return your response as JSON following the exact structure specified in your ins
         this.debug(`\nValidating Story: ${story.id} "${story.name}"`);
         await progressCallback?.(null, `  Validating story: ${story.name}`, {});
 
-        // Build story context string for validation
-        const storyContext = `# Story: ${story.name}\n\n**User Type:** ${story.userType}\n\n**Description:** ${story.description}\n\n**Acceptance Criteria:**\n${(story.acceptance || []).map((ac, i) => `${i + 1}. ${ac}`).join('\n')}\n\n**Parent Epic:** ${epic.name} (${epic.domain})\n`;
+        // Use LLM-generated context if available; fall back to structured format
+        const storyContext = this._storyContextCache.get(`${epic.name}::${story.name}`) || this.generateStoryContextMd(story, epic);
 
         // Validate story with multiple domain validators
         const _tsStory = Date.now();
@@ -1063,21 +1492,17 @@ Return your response as JSON following the exact structure specified in your ins
     this.debugStage(7, 'Write Hierarchy Files + Distribute Documentation');
     this.debug('Writing hierarchy files with documentation distribution');
 
-    // Read the root project doc.md (used as source for all epic distributions)
-    let projectDocContent = '';
-    if (fs.existsSync(this.projectDocPath)) {
-      projectDocContent = fs.readFileSync(this.projectDocPath, 'utf8');
-      this.debug(`Read project doc.md (${projectDocContent.length} bytes) for distribution`);
-    } else {
-      this.debug('project/doc.md not found — skipping documentation distribution');
-    }
-
-    const doDistribute = projectDocContent.length > 0;
-
-    // Phase 1 (sync): Create all directories and write all work.json files
+    // Phase 1 (sync): Create all directories, write work.json and context.md files
     for (const epic of hierarchy.epics) {
       const epicDir = path.join(this.projectPath, epic.id);
       if (!fs.existsSync(epicDir)) fs.mkdirSync(epicDir, { recursive: true });
+
+      // Use LLM-generated context if cached; patch the id line since IDs may have changed after renumbering
+      let epicContextMd = this._epicContextCache.get(epic.name) || this.generateEpicContextMd(epic);
+      epicContextMd = epicContextMd.replace(/^(- id: ).+$/m, `$1${epic.id}`);
+      const epicContextPath = path.join(epicDir, 'context.md');
+      fs.writeFileSync(epicContextPath, epicContextMd, 'utf8');
+      this.debug(`Writing ${epicContextPath} (${epicContextMd.length} bytes)`);
 
       const epicWorkJson = {
         id: epic.id,
@@ -1104,6 +1529,14 @@ Return your response as JSON following the exact structure specified in your ins
         const storyDir = path.join(epicDir, story.id);
         if (!fs.existsSync(storyDir)) fs.mkdirSync(storyDir, { recursive: true });
 
+        // Use LLM-generated context if cached; patch id and epic-ref lines after renumbering
+        let storyContextMd = this._storyContextCache.get(`${epic.name}::${story.name}`) || this.generateStoryContextMd(story, epic);
+        storyContextMd = storyContextMd.replace(/^(- id: ).+$/m, `$1${story.id}`);
+        storyContextMd = storyContextMd.replace(/^(- epic: ).+$/m, `$1${epic.id} (${epic.name})`);
+        const storyContextPath = path.join(storyDir, 'context.md');
+        fs.writeFileSync(storyContextPath, storyContextMd, 'utf8');
+        this.debug(`Writing ${storyContextPath} (${storyContextMd.length} bytes)`);
+
         const storyWorkJson = {
           id: story.id,
           name: story.name,
@@ -1127,66 +1560,25 @@ Return your response as JSON following the exact structure specified in your ins
       }
     }
 
-    // Phase 2 (parallel): Distribute docs — all epics concurrently, stories within each epic concurrently
-    await Promise.all(
-      hierarchy.epics.map(async (epic) => {
-        const epicDir = path.join(this.projectPath, epic.id);
-
-        // Distribute epic doc from project doc
-        let epicDocContent;
-        if (doDistribute) {
-          await progressCallback?.(null, `Distributing documentation → ${epic.name}`, {});
-          this.debug(`Distributing docs: project/doc.md → ${epic.id}/doc.md`);
-          const result = await this.distributeDocContent(projectDocContent, epic, 'epic', progressCallback);
-          epicDocContent = result.childDoc;
-          this.debug(`Epic doc ${epic.id}: ${epicDocContent.length} bytes`);
-        } else {
-          await progressCallback?.(null, `Writing Epic: ${epic.name}`, {});
-          epicDocContent = `# ${epic.name}\n\n${epic.description || ''}\n`;
-        }
-
-        // Distribute all story docs from epic doc — in parallel within this epic
-        const storyDocs = await Promise.all(
-          (epic.stories || []).map(async (story) => {
-            if (!doDistribute) {
-              return `# ${story.name}\n\n${story.description || ''}\n`;
-            }
-            await progressCallback?.(null, `  Distributing documentation → ${story.name}`, {});
-            this.debug(`Distributing docs: ${epic.id}/doc.md → ${story.id}/doc.md`);
-            const result = await this.distributeDocContent(epicDocContent, story, 'story', progressCallback);
-            this.debug(`Story doc ${story.id}: ${result.childDoc.length} bytes`);
-            return result.childDoc;
-          })
-        );
-
-        // Write all doc.md files for this epic
-        const epicDocPath = path.join(epicDir, 'doc.md');
-        fs.writeFileSync(epicDocPath, epicDocContent, 'utf8');
-        this.debug(`Writing ${epicDocPath} (${epicDocContent.length} bytes)`);
-
-        (epic.stories || []).forEach((story, si) => {
-          const storyDocPath = path.join(epicDir, story.id, 'doc.md');
-          fs.writeFileSync(storyDocPath, storyDocs[si], 'utf8');
-          this.debug(`Writing ${storyDocPath} (${storyDocs[si].length} bytes)`);
-        });
-      })
-    );
+    // Phase 2 (doc.md): Handled by generateDocFiles() called after this method.
+    // context.md files written in Phase 1 are the canonical source for doc generation.
 
     const epicCount = hierarchy.epics.length;
     const storyCount = hierarchy.epics.reduce((sum, epic) => sum + (epic.stories || []).length, 0);
 
     // Log all files written this run for cross-run comparison
-    this.debugSection('FILES WRITTEN THIS RUN');
+    this.debugSection('FILES WRITTEN THIS RUN (Phase 1 — work.json + context.md)');
     const filesWritten = [];
+    filesWritten.push('context.md');
     for (const epic of hierarchy.epics) {
       filesWritten.push(`${epic.id}/work.json`);
-      filesWritten.push(`${epic.id}/doc.md`);
+      filesWritten.push(`${epic.id}/context.md`);
       for (const story of epic.stories || []) {
         filesWritten.push(`${epic.id}/${story.id}/work.json`);
-        filesWritten.push(`${epic.id}/${story.id}/doc.md`);
+        filesWritten.push(`${epic.id}/${story.id}/context.md`);
       }
     }
-    this.debug('Files written this run', filesWritten);
+    this.debug('Files written this run (Phase 1)', filesWritten);
     this.debug(`Total files written: ${filesWritten.length} (${epicCount} epics x 2 + ${storyCount} stories x 2)`);
 
     // Display clean summary of created epics and stories
@@ -1651,19 +2043,30 @@ Extract and synthesize content from the parent document that is specifically rel
       process.stdout.write('\x1bc');
       outputBuffer.clear();
 
-      // Stage 6: Write hierarchy files
-      sendProgress('Writing files and distributing documentation...');
-      await progressCallback?.(`Stage 6/7: Writing files and distributing documentation (${epicCount5} epics, ${storyCount5} stories)…`);
+      // Stage 6: Write hierarchy files (work.json + context.md — no LLM)
+      sendProgress('Writing files and canonical context...');
+      await progressCallback?.(`Stage 6/8: Writing files and canonical context (${epicCount5} epics, ${storyCount5} stories)…`);
       _ts = Date.now();
       const { epicCount, storyCount } = await this.writeHierarchyFiles(hierarchy, progressCallback);
       this.debugTiming(`Stage 6 — writeHierarchyFiles (${epicCount5} epics, ${storyCount5} stories)`, _ts);
 
-      // Stage 7: Enrich story docs with implementation detail
+      // Stage 7: Generate narrative doc.md from canonical context.md (replaces doc-distribution)
+      sendProgress('Generating documentation from canonical context...');
+      await progressCallback?.(`Stage 7/8: Generating documentation (${epicCount5} epics, ${storyCount5} stories)…`);
+      _ts = Date.now();
+      let rootDocContent = '';
+      if (fs.existsSync(this.projectDocPath)) {
+        rootDocContent = fs.readFileSync(this.projectDocPath, 'utf8');
+      }
+      await this.generateDocFiles(hierarchy, rootDocContent, progressCallback);
+      this.debugTiming(`Stage 7 — generateDocFiles (${epicCount5} epics, ${storyCount5} stories)`, _ts);
+
+      // Stage 8: Enrich story docs with implementation detail
       sendProgress('Enriching story documentation with implementation detail...');
-      await progressCallback?.(`Stage 7/7: Enriching story documentation (${storyCount5} stories)…`);
+      await progressCallback?.(`Stage 8/8: Enriching story documentation (${storyCount5} stories)…`);
       _ts = Date.now();
       await this.enrichStoryDocs(hierarchy, progressCallback);
-      this.debugTiming(`Stage 7 — enrichStoryDocs (${storyCount5} stories)`, _ts);
+      this.debugTiming(`Stage 8 — enrichStoryDocs (${storyCount5} stories)`, _ts);
 
       // Stage 9: Summary & Cleanup
       this.debugStage(9, 'Summary & Cleanup');
@@ -1745,11 +2148,14 @@ Extract and synthesize content from the parent document that is specifically rel
 
       // Complete ceremony history tracking
       const filesGenerated = [];
+      filesGenerated.push(path.join(this.projectPath, 'context.md'));
       for (const epic of hierarchy.epics) {
         filesGenerated.push(path.join(this.projectPath, epic.id, 'work.json'));
+        filesGenerated.push(path.join(this.projectPath, epic.id, 'context.md'));
         filesGenerated.push(path.join(this.projectPath, epic.id, 'doc.md'));
         for (const story of epic.stories || []) {
           filesGenerated.push(path.join(this.projectPath, epic.id, story.id, 'work.json'));
+          filesGenerated.push(path.join(this.projectPath, epic.id, story.id, 'context.md'));
           filesGenerated.push(path.join(this.projectPath, epic.id, story.id, 'doc.md'));
         }
       }
