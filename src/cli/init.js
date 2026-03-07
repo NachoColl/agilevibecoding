@@ -299,8 +299,8 @@ class ProjectInitiator {
                   'question-prefilling':         { provider: 'openai', model: 'gpt-5-mini' }
                 },
                 validation: {
-                  provider: 'openai', model: 'gpt-5-mini',
-                  documentation: { provider: 'openai', model: 'gpt-5-mini' },
+                  provider: 'openai', model: 'gpt-5.4',
+                  documentation: { provider: 'openai', model: 'gpt-5.4' },
                   refinement: { provider: 'openai', model: 'gpt-5.4' }
                 }
               }
@@ -353,7 +353,11 @@ class ProjectInitiator {
                 model: 'claude-sonnet-4-6',
                 useContextualSelection: true
               },
-              'doc-distribution': {
+              'context-generation': {
+                provider: 'claude',
+                model: 'claude-sonnet-4-6'
+              },
+              'doc-generation': {
                 provider: 'claude',
                 model: 'claude-sonnet-4-6'
               },
@@ -372,31 +376,34 @@ class ProjectInitiator {
               claude: {
                 provider: 'claude', defaultModel: 'claude-sonnet-4-6',
                 stages: {
-                  decomposition:      { provider: 'claude', model: 'claude-opus-4-6' },
-                  validation:         { provider: 'claude', model: 'claude-sonnet-4-6', useContextualSelection: true },
-                  'doc-distribution': { provider: 'claude', model: 'claude-haiku-4-5-20251001' },
-                  enrichment:         { provider: 'claude', model: 'claude-sonnet-4-6' },
-                  solver:             { provider: 'claude', model: 'claude-haiku-4-5-20251001', maxIterations: 3, acceptanceThreshold: 95 }
+                  decomposition:        { provider: 'claude', model: 'claude-opus-4-6' },
+                  validation:           { provider: 'claude', model: 'claude-sonnet-4-6', useContextualSelection: true },
+                  'context-generation': { provider: 'claude', model: 'claude-sonnet-4-6' },
+                  'doc-generation':     { provider: 'claude', model: 'claude-sonnet-4-6' },
+                  enrichment:           { provider: 'claude', model: 'claude-sonnet-4-6' },
+                  solver:               { provider: 'claude', model: 'claude-haiku-4-5-20251001', maxIterations: 3, acceptanceThreshold: 95 }
                 }
               },
               gemini: {
                 provider: 'gemini', defaultModel: 'gemini-2.5-flash',
                 stages: {
-                  decomposition:      { provider: 'gemini', model: 'gemini-2.5-pro' },
-                  validation:         { provider: 'gemini', model: 'gemini-2.5-flash', useContextualSelection: true },
-                  'doc-distribution': { provider: 'gemini', model: 'gemini-2.5-flash-lite' },
-                  enrichment:         { provider: 'gemini', model: 'gemini-2.5-flash' },
-                  solver:             { provider: 'gemini', model: 'gemini-2.5-flash-lite', maxIterations: 3, acceptanceThreshold: 95 }
+                  decomposition:        { provider: 'gemini', model: 'gemini-2.5-pro' },
+                  validation:           { provider: 'gemini', model: 'gemini-2.5-flash', useContextualSelection: true },
+                  'context-generation': { provider: 'gemini', model: 'gemini-2.5-flash' },
+                  'doc-generation':     { provider: 'gemini', model: 'gemini-2.5-flash' },
+                  enrichment:           { provider: 'gemini', model: 'gemini-2.5-flash' },
+                  solver:               { provider: 'gemini', model: 'gemini-2.5-flash-lite', maxIterations: 3, acceptanceThreshold: 95 }
                 }
               },
               openai: {
                 provider: 'openai', defaultModel: 'gpt-5.4',
                 stages: {
-                  decomposition:      { provider: 'openai', model: 'gpt-5.4' },
-                  validation:         { provider: 'openai', model: 'gpt-5.4', useContextualSelection: true },
-                  'doc-distribution': { provider: 'openai', model: 'gpt-5-mini' },
-                  enrichment:         { provider: 'openai', model: 'gpt-5.4' },
-                  solver:             { provider: 'openai', model: 'gpt-5-mini', maxIterations: 3, acceptanceThreshold: 95 }
+                  decomposition:        { provider: 'openai', model: 'gpt-5.4' },
+                  validation:           { provider: 'openai', model: 'gpt-5.4', useContextualSelection: true },
+                  'context-generation': { provider: 'openai', model: 'gpt-5.4' },
+                  'doc-generation':     { provider: 'openai', model: 'gpt-5.4' },
+                  enrichment:           { provider: 'openai', model: 'gpt-5.4' },
+                  solver:               { provider: 'openai', model: 'gpt-5.4', maxIterations: 3, acceptanceThreshold: 95 }
                 }
               }
             },
@@ -407,11 +414,6 @@ class ProjectInitiator {
                 stage: 'decomposition'
               },
               {
-                name: 'doc-distributor',
-                instruction: 'doc-distributor.md',
-                stage: 'doc-distribution'
-              },
-              {
                 name: 'project-context-extractor',
                 instruction: 'project-context-extractor.md',
                 stage: 'validation'
@@ -420,6 +422,26 @@ class ProjectInitiator {
                 name: 'agent-selector',
                 instruction: 'agent-selector.md',
                 stage: 'validation'
+              },
+              {
+                name: 'context-writer-epic',
+                instruction: 'context-writer-epic.md',
+                stage: 'context-generation'
+              },
+              {
+                name: 'context-writer-story',
+                instruction: 'context-writer-story.md',
+                stage: 'context-generation'
+              },
+              {
+                name: 'doc-writer-epic',
+                instruction: 'doc-writer-epic.md',
+                stage: 'doc-generation'
+              },
+              {
+                name: 'doc-writer-story',
+                instruction: 'doc-writer-story.md',
+                stage: 'doc-generation'
               },
               {
                 name: 'story-doc-enricher',

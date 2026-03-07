@@ -79,8 +79,8 @@ const PROVIDER_PRESETS = {
         'question-prefilling':         { provider: 'openai', model: 'gpt-5-mini' },
       },
       validation: {
-        provider: 'openai', model: 'gpt-5-mini',
-        documentation: { provider: 'openai', model: 'gpt-5-mini' },
+        provider: 'openai', model: 'gpt-5.4',
+        documentation: { provider: 'openai', model: 'gpt-5.4' },
         refinement: { provider: 'openai', model: 'gpt-5.4' },
       },
     },
@@ -89,31 +89,34 @@ const PROVIDER_PRESETS = {
     claude: {
       provider: 'claude', defaultModel: 'claude-sonnet-4-6',
       stages: {
-        decomposition:      { provider: 'claude', model: 'claude-opus-4-6' },
-        validation:         { provider: 'claude', model: 'claude-sonnet-4-6', useContextualSelection: true },
-        'doc-distribution': { provider: 'claude', model: 'claude-haiku-4-5-20251001' },
-        enrichment:         { provider: 'claude', model: 'claude-sonnet-4-6' },
-        solver:             { provider: 'claude', model: 'claude-haiku-4-5-20251001', maxIterations: 3, acceptanceThreshold: 95 },
+        decomposition:        { provider: 'claude', model: 'claude-opus-4-6' },
+        validation:           { provider: 'claude', model: 'claude-sonnet-4-6', useContextualSelection: true },
+        'context-generation': { provider: 'claude', model: 'claude-sonnet-4-6' },
+        'doc-generation':     { provider: 'claude', model: 'claude-sonnet-4-6' },
+        enrichment:           { provider: 'claude', model: 'claude-sonnet-4-6' },
+        solver:               { provider: 'claude', model: 'claude-haiku-4-5-20251001', maxIterations: 3, acceptanceThreshold: 95 },
       },
     },
     gemini: {
       provider: 'gemini', defaultModel: 'gemini-2.5-flash',
       stages: {
-        decomposition:      { provider: 'gemini', model: 'gemini-2.5-pro' },
-        validation:         { provider: 'gemini', model: 'gemini-2.5-flash', useContextualSelection: true },
-        'doc-distribution': { provider: 'gemini', model: 'gemini-2.5-flash-lite' },
-        enrichment:         { provider: 'gemini', model: 'gemini-2.5-flash' },
-        solver:             { provider: 'gemini', model: 'gemini-2.5-flash-lite', maxIterations: 3, acceptanceThreshold: 95 },
+        decomposition:        { provider: 'gemini', model: 'gemini-2.5-pro' },
+        validation:           { provider: 'gemini', model: 'gemini-2.5-flash', useContextualSelection: true },
+        'context-generation': { provider: 'gemini', model: 'gemini-2.5-flash' },
+        'doc-generation':     { provider: 'gemini', model: 'gemini-2.5-flash' },
+        enrichment:           { provider: 'gemini', model: 'gemini-2.5-flash' },
+        solver:               { provider: 'gemini', model: 'gemini-2.5-flash-lite', maxIterations: 3, acceptanceThreshold: 95 },
       },
     },
     openai: {
       provider: 'openai', defaultModel: 'gpt-5.4',
       stages: {
-        decomposition:      { provider: 'openai', model: 'gpt-5.4' },
-        validation:         { provider: 'openai', model: 'gpt-5.4', useContextualSelection: true },
-        'doc-distribution': { provider: 'openai', model: 'gpt-5-mini' },
-        enrichment:         { provider: 'openai', model: 'gpt-5.4' },
-        solver:             { provider: 'openai', model: 'gpt-5-mini', maxIterations: 3, acceptanceThreshold: 95 },
+        decomposition:        { provider: 'openai', model: 'gpt-5.4' },
+        validation:           { provider: 'openai', model: 'gpt-5.4', useContextualSelection: true },
+        'context-generation': { provider: 'openai', model: 'gpt-5.4' },
+        'doc-generation':     { provider: 'openai', model: 'gpt-5.4' },
+        enrichment:           { provider: 'openai', model: 'gpt-5.4' },
+        solver:               { provider: 'openai', model: 'gpt-5.4', maxIterations: 3, acceptanceThreshold: 95 },
       },
     },
   },
@@ -218,6 +221,14 @@ export function createSettingsRouter(projectRoot) {
       ceremonies.forEach((ceremony) => {
         if (!ceremony.providerPresets && PROVIDER_PRESETS[ceremony.name]) {
           ceremony.providerPresets = PROVIDER_PRESETS[ceremony.name];
+        }
+        // Migrate sprint-planning: doc-distribution → context-generation + doc-generation
+        if (ceremony.name === 'sprint-planning' && ceremony.stages) {
+          const old = ceremony.stages['doc-distribution'];
+          if (old) {
+            if (!ceremony.stages['context-generation']) ceremony.stages['context-generation'] = { ...old };
+            if (!ceremony.stages['doc-generation'])     ceremony.stages['doc-generation']     = { ...old };
+          }
         }
       });
       res.json({

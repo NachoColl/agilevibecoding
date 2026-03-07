@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { ChevronDown, ChevronRight } from 'lucide-react';
+import { ChevronDown, ChevronRight, Pencil } from 'lucide-react';
 import { getAgentList } from '../../lib/api';
 import { AgentEditorPopup } from './AgentEditorPopup';
 
@@ -43,8 +43,13 @@ const CEREMONY_STRUCTURE = [
           { slug: 'project-context-extractor', label: 'Project Context Extractor', note: 'Extracts project traits (once per run) to inform validator selection' },
           { slug: 'agent-selector',            label: 'Agent Selector',            note: 'Selects relevant validators per Epic/Story based on project context' },
       ]},
+      { phase: 'Context Generation', agents: [
+          { slug: 'context-writer-epic',  label: 'Context Writer (Epic)',  note: 'LLM-generates complete canonical context.md for each epic — Purpose, Scope, NFRs, Success Criteria (with self-scored iteration)' },
+          { slug: 'context-writer-story', label: 'Context Writer (Story)', note: 'LLM-generates complete canonical context.md for each story — User Story framing, Technical Notes, Scope boundaries' },
+      ]},
       { phase: 'Documentation & Enrichment', agents: [
-          { slug: 'doc-distributor',    label: 'Doc Distributor',     note: 'Moves content from parent doc into child docs (project→epic, epic→story)' },
+          { slug: 'doc-writer-epic',    label: 'Doc Writer (Epic)',    note: 'Generates narrative epic doc.md from canonical context.md' },
+          { slug: 'doc-writer-story',   label: 'Doc Writer (Story)',   note: 'Generates narrative story doc.md from canonical context.md' },
           { slug: 'story-doc-enricher', label: 'Story Doc Enricher',  note: 'Enriches story docs with API contracts, error tables, DB fields, business rules' },
       ]},
       { phase: 'Validation — Epic', agents: [
@@ -324,6 +329,7 @@ export function AgentsTab() {
                                       Custom
                                     </span>
                                   )}
+                                  <Pencil className="w-3.5 h-3.5 text-slate-300 group-hover:text-slate-500 flex-shrink-0 transition-colors" />
                                 </button>
                               );
                             })}
