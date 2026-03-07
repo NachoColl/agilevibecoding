@@ -859,7 +859,7 @@ export function CeremonyWorkflowModal({
             {isEditable && allCeremonies && (
               <ProviderSwitcherButton
                 ceremonyName={ceremony?.name}
-                ceremonies={allCeremonies}
+                ceremonies={allCeremonies.map((c) => c.name === ceremony?.name ? draft : c)}
                 apiKeys={apiKeys}
                 onApplied={(updated) => {
                   const updatedCeremony = updated.find((c) => c.name === ceremony?.name);

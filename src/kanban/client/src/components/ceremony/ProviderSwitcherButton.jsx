@@ -5,7 +5,27 @@ import { saveCeremonies } from '../../lib/api';
 // Map ceremony provider name → apiKeys property name
 const PROVIDER_TO_KEY = { claude: 'anthropic', gemini: 'gemini', openai: 'openai' };
 // Display labels (extendable as new providers are added)
-const PROVIDER_LABELS = { claude: 'Claude', gemini: 'Gemini', openai: 'OpenAI' };
+const PROVIDER_LABELS = { claude: 'Claude', gemini: 'Gemini', openai: 'OpenAI', custom: 'Custom' };
+
+/**
+ * Inspect all stage and validation provider fields to determine whether a
+ * ceremony is using a single provider or a mix.
+ * Returns the provider name when uniform, or 'custom' when mixed.
+ */
+function detectProvider(ceremony) {
+  const providers = new Set();
+  for (const stage of Object.values(ceremony?.stages || {})) {
+    if (stage?.provider) providers.add(stage.provider);
+  }
+  // Sponsor-call validation sub-models
+  if (ceremony?.validation?.provider) providers.add(ceremony.validation.provider);
+  if (ceremony?.validation?.documentation?.provider) providers.add(ceremony.validation.documentation.provider);
+  if (ceremony?.validation?.refinement?.provider) providers.add(ceremony.validation.refinement.provider);
+
+  if (providers.size === 0) return ceremony?.provider || null;
+  if (providers.size === 1) return [...providers][0];
+  return 'custom';
+}
 
 /**
  * Apply a provider preset to a ceremony object (immutable).
@@ -67,7 +87,7 @@ export function ProviderSwitcherButton({ ceremonyName, ceremonies, apiKeys, onAp
   const dropdownRef = useRef(null);
 
   const ceremony = ceremonies?.find((c) => c.name === ceremonyName);
-  const currentProvider = ceremony?.provider;
+  const currentProvider = detectProvider(ceremony);
   const presets = ceremony?.providerPresets;
 
   // Close dropdown on outside click
