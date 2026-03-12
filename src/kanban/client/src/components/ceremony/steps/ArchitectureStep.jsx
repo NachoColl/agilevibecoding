@@ -1,5 +1,4 @@
 import { useState } from 'react';
-import { Wand2 } from 'lucide-react';
 import { useCeremonyStore } from '../../../store/ceremonyStore';
 import { AskArchPopup } from '../AskArchPopup';
 
@@ -73,7 +72,17 @@ export function ArchitectureStep({ onNext, onBack, analyzing, onOpenSettings }) 
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-xl font-semibold text-slate-900">Architecture Selection</h2>
+        <div className="flex items-center justify-between">
+          <h2 className="text-xl font-semibold text-slate-900">Architecture Selection</h2>
+          <button
+            type="button"
+            onClick={() => setShowAskArch(true)}
+            disabled={analyzing}
+            className="text-xs text-blue-600 hover:text-blue-700 flex items-center gap-1 transition-colors disabled:opacity-40"
+          >
+            ✨ Ask a Model
+          </button>
+        </div>
         <p className="text-sm text-slate-500 mt-1">
           Choose the deployment architecture that fits your project best.
         </p>
@@ -100,15 +109,6 @@ export function ArchitectureStep({ onNext, onBack, analyzing, onOpenSettings }) 
           ← Back
         </button>
         <div className="flex items-center gap-3">
-          <button
-            type="button"
-            onClick={() => setShowAskArch(true)}
-            disabled={analyzing}
-            className="flex items-center gap-1.5 px-3 py-2 text-sm text-violet-700 bg-violet-50 border border-violet-200 rounded-lg hover:bg-violet-100 disabled:opacity-40 transition-colors"
-          >
-            <Wand2 className="w-3.5 h-3.5" />
-            Ask a Model
-          </button>
           <button
             type="button"
             onClick={onNext}

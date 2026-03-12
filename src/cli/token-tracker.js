@@ -92,31 +92,38 @@ export class TokenTracker {
 
   /**
    * Calculate cost for token usage based on model pricing
-   * @param {number} inputTokens - Input tokens consumed
+   * @param {number} inputTokens - Input tokens consumed (includes cached tokens)
    * @param {number} outputTokens - Output tokens consumed
    * @param {string} modelId - Model identifier (e.g., 'claude-sonnet-4-5-20250929')
-   * @returns {Object} Cost breakdown { input: number, output: number, total: number }
+   * @param {number} cachedTokens - Subset of inputTokens served from cache (billed at inputCached rate)
+   * @returns {Object} Cost breakdown { input, output, total, saved }
    */
-  calculateCost(inputTokens, outputTokens, modelId) {
+  calculateCost(inputTokens, outputTokens, modelId, cachedTokens = 0) {
     const config = this.readConfig();
     const modelConfig = config.settings?.models?.[modelId];
 
     if (!modelConfig || !modelConfig.pricing) {
       // Model not found or no pricing - return zero cost
-      return { input: 0, output: 0, total: 0 };
+      return { input: 0, output: 0, total: 0, saved: 0 };
     }
 
     const pricing = modelConfig.pricing;
     const divisor = pricing.unit === 'million' ? 1_000_000 : 1_000;
 
-    // Calculate costs (price per unit * tokens / divisor)
-    const inputCost = (pricing.input * inputTokens) / divisor;
+    // Cached tokens billed at reduced rate; fall back to full input rate if not configured
+    const cachedRate = pricing.inputCached ?? pricing.input;
+    const nonCachedInput = Math.max(0, inputTokens - cachedTokens);
+
+    const inputCost = (pricing.input * nonCachedInput + cachedRate * cachedTokens) / divisor;
     const outputCost = (pricing.output * outputTokens) / divisor;
+    // Savings vs. paying full rate for cached tokens
+    const saved = ((pricing.input - cachedRate) * cachedTokens) / divisor;
 
     return {
       input: inputCost,
       output: outputCost,
-      total: inputCost + outputCost
+      total: inputCost + outputCost,
+      saved,
     };
   }
 
@@ -139,20 +146,25 @@ export class TokenTracker {
       const tokenData = {
         input: tokens.input || 0,
         output: tokens.output || 0,
+        cached: tokens.cached || 0,
+        cacheWrite: tokens.cacheWrite || 0,
         total: (tokens.input || 0) + (tokens.output || 0),
         provider: tokens.provider || 'unknown',
         model: tokens.model || modelId || 'unknown'
       };
 
       // Calculate cost: prefer per-model pricing from avc.json, fall back to provider estimate
+      // Skip cost calculation for OAuth calls (flat-rate subscription — no per-token billing)
       let costData = null;
-      const effectiveModelId = tokens.model || modelId;
-      if (effectiveModelId) {
-        costData = this.calculateCost(tokenData.input, tokenData.output, effectiveModelId);
-      }
-      // If no per-model pricing configured but provider sent a pre-computed estimate, use it
-      if ((!costData || costData.total === 0) && tokens.estimatedCost) {
-        costData = { input: 0, output: 0, total: tokens.estimatedCost };
+      if (!tokens.skipCost) {
+        const effectiveModelId = tokens.model || modelId;
+        if (effectiveModelId) {
+          costData = this.calculateCost(tokenData.input, tokenData.output, effectiveModelId, tokenData.cached);
+        }
+        // If no per-model pricing configured but provider sent a pre-computed estimate, use it
+        if ((!costData || costData.total === 0) && tokens.estimatedCost) {
+          costData = { input: 0, output: 0, total: tokens.estimatedCost };
+        }
       }
 
       console.log(`   → Tracking tokens for ${ceremonyType}: ${tokenData.input} input, ${tokenData.output} output (${tokenData.provider})`);
@@ -211,17 +223,21 @@ export class TokenTracker {
       const tokenData = {
         input: delta.input || 0,
         output: delta.output || 0,
+        cached: delta.cached || 0,
+        cacheWrite: delta.cacheWrite || 0,
         total: (delta.input || 0) + (delta.output || 0),
         provider: delta.provider || 'unknown',
         model: delta.model || 'unknown'
       };
 
       let costData = null;
-      if (delta.model) {
-        costData = this.calculateCost(tokenData.input, tokenData.output, delta.model);
-      }
-      if ((!costData || costData.total === 0) && delta.estimatedCost) {
-        costData = { input: 0, output: 0, total: delta.estimatedCost };
+      if (!delta.skipCost) {
+        if (delta.model) {
+          costData = this.calculateCost(tokenData.input, tokenData.output, delta.model, tokenData.cached);
+        }
+        if ((!costData || costData.total === 0) && delta.estimatedCost) {
+          costData = { input: 0, output: 0, total: delta.estimatedCost };
+        }
       }
 
       if (!this.data[ceremonyType]) {
@@ -285,19 +301,22 @@ export class TokenTracker {
         date: dateKey,
         input: 0,
         output: 0,
+        cached: 0,
         total: 0,
         executions: 0,
-        cost: { input: 0, output: 0, total: 0 }
+        cost: { input: 0, output: 0, total: 0, saved: 0 }
       };
     }
     scope.daily[dateKey].input += tokenData.input;
     scope.daily[dateKey].output += tokenData.output;
+    scope.daily[dateKey].cached = (scope.daily[dateKey].cached || 0) + (tokenData.cached || 0);
     scope.daily[dateKey].total += tokenData.total;
     if (incExec) scope.daily[dateKey].executions++;
     if (costData) {
       scope.daily[dateKey].cost.input += costData.input;
       scope.daily[dateKey].cost.output += costData.output;
       scope.daily[dateKey].cost.total += costData.total;
+      scope.daily[dateKey].cost.saved = (scope.daily[dateKey].cost.saved || 0) + (costData.saved || 0);
     }
 
     // Update weekly
@@ -306,19 +325,22 @@ export class TokenTracker {
         week: weekKey,
         input: 0,
         output: 0,
+        cached: 0,
         total: 0,
         executions: 0,
-        cost: { input: 0, output: 0, total: 0 }
+        cost: { input: 0, output: 0, total: 0, saved: 0 }
       };
     }
     scope.weekly[weekKey].input += tokenData.input;
     scope.weekly[weekKey].output += tokenData.output;
+    scope.weekly[weekKey].cached = (scope.weekly[weekKey].cached || 0) + (tokenData.cached || 0);
     scope.weekly[weekKey].total += tokenData.total;
     if (incExec) scope.weekly[weekKey].executions++;
     if (costData) {
       scope.weekly[weekKey].cost.input += costData.input;
       scope.weekly[weekKey].cost.output += costData.output;
       scope.weekly[weekKey].cost.total += costData.total;
+      scope.weekly[weekKey].cost.saved = (scope.weekly[weekKey].cost.saved || 0) + (costData.saved || 0);
     }
 
     // Update monthly
@@ -327,35 +349,40 @@ export class TokenTracker {
         month: monthKey,
         input: 0,
         output: 0,
+        cached: 0,
         total: 0,
         executions: 0,
-        cost: { input: 0, output: 0, total: 0 }
+        cost: { input: 0, output: 0, total: 0, saved: 0 }
       };
     }
     scope.monthly[monthKey].input += tokenData.input;
     scope.monthly[monthKey].output += tokenData.output;
+    scope.monthly[monthKey].cached = (scope.monthly[monthKey].cached || 0) + (tokenData.cached || 0);
     scope.monthly[monthKey].total += tokenData.total;
     if (incExec) scope.monthly[monthKey].executions++;
     if (costData) {
       scope.monthly[monthKey].cost.input += costData.input;
       scope.monthly[monthKey].cost.output += costData.output;
       scope.monthly[monthKey].cost.total += costData.total;
+      scope.monthly[monthKey].cost.saved = (scope.monthly[monthKey].cost.saved || 0) + (costData.saved || 0);
     }
 
     // Update all-time
     scope.allTime.input += tokenData.input;
     scope.allTime.output += tokenData.output;
+    scope.allTime.cached = (scope.allTime.cached || 0) + (tokenData.cached || 0);
     scope.allTime.total += tokenData.total;
     if (incExec) scope.allTime.executions++;
 
     // Initialize cost tracking if not present
     if (!scope.allTime.cost) {
-      scope.allTime.cost = { input: 0, output: 0, total: 0 };
+      scope.allTime.cost = { input: 0, output: 0, total: 0, saved: 0 };
     }
     if (costData) {
       scope.allTime.cost.input += costData.input;
       scope.allTime.cost.output += costData.output;
       scope.allTime.cost.total += costData.total;
+      scope.allTime.cost.saved = (scope.allTime.cost.saved || 0) + (costData.saved || 0);
     }
 
     if (!scope.allTime.firstExecution) {

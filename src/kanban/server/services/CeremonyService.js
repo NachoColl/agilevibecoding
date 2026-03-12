@@ -14,6 +14,11 @@ const PROVIDER_KEY_MAP = {
   openai: 'OPENAI_API_KEY',
 };
 
+/** Returns true when the provider is OpenAI and OAuth mode is active (flat-rate — no per-token billing). */
+function isOAuthProvider(provider) {
+  return provider === 'openai' && process.env.OPENAI_AUTH_MODE === 'oauth';
+}
+
 // Returns true if a provider has any valid auth credential (API key or token/oauth)
 function hasProviderAuth(provider, projectRoot) {
   if (provider === 'claude') {
@@ -36,7 +41,7 @@ function hasProviderAuth(provider, projectRoot) {
 export class CeremonyService {
   constructor(projectRoot) {
     this.projectRoot = projectRoot;
-    this.state = { status: 'idle', progress: [], result: null, error: null, costLimitInfo: null, decomposedHierarchy: null };
+    this.state = { status: 'idle', progress: [], result: null, error: null, costLimitInfo: null, quotaLimitInfo: null, decomposedHierarchy: null };
     this.websocket = null;
     this._paused = false;
     this._cancelled = false;
@@ -92,7 +97,7 @@ export class CeremonyService {
     const wasRunningType = this._runningType;
     this._runningType = null;
     this._activeProcessId = null;
-    this.state = { status: 'idle', progress: [], result: null, error: null, costLimitInfo: null, decomposedHierarchy: null };
+    this.state = { status: 'idle', progress: [], result: null, error: null, costLimitInfo: null, quotaLimitInfo: null, decomposedHierarchy: null };
     // Broadcast to whichever ceremony was running (or both if unknown)
     if (wasRunningType === 'sprint-planning' || !wasRunningType) {
       this.websocket?.broadcastSprintPlanningCancelled();
@@ -131,13 +136,14 @@ export class CeremonyService {
       result: this.state.result,
       error: this.state.error,
       costLimitInfo: this.state.costLimitInfo || null,
+      quotaLimitInfo: this.state.quotaLimitInfo || null,
       decomposedHierarchy: this.state.decomposedHierarchy || null,
     };
   }
 
   async getAvailableModels() {
     const { default: dotenv } = await import('dotenv');
-    dotenv.config({ path: path.join(this.projectRoot, '.env') });
+    dotenv.config({ path: path.join(this.projectRoot, '.env'), override: true });
 
     const avcJsonPath = path.join(this.projectRoot, '.avc', 'avc.json');
     const avcConfig = JSON.parse(fs.readFileSync(avcJsonPath, 'utf8'));
@@ -161,7 +167,7 @@ export class CeremonyService {
 
     try {
       const { default: dotenv } = await import('dotenv');
-      dotenv.config({ path: path.join(this.projectRoot, '.env') });
+      dotenv.config({ path: path.join(this.projectRoot, '.env'), override: true });
       log.debug('dotenv loaded', { envFile: path.join(this.projectRoot, '.env') });
 
       // Read validation settings exclusively from avc.json
@@ -362,6 +368,7 @@ export class CeremonyService {
             output: genUsage.outputTokens,
             provider,
             model: modelId,
+            skipCost: isOAuthProvider(provider),
           });
         }
         const valUsage = validatorLLM.getTokenUsage();
@@ -371,6 +378,7 @@ export class CeremonyService {
             output: valUsage.outputTokens,
             provider: validatorProvider,
             model: validatorModelId,
+            skipCost: isOAuthProvider(validatorProvider),
           });
         }
       } catch (trackErr) {
@@ -400,7 +408,7 @@ export class CeremonyService {
 
     try {
       const { default: dotenv } = await import('dotenv');
-      dotenv.config({ path: path.join(this.projectRoot, '.env') });
+      dotenv.config({ path: path.join(this.projectRoot, '.env'), override: true });
 
       const avcJsonPath = path.join(this.projectRoot, '.avc', 'avc.json');
       const avcConfig = JSON.parse(fs.readFileSync(avcJsonPath, 'utf8'));
@@ -559,6 +567,7 @@ export class CeremonyService {
             output: genUsage.outputTokens,
             provider,
             model: modelId,
+            skipCost: isOAuthProvider(provider),
           });
         }
         const valUsage = validatorLLM.getTokenUsage();
@@ -568,6 +577,7 @@ export class CeremonyService {
             output: valUsage.outputTokens,
             provider: validatorProvider,
             model: validatorModelId,
+            skipCost: isOAuthProvider(validatorProvider),
           });
         }
       } catch (trackErr) {
@@ -586,7 +596,7 @@ export class CeremonyService {
   async generateCustomArchitecture(description, modelId, provider) {
     const log = new KanbanLogger('arch-custom', this.projectRoot);
     const { default: dotenv } = await import('dotenv');
-    dotenv.config({ path: path.join(this.projectRoot, '.env') });
+    dotenv.config({ path: path.join(this.projectRoot, '.env'), override: true });
 
     const { LLMProvider } = await import('../../../cli/llm-provider.js');
     const llm = await LLMProvider.create(provider, modelId);
@@ -613,7 +623,7 @@ export class CeremonyService {
   async refineCustomArchitecture(currentArch, refinementRequest, modelId, provider) {
     const log = new KanbanLogger('arch-custom', this.projectRoot);
     const { default: dotenv } = await import('dotenv');
-    dotenv.config({ path: path.join(this.projectRoot, '.env') });
+    dotenv.config({ path: path.join(this.projectRoot, '.env'), override: true });
 
     const { LLMProvider } = await import('../../../cli/llm-provider.js');
     const llm = await LLMProvider.create(provider, modelId);
@@ -662,6 +672,7 @@ export class CeremonyService {
                   output: usage.outputTokens,
                   provider: usage.provider,
                   model: usage.model,
+                  skipCost: isOAuthProvider(usage.provider),
                 });
               }
             }
@@ -708,6 +719,7 @@ export class CeremonyService {
                   output: usage.outputTokens,
                   provider: usage.provider,
                   model: usage.model,
+                  skipCost: isOAuthProvider(usage.provider),
                 });
               }
             }
@@ -756,6 +768,7 @@ export class CeremonyService {
                   output: usage.outputTokens,
                   provider: usage.provider,
                   model: usage.model,
+                  skipCost: isOAuthProvider(usage.provider),
                 });
               }
             }
@@ -857,12 +870,29 @@ export class CeremonyService {
         this.websocket?.broadcastCostLimit(msg.cost, msg.threshold, this._runningType);
         break;
       }
+      case 'quota-limit':
+        this.state.status = 'quota-limit-pending';
+        this.state.quotaLimitInfo = {
+          validatorName: msg.validatorName,
+          errMsg: msg.errMsg,
+          provider: msg.provider,
+          model: msg.model,
+        };
+        registry.setStatus(record.id, 'paused');
+        this.websocket?.broadcastQuotaLimit(msg.provider, msg.model, msg.errMsg, msg.validatorName, this._runningType);
+        break;
       case 'decomposition-complete':
         this.state.status = 'awaiting-selection';
         this.state.decomposedHierarchy = msg.hierarchy;
         // _activeChild stays alive — worker is polling for selection-confirmed or cancel
         registry.setStatus(record.id, 'paused');
         this.websocket?.broadcastSprintPlanningDecompositionComplete(msg.hierarchy);
+        break;
+      case 'hierarchy-written':
+        // Stage 6 finished writing work.json files — refresh board immediately
+        // so users see new epics/stories while Stage 7/8 (doc gen + enrichment) continue.
+        await this._reloadCallback?.();
+        this.websocket?.broadcastRefresh();
         break;
     }
   }
@@ -894,13 +924,34 @@ export class CeremonyService {
   }
 
   /**
+   * Resume ceremony after quota-limit pause.
+   * newProvider/newModel: if provided, worker switches validation+solver stage config.
+   * If null, worker retries with the same model (e.g., user added credits).
+   */
+  continueAfterQuota(newProvider = null, newModel = null) {
+    if (this._activeChild) {
+      try {
+        this._activeChild.send({ type: 'quota-continue', newProvider, newModel });
+      } catch (_) {}
+    }
+    this.state.status = 'running';
+    this.state.quotaLimitInfo = null;
+  }
+
+  /**
    * Read the cost threshold for a ceremony type from avc.json.
    * Returns null if not configured (unlimited).
    */
   _getCostThreshold(ceremonyType) {
     try {
       const config = JSON.parse(fs.readFileSync(path.join(this.projectRoot, '.avc', 'avc.json'), 'utf8'));
-      return config.settings?.costThresholds?.[ceremonyType] ?? null;
+      const threshold = config.settings?.costThresholds?.[ceremonyType] ?? null;
+      if (threshold == null) return null;
+      // OAuth providers are flat-rate (no per-token billing) — cost limits don't apply
+      const ceremony = config.settings?.ceremonies?.find(c => c.name === ceremonyType);
+      const provider = ceremony?.provider ?? config.settings?.provider ?? 'claude';
+      if (isOAuthProvider(provider)) return null;
+      return threshold;
     } catch { return null; }
   }
 
@@ -920,13 +971,14 @@ export class CeremonyService {
     this._activeProcessId = null;
     const isSP = record.type === 'sprint-planning';
     const wasActive = this._runningType === record.type &&
-      (this.state.status === 'running' || this.state.status === 'cost-limit-pending');
+      (this.state.status === 'running' || this.state.status === 'cost-limit-pending' || this.state.status === 'quota-limit-pending');
     if (wasActive) {
       const error = `Worker exited unexpectedly (code ${code})`;
       this._registry.setStatus(record.id, 'error', { error });
       this.state.status = 'error';
       this.state.error = error;
       this.state.costLimitInfo = null;
+      this.state.quotaLimitInfo = null;
       if (isSP) this.websocket?.broadcastSprintPlanningError(error);
       else this.websocket?.broadcastCeremonyError(error);
     }
@@ -1188,6 +1240,11 @@ export class CeremonyService {
       };
 
       const result = await initiator.sponsorCallWithAnswers(requirements, progressCallback);
+
+      // sponsorCallWithAnswers returns { error: true, message } on validation failure instead of throwing
+      if (result?.error === true) {
+        throw new Error(result.message || 'Ceremony failed');
+      }
 
       this.state.status = 'complete';
       this.state.result = result;

@@ -67,22 +67,16 @@ export function cancelCommand() {
  * Send a ceremony header (title + documentation URL)
  * Automatically prevents duplicate headers within same command execution
  *
- * @param {string} title - Ceremony title (without emoji)
- * @param {string} url - Documentation URL
- *
- * @example
- * sendCeremonyHeader('Sponsor Call Ceremony', 'https://agilevibecoding.org/ceremonies/sponsor-call');
+ * @param {string} title - Ceremony title
  */
-export function sendCeremonyHeader(title, url) {
-  const key = `${title}|${url}`;
-
-  // Prevent duplicate ceremony headers
-  if (ceremonySent.has(key)) {
+export function sendCeremonyHeader(title) {
+  // Prevent duplicate ceremony headers within the same command execution
+  if (ceremonySent.has(title)) {
     return;
   }
 
-  ceremonySent.add(key);
-  const content = `${boldCyan(title)}\n${gray('Documentation:')} ${cyan(url)}`;
+  ceremonySent.add(title);
+  const content = boldCyan(title);
   messageManager.send(MessageType.CEREMONY_HEADER, content);
 }
 

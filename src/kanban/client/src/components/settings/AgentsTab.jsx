@@ -122,6 +122,7 @@ const CEREMONY_STRUCTURE = [
           { slug: 'solver-story-data',               label: 'Data' },
           { slug: 'solver-story-qa',                 label: 'QA' },
           { slug: 'solver-story-test-architect',     label: 'Test Architect' },
+          { slug: 'story-splitter',                  label: 'Story Splitter', note: 'Splits oversized stories (15+ ACs) into 2-3 focused stories when below threshold' },
       ]},
     ],
   },

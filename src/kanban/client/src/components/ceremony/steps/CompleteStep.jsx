@@ -1,13 +1,5 @@
 import { useCeremonyStore } from '../../../store/ceremonyStore';
 
-const EXAMPLE_ISSUES = [
-  { stage: 'Project Documentation', ruleId: 'fix-header-formatting',   name: 'Fix Header Spacing',              severity: 'major'  },
-  { stage: 'Project Documentation', ruleId: 'add-section-spacing',     name: 'Add Section Spacing',             severity: 'minor'  },
-  { stage: 'Project Context',       ruleId: 'token-count-too-short',   name: 'Expand If Too Short',             severity: 'major'  },
-  { stage: 'Project Context',       ruleId: 'no-redundant-info',       name: 'Remove Truly Redundant Information', severity: 'minor' },
-  { stage: 'Context Validation',    ruleId: 'fix-unclosed-code-blocks', name: 'Fix Unclosed Code Blocks',       severity: 'major'  },
-];
-
 function IssueTag({ severity }) {
   const cls =
     severity === 'critical' ? 'bg-red-100 text-red-700' :
@@ -46,20 +38,12 @@ export function CompleteStep({ onClose }) {
   const tokenInput = r.tokenUsage?.input || r.tokenUsage?.inputTokens || 0;
   const tokenOutput = r.tokenUsage?.output || r.tokenUsage?.outputTokens || 0;
   const tokenTotal = r.tokenUsage?.total || r.tokenUsage?.totalTokens || tokenInput + tokenOutput;
-  const costTotal =
-    r.cost?.total != null
-      ? `$${r.cost.total.toFixed(4)}`
-      : r.cost
-        ? `$${Object.values(r.cost).reduce((a, v) => a + (typeof v === 'number' ? v : 0), 0).toFixed(4)}`
-        : '—';
-
   const files = r.outputPath && r.contextPath
     ? [r.outputPath, r.contextPath]
     : r.filesGenerated || [];
 
-  // undefined → show example preview; [] → no issues (hide); [...] → real data
-  const isExample = r.validationIssues === undefined;
-  const rawIssues = r.validationIssues ?? EXAMPLE_ISSUES;
+  // Only show real validation issues; never show the example preview
+  const rawIssues = Array.isArray(r.validationIssues) ? r.validationIssues : [];
 
   // Group duplicate rule applications by ruleId
   const issueMap = {};
@@ -96,10 +80,9 @@ export function CompleteStep({ onClose }) {
         </div>
       )}
 
-      <div className="grid grid-cols-3 gap-3">
+      <div className="grid grid-cols-2 gap-3">
         <Stat label="Input tokens" value={tokenInput.toLocaleString()} />
         <Stat label="Output tokens" value={tokenOutput.toLocaleString()} />
-        <Stat label="Estimated cost" value={costTotal} />
       </div>
 
       {r.model && (
@@ -112,7 +95,6 @@ export function CompleteStep({ onClose }) {
         <div>
           <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2">
             Quality fixes applied
-            {isExample && <span className="ml-2 normal-case font-normal text-slate-300">(example preview)</span>}
           </p>
           <div className="space-y-1.5">
             {issues.map((issue, i) => (

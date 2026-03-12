@@ -3,6 +3,7 @@ import { X, Info, ArrowDownToLine } from 'lucide-react';
 import { useSprintPlanningStore } from '../../store/sprintPlanningStore';
 import { runSprintPlanning, getSettings, getModels, saveCeremonies, pauseCeremony, resumeCeremony, cancelCeremony, resetCeremony } from '../../lib/api';
 import { CeremonyWorkflowModal } from './CeremonyWorkflowModal';
+import { ProviderSwitcherButton } from './ProviderSwitcherButton';
 
 // ── Step progress header ─────────────────────────────────────────────────────
 
@@ -454,9 +455,74 @@ function CompleteStep({ onClose }) {
   );
 }
 
+// ── Quota-limit pause overlay ─────────────────────────────────────────────────
+
+function QuotaLimitOverlay({ quotaLimitPending, onContinueAfterQuota, onCancel, onConfigureModels }) {
+  const [resuming, setResuming] = useState(false);
+
+  // Resume reads the current settings so any model change made via Configure Models is picked up.
+  async function handleResume() {
+    setResuming(true);
+    try {
+      const s = await getSettings();
+      const ceremony = s.ceremonies?.find(c => c.name === 'sprint-planning');
+      const newProvider = ceremony?.stages?.validation?.provider || null;
+      const newModel = ceremony?.stages?.validation?.model || null;
+      await onContinueAfterQuota(newProvider, newModel);
+    } finally {
+      setResuming(false);
+    }
+  }
+
+  return (
+    <div className="absolute inset-0 z-20 flex items-center justify-center bg-white/90 rounded-2xl">
+      <div className="bg-white border border-red-200 rounded-xl shadow-lg p-6 max-w-sm mx-4 text-center space-y-4">
+        <div className="text-3xl">⚠️</div>
+        <p className="text-base font-semibold text-slate-900">API Quota Exceeded</p>
+        <p className="text-sm text-slate-600">
+          <span className="font-mono font-medium">{quotaLimitPending.provider}</span>
+          {' / '}
+          <span className="font-mono text-xs">{quotaLimitPending.model}</span>
+          {' returned a quota error.'}
+        </p>
+        {quotaLimitPending.validatorName && (
+          <p className="text-xs text-slate-400">
+            Validator: {quotaLimitPending.validatorName.replace('validator-story-', '').replace('validator-epic-', '')}
+          </p>
+        )}
+        <p className="text-sm text-slate-500">The ceremony is paused. What would you like to do?</p>
+        <div className="flex flex-col gap-2 pt-1">
+          <button
+            onClick={handleResume}
+            disabled={resuming}
+            className="px-4 py-2 text-sm rounded-lg bg-slate-900 text-white hover:bg-slate-700 disabled:opacity-50"
+          >
+            {resuming ? 'Resuming…' : 'Resume'}
+          </button>
+          <button
+            onClick={onConfigureModels}
+            className="px-4 py-2 text-sm rounded-lg border border-slate-200 text-slate-700 hover:bg-slate-50"
+          >
+            Configure Models
+          </button>
+          <button
+            onClick={onCancel}
+            className="px-4 py-2 text-sm rounded-lg border border-red-200 text-red-600 hover:bg-red-50"
+          >
+            Cancel Ceremony
+          </button>
+        </div>
+        <p className="text-xs text-slate-400">
+          Use <strong>Configure Models</strong> to switch provider, then <strong>Resume</strong>.
+        </p>
+      </div>
+    </div>
+  );
+}
+
 // ── Main modal ────────────────────────────────────────────────────────────────
 
-export function SprintPlanningModal({ onClose, costLimitPending, onContinuePastCostLimit, onCancelFromCostLimit }) {
+export function SprintPlanningModal({ onClose, costLimitPending, onContinuePastCostLimit, onCancelFromCostLimit, quotaLimitPending, onContinueAfterQuota, onCancelFromQuota }) {
   const {
     isOpen,
     step,
@@ -473,8 +539,10 @@ export function SprintPlanningModal({ onClose, costLimitPending, onContinuePastC
   const [workflowCeremony, setWorkflowCeremony] = useState(null);
   const [workflowModels, setWorkflowModels] = useState([]);
   const [workflowAllCeremonies, setWorkflowAllCeremonies] = useState([]);
+  const [workflowApiKeys, setWorkflowApiKeys] = useState({});
   const [showCancelConfirm, setShowCancelConfirm] = useState(false);
   const [transitioning, setTransitioning] = useState(null); // null | 'pausing' | 'cancelling'
+  const [settings, setSettings] = useState({ ceremonies: [], apiKeys: {} });
   if (!isOpen) return null;
 
   const isBlocked = status === 'running' || status === 'awaiting-selection';
@@ -498,13 +566,20 @@ export function SprintPlanningModal({ onClose, costLimitPending, onContinuePastC
     }
   };
 
+  // Load settings on mount for ProviderSwitcherButton
+  useEffect(() => {
+    getSettings().then(setSettings).catch(() => {});
+  }, []);
+
   const openWorkflow = async () => {
     try {
       const [s, m] = await Promise.all([getSettings(), getModels()]);
+      setSettings(s);
       const sc = s.ceremonies?.find((c) => c.name === 'sprint-planning') ?? { name: 'sprint-planning' };
       setWorkflowCeremony(sc);
       setWorkflowModels(m);
       setWorkflowAllCeremonies(s.ceremonies || []);
+      setWorkflowApiKeys(s.apiKeys || {});
       setWorkflowOpen(true);
     } catch {}
   };
@@ -610,6 +685,16 @@ export function SprintPlanningModal({ onClose, costLimitPending, onContinuePastC
           </div>
         )}
 
+        {/* Quota-limit pause overlay */}
+        {quotaLimitPending && (
+          <QuotaLimitOverlay
+            quotaLimitPending={quotaLimitPending}
+            onContinueAfterQuota={onContinueAfterQuota}
+            onCancel={onCancelFromQuota}
+            onConfigureModels={openWorkflow}
+          />
+        )}
+
         {/* Cancel confirmation overlay */}
         {showCancelConfirm && (
           <div className="absolute inset-0 z-10 flex items-center justify-center bg-white/90 rounded-2xl">
@@ -657,6 +742,14 @@ export function SprintPlanningModal({ onClose, costLimitPending, onContinuePastC
               </button>
             )}
             {!isBlocked && (
+              <ProviderSwitcherButton
+                ceremonyName="sprint-planning"
+                ceremonies={settings.ceremonies}
+                apiKeys={settings.apiKeys}
+                onApplied={(updated) => setSettings((prev) => ({ ...prev, ceremonies: updated }))}
+              />
+            )}
+            {!isBlocked && (
               <button
                 onClick={handleClose}
                 className="text-slate-400 hover:text-slate-600 transition-colors"
@@ -692,10 +785,17 @@ export function SprintPlanningModal({ onClose, costLimitPending, onContinuePastC
       {workflowOpen && workflowCeremony && (
         <CeremonyWorkflowModal
           ceremony={workflowCeremony}
+          allCeremonies={workflowAllCeremonies}
+          apiKeys={workflowApiKeys}
           models={workflowModels}
-          readOnly={status === 'running'}
-          onSave={status !== 'running' ? handleWorkflowSave : undefined}
+          readOnly={status === 'running' && !quotaLimitPending}
+          onSave={(status !== 'running' || quotaLimitPending) ? handleWorkflowSave : undefined}
           onClose={() => setWorkflowOpen(false)}
+          onCeremoniesUpdated={(updated) => {
+            setWorkflowAllCeremonies(updated);
+            const sc = updated.find((c) => c.name === 'sprint-planning');
+            if (sc) setWorkflowCeremony(sc);
+          }}
         />
       )}
     </div>

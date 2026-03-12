@@ -44,6 +44,8 @@ Explicitly exclude roles whose domain is entirely absent from this work item AND
 - Exclude `frontend`, `ui`, `ux` if the project has no frontend (`hasFrontend = false`) AND the item has no UI requirements
 - Exclude `api` if the item involves only internal implementation with no API surface (public or between services)
 - Exclude `database` if the item has no persistence, data modeling, or query requirements
+- Exclude `ui` at **epic level** unless the epic's primary focus is a visual design system, component library, or front-end experience architecture. For infrastructure, auth, API, backend, and data epics, `ui` is better evaluated at story level where design detail exists.
+- Exclude `ux` at **epic level** unless the epic is explicitly about user flows, onboarding, or information architecture. UX concerns are more actionable at story granularity.
 
 ## Output Format
 
@@ -104,6 +106,27 @@ Item: Story "As a user, I want to upload a profile picture", acceptance: ["Suppo
     "mobile": "No mobile app in this project",
     "data": "No analytics or data pipeline involved",
     "test-architect": "Standard story — QA covers testing needs"
+  }
+}
+```
+
+### Example 4: Web app, Epic "Foundation Services" (infrastructure domain)
+
+Project context: `deploymentType: local, hasCloud: false, hasCI_CD: false, hasMobileApp: false, hasFrontend: true, techStack: ["node.js", "react", "sqlite"]`
+
+Item: Epic "Foundation Services", domain: infrastructure, features: ["JWT auth", "rate limiting", "audit logging", "session management"]
+
+```json
+{
+  "selected": ["solution-architect", "developer", "security", "backend", "database", "api"],
+  "excluded": ["ui", "ux", "mobile", "cloud", "devops", "data"],
+  "reasons": {
+    "ui": "Infrastructure epic — visual design review belongs at story level",
+    "ux": "Infrastructure epic — UX flow review belongs at story level",
+    "mobile": "No mobile app in this project",
+    "cloud": "Local deployment — no cloud services involved",
+    "devops": "No CI/CD pipeline in this project",
+    "data": "No analytics or data pipeline in this epic"
   }
 }
 ```

@@ -17,6 +17,20 @@ Apply targeted improvements to resolve the issues. Do NOT change the story's int
 - Add schema validation criteria: field types, nullability constraints, and breaking change detection
 - Specify data lineage criteria: source tracking, transformation audit trail, and data provenance
 
+## Priority Actions by Score Band
+
+### Score 60-75 — Data Contract Missing
+1. **Specify data schema explicitly**: field names, types, nullable/required, format constraints, and example values for every data structure this story produces or consumes.
+2. **Add data lineage AC**: "Input data comes from [source]. Output data is written to [destination]. Transformation steps: [list each step]."
+3. **Add data quality AC**: "Pipeline rejects records where [validation condition] and logs them to [error table/queue] with reason. Rejection rate above [N%] triggers an alert."
+
+### Score 76-88 — Transformation and Error Handling Gaps
+1. **Add null/missing value handling**: "If [field] is null or missing in the source: [skip record / use default / reject with error]."
+2. **Add idempotency AC**: "Re-running the pipeline for the same time window produces identical output — no duplicates inserted."
+
+### Score 89-94 — Performance and Backfill
+1. **Add throughput AC**: "Pipeline processes [N] records/second at [data volume]. Backfill for [historical period] completes within [time window]."
+
 ## Rules
 - PRESERVE: `id`, `name`, `userType` — never modify these
 - IMPROVE: `description`, `acceptance`, `dependencies` based on the issues

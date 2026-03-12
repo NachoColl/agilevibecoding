@@ -259,6 +259,8 @@ export const resumeCeremony          = () => apiFetch('/ceremony/resume',       
 export const cancelCeremony          = () => apiFetch('/ceremony/cancel',             { method: 'POST' });
 export const resetCeremony           = () => apiFetch('/ceremony/reset',              { method: 'POST' });
 export const continuePastCostLimit   = () => apiFetch('/ceremony/cost-limit-continue', { method: 'POST' });
+export const continueAfterQuota = (newProvider = null, newModel = null) =>
+  apiFetch('/ceremony/quota-continue', { method: 'POST', body: JSON.stringify({ newProvider, newModel }) });
 
 export async function getModels() {
   return apiFetch('/ceremony/models');

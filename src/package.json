@@ -44,8 +44,7 @@
   ],
   "author": "Nacho Coll",
   "license": "PolyForm-Noncommercial-1.0.0",
-  "homepage": "https://agilevibecoding.org",
-  "repository": {
+"repository": {
     "type": "git",
     "url": "git+https://github.com/NachoColl/agilevibecoding.git",
     "directory": "src"

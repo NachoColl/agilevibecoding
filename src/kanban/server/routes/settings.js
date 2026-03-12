@@ -267,9 +267,23 @@ export function createSettingsRouter(projectRoot) {
   router.put('/api-keys', async (req, res) => {
     try {
       const { anthropic, gemini, openai } = req.body;
-      if (anthropic !== undefined) await upsertEnvKey('ANTHROPIC_API_KEY', anthropic);
-      if (gemini !== undefined)    await upsertEnvKey('GEMINI_API_KEY', gemini);
-      if (openai !== undefined)    await upsertEnvKey('OPENAI_API_KEY', openai);
+      if (anthropic !== undefined) {
+        await upsertEnvKey('ANTHROPIC_API_KEY', anthropic);
+        // Keep process.env in sync — dotenv.config() without override:true won't re-read a key
+        // that's already set, so newly-saved or changed keys would be invisible to the LLM providers.
+        if (anthropic) process.env.ANTHROPIC_API_KEY = anthropic;
+        else delete process.env.ANTHROPIC_API_KEY;
+      }
+      if (gemini !== undefined) {
+        await upsertEnvKey('GEMINI_API_KEY', gemini);
+        if (gemini) process.env.GEMINI_API_KEY = gemini;
+        else delete process.env.GEMINI_API_KEY;
+      }
+      if (openai !== undefined) {
+        await upsertEnvKey('OPENAI_API_KEY', openai);
+        if (openai) process.env.OPENAI_API_KEY = openai;
+        else delete process.env.OPENAI_API_KEY;
+      }
       res.json({ status: 'ok' });
     } catch (err) {
       res.status(500).json({ error: err.message });

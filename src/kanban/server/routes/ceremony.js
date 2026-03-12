@@ -262,6 +262,15 @@ export function createCeremonyRouter(ceremonyService, processRegistry) {
     res.json({ ok: true });
   });
 
+  // POST /api/ceremony/quota-continue
+  // Body: { newProvider?: string, newModel?: string }
+  // Omit newProvider to retry with same model (e.g. user added credits).
+  router.post('/quota-continue', (req, res) => {
+    const { newProvider = null, newModel = null } = req.body || {};
+    ceremonyService.continueAfterQuota(newProvider, newModel);
+    res.json({ ok: true });
+  });
+
   // POST /api/ceremony/reset — force-stop any running ceremony and reset state immediately
   router.post('/reset', (req, res) => {
     ceremonyService.forceReset();

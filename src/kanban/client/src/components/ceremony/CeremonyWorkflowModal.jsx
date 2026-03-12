@@ -22,6 +22,7 @@ const AGENT_LABELS = {
   'feature-context-generator':            'Feature Context Generator',
   // Sprint Planning
   'epic-story-decomposer':                'Epic/Story Decomposer',
+  'story-scope-reviewer':                 'Story Scope Reviewer',
   'project-context-extractor':            'Project Context Extractor',
   'agent-selector':                       'Agent Selector',
   'context-writer-epic':                  'Context Writer (Epic)',
@@ -62,6 +63,7 @@ const AGENT_LABELS = {
   'solver-epic-data':                 'Solver: Data (Epic)',
   'solver-epic-qa':                   'Solver: QA (Epic)',
   'solver-epic-test-architect':       'Solver: Test Architect (Epic)',
+  'story-splitter':                   'Story Splitter',
   // Sprint Planning — Story Solvers
   'solver-story-solution-architect':  'Solver: Solution Architect (Story)',
   'solver-story-developer':           'Solver: Developer (Story)',
@@ -303,6 +305,14 @@ function buildSprintPlanningPhases(ceremony) {
             { name: 'project/doc.md', direction: 'in', note: 'scope text extracted from doc.md' },
           ],
         },
+        {
+          type:       'process',
+          label:      'Review each Epic\'s stories and split any that are too broad for a 1-3 day slice (one LLM call per Epic in parallel)',
+          model:      ceremony.stages?.decomposition?.model ?? fallbackModel,
+          stageKey:   'decomposition',
+          sharedWith: 'Decomposer',
+          agent:      'story-scope-reviewer',
+        },
       ],
     },
     {
@@ -419,6 +429,14 @@ function buildSprintPlanningPhases(ceremony) {
               ],
             },
           ],
+        },
+        {
+          type:       'process',
+          label:      'If story still below threshold with 15+ ACs and scope issues detected: split into 2-3 focused stories, replace in epic, and re-validate each split story from the top of this loop',
+          model:      ceremony.stages?.solver?.model ?? fallbackModel,
+          stageKey:   'solver',
+          sharedWith: 'Solver',
+          agent:      'story-splitter',
         },
       ],
     },

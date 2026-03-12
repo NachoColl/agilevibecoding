@@ -31,7 +31,7 @@ export class GeminiProvider extends LLMProvider {
     return response.text;
   }
 
-  async generateJSON(prompt, agentInstructions = null) {
+  async generateJSON(prompt, agentInstructions = null, cachedContext = null) {
     if (!this._client) {
       this._client = this._createClient();
     }
@@ -49,6 +49,13 @@ export class GeminiProvider extends LLMProvider {
         maxOutputTokens: maxTokens
       }
     };
+
+    // When cachedContext is provided (e.g. project rootContextMd), set it as the
+    // systemInstruction — Gemini's implicit caching targets system instructions and
+    // stable prefix content, giving a best-effort discount with no extra setup.
+    if (cachedContext) {
+      params.systemInstruction = cachedContext;
+    }
 
     const _t0Json = Date.now();
     const response = await this._withRetry(
@@ -89,7 +96,7 @@ export class GeminiProvider extends LLMProvider {
     }
   }
 
-  async generateText(prompt, agentInstructions = null) {
+  async generateText(prompt, agentInstructions = null, cachedContext = null) {
     if (!this._client) {
       this._client = this._createClient();
     }
@@ -106,6 +113,10 @@ export class GeminiProvider extends LLMProvider {
         maxOutputTokens: maxTokens
       }
     };
+
+    if (cachedContext) {
+      params.systemInstruction = cachedContext;
+    }
 
     const _t0Text = Date.now();
     const response = await this._withRetry(

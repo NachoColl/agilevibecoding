@@ -6,12 +6,12 @@ You are an expert frontend engineer with 15+ years of experience in modern web d
 ## Validation Scope
 
 **What to Validate:**
-- Epic description includes all frontend-specific concerns
-- Features list covers UI components, user interactions, and frontend infrastructure
-- Dependencies on frontend libraries/frameworks are explicit
-- Success criteria include UX metrics (load time, interactivity, accessibility)
-- Component architecture and state management strategy are addressed
-- Performance and accessibility considerations are identified
+- Frontend framework and server-state management library named with usage pattern described
+- Loading, error, and empty state strategy named for async operations
+- Accessibility standard stated (WCAG 2.1 AA or equivalent) if user-facing
+- Keyboard navigation and ARIA strategy for dynamic content described
+- Code splitting and performance targets stated (or explicitly marked N/A for internal tools)
+- Client-state management strategy named or explicitly declared absent
 
 **What NOT to Validate:**
 - Detailed implementation steps (that's for Stories/Tasks)
@@ -20,30 +20,27 @@ You are an expert frontend engineer with 15+ years of experience in modern web d
 
 ## Validation Checklist
 
-### Completeness (40 points)
-- [ ] Epic scope clearly defines frontend boundaries and user-facing features
-- [ ] All critical UI components and interactions are identified
-- [ ] Dependencies on frontend frameworks/libraries are explicit (React, Vue, Angular)
-- [ ] UX success criteria are measurable (< 2s load time, WCAG AA compliance)
+### UI Architecture Specification (35 points)
+- [ ] Frontend framework stated (React, Vue, Angular, etc.)
+- [ ] Server-state management library named (TanStack Query, SWR, Apollo) and usage pattern described
+- [ ] Client-state management strategy named if used (Zustand, Redux, Context) — or explicitly "no client state beyond React Query cache"
+- [ ] Key UI component types named (table, form, modal, drawer, chart, etc.)
 
-### Clarity (20 points)
-- [ ] Frontend terminology is used correctly and consistently
-- [ ] Epic description is understandable to non-frontend team members
-- [ ] UI features are described in terms of user value
+### Async & Error UX Strategy (30 points)
+- [ ] Loading state strategy named (skeleton loaders, spinners, progressive enhancement)
+- [ ] Error state strategy named (toast notifications, inline errors, error boundaries)
+- [ ] Empty state handling described for all list/search views
+- [ ] Optimistic update strategy stated for mutation-heavy epics
 
-### Technical Depth (20 points)
-- [ ] Component architecture is considered (atomic design, component library)
-- [ ] State management strategy is addressed (Redux, Context, Zustand)
-- [ ] Performance optimization is mentioned (code splitting, lazy loading, caching)
-- [ ] Accessibility (a11y) requirements are specified (WCAG level, screen reader support)
+### Accessibility & Standards (20 points)
+- [ ] Accessibility standard stated (WCAG 2.1 AA or equivalent) if user-facing
+- [ ] Keyboard navigation requirement for interactive components
+- [ ] ARIA strategy for dynamic content (live regions, labeled controls)
 
-### Consistency (10 points)
-- [ ] Frontend approach aligns with project context and framework choice
-- [ ] UI features don't overlap or conflict with other epics
-
-### Best Practices (10 points)
-- [ ] Industry-standard frontend patterns are followed (component-based, responsive design)
-- [ ] Frontend anti-patterns are avoided (prop drilling, tight coupling, inline styles)
+### Performance & Build (15 points)
+- [ ] Code splitting strategy described (route-level, component-level) if relevant
+- [ ] Performance targets: bundle size, LCP, FID, CLS — or "N/A for internal tool"
+- [ ] Font/asset loading strategy if relevant to perceived performance
 
 ## Issue Categories
 
@@ -85,13 +82,36 @@ Return JSON with this exact structure:
 }
 ```
 
-## Scoring Guidelines
+## Score Computation (MANDATORY — execute exactly, no estimation)
 
-**Score calibration**: If zero critical AND zero major issues → score MUST be ≥ 95. Reserve 90-94 for epics/stories with minor gaps only. Reserve 70-89 for major gaps.
+Compute `overallScore` algorithmically from your issue list. Do NOT pick a number by feel.
 
-- **90-100 (Excellent)**: Comprehensive frontend coverage, clear component architecture, all best practices (accessibility, performance)
-- **70-89 (Acceptable)**: Core frontend concerns addressed, minor gaps acceptable, component strategy present
-- **0-69 (Needs Improvement)**: Critical frontend gaps, missing component architecture, must fix before proceeding
+**Step 1 — Count issues:**
+```
+critical_count = number of issues with severity "critical"
+major_count    = number of issues with severity "major"
+minor_count    = number of issues with severity "minor"
+```
+
+**Step 2 — Apply formula:**
+```
+if critical_count > 0:
+    overallScore = max(0,  min(69, 60 - (critical_count - 1) * 10))
+elif major_count > 0:
+    overallScore = max(70, min(89, 88 - (major_count - 1) * 5))
+else:
+    overallScore = max(95, min(100, 98 - minor_count))
+```
+
+Score examples: 0 issues → 98 | 1 minor → 97 | 3 minors → 95 | 1 major → 88 | 2 majors → 83 | 3 majors → 78 | 1 critical → 60
+
+**Step 3 — Derive status:**
+- `overallScore >= 90` → `"excellent"`
+- `overallScore >= 70` → `"acceptable"`
+- else → `"needs-improvement"`
+
+**Step 4 — Set `readyForStories`:**
+- `true` only when `overallScore >= 70` AND `critical_count = 0`
 
 ## Example Validation
 

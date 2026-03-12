@@ -10,14 +10,14 @@ import { CostThresholdsTab } from './CostThresholdsTab';
 const TABS = [
   { id: 'api-keys',         label: 'API Keys' },
   { id: 'ceremonies',       label: 'Ceremony Models' },
+  { id: 'agents',           label: 'Agents' },
   { id: 'pricing',          label: 'Model Pricing' },
   { id: 'cost-thresholds',  label: 'Cost Limits' },
   { id: 'servers',          label: 'Servers & Ports' },
-  { id: 'agents',           label: 'Agents' },
 ];
 
-export function SettingsModal({ settings, models, onClose, onSaved }) {
-  const [activeTab, setActiveTab] = useState('api-keys');
+export function SettingsModal({ settings, models, onClose, onSaved, initialTab }) {
+  const [activeTab, setActiveTab] = useState(initialTab || 'api-keys');
 
   return (
     <div

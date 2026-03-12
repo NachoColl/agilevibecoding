@@ -163,6 +163,10 @@ export function setupWebSocket(server, dataStore, processRegistry = null, ceremo
     broadcast({ type: 'ceremony:cost-limit', cost, threshold, runningType });
   }
 
+  function broadcastQuotaLimit(provider, model, errMsg, validatorName, runningType) {
+    broadcast({ type: 'ceremony:quota-limit', provider, model, errMsg, validatorName, runningType });
+  }
+
   function broadcastSprintPlanningDecompositionComplete(hierarchy) {
     broadcast({ type: 'sprint-planning:decomposition-complete', hierarchy });
   }
@@ -250,6 +254,7 @@ export function setupWebSocket(server, dataStore, processRegistry = null, ceremo
     broadcastMissionProgress,
     broadcastCostUpdate,
     broadcastCostLimit,
+    broadcastQuotaLimit,
     broadcastProcessStarted,
     broadcastProcessStatus,
     broadcastRefineProgress,

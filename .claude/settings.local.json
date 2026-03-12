@@ -1,0 +1,15 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm test:*)",
+      "Bash(git stash:*)",
+      "Bash(git add:*)",
+      "Bash(grep:*)",
+      "WebFetch(domain:arxiv.org)",
+      "Bash(node:*)",
+      "Bash(git commit:*)",
+      "Bash(git push:*)",
+      "Bash(gh run:*)"
+    ]
+  }
+}

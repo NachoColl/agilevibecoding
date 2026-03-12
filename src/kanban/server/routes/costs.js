@@ -96,7 +96,9 @@ export function createCostsRouter(projectRoot) {
       .map(([date, data]) => ({
         date,
         cost: data.cost?.total ?? 0,
+        saved: data.cost?.saved ?? 0,
         tokens: data.total ?? 0,
+        cached: data.cached ?? 0,
         executions: data.executions ?? 0,
       }));
 
@@ -104,7 +106,7 @@ export function createCostsRouter(projectRoot) {
     const SKIP_KEYS = new Set(['version', 'lastUpdated', 'totals']);
     const parentNodes = {};
     for (const p of PARENT_CEREMONIES) {
-      parentNodes[p] = { name: p, calls: 0, tokens: 0, cost: 0, stages: [] };
+      parentNodes[p] = { name: p, calls: 0, tokens: 0, cost: 0, cached: 0, saved: 0, stages: [] };
     }
     const orphans = []; // keys that don't map to a known parent
 
@@ -112,7 +114,7 @@ export function createCostsRouter(projectRoot) {
       if (SKIP_KEYS.has(key)) continue;
       if (!value || typeof value !== 'object') continue;
 
-      let totalInput = 0, totalOutput = 0, totalCost = 0, totalExec = 0;
+      let totalInput = 0, totalOutput = 0, totalCost = 0, totalExec = 0, totalCached = 0, totalSaved = 0;
       const dailyForKey = value.daily ?? {};
       for (const [date, data] of Object.entries(dailyForKey)) {
         const d = new Date(date);
@@ -121,12 +123,14 @@ export function createCostsRouter(projectRoot) {
           totalOutput += data.output       ?? 0;
           totalCost   += data.cost?.total  ?? 0;
           totalExec   += data.executions   ?? 0;
+          totalCached += data.cached       ?? 0;
+          totalSaved  += data.cost?.saved  ?? 0;
         }
       }
 
       if (totalExec === 0 && totalInput === 0 && totalOutput === 0) continue;
 
-      const entry = { name: key, calls: totalExec, tokens: totalInput + totalOutput, cost: totalCost };
+      const entry = { name: key, calls: totalExec, tokens: totalInput + totalOutput, cost: totalCost, cached: totalCached, saved: totalSaved };
       const parent = getParentCeremony(key);
 
       if (parent && parentNodes[parent]) {
@@ -137,6 +141,8 @@ export function createCostsRouter(projectRoot) {
         parentNodes[parent].calls   += totalExec;
         parentNodes[parent].tokens  += totalInput + totalOutput;
         parentNodes[parent].cost    += totalCost;
+        parentNodes[parent].cached  += totalCached;
+        parentNodes[parent].saved   += totalSaved;
       } else {
         orphans.push({ ...entry, stages: [] });
       }

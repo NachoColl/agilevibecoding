@@ -17,6 +17,20 @@ Apply targeted improvements to resolve the issues. Do NOT change the story's int
 - Add permission handling criteria: permission request timing, denial handling, and settings deep links
 - Specify native feature criteria: platform-specific implementations and fallback behavior
 
+## Priority Actions by Score Band
+
+### Score 60-75 — Mobile State Contract Missing
+1. **Cover all four async states for every screen**: loading (skeleton/spinner with platform-appropriate pattern), success, empty (empty-state illustration + CTA), error (error message + retry button).
+2. **Add offline behavior AC**: "When the device is offline: [cached data is shown with 'offline' banner / empty state with 'No connection' message / retry when reconnected]."
+3. **Map every API error to platform-specific UI**: "On 422, highlight the errored field in red with an inline message below. On 500, show a platform Alert dialog with Retry and Cancel options."
+
+### Score 76-88 — Interaction and Accessibility
+1. **Add touch target AC**: "All interactive elements have a minimum touch target of 44×44 points (iOS) / 48×48dp (Android)."
+2. **Add platform navigation AC**: "Back navigation uses the platform's native back gesture/button. State is preserved when navigating back to a list."
+
+### Score 89-94 — Performance
+1. **Add cold start AC**: "Screen renders initial content within [N]ms of navigation. API call is initiated immediately on mount — no waiting for animations."
+
 ## Rules
 - PRESERVE: `id`, `name`, `userType` — never modify these
 - IMPROVE: `description`, `acceptance`, `dependencies` based on the issues

@@ -75,6 +75,14 @@ class SprintPlanningProcessor {
     // and waits for it to resolve with { selectedEpicIds, selectedStoryIds }.
     // When null (default), the processor runs straight through without pausing.
     this._selectionCallback = options?.selectionCallback ?? null;
+
+    // Optional callback fired immediately after Stage 6 writes work.json files to disk.
+    // Use this to trigger Kanban board refresh before Stage 7/8 (doc gen + enrichment) complete.
+    this._hierarchyWrittenCallback = options?.hierarchyWrittenCallback ?? null;
+
+    // Optional callback when a validator call fails with quota/rate-limit error.
+    // Async: resolves with { newProvider?, newModel? } or null (retry same model).
+    this._quotaExceededCallback = options?.quotaExceededCallback ?? null;
   }
 
   /**
@@ -338,7 +346,10 @@ class SprintPlanningProcessor {
         const isLastAttempt = attempt === maxRetries;
         const isRetriable = error.message?.includes('rate limit') ||
                           error.message?.includes('timeout') ||
-                          error.message?.includes('503');
+                          error.message?.includes('503') ||
+                          error.message?.toLowerCase().includes('connection error') ||
+                          error.message?.toLowerCase().includes('econnreset') ||
+                          error.message?.toLowerCase().includes('network error');
 
         if (isLastAttempt || !isRetriable) {
           throw error;
@@ -497,92 +508,10 @@ class SprintPlanningProcessor {
     const docContent = fs.readFileSync(this.projectDocPath, 'utf8');
     this.debug(`Doc content loaded (${docContent.length} chars)`);
 
-    // Log full doc.md content for cross-run comparison
-    this.debugSection('PROJECT DOC.MD CONTENT (full text used as scope source)');
-    this.debug('doc.md full content:\n' + docContent);
+    this.debugSection('SCOPE TEXT SENT TO LLM (full doc.md)');
+    this.debug(`Full doc content (${docContent.length} chars):\n` + docContent);
 
-    // Try to extract scope from known section headers
-    const scopeFromSection = this.tryExtractScopeFromSections(docContent);
-
-    if (scopeFromSection) {
-      this.debug(`✓ Scope extracted from section (${scopeFromSection.length} chars)`);
-      this.debugSection('SCOPE TEXT SENT TO LLM (extracted from doc section)');
-      this.debug('Full scope text:\n' + scopeFromSection);
-      return scopeFromSection;
-    }
-
-    // Fallback: Use entire doc.md
-    this.debug('⚠️  No standard scope section found');
-    this.debug('Using entire doc.md content as scope source');
-
-    sendWarning('No standard scope section found in doc.md');
-    sendIndented('Using entire documentation for feature extraction.', 1);
-    sendIndented('For better results and lower token usage, consider adding one of:', 1);
-    sendIndented('- "## Initial Scope"', 1);
-    sendIndented('- "## Scope"', 1);
-    sendIndented('- "## Features"', 1);
-
-    this.debugSection('SCOPE TEXT SENT TO LLM (full doc.md - no scope section found)');
-    this.debug(`Using full doc content (${docContent.length} chars) as scope`);
     return docContent;
-  }
-
-  /**
-   * Try to extract scope from known section headers
-   * Returns null if no section found
-   */
-  tryExtractScopeFromSections(docContent) {
-    // Section headers to try (in priority order)
-    const sectionHeaders = [
-      'Initial Scope',           // Official AVC convention
-      'Scope',                   // Common variation
-      'Project Scope',           // Formal variation
-      'Features',                // Common alternative
-      'Core Features',           // Detailed variation
-      'Requirements',            // Specification style
-      'Functional Requirements', // Formal specification
-      'User Stories',            // Agile style
-      'Feature List',            // Simple list style
-      'Objectives',              // Goal-oriented style
-      'Goals',                   // Simple goal style
-      'Deliverables',            // Project management style
-      'Product Features',        // Product-focused
-      'System Requirements'      // Technical specification
-    ];
-
-    this.debug(`Attempting to extract scope from known sections...`);
-    this.debug(`Trying ${sectionHeaders.length} section name variations`);
-
-    // Try each section header
-    for (const header of sectionHeaders) {
-      // Build regex (case-insensitive). Allow optional numeric prefix so
-      // "## 3. Initial Scope" matches when searching for "Initial Scope".
-      const regex = new RegExp(
-        `##\\s+(?:\\d+\\.\\s+)?${this.escapeRegex(header)}\\s+([\\s\\S]+?)(?=\\n#{1,2}[^#]|$)`,
-        'i'
-      );
-
-      const match = docContent.match(regex);
-
-      if (match && match[1].trim().length > 0) {
-        const scope = match[1].trim();
-        this.debug(`✓ Found scope in section: "## ${header}"`);
-        this.debug(`Extracted ${scope.length} chars`);
-        return scope;
-      }
-
-      this.debug(`✗ Section "## ${header}" not found or empty`);
-    }
-
-    this.debug('✗ No known scope section found');
-    return null;
-  }
-
-  /**
-   * Escape special regex characters in section names
-   */
-  escapeRegex(str) {
-    return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   }
 
   // STAGE 4: Decompose into Epics + Stories
@@ -729,6 +658,87 @@ Return your response as JSON following the exact structure specified in your ins
       validation: hierarchy.validation
     });
 
+
+    return hierarchy;
+  }
+
+  // STAGE 4.2: Review and split wide stories
+  async reviewAndSplitStories(hierarchy, progressCallback = null) {
+    this.debugStage(4.2, 'Review and Split Wide Stories');
+
+    const provider = await this.getProviderForStageInstance('decomposition');
+    const { provider: providerName, model: modelName } = this.getProviderForStage('decomposition');
+
+    const agentPath = path.join(this.agentsPath, 'story-scope-reviewer.md');
+    const reviewerAgent = fs.readFileSync(agentPath, 'utf8');
+
+    this.debug('Story scope reviewer loaded', { agentBytes: reviewerAgent.length, provider: providerName, model: modelName });
+    await progressCallback?.(null, `Reviewing story scopes for splits (${providerName} / ${modelName})…`, {});
+
+    let totalSplits = 0;
+
+    // Process all epics in parallel — one LLM call per epic
+    const results = await Promise.all(hierarchy.epics.map(async (epic) => {
+      const prompt = `## Epic
+name: ${epic.name}
+domain: ${epic.domain || 'unknown'}
+description: ${epic.description || ''}
+features: ${JSON.stringify(epic.features || [])}
+
+## Stories
+${JSON.stringify(epic.stories || [], null, 2)}
+
+Review the stories above and return the complete final story list for this epic, splitting any stories that are too broad according to your instructions.`;
+
+      this.debug(`Reviewing stories for epic: ${epic.name} (${(epic.stories || []).length} stories)`);
+
+      try {
+        const result = await this._withProgressHeartbeat(
+          () => this.retryWithBackoff(
+            () => provider.generateJSON(prompt, reviewerAgent),
+            `Story scope review for ${epic.name}`
+          ),
+          (elapsed) => {
+            if (elapsed < 20) return `Reviewing stories in ${epic.name}…`;
+            if (elapsed < 45) return `Checking scope boundaries for ${epic.name}…`;
+            return `Finalizing splits for ${epic.name}…`;
+          },
+          progressCallback,
+          20000
+        );
+
+        const splits = result.splits || [];
+        const stories = result.stories || epic.stories;
+
+        if (splits.length > 0) {
+          this.debug(`Splits applied in epic "${epic.name}"`, splits.map(s => ({
+            original: s.original,
+            into: s.into,
+            rationale: s.rationale
+          })));
+          for (const split of splits) {
+            await progressCallback?.(null, `  Split: ${split.original} → ${split.into.join(', ')} — ${split.rationale}`, {});
+          }
+        } else {
+          this.debug(`No splits needed for epic "${epic.name}"`);
+        }
+
+        return { epic, stories, splits };
+      } catch (err) {
+        this.debug(`Story scope review failed for epic "${epic.name}" — keeping original stories`, { error: err.message });
+        return { epic, stories: epic.stories, splits: [] };
+      }
+    }));
+
+    // Apply results back to hierarchy
+    for (const { epic, stories, splits } of results) {
+      epic.stories = stories;
+      totalSplits += splits.length;
+    }
+
+    const totalStories = hierarchy.epics.reduce((s, e) => s + (e.stories?.length || 0), 0);
+    this.debug(`Story scope review complete — ${totalSplits} split(s), ${totalStories} total stories`);
+    await progressCallback?.(null, `Story review complete: ${totalSplits} split(s), ${totalStories} total stories`, {});
 
     return hierarchy;
   }
@@ -1072,24 +1082,44 @@ Return your response as JSON following the exact structure specified in your ins
         this.debug(`Epic context generation failed — using structured fallback (${epic.name})`, { error: err.message });
         this._epicContextCache.set(epic.name, this.generateEpicContextMd(epic));
       }
+      // Write context.md immediately using provisional ID — visible on disk during the ceremony.
+      // Stage 6 (writeHierarchyFiles) will rename the folder if IDs change after renumbering.
+      try {
+        const provisionalEpicDir = path.join(this.projectPath, epic.id);
+        if (!fs.existsSync(provisionalEpicDir)) fs.mkdirSync(provisionalEpicDir, { recursive: true });
+        fs.writeFileSync(path.join(provisionalEpicDir, 'context.md'), this._epicContextCache.get(epic.name), 'utf8');
+        this.debug(`Epic context.md written early (provisional): ${epic.id}/context.md`);
+      } catch (err) {
+        this.debug(`Early epic context.md write failed — will retry in Stage 6`, { error: err.message });
+      }
     }));
 
-    // Phase 2: Generate all story contexts in parallel (stories can use cached epic context)
-    const storyTasks = hierarchy.epics.flatMap(epic =>
-      (epic.stories || []).map(story => ({ epic, story }))
-    );
-
-    await Promise.all(storyTasks.map(async ({ epic, story }) => {
+    // Phase 2: Generate story contexts — epics run in parallel, but stories within each epic
+    // run sequentially. This maximises OpenAI prefix-cache hits: all stories of the same epic
+    // share an identical system-message prefix (agentInstructions + epic context.md), so calls
+    // 2-N within an epic hit the cache at a 90% discount once call 1 has written it.
+    await Promise.all(hierarchy.epics.map(async (epic) => {
       const epicContextMd = this._epicContextCache.get(epic.name) || this.generateEpicContextMd(epic);
-      const cacheKey = `${epic.name}::${story.name}`;
-      try {
-        this.debug(`Generating context for story: ${story.name}`);
-        const storyContextMd = await this.generateStoryContextMdLLM(story, epic, epicContextMd, provider);
-        this._storyContextCache.set(cacheKey, storyContextMd);
-        this.debug(`Story context generated: ${story.name} (${storyContextMd.length} bytes)`);
-      } catch (err) {
-        this.debug(`Story context generation failed — using structured fallback (${story.name})`, { error: err.message });
-        this._storyContextCache.set(cacheKey, this.generateStoryContextMd(story, epic));
+      for (const story of (epic.stories || [])) {
+        const cacheKey = `${epic.name}::${story.name}`;
+        try {
+          this.debug(`Generating context for story: ${story.name}`);
+          const storyContextMd = await this.generateStoryContextMdLLM(story, epic, epicContextMd, provider);
+          this._storyContextCache.set(cacheKey, storyContextMd);
+          this.debug(`Story context generated: ${story.name} (${storyContextMd.length} bytes)`);
+        } catch (err) {
+          this.debug(`Story context generation failed — using structured fallback (${story.name})`, { error: err.message });
+          this._storyContextCache.set(cacheKey, this.generateStoryContextMd(story, epic));
+        }
+        // Write context.md immediately using provisional IDs.
+        try {
+          const provisionalStoryDir = path.join(this.projectPath, epic.id, story.id);
+          if (!fs.existsSync(provisionalStoryDir)) fs.mkdirSync(provisionalStoryDir, { recursive: true });
+          fs.writeFileSync(path.join(provisionalStoryDir, 'context.md'), this._storyContextCache.get(cacheKey), 'utf8');
+          this.debug(`Story context.md written early (provisional): ${epic.id}/${story.id}/context.md`);
+        } catch (err) {
+          this.debug(`Early story context.md write failed — will retry in Stage 6`, { error: err.message });
+        }
       }
     }));
 
@@ -1283,6 +1313,9 @@ Return your response as JSON following the exact structure specified in your ins
       projectContext
     );
     this._validator = validator;
+    if (this._quotaExceededCallback) {
+      this._validator.setQuotaExceededCallback(this._quotaExceededCallback);
+    }
     if (rootContextMd) this._validator.setRootContextMd(rootContextMd);
     this._validator.setPromptLogger(this._promptLogger);
     this._validator.setTokenCallback((delta, stageHint) => {
@@ -1318,8 +1351,15 @@ Return your response as JSON following the exact structure specified in your ins
         this.displayValidationIssues(epicValidation);
       }
 
-      // Validate each story under this epic
-      for (const story of epic.stories || []) {
+      // Validate each story under this epic.
+      // Use index-based loop so split stories inserted via splice() are validated in-place.
+      const STORY_AC_CAP = 15;
+      const MAX_SPLIT_DEPTH = 1;
+      let si = 0;
+      while (si < (epic.stories || []).length) {
+        const story = epic.stories[si];
+        const splitDepth = story._splitDepth || 0;
+
         this.debug(`\nValidating Story: ${story.id} "${story.name}"`);
         await progressCallback?.(null, `  Validating story: ${story.name}`, {});
 
@@ -1339,6 +1379,63 @@ Return your response as JSON following the exact structure specified in your ins
           this.debug(`Story "${story.name}" needs improvement - showing issues`);
           this.displayValidationIssues(storyValidation);
         }
+
+        // ── Split detection ────────────────────────────────────────────────────────
+        // Trigger split when:
+        // (a) AC cap reached — story too large for solver to improve further, OR
+        // (b) SA issued a SPLIT RECOMMENDATION — story has too many concerns to resolve
+        //     by adding ACs regardless of current AC count
+        const acCount = (story.acceptance || []).length;
+        // Keep in sync with STORY_AC_CAP in epic-story-validator.js (currently 20)
+        const STORY_SPLIT_AC_CAP = 20;
+
+        const splitRecommended = storyValidation._splitRecommended === true;
+        const shouldSplit =
+          storyValidation.overallStatus === 'needs-improvement' &&
+          (acCount >= STORY_SPLIT_AC_CAP || splitRecommended) &&
+          splitDepth < MAX_SPLIT_DEPTH;
+
+        if (shouldSplit) {
+          const allIssues = [
+            ...(storyValidation.criticalIssues || []),
+            ...(storyValidation.majorIssues || []),
+          ];
+
+          const splitReason = splitRecommended
+            ? `SA split recommendation (${acCount} ACs)`
+            : `too large (${acCount} ACs)`;
+          await progressCallback?.(null, `  Splitting story: ${story.name}`, {});
+          await validator._detail(`✂ [${story.id}] ${splitReason} — attempting split…`);
+          console.log(`   ✂ Splitting story "${story.name}" — ${splitReason}`);
+
+          const splitStories = await validator._splitStory(story, epic, allIssues);
+
+          if (splitStories) {
+            // Tag split stories with depth guard and parent reference (runtime-only, prefixed _)
+            for (const s of splitStories) {
+              s._splitDepth = splitDepth + 1;
+              s._splitFrom = story.id;
+            }
+
+            // Replace the original story with the split stories in-place
+            epic.stories.splice(si, 1, ...splitStories);
+
+            // Invalidate stale context cache entry for the original story name
+            this._storyContextCache.delete(`${epic.name}::${story.name}`);
+
+            const names = splitStories.map(s => `"${s.name}"`).join(' + ');
+            await validator._detail(`✂ [${story.id}] split into ${splitStories.length}: ${names}`);
+            console.log(`   ✂ Split into ${splitStories.length} stories: ${names}`);
+
+            // Do NOT increment si — the loop re-enters at position si
+            // which now holds the first split story
+            continue;
+          } else {
+            console.log(`   ⚠ Split failed for "${story.name}" — keeping original story`);
+          }
+        }
+
+        si++;
       }
     }
 
@@ -1543,6 +1640,16 @@ Return your response as JSON following the exact structure specified in your ins
     // Phase 1 (sync): Create all directories, write work.json and context.md files
     for (const epic of hierarchy.epics) {
       const epicDir = path.join(this.projectPath, epic.id);
+
+      // If context was written early with a provisional ID that differs from the final ID,
+      // rename the provisional folder to the final ID rather than creating it fresh.
+      if (epic._provisionalId && epic._provisionalId !== epic.id) {
+        const provisionalDir = path.join(this.projectPath, epic._provisionalId);
+        if (fs.existsSync(provisionalDir) && !fs.existsSync(epicDir)) {
+          fs.renameSync(provisionalDir, epicDir);
+          this.debug(`Renamed provisional epic folder: ${epic._provisionalId} → ${epic.id}`);
+        }
+      }
       if (!fs.existsSync(epicDir)) fs.mkdirSync(epicDir, { recursive: true });
 
       // Use LLM-generated context if cached; patch the id line since IDs may have changed after renumbering
@@ -1575,6 +1682,15 @@ Return your response as JSON following the exact structure specified in your ins
 
       for (const story of epic.stories || []) {
         const storyDir = path.join(epicDir, story.id);
+
+        // Rename provisional story folder if ID changed after renumbering.
+        if (story._provisionalId && story._provisionalId !== story.id) {
+          const provisionalStoryDir = path.join(epicDir, story._provisionalId);
+          if (fs.existsSync(provisionalStoryDir) && !fs.existsSync(storyDir)) {
+            fs.renameSync(provisionalStoryDir, storyDir);
+            this.debug(`Renamed provisional story folder: ${story._provisionalId} → ${story.id}`);
+          }
+        }
         if (!fs.existsSync(storyDir)) fs.mkdirSync(storyDir, { recursive: true });
 
         // Use LLM-generated context if cached; patch id and epic-ref lines after renumbering
@@ -1994,7 +2110,7 @@ Extract and synthesize content from the parent document that is specifically rel
       });
 
       const header = getCeremonyHeader('sprint-planning');
-      sendCeremonyHeader(header.title, header.url);
+      sendCeremonyHeader(header.title);
 
       const _t0run = Date.now();
 
@@ -2046,6 +2162,21 @@ Extract and synthesize content from the parent document that is specifically rel
       })));
       this.debug('LLM validation field', hierarchy.validation || null);
 
+      // Stage 4.2: Review and split wide stories
+      sendProgress('Reviewing story scopes for splits...');
+      await progressCallback?.('Stage 4.2/8: Reviewing story scopes for required splits…');
+      _ts = Date.now();
+      hierarchy = await this.reviewAndSplitStories(hierarchy, progressCallback);
+      this.debugTiming('Stage 4.2 — reviewAndSplitStories', _ts);
+
+      // Log post-split snapshot
+      this.debugSection('POST-SPLIT: Hierarchy after story scope review');
+      this.debugHierarchySnapshot('POST-SPLIT', hierarchy.epics.map(e => ({
+        id: e.id || '(no-id)',
+        name: e.name,
+        stories: (e.stories || []).map(s => ({ id: s.id || '(no-id)', name: s.name }))
+      })));
+
       // Stage 4.5: User selection gate (Kanban UI only; null = run straight through)
       if (this._selectionCallback) {
         await progressCallback?.('Stage 4.5/6: Waiting for epic/story selection…');
@@ -2084,6 +2215,15 @@ Extract and synthesize content from the parent document that is specifically rel
       // Analyze duplicate detection (before renumbering)
       const duplicateAnalysis = this.analyzeDuplicates(hierarchy, existingEpics, existingStories);
 
+      // Snapshot provisional IDs before renumbering so writeHierarchyFiles can rename
+      // any provisional folders that were written early during context generation.
+      for (const epic of hierarchy.epics) {
+        epic._provisionalId = epic.id;
+        for (const story of epic.stories || []) {
+          story._provisionalId = story.id;
+        }
+      }
+
       // Renumber IDs
       hierarchy = this.renumberHierarchy(hierarchy, maxEpicNum, maxStoryNums);
 
@@ -2097,6 +2237,10 @@ Extract and synthesize content from the parent document that is specifically rel
       _ts = Date.now();
       const { epicCount, storyCount } = await this.writeHierarchyFiles(hierarchy, progressCallback);
       this.debugTiming(`Stage 6 — writeHierarchyFiles (${epicCount5} epics, ${storyCount5} stories)`, _ts);
+
+      // Notify listeners (e.g. Kanban board) that work.json files are now on disk.
+      // This fires BEFORE Stage 7/8 so the board can list new epics/stories immediately.
+      await this._hierarchyWrittenCallback?.({ epicCount, storyCount });
 
       // Stage 7: Generate narrative doc.md from canonical context.md (replaces doc-distribution)
       sendProgress('Generating documentation from canonical context...');

@@ -17,6 +17,20 @@ Apply targeted improvements to resolve the issues. Do NOT change the story's int
 - Add monitoring acceptance criteria: metrics to track, alert thresholds, and dashboard requirements
 - Specify CI/CD pipeline requirements: any new pipeline stages, quality gates, or deployment approvals
 
+## Priority Actions by Score Band
+
+### Score 60-75 — Deployment and Environment Contract Missing
+1. **Specify environment variables AC**: "The feature requires these new env vars: [VAR_NAME: description, type, example value]. Missing vars cause startup failure with a descriptive error: 'Missing required env var: VAR_NAME'."
+2. **Add health check AC**: "The service exposes GET /health returning 200 { status: 'ok', version: '<git sha>' } within 100ms. Load balancer uses this endpoint for liveness checks."
+3. **Add rollback AC**: "If the deployment fails health checks within [N]s, the orchestrator automatically rolls back to the previous version. Rollback is verified by checking the version endpoint."
+
+### Score 76-88 — Monitoring and Observability Gaps
+1. **Add metric AC**: "The feature emits [metric name] (counter/gauge/histogram) via [Prometheus/StatsD/CloudWatch]. Alert fires when [condition, e.g., error rate > 1% for 5min]."
+2. **Add log level AC**: "Startup logs at INFO. Per-request logs at DEBUG (not written in production). Errors at ERROR with full stack trace."
+
+### Score 89-94 — Scaling and Security
+1. **Add secret rotation AC**: "API keys and credentials are read from [vault/secrets manager] at startup, not from plaintext config files. Rotation does not require a service restart."
+
 ## Rules
 - PRESERVE: `id`, `name`, `userType` — never modify these
 - IMPROVE: `description`, `acceptance`, `dependencies` based on the issues

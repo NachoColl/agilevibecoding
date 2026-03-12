@@ -17,6 +17,20 @@ Apply targeted improvements to resolve the issues. Do NOT change the story's int
 - Add cloud resource acceptance criteria: resource sizing, tags, and cost allocation requirements
 - Specify cloud-specific security: VPC rules, security group changes, and compliance validations
 
+## Priority Actions by Score Band
+
+### Score 60-75 — Cloud Resource Contract Missing
+1. **Specify cloud resource requirements**: "The feature requires [resource type: S3 bucket / Lambda / RDS instance / etc.] with configuration: [key settings]."
+2. **Add IAM/permissions AC**: "The service role has exactly these permissions: [list]. Principle of least privilege — no wildcard * permissions."
+3. **Add cost estimation AC**: "Expected monthly cost for [resource] at [expected usage]: approximately $[amount]. Cost alert set at [N]% over baseline."
+
+### Score 76-88 — Resilience Gaps
+1. **Add retry/timeout AC**: "External cloud service calls have [N]s timeout and [M] retries with exponential backoff. Failed calls are logged with the service name and error code."
+2. **Add multi-region or availability AC**: "Resource is deployed in [region(s)]; failover [is/is not] configured."
+
+### Score 89-94 — Monitoring
+1. **Add CloudWatch/monitoring AC**: "Alarms fire when [metric] exceeds [threshold] for [duration]. On-call is paged via [notification channel]."
+
 ## Rules
 - PRESERVE: `id`, `name`, `userType` — never modify these
 - IMPROVE: `description`, `acceptance`, `dependencies` based on the issues

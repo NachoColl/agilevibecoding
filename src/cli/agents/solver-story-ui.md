@@ -17,6 +17,20 @@ Apply targeted improvements to resolve the issues. Do NOT change the story's int
 - Add animation acceptance criteria: transition timing, easing functions, and reduced-motion support
 - Specify icon and illustration criteria: icon library usage, sizing, and accessibility labels
 
+## Priority Actions by Score Band
+
+### Score 60-75 — UI State Contract Missing
+1. **Cover all interaction states for every component**: default, hover, focus (visible focus ring), active/pressed, disabled, loading (spinner inside button), success (checkmark/toast), error (red border + error text).
+2. **Add design system compliance AC**: "All components use [design system] tokens for color, spacing, and typography. No hardcoded hex values or px sizes outside the token set."
+3. **Add responsive layout AC**: "Layout works at 375px (mobile), 768px (tablet), 1280px (desktop). At 375px: [describe layout changes, e.g., stacked vertically, hidden sidebar]."
+
+### Score 76-88 — Interaction and Visual Precision
+1. **Add animation/transition AC**: "State transitions use [N]ms [ease-in-out / linear] animation. Reduced-motion users (prefers-reduced-motion) see instant transitions."
+2. **Add dark mode AC** (if applicable): "All components render correctly in both light and dark mode. No hardcoded light-only colors."
+
+### Score 89-94 — Pixel Precision
+1. **Add spacing verification AC**: "Spacing between elements matches the design spec: [component A] has [N]px margin from [component B]."
+
 ## Rules
 - PRESERVE: `id`, `name`, `userType` — never modify these
 - IMPROVE: `description`, `acceptance`, `dependencies` based on the issues

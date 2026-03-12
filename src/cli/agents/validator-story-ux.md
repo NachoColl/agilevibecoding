@@ -56,6 +56,27 @@ Use these categories when reporting issues:
 - `dependencies` - Missing or unclear dependencies
 - `best-practices` - Violates ux standards
 
+## Anti-Pattern Rules — Automatic Major Issues
+
+The following patterns are automatic `major` issues, regardless of other scoring. Apply them before computing the score.
+
+**Vague Language Rule — each instance is a `major` issue in `acceptance-criteria`, -10 points per instance:**
+Any AC that uses the phrases below WITHOUT specifying the exact, concrete, observable outcome must be flagged:
+- "handle gracefully", "handle errors", "handle properly"
+- "validate properly", "validate input", "ensure validation"
+- "ensure security", "apply security", "secure the endpoint"
+- "appropriate response", "suitable response", "proper response"
+- "see [epic/story/auth flow]" or "as defined in [other story]" without restating the key technical decision inline
+
+When you encounter any of these patterns: raise a `major` issue, category `acceptance-criteria`, and deduct 10 points per instance.
+Exception: if the same story has another AC in the same criterion set that provides the concrete spec (making the vague phrase redundant but not blocking), downgrade to `minor`.
+
+**Testing Boundary Rule — absence is one `major` issue in `testability`:**
+If the story has NO acceptance criterion that explicitly lists concrete test scenarios (e.g., named test cases, boundary values, error paths, or a "Developer unit tests must cover:" statement), raise this issue:
+- Description: "Story lacks a test-boundary AC — no AC names the specific scenarios a developer must test."
+- Suggestion: "Add one AC: 'Developer tests must cover: (1) happy path, (2) missing required field, (3) <domain-specific error>, (4) authentication failure, (5) authorization failure.'"
+This rule applies unless the story is purely infrastructure or configuration with no logic paths.
+
 ## Issue Severity Levels
 
 - `critical` - Story cannot be implemented (blocking issue, major ambiguity)
@@ -87,13 +108,36 @@ Return JSON with this exact structure:
 }
 ```
 
-## Scoring Guidelines
+## Score Computation (MANDATORY — execute exactly, no estimation)
 
-**Score calibration**: If zero critical AND zero major issues → score MUST be ≥ 95. Reserve 90-94 for epics/stories with minor gaps only. Reserve 70-89 for major gaps.
+Compute `overallScore` algorithmically from your issue list. Do NOT pick a number by feel.
 
-- **90-100 (Excellent)**: Crystal clear acceptance criteria, all ux details specified, highly testable
-- **70-89 (Acceptable)**: Core requirements clear, minor gaps acceptable, implementable with clarification
-- **0-69 (Needs Improvement)**: Critical ambiguities, missing ux requirements, must fix before implementation
+**Step 1 — Count issues:**
+```
+critical_count = number of issues with severity "critical"
+major_count    = number of issues with severity "major"
+minor_count    = number of issues with severity "minor"
+```
+
+**Step 2 — Apply formula:**
+```
+if critical_count > 0:
+    overallScore = max(0,  min(69, 60 - (critical_count - 1) * 10))
+elif major_count > 0:
+    overallScore = max(70, min(89, 88 - (major_count - 1) * 5))
+else:
+    overallScore = max(95, min(100, 98 - minor_count))
+```
+
+Score examples: 0 issues → 98 | 1 minor → 97 | 3 minors → 95 | 1 major → 88 | 2 majors → 83 | 3 majors → 78 | 1 critical → 60
+
+**Step 3 — Derive status:**
+- `overallScore >= 90` → `"excellent"`
+- `overallScore >= 70` → `"acceptable"`
+- else → `"needs-improvement"`
+
+**Step 4 — Set `readyForImplementation`:**
+- `true` only when `overallScore >= 70` AND `critical_count = 0`
 
 ## Example Validation
 

@@ -234,7 +234,6 @@ describe('OutputBuffer', () => {
   describe('complex scenarios', () => {
     it('handles realistic console output', () => {
       buffer.append('Sponsor Call Ceremony\n');
-      buffer.append('Documentation: https://agilevibecoding.org/ceremonies/sponsor-call\n');
       buffer.append('\n');
       buffer.append('Deployment Strategy: Local MVP First\n');
 
@@ -242,8 +241,6 @@ describe('OutputBuffer', () => {
       // A trailing \n produces an extra empty string at the end of each item's lines
       expect(buffer.getLines()).toEqual([
         'Sponsor Call Ceremony',
-        '',
-        'Documentation: https://agilevibecoding.org/ceremonies/sponsor-call',
         '',
         '',
         '',

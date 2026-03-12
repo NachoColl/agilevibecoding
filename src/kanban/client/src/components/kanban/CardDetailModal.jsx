@@ -22,6 +22,8 @@ import {
   Save,
   ChevronUp,
   Wand2,
+  ListChecks,
+  Lock,
 } from 'lucide-react';
 import {
   getWorkItem,
@@ -449,12 +451,45 @@ export function CardDetailModal({ workItem, open, onOpenChange, onNavigate, onIt
                       );
                     })()}
 
+                    {/* Acceptance Criteria (stories use .acceptance, epics use .features) */}
+                    {(() => {
+                      const items = workItem.type === 'epic'
+                        ? fullDetails?.features
+                        : fullDetails?.acceptance;
+                      if (!items || items.length === 0) return null;
+                      return (
+                        <div>
+                          <div className="flex items-center gap-2 text-sm font-semibold text-slate-700 mb-2">
+                            <ListChecks className="w-4 h-4" />
+                            <span>Acceptance Criteria</span>
+                            <span className="ml-auto flex items-center gap-1 text-xs font-normal text-slate-400">
+                              <Lock className="w-3 h-3" />
+                              updated by tests
+                            </span>
+                          </div>
+                          <ul className="space-y-1.5">
+                            {items.map((ac, idx) => (
+                              <li key={idx} className="flex items-start gap-2.5 text-sm text-slate-700">
+                                <input
+                                  type="checkbox"
+                                  readOnly
+                                  disabled
+                                  className="mt-0.5 h-4 w-4 flex-shrink-0 rounded border-slate-300 text-indigo-600 cursor-not-allowed opacity-60"
+                                />
+                                <span className="leading-snug">{ac}</span>
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      );
+                    })()}
+
                     {/* Dependencies */}
                     {fullDetails?.dependencies && fullDetails.dependencies.length > 0 && (
                       <div>
                         <div className="flex items-center gap-2 text-sm font-semibold text-slate-700 mb-2">
                           <Link2 className="w-4 h-4" />
-                          <span>Dependencies ({fullDetails.dependencies.length})</span>
+                          <span>Depends On ({fullDetails.dependencies.length})</span>
                         </div>
                         <div className="space-y-2">
                           {fullDetails.dependencies.map((depId) => {

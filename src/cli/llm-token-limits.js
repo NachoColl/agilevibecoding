@@ -31,8 +31,14 @@ export const MODEL_MAX_TOKENS = {
 
   // OpenAI models
   // Source: https://community.openai.com/t/what-is-the-token-limit-of-the-new-version-gpt-4o/752528
-  'gpt-5.2-chat-latest': 16384,    // Test/future model
-  'gpt-5.2-pro': 16384,
+  // GPT-5 family (32K output tokens assumed; add specific overrides as official limits are confirmed)
+  'gpt-5':         32768,
+  'gpt-5.1':       32768,
+  'gpt-5.2':       32768,
+  'gpt-5.4':       32768,
+  'gpt-5-mini':    32768,
+  'gpt-5.2-chat-latest': 16384,  // Keep at 16384 — existing tests depend on this value
+  'gpt-5.2-pro':   16384,
   'gpt-5.2-codex': 16384,
   'gpt-4o': 16384,                 // Correct - max 16,384 tokens
   'gpt-4o-2024-11-20': 16384,
@@ -77,6 +83,12 @@ export function getMaxTokensForModel(modelId) {
   const baseModel = modelId.split('-').slice(0, 3).join('-');
   if (MODEL_MAX_TOKENS[baseModel]) {
     return MODEL_MAX_TOKENS[baseModel];
+  }
+
+  // Prefix fallback: catch any gpt-5.x variant not explicitly listed
+  if (modelId.startsWith('gpt-5')) {
+    console.warn(`No exact max tokens for "${modelId}", using GPT-5 family default: 32768`);
+    return 32768;
   }
 
   // Fallback to default

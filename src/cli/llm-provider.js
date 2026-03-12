@@ -6,6 +6,8 @@ export class LLMProvider {
     this.tokenUsage = {
       inputTokens: 0,
       outputTokens: 0,
+      cachedInputTokens: 0,  // cache reads (already counted inside inputTokens)
+      cacheWriteTokens: 0,   // cache writes (billed at 1.25× on Claude, free on OpenAI/Gemini)
       totalCalls: 0
     };
 
@@ -71,7 +73,15 @@ export class LLMProvider {
       'rate limit',
       'quota exceeded',
       'resource exhausted',
-      'resource has been exhausted'
+      'resource has been exhausted',
+      // Transient network/connection errors (e.g. WSL2 IPv6, momentary TCP failures)
+      'connection error',
+      'econnreset',
+      'econnrefused',
+      'enotfound',
+      'etimedout',
+      'network error',
+      'fetch failed',
     ];
 
     const hasHighDemandMessage = highDemandPatterns.some(pattern =>
@@ -146,7 +156,8 @@ export class LLMProvider {
         // Log retry attempt with helpful info
         const retrySource = retryAfterDelay ? 'server directive' : 'exponential backoff';
         console.log(`\n⏳ ${operationName} failed (attempt ${attempt + 1}/${this.retryConfig.maxRetries + 1})`);
-        console.log(`   Error: ${error.message}`);
+        const causeMsg = error.cause?.message || error.cause?.code || '';
+        console.log(`   Error: ${error.message}${causeMsg ? ` (cause: ${causeMsg})` : ''}`);
         console.log(`   Retrying in ${currentDelay / 1000}s (${retrySource})...`);
 
         // Wait before retrying
@@ -194,11 +205,25 @@ export class LLMProvider {
     if (usage) {
       const deltaIn  = usage.input_tokens  || usage.inputTokens  || usage.promptTokenCount    || usage.prompt_tokens    || 0;
       const deltaOut = usage.output_tokens || usage.outputTokens || usage.candidatesTokenCount || usage.completion_tokens || 0;
-      this.tokenUsage.inputTokens  += deltaIn;
-      this.tokenUsage.outputTokens += deltaOut;
+      // Cache stats — each provider uses a different field name:
+      //   Claude:  cache_read_input_tokens / cache_creation_input_tokens
+      //   OpenAI:  prompt_tokens_details.cached_tokens
+      //   Gemini:  cachedContentTokenCount
+      const deltaCacheRead  = usage.cache_read_input_tokens
+        || usage.cachedContentTokenCount
+        || usage.prompt_tokens_details?.cached_tokens
+        || 0;
+      const deltaCacheWrite = usage.cache_creation_input_tokens || 0;
+      this.tokenUsage.inputTokens       += deltaIn;
+      this.tokenUsage.outputTokens      += deltaOut;
+      this.tokenUsage.cachedInputTokens += deltaCacheRead;
+      this.tokenUsage.cacheWriteTokens  += deltaCacheWrite;
       this.tokenUsage.totalCalls++;
+      if (deltaCacheRead > 0 || deltaCacheWrite > 0) {
+        console.log(`   [cache] write=${deltaCacheWrite} read=${deltaCacheRead} tokens`);
+      }
       if (this._callCallbacks.length > 0 && (deltaIn > 0 || deltaOut > 0)) {
-        const delta = { input: deltaIn, output: deltaOut, provider: this.providerName, model: this.model };
+        const delta = { input: deltaIn, output: deltaOut, cached: deltaCacheRead, cacheWrite: deltaCacheWrite, provider: this.providerName, model: this.model };
         for (const fn of this._callCallbacks) {
           try { fn(delta); } catch (_) {}
         }
@@ -243,6 +268,8 @@ export class LLMProvider {
     return {
       inputTokens: this.tokenUsage.inputTokens,
       outputTokens: this.tokenUsage.outputTokens,
+      cachedInputTokens: this.tokenUsage.cachedInputTokens,
+      cacheWriteTokens: this.tokenUsage.cacheWriteTokens,
       totalTokens: total,
       totalCalls: this.tokenUsage.totalCalls,
       estimatedCost,

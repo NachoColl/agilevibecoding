@@ -3,6 +3,7 @@ import { jsonrepair } from 'jsonrepair';
 import { LLMProvider } from './llm-provider.js';
 import { getMaxTokensForModel } from './llm-token-limits.js';
 import fs from 'node:fs/promises';
+import { existsSync } from 'node:fs';
 import path from 'node:path';
 
 export class OpenAIProvider extends LLMProvider {
@@ -13,7 +14,9 @@ export class OpenAIProvider extends LLMProvider {
 
   _createClient() {
     if (process.env.OPENAI_AUTH_MODE === 'oauth') {
-      return { mode: 'oauth' };
+      const oauthPath = path.join(process.cwd(), '.avc', 'openai-oauth.json');
+      // Only use OAuth mode if the token file actually exists — avoids per-call ENOENT warnings
+      if (existsSync(oauthPath)) return { mode: 'oauth' };
     }
     const apiKey = process.env.OPENAI_API_KEY;
     if (!apiKey) throw new Error('OPENAI_API_KEY not set. Add it to your .env file.');
@@ -205,6 +208,10 @@ export class OpenAIProvider extends LLMProvider {
   }
 
   async _callProvider(prompt, maxTokens, systemInstructions) {
+    // OAuth mode: all calls go through the ChatGPT Codex endpoint
+    if (this._client?.mode === 'oauth') {
+      return await this._callChatGPTCodex(prompt, systemInstructions);
+    }
     if (this._usesResponsesAPI()) {
       return await this._callResponsesAPI(prompt, systemInstructions);
     } else {
@@ -224,7 +231,7 @@ export class OpenAIProvider extends LLMProvider {
     return new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
   }
 
-  async generateJSON(prompt, agentInstructions = null) {
+  async generateJSON(prompt, agentInstructions = null, cachedContext = null) {
     if (!this._client) {
       this._client = this._createClient();
     }
@@ -282,21 +289,25 @@ export class OpenAIProvider extends LLMProvider {
         throw new Error(`Failed to parse JSON response: ${firstError.message}\n\nResponse was:\n${response}`);
       }
     } else {
-      // Chat Completions API: Use native JSON mode
+      // Chat Completions API: Use native JSON mode.
+      // Build system message as: JSON_SYSTEM + agentInstructions + cachedContext.
+      // Putting agentInstructions in the system message (not the user message) makes the full
+      // prefix eligible for OpenAI automatic prefix caching — identical system prefixes across
+      // repeated calls of the same stage type get a 90% discount after the first 1024 tokens.
+      const JSON_SYSTEM = 'You are a helpful assistant that always returns valid JSON. Your response must be a valid JSON object or array, nothing else.';
+      const systemParts = [JSON_SYSTEM];
+      if (agentInstructions) systemParts.push(agentInstructions);
+      if (cachedContext) systemParts.push(`---\n\n${cachedContext}`);
+      const systemContent = systemParts.join('\n\n');
+
       const messages = [
-        {
-          role: 'system',
-          content: 'You are a helpful assistant that always returns valid JSON. Your response must be a valid JSON object or array, nothing else.'
-        },
-        {
-          role: 'user',
-          content: fullPrompt
-        }
+        { role: 'system', content: systemContent },
+        { role: 'user',   content: prompt },
       ];
 
       const params = {
         model: this.model,
-        messages
+        messages,
       };
 
       // Use model-specific maximum tokens
@@ -314,13 +325,32 @@ export class OpenAIProvider extends LLMProvider {
         params.response_format = { type: 'json_object' };
       }
 
+      // Extended 24-hour cache retention — free on gpt-5.x and gpt-4.1+ families.
+      // Keeps the system-message prefix in cache across long ceremony runs (>1 hr).
+      if (this.model.startsWith('gpt-5') || this.model.startsWith('gpt-4.1')) {
+        params.prompt_cache_retention = '24h';
+      }
+
       const _t0Json = Date.now();
       const response = await this._withRetry(
         () => this._client.chat.completions.create(params),
         'JSON generation (Chat Completions)'
       );
 
-      const content = response.choices[0].message.content;
+      const choice = response.choices[0];
+      const content = choice.message.content;
+
+      // Detect output truncation — json_object mode returns null/empty when cut off at token limit
+      if (choice.finish_reason === 'length' || !content) {
+        const maxTok = getMaxTokensForModel(this.model);
+        const usedOut = response.usage?.completion_tokens ?? '?';
+        throw new Error(
+          `Response truncated at token limit (finish_reason=length). ` +
+          `Model: ${this.model}, limit: ${maxTok}, used: ${usedOut}. ` +
+          `Increase max tokens for this model in llm-token-limits.js or reduce prompt size.`
+        );
+      }
+
       this._trackTokens(response.usage, {
         prompt: fullPrompt,
         agentInstructions: agentInstructions ?? null,
@@ -349,7 +379,7 @@ export class OpenAIProvider extends LLMProvider {
     }
   }
 
-  async generateText(prompt, agentInstructions = null) {
+  async generateText(prompt, agentInstructions = null, cachedContext = null) {
     if (!this._client) {
       this._client = this._createClient();
     }
@@ -373,17 +403,21 @@ export class OpenAIProvider extends LLMProvider {
       const _rApiPayload = this._promptLogger ? { prompt: fullPrompt, agentInstructions: agentInstructions ?? null } : null;
       return await this._callResponsesAPI(fullPrompt, null, _rApiPayload);
     } else {
-      // Chat Completions API
-      const messages = [
-        {
-          role: 'user',
-          content: fullPrompt
-        }
-      ];
+      // Chat Completions API.
+      // Build system message as agentInstructions + cachedContext so both are eligible for
+      // OpenAI automatic prefix caching (90% discount when system prefix is stable across calls).
+      const systemParts = [];
+      if (agentInstructions) systemParts.push(agentInstructions);
+      if (cachedContext) systemParts.push(cachedContext);
+      const messages = [];
+      if (systemParts.length > 0) {
+        messages.push({ role: 'system', content: systemParts.join('\n\n') });
+      }
+      messages.push({ role: 'user', content: prompt });
 
       const params = {
         model: this.model,
-        messages
+        messages,
       };
 
       // Use model-specific maximum tokens
@@ -394,6 +428,11 @@ export class OpenAIProvider extends LLMProvider {
         params.max_tokens = maxTokens;
       } else {
         params.max_completion_tokens = maxTokens;
+      }
+
+      // Extended 24-hour cache retention — free on gpt-5.x and gpt-4.1+ families.
+      if (this.model.startsWith('gpt-5') || this.model.startsWith('gpt-4.1')) {
+        params.prompt_cache_retention = '24h';
       }
 
       const _t0Text = Date.now();

@@ -30,27 +30,51 @@ export class ClaudeProvider extends LLMProvider {
     return response.content[0].text;
   }
 
-  async generateJSON(prompt, agentInstructions = null) {
+  async generateJSON(prompt, agentInstructions = null, cachedContext = null) {
     if (!this._client) {
       this._client = this._createClient();
     }
 
-    const fullPrompt = agentInstructions ? `${agentInstructions}\n\n${prompt}` : prompt;
-
     // Use model-specific maximum tokens
     const maxTokens = getMaxTokensForModel(this.model);
 
+    const JSON_SYSTEM = 'You are a helpful assistant that always returns valid JSON. Your response must be a valid JSON object or array, nothing else.';
+
+    let systemParam;
+    let userContent;
+
+    if (cachedContext) {
+      // Structured content blocks: cache_control on agentInstructions (system) and
+      // cachedContext (first user block) — both stay stable across multiple calls
+      // in the same ceremony, hitting the 5-min cache on subsequent validators.
+      systemParam = agentInstructions
+        ? [
+            { type: 'text', text: JSON_SYSTEM },
+            { type: 'text', text: agentInstructions, cache_control: { type: 'ephemeral' } },
+          ]
+        : [{ type: 'text', text: JSON_SYSTEM }];
+
+      userContent = [
+        { type: 'text', text: cachedContext, cache_control: { type: 'ephemeral' } },
+        { type: 'text', text: prompt },
+      ];
+    } else {
+      systemParam = JSON_SYSTEM;
+      userContent = agentInstructions ? `${agentInstructions}\n\n${prompt}` : prompt;
+    }
+
+    const requestParams = {
+      model: this.model,
+      max_tokens: maxTokens,
+      system: systemParam,
+      messages: [{ role: 'user', content: userContent }],
+    };
+
+    const fullPrompt = agentInstructions ? `${agentInstructions}\n\n${prompt}` : prompt;
+
     const _t0Json = Date.now();
     const response = await this._withRetry(
-      () => this._client.messages.create({
-        model: this.model,
-        max_tokens: maxTokens,
-        messages: [{
-          role: 'user',
-          content: fullPrompt
-        }],
-        system: 'You are a helpful assistant that always returns valid JSON. Your response must be a valid JSON object or array, nothing else.'
-      }),
+      () => this._client.messages.create(requestParams),
       'JSON generation (Claude)'
     );
 
@@ -62,15 +86,28 @@ export class ClaudeProvider extends LLMProvider {
       elapsed: Date.now() - _t0Json,
     });
 
-    // Extract JSON from response (handle markdown code blocks)
-    // Strip markdown code fences if present (more robust)
+    // Extract JSON from response (handle markdown code blocks and preamble text)
     let jsonStr = content.trim();
+
+    // Strip markdown code fences if the response starts with one
     if (jsonStr.startsWith('```')) {
-      // Remove opening fence (```json or ```)
       jsonStr = jsonStr.replace(/^```(?:json)?\s*\n?/, '');
-      // Remove closing fence
       jsonStr = jsonStr.replace(/\n?\s*```\s*$/, '');
       jsonStr = jsonStr.trim();
+    }
+
+    // If model added reasoning preamble before JSON, find the first { or [ and extract from there.
+    // This handles Claude responses like "I'll analyze...\n\n```json\n{...}\n```" or "Here is the JSON:\n{...}"
+    if (!jsonStr.startsWith('{') && !jsonStr.startsWith('[')) {
+      const firstBrace = jsonStr.indexOf('{');
+      const firstBracket = jsonStr.indexOf('[');
+      const jsonStart = firstBrace === -1 ? firstBracket
+                      : firstBracket === -1 ? firstBrace
+                      : Math.min(firstBrace, firstBracket);
+      if (jsonStart > 0) {
+        // Also strip trailing markdown fences that may follow the JSON block
+        jsonStr = jsonStr.slice(jsonStart).replace(/\n?\s*```\s*$/, '').trim();
+      }
     }
 
     try {
@@ -87,26 +124,43 @@ export class ClaudeProvider extends LLMProvider {
     }
   }
 
-  async generateText(prompt, agentInstructions = null) {
+  async generateText(prompt, agentInstructions = null, cachedContext = null) {
     if (!this._client) {
       this._client = this._createClient();
     }
 
-    const fullPrompt = agentInstructions ? `${agentInstructions}\n\n${prompt}` : prompt;
-
     // Use model-specific maximum tokens
     const maxTokens = getMaxTokensForModel(this.model);
 
+    let systemParam;
+    let userContent;
+
+    if (cachedContext) {
+      systemParam = agentInstructions
+        ? [
+            { type: 'text', text: agentInstructions, cache_control: { type: 'ephemeral' } },
+          ]
+        : undefined;
+      userContent = [
+        { type: 'text', text: cachedContext, cache_control: { type: 'ephemeral' } },
+        { type: 'text', text: prompt },
+      ];
+    } else {
+      userContent = agentInstructions ? `${agentInstructions}\n\n${prompt}` : prompt;
+    }
+
+    const requestParams = {
+      model: this.model,
+      max_tokens: maxTokens,
+      messages: [{ role: 'user', content: userContent }],
+    };
+    if (systemParam) requestParams.system = systemParam;
+
+    const fullPrompt = agentInstructions ? `${agentInstructions}\n\n${prompt}` : prompt;
+
     const _t0Text = Date.now();
     const response = await this._withRetry(
-      () => this._client.messages.create({
-        model: this.model,
-        max_tokens: maxTokens,
-        messages: [{
-          role: 'user',
-          content: fullPrompt
-        }]
-      }),
+      () => this._client.messages.create(requestParams),
       'Text generation (Claude)'
     );
 

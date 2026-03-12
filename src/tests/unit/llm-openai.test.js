@@ -368,7 +368,9 @@ describe('OpenAIProvider', () => {
       await provider.generateJSON('Test prompt', 'Agent instructions here');
 
       const callArgs = mockClient.chat.completions.create.mock.calls[0][0];
-      expect(callArgs.messages[1].content).toContain('Agent instructions here');
+      // agentInstructions now goes in the system message for OpenAI prefix caching
+      expect(callArgs.messages[0].content).toContain('Agent instructions here');
+      // prompt is the user message
       expect(callArgs.messages[1].content).toContain('Test prompt');
     });
   });
@@ -414,8 +416,10 @@ describe('OpenAIProvider', () => {
       await provider.generateText('Test prompt', 'Agent instructions');
 
       const callArgs = mockClient.chat.completions.create.mock.calls[0][0];
+      // agentInstructions now goes in the system message for OpenAI prefix caching
       expect(callArgs.messages[0].content).toContain('Agent instructions');
-      expect(callArgs.messages[0].content).toContain('Test prompt');
+      // prompt is the user message
+      expect(callArgs.messages[1].content).toContain('Test prompt');
     });
 
     it('tracks token usage correctly', async () => {

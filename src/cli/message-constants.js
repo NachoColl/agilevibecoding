@@ -21,18 +21,9 @@ export const MESSAGES = {
    * Ceremony headers with titles and documentation URLs
    */
   CEREMONY_HEADERS: {
-    'sponsor-call': {
-      title: 'Sponsor Call Ceremony',
-      url: 'https://agilevibecoding.org/ceremonies/sponsor-call'
-    },
-    'sprint-planning': {
-      title: 'Sprint Planning Ceremony',
-      url: 'https://agilevibecoding.org/ceremonies/sprint-planning'
-    },
-    'seed': {
-      title: 'Seed Ceremony',
-      url: 'https://agilevibecoding.org/ceremonies/seed'
-    }
+    'sponsor-call':   { title: 'Sponsor Call Ceremony' },
+    'sprint-planning': { title: 'Sprint Planning Ceremony' },
+    'seed':           { title: 'Seed Ceremony' },
   }
 };
 

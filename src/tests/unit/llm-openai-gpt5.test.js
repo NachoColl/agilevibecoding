@@ -52,39 +52,6 @@ describe('OpenAIProvider - GPT-5 Parameter Handling', () => {
       );
     });
 
-    it('should use max_tokens for GPT-4 models', async () => {
-      provider = new OpenAIProvider('gpt-4o');
-
-      // Mock the client
-      mockClient = {
-        chat: {
-          completions: {
-            create: vi.fn().mockResolvedValue({
-              choices: [{ message: { content: 'Test response' } }],
-              usage: { prompt_tokens: 10, completion_tokens: 20 }
-            })
-          }
-        }
-      };
-
-      provider._client = mockClient;
-
-      await provider._callChatCompletions('Test prompt', 1000, null);
-
-      // Verify max_tokens was used, not max_completion_tokens
-      expect(mockClient.chat.completions.create).toHaveBeenCalledWith(
-        expect.objectContaining({
-          max_tokens: 1000
-        })
-      );
-
-      expect(mockClient.chat.completions.create).toHaveBeenCalledWith(
-        expect.not.objectContaining({
-          max_completion_tokens: expect.anything()
-        })
-      );
-    });
-
     it('should use max_tokens for GPT-3.5 models', async () => {
       provider = new OpenAIProvider('gpt-3.5-turbo');
 

@@ -1290,8 +1290,6 @@ Documentation for this project will be generated automatically once the project 
     });
 
     ceremonies.forEach(c => {
-      const ceremonyUrl = `https://agilevibecoding.org/ceremonies/${c.name}.html`;
-
       const hasMainKey = configurator.availableProviders.includes(c.mainProvider);
       const stageDetails = {};
       Object.keys(c.stages).forEach(stageName => {

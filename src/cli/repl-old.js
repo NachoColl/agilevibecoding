@@ -51,8 +51,7 @@ export class AvcRepl {
 
   showVersion() {
     console.log(`\n🎯 AVC Framework v${this.version}`);
-    console.log('Agile Vibe Coding - AI-powered development framework');
-    console.log('https://agilevibecoding.org\n');
+    console.log('Agile Vibe Coding - AI-powered development framework\n');
   }
 
   async handleCommand(command) {

@@ -51,11 +51,19 @@ Return a JSON object with this exact structure:
 | 4–8 bullets | 10 | Exactly 4 to 8 bullet points |
 | Verb-led bullets | 15 | Each bullet starts with an action verb or "Users can…" / "Admins can…" |
 | v1 only — no phase 2 | 15 | No "future", "later", "roadmap", or obviously phase-2 features |
-| No forbidden content | 10 | No tech stack, no timelines, no non-functional requirements |
+| No invented technology | 10 | No tech that the user did NOT explicitly name in their description. Tech the user explicitly named is allowed and should not be penalised. |
+
+### Technology Faithfulness (up to 5 bonus points)
+
+If the user explicitly named one or more technologies in their description, check whether the scope appropriately reflects them:
+- Technologies named by user are referenced in relevant scope bullets → award up to 5 bonus points
+- Technologies named by user are silently ignored or stripped → flag as a minor issue ("User specified [X] but scope omits it")
 
 ## DO NOT Rules (flag as critical if violated)
 
-- DO NOT mention specific technologies, frameworks, or programming languages
+- DO NOT mention specific technologies in the **mission statement** — the mission is about user value only
+- DO NOT mention technologies in the **initial scope** that the user did NOT explicitly name in their description — flag as critical
+- DO allow technologies in scope that the user explicitly named in their description — these are intentional and must NOT be flagged
 - DO NOT include phase 2 or future roadmap items
 - DO NOT mention timelines, team size, or delivery schedule
 - DO NOT mention business model, pricing, or monetisation strategy
@@ -84,14 +92,30 @@ Return a JSON object with this exact structure:
 - Names user: ✗ "users" is too generic (major issue)
 - Clear value: ✗ "helps with cooking" is vague (major issue)
 
-### Good scope bullet
+### Good scope bullet (no tech named by user)
 "Users can create and publish recipes with ingredients, steps, and photos"
 - Verb-led: ✓
 - Concrete: ✓
 - v1 only: ✓
 
-### Bad scope bullet
-"Users can leverage AI to generate personalized recipe recommendations based on their preferences" (phase 2 / tech mention)
+### Good scope bullet (user explicitly named the tech)
+User said: "I want to use Firebase for authentication"
+"Users can sign in via Firebase Authentication and access their saved recipes across devices"
+- Tech allowed: ✓ (user named Firebase)
+- Verb-led: ✓
+- v1 only: ✓
+
+### Bad scope bullet — invented tech (user never mentioned AI)
+"Users can leverage AI to generate personalized recipe recommendations based on their preferences"
+- Invented tech: ✗ (AI was not in the user's description — flag as critical)
+
+### Bad scope bullet — phase 2
+"Users can share recipes across social media platforms via third-party API integrations"
+- Phase 2 scope: ✗
+
+### Bad scope bullet — tech in mission (always wrong)
+"Build a platform powered by PostgreSQL and React that helps users with cooking"
+- Tech in mission: ✗ (mission must never mention tech regardless of user request)
 
 ## Important Notes
 

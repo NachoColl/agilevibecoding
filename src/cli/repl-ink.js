@@ -1755,6 +1755,10 @@ const App = () => {
   // Cancel questionnaire confirmation state
   const [cancelConfirmActive, setCancelConfirmActive] = useState(false);
 
+  // Init confirmation state
+  const [initConfirmActive, setInitConfirmActive] = useState(false);
+  const [initConfirmDir, setInitConfirmDir] = useState('');
+
   // Remove confirmation state
   const [removeConfirmActive, setRemoveConfirmActive] = useState(false);
   const [removeConfirmInput, setRemoveConfirmInput] = useState('');
@@ -2526,7 +2530,6 @@ const App = () => {
     const version = getVersion();
     outputBuffer.append(`${boldCyan('AVC')}  ${bold(version)}\n`);
     outputBuffer.append(`${gray('Node')}  ${process.version}\n`);
-    outputBuffer.append(`${gray('Docs')}  ${cyan('https://agilevibecoding.org')}\n`);
   };
 
   const runInit = async () => {
@@ -2616,7 +2619,6 @@ const App = () => {
         return;
       }
       await initiator.seed(storyId);
-      sendInfo('Docs: https://agilevibecoding.org/ceremonies/seed');
     } finally {
       endCommand();
     }
@@ -4097,8 +4099,16 @@ const App = () => {
           setMode('selector');
           setInput(''); // Clear input when entering selector
         } else {
-          // Execute the typed command or selected command
-          executeCommand(input);
+          const resolved = resolveAlias(input.trim());
+          // /init: show directory confirmation before creating files (only when not yet initialized)
+          if (resolved === '/init' && !existsSync(path.join(process.cwd(), '.avc'))) {
+            setInitConfirmDir(process.cwd());
+            setInitConfirmActive(true);
+            setInput('');
+          } else {
+            // Execute the typed command or selected command
+            executeCommand(input);
+          }
         }
       } else {
         // Execute command
@@ -4132,7 +4142,7 @@ const App = () => {
         setMode('selector');
       }
     }
-  }, { isActive: mode === 'prompt' && !questionnaireActive && !showPreview && !modelConfigActive && !removeConfirmActive && !deploymentStrategySelectorActive && !architectureSelectorActive && !cloudProviderSelectorActive && !databaseChoiceActive && isStableRender });
+  }, { isActive: mode === 'prompt' && !questionnaireActive && !showPreview && !modelConfigActive && !removeConfirmActive && !initConfirmActive && !deploymentStrategySelectorActive && !architectureSelectorActive && !cloudProviderSelectorActive && !databaseChoiceActive && isStableRender });
 
   // Handle keyboard input in selector mode
   useInput((inputChar, key) => {
@@ -5147,6 +5157,23 @@ const App = () => {
     }
   }, { isActive: cancelExecutionActive });
 
+  // Init confirmation input handler
+  useInput((inputChar, key) => {
+    if (!initConfirmActive) return;
+
+    if (key.return || inputChar === 'y' || inputChar === 'Y') {
+      setInitConfirmActive(false);
+      executeCommand('/init');
+      return;
+    }
+
+    if (key.escape || inputChar === 'n' || inputChar === 'N') {
+      setInitConfirmActive(false);
+      outputBuffer.append('Init cancelled.\n');
+      return;
+    }
+  }, { isActive: initConfirmActive });
+
   // Remove confirmation input handler
   useInput((inputChar, key) => {
     if (!removeConfirmActive) return;
@@ -5787,6 +5814,23 @@ const App = () => {
       });
     }
 
+    // Show init confirmation if active
+    if (initConfirmActive) {
+      return React.createElement(Box, { flexDirection: 'column' },
+        React.createElement(Text, null, ''),
+        React.createElement(Text, null, 'Initialize AVC project in:'),
+        React.createElement(Text, { bold: true }, initConfirmDir),
+        React.createElement(Text, null, ''),
+        React.createElement(Text, null, ''),
+        React.createElement(Text, null,
+          React.createElement(Text, { color: 'green' }, 'Y'),
+          React.createElement(Text, null, ' to confirm   '),
+          React.createElement(Text, { color: 'red' }, 'N'),
+          React.createElement(Text, null, ' to cancel'),
+        ),
+      );
+    }
+
     // Show remove confirmation if active
     if (removeConfirmActive) {
       return React.createElement(RemoveConfirmation, {
@@ -5912,7 +5956,15 @@ const App = () => {
           filter: input,
           onSelect: (item) => {
             if (item && item.value) {
-              executeCommand(item.value);
+              // /init: show directory confirmation before creating files
+              if (item.value === '/init' && !existsSync(path.join(process.cwd(), '.avc'))) {
+                setMode('prompt');
+                setInput('');
+                setInitConfirmDir(process.cwd());
+                setInitConfirmActive(true);
+              } else {
+                executeCommand(item.value);
+              }
             } else {
               // Invalid item, return to prompt
               setMode('prompt');
@@ -5986,7 +6038,7 @@ const App = () => {
   };
 
   const renderPrompt = () => {
-    if (mode !== 'prompt' || questionnaireActive || showPreview || removeConfirmActive || killConfirmActive || kanbanPortConflictActive || processViewerActive || cancelConfirmActive || isExecuting || modelConfigActive || architectureSelectorActive || cloudProviderSelectorActive || databaseChoiceActive || databaseQuestionsActive || deploymentStrategySelectorActive) return null;
+    if (mode !== 'prompt' || questionnaireActive || showPreview || removeConfirmActive || initConfirmActive || killConfirmActive || kanbanPortConflictActive || processViewerActive || cancelConfirmActive || isExecuting || modelConfigActive || architectureSelectorActive || cloudProviderSelectorActive || databaseChoiceActive || databaseQuestionsActive || deploymentStrategySelectorActive) return null;
 
     // Show loading indicator while app is initializing
     if (!isStableRender) {
@@ -6014,7 +6066,7 @@ const App = () => {
     renderSelector(),
     renderModelConfig(),
     renderPrompt(),
-    !questionnaireActive && !showPreview && !removeConfirmActive && !killConfirmActive && !kanbanPortConflictActive && !processViewerActive && !cancelConfirmActive && !modelConfigActive && mode !== 'executing' && React.createElement(BottomRightStatus, { backgroundProcesses })
+    !questionnaireActive && !showPreview && !removeConfirmActive && !initConfirmActive && !killConfirmActive && !kanbanPortConflictActive && !processViewerActive && !cancelConfirmActive && !modelConfigActive && mode !== 'executing' && React.createElement(BottomRightStatus, { backgroundProcesses })
   );
 };
 

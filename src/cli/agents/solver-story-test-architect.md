@@ -17,6 +17,20 @@ Apply targeted improvements to resolve the issues. Do NOT change the story's int
 - Strengthen test pyramid alignment: unit vs. integration vs. e2e test distribution for this story
 - Specify performance test criteria: load test scenarios, stress test thresholds, and baseline measurements
 
+## Priority Actions by Score Band
+
+### Score 60-75 — Test Strategy Absent
+1. **Define the test pyramid allocation**: "This story requires: [N] unit tests covering [specific modules], [M] integration tests covering [service boundaries], [K] E2E tests covering [user flows]."
+2. **Specify mocking strategy**: "External services ([list]) are mocked in unit tests using [library/approach]. Integration tests use [real DB / test container / sandbox API]."
+3. **Add test data strategy**: "Test data is created by [factory functions / fixtures / seed scripts] and torn down after each test. Tests do not share state."
+
+### Score 76-88 — Coverage and Contract Testing
+1. **Add contract test AC**: "Consumer-driven contract tests verify that the API response shape matches what the frontend expects. Contract is committed to the repo and verified in CI."
+2. **Add mutation testing AC**: "Mutation score for [module] ≥ [N%]. PIT/Stryker runs in CI on changed files."
+
+### Score 89-94 — CI Integration
+1. **Add CI gate AC**: "Tests run in < [N] minutes in CI. Flaky tests are tracked in a flakiness dashboard; any test failing > 2% of runs is quarantined within 24h."
+
 ## Rules
 - PRESERVE: `id`, `name`, `userType` — never modify these
 - IMPROVE: `description`, `acceptance`, `dependencies` based on the issues

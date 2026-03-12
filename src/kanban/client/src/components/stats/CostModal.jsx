@@ -8,7 +8,7 @@ import {
   Tooltip,
   ResponsiveContainer,
 } from 'recharts';
-import { getCostHistory } from '../../lib/api';
+import { getCostHistory, getSettings } from '../../lib/api';
 
 const RANGE_TABS = [
   { label: 'Today', value: 'today' },
@@ -60,6 +60,15 @@ export function CostModal({ onClose }) {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [expanded, setExpanded] = useState({});
+  const [oauthActive, setOauthActive] = useState(false);
+
+  // Check if OpenAI OAuth is active — if so, costs are not tracked for OpenAI calls
+  useEffect(() => {
+    getSettings().then((s) => {
+      const openai = s?.apiKeys?.openai;
+      setOauthActive(openai?.authMode === 'oauth' && openai?.oauth?.connected === true);
+    }).catch(() => {});
+  }, []);
 
   // Fetch data when range changes
   useEffect(() => {
@@ -107,6 +116,8 @@ export function CostModal({ onClose }) {
   const totalCost   = data?.ceremonies.reduce((s, c) => s + c.cost,   0) ?? 0;
   const totalTokens = data?.ceremonies.reduce((s, c) => s + c.tokens, 0) ?? 0;
   const totalCalls  = data?.ceremonies.reduce((s, c) => s + c.calls,  0) ?? 0;
+  const totalSaved  = data?.ceremonies.reduce((s, c) => s + (c.saved ?? 0), 0) ?? 0;
+  const totalCached = data?.ceremonies.reduce((s, c) => s + (c.cached ?? 0), 0) ?? 0;
   const hasData = data && (data.daily.length > 0 || data.ceremonies.length > 0);
 
   return (
@@ -188,6 +199,17 @@ export function CostModal({ onClose }) {
             </div>
           </div>
 
+          {/* OAuth notice */}
+          {oauthActive && (
+            <div className="bg-blue-50 border border-blue-200 rounded-lg px-4 py-3 text-xs text-blue-700 flex items-start gap-2">
+              <span className="flex-shrink-0 mt-0.5">ℹ️</span>
+              <span>
+                <strong>OpenAI OAuth active</strong> — API calls made via OAuth (ChatGPT subscription) are not billed per token.
+                No cost is recorded for OpenAI usage in this mode; token counts are still tracked for informational purposes.
+              </span>
+            </div>
+          )}
+
           {/* Loading */}
           {loading && (
             <div className="flex-1 flex items-center justify-center">
@@ -208,7 +230,7 @@ export function CostModal({ onClose }) {
           {!loading && hasData && (
             <>
               {/* Stat chips */}
-              <div className="grid grid-cols-3 gap-3">
+              <div className={`grid gap-3 ${totalSaved > 0 ? 'grid-cols-2' : 'grid-cols-3'}`}>
                 <div className="bg-slate-50 rounded-lg p-3">
                   <p className="text-xs text-slate-500 mb-1">Total Cost</p>
                   <p className="text-xl font-bold text-slate-900">{formatCostLabel(totalCost)}</p>
@@ -217,13 +239,22 @@ export function CostModal({ onClose }) {
                 <div className="bg-slate-50 rounded-lg p-3">
                   <p className="text-xs text-slate-500 mb-1">Total Tokens</p>
                   <p className="text-xl font-bold text-slate-900">{formatTokens(totalTokens)}</p>
-                  <p className="text-xs text-slate-400 mt-0.5">this period</p>
+                  {totalCached > 0 && (
+                    <p className="text-xs text-blue-500 mt-0.5">{formatTokens(totalCached)} cached</p>
+                  )}
                 </div>
                 <div className="bg-slate-50 rounded-lg p-3">
                   <p className="text-xs text-slate-500 mb-1">API Calls</p>
                   <p className="text-xl font-bold text-slate-900">{totalCalls.toLocaleString()}</p>
                   <p className="text-xs text-slate-400 mt-0.5">this period</p>
                 </div>
+                {totalSaved > 0 && (
+                  <div className="bg-green-50 rounded-lg p-3">
+                    <p className="text-xs text-green-600 mb-1">Cache Saved</p>
+                    <p className="text-xl font-bold text-green-700">{formatCostLabel(totalSaved)}</p>
+                    <p className="text-xs text-green-500 mt-0.5">vs. no cache</p>
+                  </div>
+                )}
               </div>
 
               {/* Bar chart */}

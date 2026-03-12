@@ -2,6 +2,14 @@ import { useState } from 'react';
 import { ExternalLink } from 'lucide-react';
 import { saveModelPricing } from '../../lib/api';
 
+const PROVIDERS = ['claude', 'gemini', 'openai'];
+const PROVIDER_LABELS = { claude: 'Claude', gemini: 'Gemini', openai: 'OpenAI' };
+const PROVIDER_TAB_COLORS = {
+  claude: { active: 'border-orange-500 text-orange-700', badge: 'bg-orange-50 text-orange-700 border-orange-200' },
+  gemini: { active: 'border-blue-500 text-blue-700',   badge: 'bg-blue-50 text-blue-700 border-blue-200'     },
+  openai: { active: 'border-green-500 text-green-700', badge: 'bg-green-50 text-green-700 border-green-200'  },
+};
+
 const PROVIDER_COLORS = {
   claude:  'bg-orange-50 text-orange-700 border-orange-200',
   gemini:  'bg-blue-50 text-blue-700 border-blue-200',
@@ -17,8 +25,9 @@ function initState(models) {
   const state = {};
   for (const [modelId, info] of Object.entries(models)) {
     state[modelId] = {
-      input:       String(info.pricing?.input  ?? ''),
-      output:      String(info.pricing?.output ?? ''),
+      input:       String(info.pricing?.input       ?? ''),
+      inputCached: String(info.pricing?.inputCached ?? ''),
+      output:      String(info.pricing?.output      ?? ''),
       unit:        info.pricing?.unit        ?? 'million',
       source:      info.pricing?.source      ?? '',
       lastUpdated: info.pricing?.lastUpdated ?? '',
@@ -38,7 +47,15 @@ export function ModelPricingTab({ settings, onSaved }) {
   const [pricing, setPricing] = useState(() => initState(models));
   const [status, setStatus] = useState(null); // null | 'saving' | 'saved' | 'error'
 
-  const modelEntries = Object.entries(models);
+  // Determine which providers actually have models, preserve stable order
+  const availableProviders = PROVIDERS.filter(p =>
+    Object.values(models).some(m => m.provider === p)
+  );
+  const [activeProvider, setActiveProvider] = useState(() => availableProviders[0] || 'claude');
+
+  const modelEntries = Object.entries(models).filter(
+    ([, info]) => info.provider === activeProvider
+  );
 
   const update = (modelId, field, value) => {
     setPricing((prev) => ({
@@ -55,10 +72,11 @@ export function ModelPricingTab({ settings, onSaved }) {
       for (const [modelId, p] of Object.entries(pricing)) {
         payload[modelId] = {
           pricing: {
-            input:  parseFloat(p.input)  || 0,
-            output: parseFloat(p.output) || 0,
-            unit:   p.unit,
-            source: p.source,
+            input:       parseFloat(p.input)       || 0,
+            inputCached: parseFloat(p.inputCached) || 0,
+            output:      parseFloat(p.output)      || 0,
+            unit:        p.unit,
+            source:      p.source,
           },
         };
       }
@@ -88,6 +106,36 @@ export function ModelPricingTab({ settings, onSaved }) {
         Set the cost per token for each model. These rates are used by the cost tracker
         to estimate LLM spend. Prices are in <strong>USD</strong>.
       </p>
+
+      {/* Provider tabs */}
+      {availableProviders.length > 1 && (
+        <div className="flex border-b border-slate-200 -mx-5 px-5">
+          {availableProviders.map((p) => {
+            const colors = PROVIDER_TAB_COLORS[p] || { active: 'border-slate-900 text-slate-900' };
+            const isActive = p === activeProvider;
+            const count = Object.values(models).filter(m => m.provider === p).length;
+            return (
+              <button
+                key={p}
+                type="button"
+                onClick={() => setActiveProvider(p)}
+                className={`px-4 py-2.5 text-sm font-medium border-b-2 -mb-px transition-colors ${
+                  isActive
+                    ? colors.active
+                    : 'border-transparent text-slate-500 hover:text-slate-700'
+                }`}
+              >
+                {PROVIDER_LABELS[p] || p}
+                <span className={`ml-1.5 text-xs px-1.5 py-0.5 rounded-full border ${
+                  isActive ? colors.badge : 'bg-slate-100 text-slate-400 border-slate-200'
+                }`}>
+                  {count}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      )}
 
       <div className="flex flex-col gap-2">
         {modelEntries.map(([modelId, info]) => {
@@ -139,6 +187,21 @@ export function ModelPricingTab({ settings, onSaved }) {
                     <option key={opt.value} value={opt.value}>{opt.label}</option>
                   ))}
                 </select>
+
+                {/* Cache Read row */}
+                <label className="text-slate-600 font-medium">Cache Read</label>
+                <input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={p.inputCached}
+                  onChange={(e) => update(modelId, 'inputCached', e.target.value)}
+                  placeholder="0.00"
+                  className="rounded-md border border-slate-300 px-2 py-1.5 text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500 w-full max-w-[120px]"
+                />
+                <span className="text-slate-400 text-xs">
+                  {UNIT_OPTIONS.find((o) => o.value === p.unit)?.label} · discounted
+                </span>
 
                 {/* Output row */}
                 <label className="text-slate-600 font-medium">Output</label>

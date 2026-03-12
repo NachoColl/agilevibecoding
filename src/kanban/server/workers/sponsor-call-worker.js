@@ -70,7 +70,12 @@ async function run() {
       costLimitReachedCallback,
     });
     logger.stop();
-    process.send({ type: 'complete', result });
+    // sponsorCallWithAnswers returns { error: true, message } on validation failure instead of throwing
+    if (result?.error === true) {
+      process.send({ type: 'error', error: result.message || 'Ceremony failed' });
+    } else {
+      process.send({ type: 'complete', result });
+    }
     process.exit(0);
   } catch (err) {
     logger.stop();

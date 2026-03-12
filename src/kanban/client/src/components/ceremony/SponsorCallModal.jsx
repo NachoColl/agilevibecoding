@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { X, Info, AlertTriangle, Settings as SettingsIcon } from 'lucide-react';
 import { useCeremonyStore } from '../../store/ceremonyStore';
 import {
@@ -158,6 +158,7 @@ export function SponsorCallModal({ onClose, onOpenSettings, costLimitPending, on
   const [workflowModels, setWorkflowModels] = useState([]);
   const [workflowMissionGenValidation, setWorkflowMissionGenValidation] = useState(null);
   const [workflowAllCeremonies, setWorkflowAllCeremonies] = useState([]);
+  const [workflowApiKeys, setWorkflowApiKeys] = useState({});
   const [apiKeyCheck, setApiKeyCheck] = useState({ loading: true, missing: [] });
   const [showResumePrompt, setShowResumePrompt] = useState(false);
   const [draftData, setDraftData] = useState(null);
@@ -189,12 +190,18 @@ export function SponsorCallModal({ onClose, onOpenSettings, costLimitPending, on
     return () => { cancelled = true; };
   }, [isOpen]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const recheckKeys = () => {
+  const recheckKeys = useCallback(() => {
     setApiKeyCheck({ loading: true, missing: [] });
     getSettings()
       .then((s) => setApiKeyCheck({ loading: false, missing: computeMissingProviders(s) }))
       .catch(() => setApiKeyCheck({ loading: false, missing: [] }));
-  };
+  }, []);
+
+  // Auto-recheck whenever settings are saved anywhere in the app (API keys or ceremony models)
+  useEffect(() => {
+    document.addEventListener('avc:settings-saved', recheckKeys);
+    return () => document.removeEventListener('avc:settings-saved', recheckKeys);
+  }, [recheckKeys]);
 
   // Snapshot current wizard state and persist to server
   const saveDraft = (overrides = {}) => {
@@ -526,6 +533,7 @@ export function SponsorCallModal({ onClose, onOpenSettings, costLimitPending, on
                     setWorkflowModels(m);
                     setWorkflowMissionGenValidation(s.missionGenerator?.validation ?? null);
                     setWorkflowAllCeremonies(s.ceremonies || []);
+                    setWorkflowApiKeys(s.apiKeys || {});
                     setWorkflowOpen(true);
                   } catch {}
                 }}
@@ -607,11 +615,18 @@ export function SponsorCallModal({ onClose, onOpenSettings, costLimitPending, on
       {workflowOpen && workflowCeremony && (
         <CeremonyWorkflowModal
           ceremony={workflowCeremony}
+          allCeremonies={workflowAllCeremonies}
+          apiKeys={workflowApiKeys}
           models={workflowModels}
           missionGenValidation={workflowMissionGenValidation}
           readOnly={ceremonyStatus === 'running'}
           onSave={ceremonyStatus !== 'running' ? handleWorkflowSave : undefined}
           onClose={handleWorkflowClose}
+          onCeremoniesUpdated={(updated) => {
+            setWorkflowAllCeremonies(updated);
+            const sc = updated.find((c) => c.name === 'sponsor-call');
+            if (sc) setWorkflowCeremony(sc);
+          }}
         />
       )}
     </div>

@@ -36,8 +36,10 @@ class EpicStoryValidator {
     this.agentsPath = path.join(__dirname, 'agents');
     this.validationFeedback = new Map();
 
-    // Store validation stage configuration
+    // Store validation stage configuration and solver stage configuration separately.
+    // Solver config lives at stagesConfig.solver (sibling of validation, NOT nested inside it).
     this.validationStageConfig = stagesConfig?.validation || null;
+    this.solverStageConfig = stagesConfig?.solver || null;
 
     // Cache for validator-specific providers
     this._validatorProviders = {};
@@ -81,6 +83,45 @@ class EpicStoryValidator {
   }
 
   /**
+   * Set callback invoked when a validator call fails with a quota/rate-limit error.
+   * Signature: async ({ validatorName, errMsg, provider, model }) => { newProvider?, newModel? }
+   * Returning { newProvider, newModel } switches the validation+solver stage config.
+   * Returning null/undefined retries with the same model.
+   */
+  setQuotaExceededCallback(fn) {
+    this._quotaExceededCallback = fn;
+  }
+
+  /**
+   * Update validation and solver stage configs to a new provider/model and clear provider cache.
+   * Called after user selects "Switch Provider" in the quota-limit dialog.
+   */
+  _updateValidationStageConfig(newProvider, newModel) {
+    if (!this.validationStageConfig) this.validationStageConfig = {};
+    this.validationStageConfig.provider = newProvider;
+    this.validationStageConfig.model = newModel;
+    if (this.solverStageConfig) {
+      this.solverStageConfig.provider = newProvider;
+      this.solverStageConfig.model = newModel;
+    }
+    // Clear provider cache so next call creates a fresh provider with the new model
+    this._validatorProviders = {};
+  }
+
+  /**
+   * Returns true if the error message indicates a quota or persistent rate-limit failure.
+   */
+  _isQuotaOrRateLimit(errMsg) {
+    const m = (errMsg || '').toLowerCase();
+    return m.includes('429') || m.includes('quota') || m.includes('rate limit') ||
+      m.includes('resource exhausted') || m.includes('resource_exhausted') ||
+      m.includes('too many requests') ||
+      // Anthropic credit-balance exhausted (400 invalid_request_error)
+      m.includes('credit balance is too low') || m.includes('credit balance') ||
+      m.includes('billing') || m.includes('insufficient_quota');
+  }
+
+  /**
    * Get the acceptance threshold for a specific validator role at epic level.
    * Design-oriented roles (ui, ux) use a lower bar because epics don't carry
    * the design detail they need. Configurable via stagesConfig.solver.epicThresholdOverrides.
@@ -89,7 +130,7 @@ class EpicStoryValidator {
    * @returns {number}
    */
   getEpicThreshold(role, defaultThreshold) {
-    const configOverrides = this.validationStageConfig?.solver?.epicThresholdOverrides || {};
+    const configOverrides = this.solverStageConfig?.epicThresholdOverrides || {};
     return configOverrides[role] ?? EPIC_THRESHOLD_OVERRIDES[role] ?? defaultThreshold;
   }
 
@@ -187,8 +228,10 @@ class EpicStoryValidator {
   }
 
   /**
-   * Apply a single story solver's output to the working story (bounded).
-   * Preserves all existing AC; adds up to maxNewAC genuinely new ones.
+   * Apply a single story solver's output to the working story.
+   * Allows the solver to fix/replace inconsistent ACs and remove exact duplicates,
+   * while guarding against wholesale deletion (solver may remove at most 2 ACs).
+   * Adds up to maxNewAC genuinely new ones beyond the original count.
    * @param {Object} workingStory
    * @param {Object} improved - Solver output JSON
    * @param {number} maxNewAC
@@ -196,19 +239,36 @@ class EpicStoryValidator {
    */
   _applyStorySolverResult(workingStory, improved, maxNewAC = 3) {
     if (!improved || improved.id !== workingStory.id) return workingStory;
-    const baseSet = new Set(workingStory.acceptance || []);
-    const newAC = (improved.acceptance || [])
-      .filter(a => !baseSet.has(a))
-      .slice(0, maxNewAC);
+    const original = workingStory.acceptance || [];
+    const proposed = improved.acceptance || [];
     const allDeps = new Set([...(workingStory.dependencies || []), ...(improved.dependencies || [])]);
-    return {
-      ...workingStory,
-      description: (improved.description && improved.description !== workingStory.description)
-        ? improved.description
-        : workingStory.description,
-      acceptance: [...(workingStory.acceptance || []), ...newAC],
-      dependencies: [...allDeps],
-    };
+    const updatedDescription = (improved.description && improved.description !== workingStory.description)
+      ? improved.description
+      : workingStory.description;
+
+    // Allow solver to fix/replace ACs and remove duplicates, but guard against
+    // wholesale deletion: solver may remove at most 2 ACs from the original list.
+    const minAllowed = Math.max(0, original.length - 2);
+    if (proposed.length >= minAllowed) {
+      // Use solver's full list (fixes, replacements, duplicate removals) but cap additions
+      const maxAllowed = original.length + maxNewAC;
+      return {
+        ...workingStory,
+        description: updatedDescription,
+        acceptance: proposed.slice(0, maxAllowed),
+        dependencies: [...allDeps],
+      };
+    } else {
+      // Solver dropped too many ACs — fall back to add-only mode
+      const baseSet = new Set(original);
+      const newAC = proposed.filter(a => !baseSet.has(a)).slice(0, maxNewAC);
+      return {
+        ...workingStory,
+        description: updatedDescription,
+        acceptance: [...original, ...newAC],
+        dependencies: [...allDeps],
+      };
+    }
   }
 
   /** Emit a Level-3 detail line to the UI (fire-and-forget safe) */
@@ -312,7 +372,7 @@ class EpicStoryValidator {
    * @returns {Promise<LLMProvider>} LLM provider instance
    */
   async getProviderForSolver(role) {
-    const solverConfig = this.validationStageConfig?.solver;
+    const solverConfig = this.solverStageConfig;
     if (!solverConfig?.provider) return this.llmProvider;
 
     const cacheKey = `solver:${solverConfig.provider}:${solverConfig.model}`;
@@ -376,7 +436,7 @@ class EpicStoryValidator {
     console.log(`   Domain: ${epic.domain}`);
     console.log(`   Validators (${validators.length}): ${validators.map(v => this.extractDomain(v)).join(', ')}\n`);
 
-    const solverConfig = this.validationStageConfig?.solver || {};
+    const solverConfig = this.solverStageConfig || {};
     const maxIterations = solverConfig.maxIterations ?? 5;
     const acceptanceThreshold = solverConfig.acceptanceThreshold ?? 95;
 
@@ -401,24 +461,42 @@ class EpicStoryValidator {
 
       // Initial validation
       const _t0vi = Date.now();
-      let result = await this._withHeartbeat(
-        () => this.runEpicValidator(workingEpic, workingContext, validatorName),
-        (elapsed) => {
-          if (elapsed < 20) return `   [${role}] reviewing requirements…`;
-          if (elapsed < 40) return `   [${role}] analyzing concerns…`;
-          if (elapsed < 60) return `   [${role}] checking best practices…`;
-          return `   [${role}] still validating…`;
-        },
-        10000
-      ).catch(err => {
-        console.warn(`   ⚠ Validator ${validatorName} failed: ${err.message.split('\n')[0]}`);
-        return { overallScore: 0, validationStatus: 'error', issues: [], _validatorError: err.message.split('\n')[0] };
-      });
+      let result;
+      // Quota retry loop: pauses and waits for user if quota/rate-limit error is detected
+      while (true) {
+        result = await this._withHeartbeat(
+          () => this.runEpicValidator(workingEpic, workingContext, validatorName),
+          (elapsed) => {
+            if (elapsed < 20) return `   [${role}] reviewing requirements…`;
+            if (elapsed < 40) return `   [${role}] analyzing concerns…`;
+            if (elapsed < 60) return `   [${role}] checking best practices…`;
+            return `   [${role}] still validating…`;
+          },
+          10000
+        ).catch(async err => {
+          const errMsg = err.message || '';
+          if (this._isQuotaOrRateLimit(errMsg) && this._quotaExceededCallback) {
+            const resolution = await this._quotaExceededCallback({
+              validatorName,
+              errMsg: errMsg.split('\n')[0],
+              provider: this.validationStageConfig?.provider || 'unknown',
+              model: this.validationStageConfig?.model || 'unknown',
+            });
+            if (resolution?.newProvider) {
+              this._updateValidationStageConfig(resolution.newProvider, resolution.newModel);
+            }
+            return { _quotaRetry: true };
+          }
+          console.warn(`   ⚠ Validator ${validatorName} failed: ${errMsg.split('\n')[0]}`);
+          return { overallScore: 0, validationStatus: 'error', issues: [], _validatorError: errMsg.split('\n')[0] };
+        });
+        if (!result._quotaRetry) break;
+      }
 
       console.log(`   [${vi + 1}/${validators.length}] ${validatorName} initial score=${result.overallScore ?? 0}/100`);
 
       // ── Inline retry: only runs if this validator is below its role threshold ──
-      for (let iter = 1; iter < maxIterations && (result.overallScore ?? 0) < roleThreshold; iter++) {
+      for (let iter = 1; iter < maxIterations && (result.overallScore ?? 0) < roleThreshold && !result._validatorError; iter++) {
         await this._detail(`   ↻ [${role}] score=${result.overallScore ?? 0} below ${roleThreshold} — running solver (iter ${iter})…`);
         console.log(`   ↻ [${role}] iter ${iter}: score=${result.overallScore ?? 0} — running solver…`);
 
@@ -465,13 +543,19 @@ class EpicStoryValidator {
 
         const newScore = result.overallScore ?? 0;
 
-        // Regression guard: if score went down, revert to pre-solver state
+        // Regression guard: if score went down, revert and stop
         if (newScore < prevScore) {
           workingEpic = preIterEpic;
           workingContext = preIterContext;
           result = preIterResult;
           await this._detail(`   ↩ [${role}] regression (${prevScore} → ${newScore}) — reverting`);
           console.log(`   ↩ [${role}] regression: ${prevScore} → ${newScore} — reverting and stopping iterations`);
+          break;
+        }
+
+        // Flat-score guard: if score didn't improve, further solver rounds won't help
+        if (newScore === prevScore) {
+          console.log(`   → [${role}] score flat at ${newScore}/100 — stopping iterations`);
           break;
         }
 
@@ -489,6 +573,10 @@ class EpicStoryValidator {
       const issueStr = allIssues.length > 0 ? ` · ${allIssues.length} issue${allIssues.length !== 1 ? 's' : ''}` : '';
       await this._detail(`[${vi + 1}/${validators.length}] ${role}: ${finalScore}/100${issueStr} — ${finalAcceptable ? '✓' : '⚠ below threshold'}`);
       console.log(`[TIMING] ${validatorName} total: ${Date.now() - _t0vi}ms | FINAL score=${finalScore}/100 (threshold=${roleThreshold})`);
+      // Calibration anomaly: 90-94 range with major issues violates the mandatory scoring rule
+      if (finalScore >= 90 && finalScore < 95 && majCount > 0) {
+        console.warn(`   ⚠ CALIBRATION ANOMALY [${role}]: score=${finalScore}/100 with ${majCount} major issue(s) — rule requires 70-89 range when major issues exist`);
+      }
       allIssues.forEach(issue => {
         const cat = issue.category ? `[${issue.category}] ` : '';
         const sug = issue.suggestion ? ` → ${issue.suggestion}` : '';
@@ -510,8 +598,10 @@ class EpicStoryValidator {
     aggregated.overallStatus = this.determineOverallStatus(finalResults);
     aggregated.readyToPublish = aggregated.overallStatus !== 'needs-improvement';
 
-    await this._detail(`Overall: ${aggregated.readyToPublish ? '✓ passed' : '⚠ needs improvement'} · avg ${aggregated.averageScore}/100`);
-    console.log(`   Epic "${epic.name}" summary: avg=${aggregated.averageScore}/100 readyToPublish=${aggregated.readyToPublish} critical=${aggregated.criticalIssues.length} major=${aggregated.majorIssues.length}`);
+    const epicErrorCount = finalResults.filter(r => r._validatorError).length;
+    const epicErrorSuffix = epicErrorCount > 0 ? ` ⚠ ${epicErrorCount} validator(s) failed (API error)` : '';
+    await this._detail(`Overall: ${aggregated.readyToPublish ? '✓ passed' : '⚠ needs improvement'} · avg ${aggregated.averageScore}/100${epicErrorSuffix}`);
+    console.log(`   Epic "${epic.name}" summary: avg=${aggregated.averageScore}/100 readyToPublish=${aggregated.readyToPublish} critical=${aggregated.criticalIssues.length} major=${aggregated.majorIssues.length}${epicErrorSuffix}`);
     aggregated.validatorResults.forEach(vr => {
       console.log(`     ${this.extractDomain(vr.validator)}: ${vr.score}/100 (${vr.status})`);
     });
@@ -566,7 +656,7 @@ class EpicStoryValidator {
     console.log(`   Epic: ${epic.name} (${epic.domain})`);
     console.log(`   Validators (${validators.length}): ${validators.map(v => this.extractDomain(v)).join(', ')}\n`);
 
-    const solverConfig = this.validationStageConfig?.solver || {};
+    const solverConfig = this.solverStageConfig || {};
     const maxIterations = solverConfig.maxIterations ?? 5;
     const acceptanceThreshold = solverConfig.acceptanceThreshold ?? 95;
 
@@ -588,24 +678,53 @@ class EpicStoryValidator {
       console.log(`   [${vi + 1}/${validators.length}] Running ${validatorName} (threshold=${acceptanceThreshold})…`);
 
       const _t0vi = Date.now();
-      let result = await this._withHeartbeat(
-        () => this.runStoryValidator(workingStory, workingContext, epic, validatorName),
-        (elapsed) => {
-          if (elapsed < 20) return `   [${role}] reviewing story…`;
-          if (elapsed < 40) return `   [${role}] checking acceptance criteria…`;
-          if (elapsed < 60) return `   [${role}] validating scope…`;
-          return `   [${role}] still validating…`;
-        },
-        10000
-      ).catch(err => {
-        console.warn(`   ⚠ Validator ${validatorName} failed: ${err.message.split('\n')[0]}`);
-        return { overallScore: 0, validationStatus: 'error', issues: [], _validatorError: err.message.split('\n')[0] };
-      });
+      let result;
+      // Quota retry loop: pauses and waits for user if quota/rate-limit error is detected
+      while (true) {
+        result = await this._withHeartbeat(
+          () => this.runStoryValidator(workingStory, workingContext, epic, validatorName),
+          (elapsed) => {
+            if (elapsed < 20) return `   [${role}] reviewing story…`;
+            if (elapsed < 40) return `   [${role}] checking acceptance criteria…`;
+            if (elapsed < 60) return `   [${role}] validating scope…`;
+            return `   [${role}] still validating…`;
+          },
+          10000
+        ).catch(async err => {
+          const errMsg = err.message || '';
+          if (this._isQuotaOrRateLimit(errMsg) && this._quotaExceededCallback) {
+            const resolution = await this._quotaExceededCallback({
+              validatorName,
+              errMsg: errMsg.split('\n')[0],
+              provider: this.validationStageConfig?.provider || 'unknown',
+              model: this.validationStageConfig?.model || 'unknown',
+            });
+            if (resolution?.newProvider) {
+              this._updateValidationStageConfig(resolution.newProvider, resolution.newModel);
+            }
+            return { _quotaRetry: true };
+          }
+          console.warn(`   ⚠ Validator ${validatorName} failed: ${errMsg.split('\n')[0]}`);
+          return { overallScore: 0, validationStatus: 'error', issues: [], _validatorError: errMsg.split('\n')[0] };
+        });
+        if (!result._quotaRetry) break;
+      }
 
       console.log(`   [${vi + 1}/${validators.length}] ${validatorName} initial score=${result.overallScore ?? 0}/100`);
 
       // ── Inline retry: only runs if this validator is below threshold ──
-      for (let iter = 1; iter < maxIterations && (result.overallScore ?? 0) < acceptanceThreshold; iter++) {
+      // AC cap: validators penalize stories with too many ACs as "too large for 1-3 days".
+      // Since 7 validators run sequentially on the same workingStory, each adding ACs,
+      // stories can bloat from ~6 ACs to 30+ by the final validator, causing score regression.
+      // Raised from 15→20: scope is no longer a major issue so solvers add fewer ACs per pass.
+      const STORY_AC_CAP = 20;
+      for (let iter = 1; iter < maxIterations && (result.overallScore ?? 0) < acceptanceThreshold && !result._validatorError; iter++) {
+        // Skip solver if story already has too many ACs — adding more will only cause regression
+        if ((workingStory.acceptance || []).length >= STORY_AC_CAP) {
+          console.log(`   → [${role}] story has ${(workingStory.acceptance || []).length} ACs (cap=${STORY_AC_CAP}) — skipping solver to prevent size regression`);
+          break;
+        }
+
         await this._detail(`   ↻ [${role}] score=${result.overallScore ?? 0} below ${acceptanceThreshold} — running solver (iter ${iter})…`);
         console.log(`   ↻ [${role}] iter ${iter}: score=${result.overallScore ?? 0} — running solver…`);
 
@@ -626,11 +745,15 @@ class EpicStoryValidator {
             20000
           );
           const prevACCount = (workingStory.acceptance || []).length;
-          workingStory = this._applyStorySolverResult(workingStory, improved);
+          // Allow one new AC per critical/major issue (min 3, max 6)
+          const critMajorCount = (result.issues || []).filter(i => i.severity === 'critical' || i.severity === 'major').length;
+          const maxNewAC = Math.max(3, Math.min(critMajorCount, 6));
+          workingStory = this._applyStorySolverResult(workingStory, improved, maxNewAC);
           workingContext = this.generateStoryContextMd(workingStory, epic);
-          const added = (workingStory.acceptance || []).length - prevACCount;
-          console.log(`   ↻ [${role}] solver applied — +${added} AC`);
-          await this._detail(`   → [${role}] improvements applied (+${added} AC)`);
+          const delta = (workingStory.acceptance || []).length - prevACCount;
+          const deltaStr = delta >= 0 ? `+${delta}` : `${delta}`;
+          console.log(`   ↻ [${role}] solver applied — ${deltaStr} AC (total: ${(workingStory.acceptance || []).length})`);
+          await this._detail(`   → [${role}] improvements applied (${deltaStr} AC)`);
         } catch (err) {
           console.warn(`   ⚠ Solver failed for ${validatorName}: ${err.message.split('\n')[0]} — skipping retry`);
           await this._detail(`   ⚠ Solver failed (${role}): ${err.message.split('\n')[0].slice(0, 120)}`);
@@ -652,13 +775,19 @@ class EpicStoryValidator {
 
         const newScore = result.overallScore ?? 0;
 
-        // Regression guard: if score went down, revert to pre-solver state
+        // Regression guard: if score went down, revert and stop
         if (newScore < prevScore) {
           workingStory = preIterStory;
           workingContext = preIterContext;
           result = preIterResult;
           await this._detail(`   ↩ [${role}] regression (${prevScore} → ${newScore}) — reverting`);
           console.log(`   ↩ [${role}] regression: ${prevScore} → ${newScore} — reverting and stopping iterations`);
+          break;
+        }
+
+        // Flat-score guard: if score didn't improve, further solver rounds won't help
+        if (newScore === prevScore) {
+          console.log(`   → [${role}] score flat at ${newScore}/100 — stopping iterations`);
           break;
         }
 
@@ -676,12 +805,24 @@ class EpicStoryValidator {
       const issueStr = allIssues.length > 0 ? ` · ${allIssues.length} issue${allIssues.length !== 1 ? 's' : ''}` : '';
       await this._detail(`[${vi + 1}/${validators.length}] ${role}: ${finalScore}/100${issueStr} — ${finalAcceptable ? '✓' : '⚠ below threshold'}`);
       console.log(`[TIMING] ${validatorName} total: ${Date.now() - _t0vi}ms | FINAL score=${finalScore}/100`);
+      // Calibration anomaly: 90-94 range with major issues violates the mandatory scoring rule
+      if (finalScore >= 90 && finalScore < 95 && majCount > 0) {
+        console.warn(`   ⚠ CALIBRATION ANOMALY [${role}]: score=${finalScore}/100 with ${majCount} major issue(s) — rule requires 70-89 range when major issues exist`);
+      }
       allIssues.forEach(issue => {
         const cat = issue.category ? `[${issue.category}] ` : '';
         const sug = issue.suggestion ? ` → ${issue.suggestion}` : '';
         console.log(`     [${(issue.severity || 'unknown').toUpperCase()}] ${cat}${issue.description || '(no description)'}${sug}`);
       });
       console.log(`     (critical=${critCount} major=${majCount} minor=${allIssues.length - critCount - majCount})`);
+
+      // Surface SA split recommendation to logs when SA flags story as too complex to solve
+      if (result.domainSpecificNotes?.includes('SPLIT RECOMMENDATION')) {
+        console.warn(`   ✂ [${role}] SPLIT RECOMMENDATION detected — story "${story.name}" may need splitting:`);
+        const noteLines = (result.domainSpecificNotes || '').split('\n').filter(l => l.trim());
+        noteLines.forEach(l => console.warn(`     ${l}`));
+        result._splitRecommended = true;
+      }
 
       finalResults.push(result);
     }
@@ -696,9 +837,12 @@ class EpicStoryValidator {
     const aggregated = this.aggregateValidationResults(finalResults, 'story');
     aggregated.overallStatus = this.determineOverallStatus(finalResults);
     aggregated.readyToPublish = aggregated.overallStatus !== 'needs-improvement';
+    aggregated._splitRecommended = finalResults.some(r => r._splitRecommended === true);
 
-    await this._detail(`Overall: ${aggregated.readyToPublish ? '✓ passed' : '⚠ needs improvement'} · avg ${aggregated.averageScore}/100`);
-    console.log(`   Story "${story.name}" summary: avg=${aggregated.averageScore}/100 readyToPublish=${aggregated.readyToPublish} critical=${aggregated.criticalIssues.length} major=${aggregated.majorIssues.length}`);
+    const storyErrorCount = finalResults.filter(r => r._validatorError).length;
+    const storyErrorSuffix = storyErrorCount > 0 ? ` ⚠ ${storyErrorCount} validator(s) failed (API error)` : '';
+    await this._detail(`Overall: ${aggregated.readyToPublish ? '✓ passed' : '⚠ needs improvement'} · avg ${aggregated.averageScore}/100${storyErrorSuffix}`);
+    console.log(`   Story "${story.name}" summary: avg=${aggregated.averageScore}/100 readyToPublish=${aggregated.readyToPublish} critical=${aggregated.criticalIssues.length} major=${aggregated.majorIssues.length}${storyErrorSuffix}`);
     aggregated.validatorResults.forEach(vr => {
       console.log(`     ${this.extractDomain(vr.validator)}: ${vr.score}/100 (${vr.status})`);
     });
@@ -733,11 +877,12 @@ class EpicStoryValidator {
     // Get validator-specific provider based on validation type
     const provider = await this.getProviderForValidator(validatorName);
 
-    // Call LLM with validator agent instructions
+    // Call LLM — pass rootContextMd as cachedContext so each provider places it
+    // in the optimal position for prefix caching (system message / cache_control block).
     const _usageBefore = provider.getTokenUsage();
     const _t0 = Date.now();
     console.log(`[API-START] ${validatorName} (epic="${epic.name}", promptLen=${prompt.length})`);
-    const rawResult = await provider.generateJSON(prompt, agentInstructions);
+    const rawResult = await provider.generateJSON(prompt, agentInstructions, this.rootContextMd ?? null);
     const _elapsed = Date.now() - _t0;
     const _usageAfter = provider.getTokenUsage();
     const _deltaIn = _usageAfter.inputTokens - _usageBefore.inputTokens;
@@ -773,11 +918,12 @@ class EpicStoryValidator {
     // Get validator-specific provider based on validation type
     const provider = await this.getProviderForValidator(validatorName);
 
-    // Call LLM with validator agent instructions
+    // Call LLM — pass rootContextMd as cachedContext so each provider places it
+    // in the optimal position for prefix caching (system message / cache_control block).
     const _usageBefore = provider.getTokenUsage();
     const _t0 = Date.now();
     console.log(`[API-START] ${validatorName} (story="${story.name}", promptLen=${prompt.length})`);
-    const rawResult = await provider.generateJSON(prompt, agentInstructions);
+    const rawResult = await provider.generateJSON(prompt, agentInstructions, this.rootContextMd ?? null);
     const _elapsed = Date.now() - _t0;
     const _usageAfter = provider.getTokenUsage();
     const _deltaIn = _usageAfter.inputTokens - _usageBefore.inputTokens;
@@ -897,7 +1043,7 @@ Improve this Epic to address the issues above. Return the complete improved Epic
     const issues = critMajor.length > 0 ? critMajor : allIssues;
     const role = this.extractDomain(validatorName);
     const issueText = issues.map((issue, i) =>
-      `${i + 1}. [${issue.severity.toUpperCase()}] ${issue.category}: ${issue.description}\n   Fix: ${issue.suggestion}`
+      `${i + 1}. [${issue.severity.toUpperCase()}] ${issue.category}: ${issue.description}\n   Required fix: ${issue.suggestion}`
     ).join('\n');
 
     // Include parent epic context for solver awareness.
@@ -924,12 +1070,120 @@ ${storyContext}
 
 ${issueText || 'No critical/major issues — improve overall quality.'}
 
-Improve this Story to address the issues above. Return the complete improved Story JSON.
+Improve this Story to address ALL issues above. Return the complete improved Story JSON.
 
 **IMPORTANT CONSTRAINTS:**
-- Do NOT remove or consolidate existing acceptance criteria — only add new ones to address the issues above.
-- Each AC must be a single concrete, testable sentence (max 40 words). Do not expand them into paragraphs.
+- Address each issue DIRECTLY — add one targeted acceptance criterion per issue that fully resolves it.
+- You MUST fix or replace any inconsistent, contradictory, or incorrect acceptance criteria — do not leave broken ACs in place.
+- SPLITTING: If an issue says to split a composite criterion into smaller independently testable ones, REMOVE the original composite criterion and ADD 2-3 separate focused criteria each covering one behavior. Do NOT keep the composite alongside the splits.
+- You MAY remove exact duplicate acceptance criteria (keep the more precise copy).
+- You MUST NOT silently remove valid ACs that have no issues — only fix broken ones, remove duplicates, or split composites.
+- Do NOT add vague or generic ACs — each new AC must directly resolve a specific listed issue.
+- Each AC must be a single concrete, testable sentence (max 40 words).
 `;
+  }
+
+  /**
+   * Build the prompt for the story-splitter agent.
+   * @param {Object} story - The oversized story to split
+   * @param {Object} epic - Parent epic for context
+   * @param {Array} allIssues - MAJOR+CRITICAL issues from all validators
+   * @returns {string}
+   * @private
+   */
+  _buildStorySplitterPrompt(story, epic, allIssues) {
+    const fullEpicContext = this.generateEpicContextMd(epic);
+    const epicContextMd = fullEpicContext.length > 3000
+      ? fullEpicContext.substring(0, 3000) + '\n… (truncated)'
+      : fullEpicContext;
+    const storyContext = this.generateStoryContextMd(story, epic);
+    const critMajor = allIssues.filter(i => i.severity === 'critical' || i.severity === 'major');
+    const issueText = critMajor.map((issue, i) => {
+      const cat = issue.category ? `[${issue.category}] ` : '';
+      const sug = issue.suggestion ? `\n   Required fix: ${issue.suggestion}` : '';
+      return `${i + 1}. [${(issue.severity || 'major').toUpperCase()}] ${cat}${issue.description || ''}${sug}`;
+    }).join('\n');
+
+    return `# Story to Split
+
+## Parent Epic (canonical)
+
+${epicContextMd}
+
+## Original Story (too large — ${(story.acceptance || []).length} acceptance criteria)
+
+${storyContext}
+
+## Validator Issues That Triggered This Split
+
+${issueText || 'Story exceeded the acceptance criteria size limit after multiple validation passes.'}
+
+Split this story into 2-3 smaller independently deliverable stories.
+Return a JSON array of story objects as specified in your instructions.
+`;
+  }
+
+  /**
+   * Call the story-splitter agent to decompose an oversized story into 2-3 smaller stories.
+   * Returns an array of 2-3 new story objects, or null if the split failed/produced invalid output.
+   * @param {Object} workingStory - The fully-validated but too-large story
+   * @param {Object} epic - Parent epic for context
+   * @param {Array} allIssues - MAJOR+CRITICAL issues from all validators
+   * @returns {Promise<Array<Object>|null>}
+   */
+  async _splitStory(workingStory, epic, allIssues) {
+    const agentInstructions = this.loadAgentInstructions('story-splitter.md');
+    const prompt = this._buildStorySplitterPrompt(workingStory, epic, allIssues);
+    const provider = await this.getProviderForSolver('story-splitter');
+
+    const _usageBefore = provider.getTokenUsage();
+    const _t0 = Date.now();
+    console.log(`[API-START] story-splitter (story="${workingStory.name}", ACs=${(workingStory.acceptance || []).length})`);
+
+    let result;
+    try {
+      result = await this._withHeartbeat(
+        () => provider.generateJSON(prompt, agentInstructions),
+        (elapsed) => {
+          if (elapsed < 20) return `   ✂ splitting story — analyzing scope boundaries…`;
+          if (elapsed < 40) return `   ✂ splitting story — assigning acceptance criteria…`;
+          return `   ✂ splitting story — still running…`;
+        },
+        10000
+      );
+    } catch (err) {
+      console.warn(`   ⚠ story-splitter failed: ${err.message.split('\n')[0]}`);
+      return null;
+    }
+
+    const _elapsed = Date.now() - _t0;
+    const _usageAfter = provider.getTokenUsage();
+    const _deltaIn = _usageAfter.inputTokens - _usageBefore.inputTokens;
+    const _deltaOut = _usageAfter.outputTokens - _usageBefore.outputTokens;
+    console.log(`[API-DONE] story-splitter — ${_elapsed}ms | in=${_deltaIn} out=${_deltaOut} tokens`);
+
+    // Validate: result must be an array of 2-3 stories
+    if (!Array.isArray(result) || result.length < 2 || result.length > 3) {
+      console.warn(`   ⚠ story-splitter returned unexpected shape (expected array of 2-3, got ${Array.isArray(result) ? result.length : typeof result}) — skipping split`);
+      return null;
+    }
+
+    // Validate each split story has required fields; cap ACs to 8
+    for (const s of result) {
+      if (!s.id || !s.name || !Array.isArray(s.acceptance)) {
+        console.warn(`   ⚠ story-splitter returned malformed story (missing id/name/acceptance) — skipping split`);
+        return null;
+      }
+      if (s.acceptance.length > 8) {
+        s.acceptance = s.acceptance.slice(0, 8);
+      }
+    }
+
+    if (this.verificationTracker) {
+      this.verificationTracker.recordCheck('story-splitter', 'story-splitting', true);
+    }
+
+    return result;
   }
 
   /**
@@ -941,9 +1195,13 @@ Improve this Story to address the issues above. Return the complete improved Sto
       type: type, // 'epic' or 'story'
       validatorCount: results.length,
       validators: results.map(r => r._validatorName),
-      averageScore: Math.round(
-        results.reduce((sum, r) => sum + (r.overallScore || 0), 0) / results.length
-      ),
+      // Exclude errored validators (API failures) from the average — a 0 from a
+      // network failure is not a real score and would corrupt the aggregate.
+      averageScore: (() => {
+        const scorable = results.filter(r => !r._validatorError);
+        if (scorable.length === 0) return 0;
+        return Math.round(scorable.reduce((sum, r) => sum + (r.overallScore || 0), 0) / scorable.length);
+      })(),
 
       // Aggregate issues by severity
       criticalIssues: [],
@@ -1015,6 +1273,12 @@ Improve this Story to address the issues above. Return the complete improved Sto
   determineOverallStatus(results) {
     const statuses = results.map(r => r.validationStatus);
 
+    // If any validator errored (API failure), mark as needs-improvement so
+    // readyToPublish stays false — validation is incomplete, not "acceptable"
+    if (statuses.includes('error')) {
+      return 'needs-improvement';
+    }
+
     // If any validator says "needs-improvement", overall is "needs-improvement"
     if (statuses.includes('needs-improvement')) {
       return 'needs-improvement';
@@ -1035,11 +1299,8 @@ Improve this Story to address the issues above. Return the complete improved Sto
    * @private
    */
   buildEpicValidationPrompt(epic, epicContext) {
-    const rootSection = this.rootContextMd
-      ? `## Project Context\n\n${this.rootContextMd}\n\n---\n\n`
-      : '';
     const calibration = this._calibrationNote();
-    return `# Epic Validation\n\n${rootSection}${calibration}## Epic to Validate\n\n${epicContext}\n\nValidate this Epic from your domain expertise perspective and return JSON validation results following the specified format.\n`;
+    return `# Epic Validation\n\n${calibration}## Epic to Validate\n\n${epicContext}\n\nValidate this Epic from your domain expertise perspective and return JSON validation results following the specified format.\n`;
   }
 
   /**
@@ -1048,11 +1309,8 @@ Improve this Story to address the issues above. Return the complete improved Sto
    * @private
    */
   buildStoryValidationPrompt(story, storyContext, epic) {
-    const rootSection = this.rootContextMd
-      ? `## Project Context\n\n${this.rootContextMd}\n\n---\n\n`
-      : '';
     const calibration = this._calibrationNote();
-    return `# Story Validation\n\n${rootSection}${calibration}## Story to Validate\n\n${storyContext}\n\nValidate this Story from your domain expertise perspective and return JSON validation results following the specified format.\n`;
+    return `# Story Validation\n\n${calibration}## Story to Validate\n\n${storyContext}\n\nValidate this Story from your domain expertise perspective and return JSON validation results following the specified format.\n`;
   }
 
   /**
@@ -1093,6 +1351,7 @@ Improve this Story to address the issues above. Return the complete improved Sto
     // Extract domain from validator/solver name
     // e.g., "validator-epic-security" → "security"
     // e.g., "solver-epic-security" → "security"
+    if (!validatorName) return 'unknown';
     const match = validatorName.match(/(?:validator|solver)-(?:epic|story)-(.+)/);
     return match ? match[1] : 'unknown';
   }

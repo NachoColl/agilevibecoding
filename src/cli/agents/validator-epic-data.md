@@ -84,13 +84,36 @@ Return JSON with this exact structure:
 }
 ```
 
-## Scoring Guidelines
+## Score Computation (MANDATORY — execute exactly, no estimation)
 
-**Score calibration**: If zero critical AND zero major issues → score MUST be ≥ 95. Reserve 90-94 for epics/stories with minor gaps only. Reserve 70-89 for major gaps.
+Compute `overallScore` algorithmically from your issue list. Do NOT pick a number by feel.
 
-- **90-100 (Excellent)**: Comprehensive data coverage, clear boundaries, all best practices
-- **70-89 (Acceptable)**: Core data concerns addressed, minor gaps acceptable
-- **0-69 (Needs Improvement)**: Critical data gaps, must fix before proceeding
+**Step 1 — Count issues:**
+```
+critical_count = number of issues with severity "critical"
+major_count    = number of issues with severity "major"
+minor_count    = number of issues with severity "minor"
+```
+
+**Step 2 — Apply formula:**
+```
+if critical_count > 0:
+    overallScore = max(0,  min(69, 60 - (critical_count - 1) * 10))
+elif major_count > 0:
+    overallScore = max(70, min(89, 88 - (major_count - 1) * 5))
+else:
+    overallScore = max(95, min(100, 98 - minor_count))
+```
+
+Score examples: 0 issues → 98 | 1 minor → 97 | 3 minors → 95 | 1 major → 88 | 2 majors → 83 | 3 majors → 78 | 1 critical → 60
+
+**Step 3 — Derive status:**
+- `overallScore >= 90` → `"excellent"`
+- `overallScore >= 70` → `"acceptable"`
+- else → `"needs-improvement"`
+
+**Step 4 — Set `readyForStories`:**
+- `true` only when `overallScore >= 70` AND `critical_count = 0`
 
 ## Example Validation
 

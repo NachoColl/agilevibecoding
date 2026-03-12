@@ -1,6 +1,6 @@
 import { useEffect, useState, useMemo, useRef } from 'react';
 import { Pencil, Check, X, BookOpen, Settings, DollarSign } from 'lucide-react';
-import { getHealth, getBoardTitle, updateBoardTitle, getDocsUrl, getSettings, getModels, getCostSummary, getProjectStatus, getCeremonyStatus, continuePastCostLimit, cancelCeremony } from './lib/api';
+import { getHealth, getBoardTitle, updateBoardTitle, getDocsUrl, getSettings, getModels, getCostSummary, getProjectStatus, getCeremonyStatus, continuePastCostLimit, continueAfterQuota, cancelCeremony } from './lib/api';
 import { useWebSocket } from './hooks/useWebSocket';
 import { useKanbanStore } from './store/kanbanStore';
 import { useFilterStore } from './store/filterStore';
@@ -42,6 +42,9 @@ function App() {
 
   // Cost-limit pause dialog — { cost, threshold, runningType } when ceremony hits limit
   const [costLimitPending, setCostLimitPending] = useState(null);
+
+  // Quota-limit pause dialog — { provider, model, errMsg, validatorName, runningType } when quota exceeded
+  const [quotaLimitPending, setQuotaLimitPending] = useState(null);
 
   // Refine work item state — { itemId, jobId, message } / { itemId, jobId, result } / { itemId, jobId, error }
   const [refineProgress, setRefineProgress] = useState(null);
@@ -122,6 +125,7 @@ function App() {
         appendProgress({ type: 'detail', detail: message.detail });
       } else if (message.type === 'ceremony:complete') {
         setCostLimitPending(null);
+        setQuotaLimitPending(null);
         setCeremonyStatus('complete');
         setCeremonyResult(message.result);
         setWizardStep(7);
@@ -134,6 +138,8 @@ function App() {
         appendMissionProgress({ step: message.step, message: message.message });
       } else if (message.type === 'ceremony:cost-limit') {
         setCostLimitPending({ cost: message.cost, threshold: message.threshold, runningType: message.runningType });
+      } else if (message.type === 'ceremony:quota-limit') {
+        setQuotaLimitPending({ provider: message.provider, model: message.model, errMsg: message.errMsg, validatorName: message.validatorName, runningType: message.runningType });
       } else if (message.type === 'cost:update') {
         getCostSummary().then(setCostSummary).catch(() => { });
       } else if (message.type === 'sprint-planning:progress') {
@@ -148,6 +154,7 @@ function App() {
         setSprintPlanningStep(3);
       } else if (message.type === 'sprint-planning:complete') {
         setCostLimitPending(null);
+        setQuotaLimitPending(null);
         setSprintPlanningStatus('complete');
         setSprintPlanningResult(message.result);
         setSprintPlanningDecomposedHierarchy(null);
@@ -162,6 +169,7 @@ function App() {
         setSprintPlanningPaused(false);
       } else if (message.type === 'sprint-planning:cancelled') {
         setCostLimitPending(null);
+        setQuotaLimitPending(null);
         setSprintPlanningStatus('idle');
         setSprintPlanningStep(1);
         setSprintPlanningPaused(false);
@@ -172,6 +180,7 @@ function App() {
         setCeremonyPaused(false);
       } else if (message.type === 'ceremony:cancelled') {
         setCostLimitPending(null);
+        setQuotaLimitPending(null);
         setCeremonyStatus('idle');
         setWizardStep(1);
         setCeremonyPaused(false);
@@ -196,7 +205,7 @@ function App() {
         // Server sends this on WebSocket connect when a ceremony is already running.
         // Restores client state without requiring an HTTP round-trip.
         const cs = message.ceremonyStatus;
-        if (cs?.status === 'running' || cs?.status === 'cost-limit-pending' || cs?.status === 'awaiting-selection') {
+        if (cs?.status === 'running' || cs?.status === 'cost-limit-pending' || cs?.status === 'quota-limit-pending' || cs?.status === 'awaiting-selection') {
           if (cs.runningType === 'sprint-planning') {
             if (cs.status === 'awaiting-selection') {
               setSprintPlanningStatus('awaiting-selection');
@@ -214,6 +223,9 @@ function App() {
           }
           if (cs.status === 'cost-limit-pending' && cs.costLimitInfo) {
             setCostLimitPending({ ...cs.costLimitInfo, runningType: cs.runningType });
+          }
+          if (cs.status === 'quota-limit-pending' && cs.quotaLimitInfo) {
+            setQuotaLimitPending({ ...cs.quotaLimitInfo, runningType: cs.runningType });
           }
         }
       }
@@ -238,7 +250,7 @@ function App() {
 
         // Restore running ceremony state BEFORE revealing projectFilesLoaded so the
         // board never shows "Start" buttons for an already-running ceremony.
-        if (ceremonyState?.status === 'running' || ceremonyState?.status === 'cost-limit-pending' || ceremonyState?.status === 'awaiting-selection') {
+        if (ceremonyState?.status === 'running' || ceremonyState?.status === 'cost-limit-pending' || ceremonyState?.status === 'quota-limit-pending' || ceremonyState?.status === 'awaiting-selection') {
           if (ceremonyState.runningType === 'sprint-planning') {
             if (ceremonyState.status === 'awaiting-selection') {
               setSprintPlanningStatus('awaiting-selection');
@@ -256,6 +268,9 @@ function App() {
           }
           if (ceremonyState.status === 'cost-limit-pending' && ceremonyState.costLimitInfo) {
             setCostLimitPending({ ...ceremonyState.costLimitInfo, runningType: ceremonyState.runningType });
+          }
+          if (ceremonyState.status === 'quota-limit-pending' && ceremonyState.quotaLimitInfo) {
+            setQuotaLimitPending({ ...ceremonyState.quotaLimitInfo, runningType: ceremonyState.runningType });
           }
         }
 
@@ -320,11 +335,13 @@ function App() {
 
   // ── Settings modal ─────────────────────────────────────────────────────────
 
-  const openSettings = async () => {
+  const [settingsInitialTab, setSettingsInitialTab] = useState('api-keys');
+  const openSettings = async (initialTab = 'api-keys') => {
     try {
       const [data, modelList] = await Promise.all([getSettings(), getModels()]);
       setSettingsSnapshot(data);
       setModelsSnapshot(modelList);
+      setSettingsInitialTab(initialTab);
       setSettingsOpen(true);
     } catch (err) {
       console.error('Failed to load settings:', err);
@@ -549,14 +566,7 @@ function App() {
 
       {/* Footer */}
       <footer className="bg-white border-t border-slate-200 py-4 text-center text-sm text-slate-500 flex-shrink-0">
-        <a
-          href="https://agilevibecoding.org"
-          target="_blank"
-          rel="noopener noreferrer"
-          className="text-blue-600 hover:text-blue-700 hover:underline"
-        >
-          Agile Vibe Coding
-        </a>
+        Agile Vibe Coding
       </footer>
 
       {/* Detail Modal */}
@@ -590,6 +600,9 @@ function App() {
           costLimitPending={costLimitPending?.runningType === 'sprint-planning' ? costLimitPending : null}
           onContinuePastCostLimit={async () => { try { await continuePastCostLimit(); setCostLimitPending(null); } catch (_) {} }}
           onCancelFromCostLimit={async () => { try { await cancelCeremony(); setCostLimitPending(null); } catch (_) {} }}
+          quotaLimitPending={quotaLimitPending?.runningType === 'sprint-planning' ? quotaLimitPending : null}
+          onContinueAfterQuota={async (newProvider, newModel) => { try { await continueAfterQuota(newProvider, newModel); setQuotaLimitPending(null); } catch (_) {} }}
+          onCancelFromQuota={async () => { try { await cancelCeremony(); setQuotaLimitPending(null); } catch (_) {} }}
         />
       )}
 
@@ -603,6 +616,7 @@ function App() {
           models={modelsSnapshot}
           onClose={() => setSettingsOpen(false)}
           onSaved={handleSettingsSaved}
+          initialTab={settingsInitialTab}
         />
       )}
 
